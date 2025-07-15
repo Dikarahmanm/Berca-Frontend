@@ -1,0 +1,45 @@
+<div class="register-container">
+    <div class="register-box">
+        <div class="register-header">
+            <h2>Register</h2>
+            <p>Fill in your details to create an account</p>
+        </div>
+
+        <form (ngSubmit)="register()" #registerForm="ngForm" autocomplete="off">
+            <div class="input-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" [(ngModel)]="credentials.username" required
+                    minlength="6" #username="ngModel" />
+                <div *ngIf="username.invalid && username.touched" class="error">
+                    Username minimal 6 karakter
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" [(ngModel)]="credentials.password" required
+                    #password="ngModel" />
+                <div *ngIf="password.invalid && password.touched" class="error">
+                    Password wajib diisi
+                </div>
+            </div>
+
+            <button type="submit" class="register-btn" [disabled]="registerForm.invalid || isLoading">
+                {{ isLoading ? 'Processing...' : 'Register' }}
+            </button>
+              
+            
+            <p *ngIf="errorMessage" class="error" aria-live="polite">
+                {{ errorMessage }}
+            </p>
+            <p *ngIf="successMessage" class="success" aria-live="polite">
+                {{ successMessage }}
+            </p>
+
+            <div class="login-link">
+                <p>Already have an account? <a [routerLink]="['/login']">Sign in</a></p>
+            </div>
+        </form>
+    </div>
+</div>
+  

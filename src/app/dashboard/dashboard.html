@@ -1,0 +1,95 @@
+<app-topbar [username]="username" [role]="role" [avatarUrl]="avatarUrl" [notificationCount]="notificationCount"
+  (logoutClicked)="logout()">
+</app-topbar>
+
+<div class="dashboard-container">
+  <!-- Modern Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
+          </svg>
+        </div>
+        <span class="brand-text">Dashboard</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <span class="nav-section-title">Management</span>
+        <ul class="nav-list">
+          <li class="nav-item">
+            <a routerLink="users" routerLinkActive="active" class="nav-link">
+              <div class="nav-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <span class="nav-text">Users</span>
+              <div class="nav-indicator"></div>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a routerLink="logs" routerLinkActive="active" class="nav-link">
+              <div class="nav-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                </svg>
+              </div>
+              <span class="nav-text">Activity Logs</span>
+              <div class="nav-indicator"></div>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="nav-section">
+        <span class="nav-section-title">Analytics</span>
+        <ul class="nav-list">
+          <li class="nav-item">
+            <div class="stat-card">
+              <div class="stat-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                  <rect x="3" y="14" width="4" height="7" rx="1" />
+                  <rect x="10" y="10" width="4" height="11" rx="1" />
+                  <rect x="17" y="6" width="4" height="15" rx="1" />
+                </svg>
+              </div>
+              <div class="stat-info">
+                <span class="stat-value">{{ userStats.total }}</span>
+                <span class="stat-label">Total Users</span>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="content-header">
+      <div class="page-title">
+        <h1>{{ currentPageTitle }}</h1>
+        <p class="page-subtitle">{{ currentPageSubtitle }}</p>
+      </div>
+
+      <div class="quick-actions">
+        <button class="action-btn primary" (click)="refreshData()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div class="content-body">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+</div>

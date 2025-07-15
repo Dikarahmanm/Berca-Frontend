@@ -1,0 +1,53 @@
+<div class="login-container">
+  <div class="login-box">
+    <div class="login-header">
+      <h2>Login</h2>
+      <p>Welcome back, please enter your details</p>
+    </div>
+
+    <form (ngSubmit)="login()" #loginForm="ngForm">
+      <!-- Username -->
+      <div class="input-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" placeholder="Enter your username"
+          [(ngModel)]="credentials.username" required minlength="6" #username="ngModel" (input)="errorMessage = ''" />
+        <div class="error-message" *ngIf="username.invalid && username.touched">
+          Username must be at least 6 characters.
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="input-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" placeholder="Enter your password"
+          [(ngModel)]="credentials.password" required #password="ngModel" (input)="errorMessage = ''" />
+        <div class="error-message" *ngIf="password.invalid && password.touched">
+          Password is required.
+        </div>
+      </div>
+
+      <!-- Error after login attempt -->
+      <div class="input-group" *ngIf="errorMessage">
+        <span class="error-message">{{ errorMessage }}</span>
+      </div>
+
+      <!-- Options -->
+      <div class="options">
+        <a class="forgot-password" (click)="showComingSoon()">Forgot password?</a>
+      </div>
+
+      <!-- Submit Button -->
+      <button type="submit" class="login-btn" [disabled]="isLoading || loginForm.invalid">
+        {{ isLoading ? 'Signing in...' : 'Sign In' }}
+      </button>
+    </form>
+
+    <!-- Register Link -->
+    <div class="signup-link">
+      <p>
+        Don't have an account?
+        <a [routerLink]="['/register']">Sign up</a>
+      </p>
+    </div>
+  </div>
+</div>

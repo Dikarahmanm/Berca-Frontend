@@ -1,0 +1,14 @@
+{
+  "/admin/*": {
+    "target": "http://localhost:5171",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/auth/*": {
+    "target": "http://localhost:5171",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  }
+}

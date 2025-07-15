@@ -1,0 +1,100 @@
+<nav class="topbar">
+    <div class="topbar-content">
+        <div class="left-section">
+            <div class="page-title-wrapper">
+                <span class="page-title">{{ pageTitle }}</span>
+                <div class="title-particles">
+                    <span class="particle"></span>
+                    <span class="particle"></span>
+                    <span class="particle"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-section">
+            <!-- Notification Bell -->
+            <div class="notification-wrapper" (click)="onNotificationClick()">
+                <button aria-label="Notifications" class="glass-button bell-button">
+                    <svg aria-hidden="true" focusable="false" class="bell-icon" viewBox="0 0 24 24">
+                        <path
+                            d="M12 2a6 6 0 00-6 6v3.586l-1.707 1.707a1 1 0 00.707 1.707h14a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm1 18a2 2 0 11-2-2 2 2 0 012 2z"
+                            fill="currentColor" />
+                    </svg>
+                    <span *ngIf="notificationCount > 0" class="badge">
+                        {{ notificationCount > 99 ? '99+' : notificationCount }}
+                    </span>
+                </button>
+            </div>
+
+            <!-- Modern Divider -->
+            <div class="modern-divider"></div>
+
+            <!-- Profile Section -->
+            <div class="profile-wrapper glass-element" (click)="toggleDropdown()" [class.active]="dropdownOpen">
+
+                <!-- Avatar with Status -->
+                <div class="avatar-container">
+                    <div class="avatar-ring">
+                        <img class="avatar" [src]="avatarUrl" alt="User avatar" (error)="onAvatarError($event)">
+                    </div>
+                    <div class="status-indicator online">
+                        <div class="status-pulse"></div>
+                    </div>
+                </div>
+
+                <!-- User Info -->
+                <div class="user-info">
+                    <span class="username">{{ username }}</span>
+                    <span class="role" [style.color]="getRoleColor()">{{ roleDisplayName }}</span>
+                </div>
+
+                <!-- Dropdown Arrow -->
+                <div class="dropdown-arrow-container">
+                    <svg class="dropdown-arrow" [class.rotated]="dropdownOpen" viewBox="0 0 24 24">
+                        <path d="M7 10l5 5 5-5H7z" fill="currentColor" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- ✅ DROPDOWN WITHOUT ANIMATION BINDING -->
+            <div *ngIf="dropdownOpen" class="dropdown-menu glass-dropdown">
+                <div class="dropdown-header">
+                    <div class="dropdown-avatar">
+                        <img [src]="avatarUrl" alt="Avatar">
+                    </div>
+                    <div class="dropdown-user-info">
+                        <span class="dropdown-username">{{ username }}</span>
+                        <span class="dropdown-role">{{ roleDisplayName }}</span>
+                        <span class="dropdown-status">• Online</span>
+                    </div>
+                </div>
+
+                <div class="dropdown-divider"></div>
+
+                <div class="dropdown-actions">
+                    <button class="dropdown-item logout-item" (click)="logout()" [disabled]="isLoading">
+                        <svg class="dropdown-icon" viewBox="0 0 24 24">
+                            <path
+                                d="M17.44 14.44L16 13l2-2-2-2 1.44-1.44L21 11l-3.56 3.44zM3 3h12v2H3v14h12v2H3c-1.1 0-2-.9-2 2z"
+                                fill="currentColor" />
+                        </svg>
+                        <span *ngIf="!isLoading">Logout</span>
+                        <span *ngIf="isLoading" class="loading-text">
+                            <div class="loading-spinner">
+                                <div class="spinner-ring"></div>
+                            </div>
+                            Logging out...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Background Elements -->
+    <div class="floating-elements">
+        <div class="floating-orb orb-1"></div>
+        <div class="floating-orb orb-2"></div>
+        <div class="floating-orb orb-3"></div>
+    </div>
+</nav>

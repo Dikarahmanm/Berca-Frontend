@@ -22,8 +22,25 @@ export class UserListComponent implements OnInit {
   loading = false;
   error: string | null = null;
 
+  // ✅ NEW: Delete confirmation modal state
+  showDeleteModal = false;
+  userToDelete: { id: number; username: string } | null = null;
+
+  // ✅ NEW: Restore confirmation modal state
+  showRestoreModal = false;
+  userToRestore: { id: number; username: string; role: string } | null = null;
+
   // Available roles
   availableRoles = ['User', 'Admin', 'Manager', 'Moderator'];
+
+  // ✅ NEW: Page size options
+  pageSizeOptions = [
+    { value: 5, label: '5 per page' },
+    { value: 15, label: '15 per page' },
+    { value: 30, label: '30 per page' },
+    { value: 50, label: '50 per page' },
+    //{ value: -1, label: 'Show All' }
+  ];
 
   // For Math.ceil in template
   Math = Math;
@@ -32,6 +49,23 @@ export class UserListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadUsers();
+  }
+
+  // ✅ NEW: Handle page size change
+  onPageSizeChange(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    const newPageSize = parseInt(target.value);
+    
+    console.log(`📄 Changing page size from ${this.pageSize} to ${newPageSize === -1 ? 'All' : newPageSize}`);
+    
+    this.pageSize = newPageSize;
+    this.page = 1; // Reset to first page
+    
+    if (this.showDeleted) {
+      this.loadDeletedUsers();
+    } else {
+      this.loadUsers();
+    }
   }
 
   // ✅ CHANGE USER ROLE METHOD
@@ -103,15 +137,18 @@ export class UserListComponent implements OnInit {
     }, 3000);
   }
 
-  // ... existing methods (loadUsers, toggleActive, deleteUser, etc.)
-  
+  // ✅ UPDATED: Load users with dynamic page size
   loadUsers(): void {
     this.loading = true;
     this.error = null;
     
     console.log('📊 Loading users...');
     
-    this.userService.getUsers(this.page, this.pageSize, this.search).subscribe({
+    // If pageSize is -1 (Show All), pass a large number or handle differently
+    const requestPageSize = this.pageSize === -1 ? 1000 : this.pageSize;
+    const requestPage = this.pageSize === -1 ? 1 : this.page;
+    
+    this.userService.getUsers(requestPage, requestPageSize, this.search).subscribe({
       next: (res: any) => {
         console.log('✅ Users loaded successfully:', res);
         this.users = res.users;
@@ -126,13 +163,17 @@ export class UserListComponent implements OnInit {
     });
   }
 
+  // ✅ UPDATED: Load deleted users with dynamic page size
   loadDeletedUsers(): void {
     this.loading = true;
     this.error = null;
     
     console.log('🗑️ Loading deleted users...');
     
-    this.userService.getDeletedUsers(this.page, this.pageSize).subscribe({
+    const requestPageSize = this.pageSize === -1 ? 1000 : this.pageSize;
+    const requestPage = this.pageSize === -1 ? 1 : this.page;
+    
+    this.userService.getDeletedUsers(requestPage, requestPageSize).subscribe({
       next: (res: any) => {
         console.log('✅ Deleted users loaded successfully:', res);
         this.deletedUsers = res.users;
@@ -201,56 +242,102 @@ export class UserListComponent implements OnInit {
     });
   }
 
+  // ✅ UPDATED: Delete user with custom modal
   deleteUser(id: number): void {
     const user = this.users.find(u => u.id === id);
     const username = user?.username || `User ${id}`;
     
-    if (confirm(`Are you sure you want to delete ${username}?`)) {
-      console.log('🗑️ Deleting user:', id);
-      
-      this.userService.deleteUser(id).subscribe({
-        next: (response: any) => {
-          console.log('✅ User deleted successfully:', response);
-          this.loadUsers(); // Reload active users
-          this.showSuccessMessage(`${username} deleted successfully`);
-        },
-        error: (err: any) => {
-          console.error('❌ Failed to delete user:', err);
-          this.error = `Failed to delete user: ${err}`;
-        }
-      });
-    }
+    // Show custom delete modal instead of browser confirm
+    this.userToDelete = { id, username };
+    this.showDeleteModal = true;
   }
 
+  // ✅ NEW: Confirm delete action
+  confirmDelete(): void {
+    if (!this.userToDelete) return;
+    
+    console.log('🗑️ Deleting user:', this.userToDelete.id);
+    
+    this.userService.deleteUser(this.userToDelete.id).subscribe({
+      next: (response: any) => {
+        console.log('✅ User deleted successfully:', response);
+        this.loadUsers(); // Reload active users
+        this.showSuccessMessage(`${this.userToDelete!.username} deleted successfully`);
+        this.closeDeleteModal();
+      },
+      error: (err: any) => {
+        console.error('❌ Failed to delete user:', err);
+        this.error = `Failed to delete user: ${err}`;
+        this.closeDeleteModal();
+      }
+    });
+  }
+
+  // ✅ NEW: Cancel delete action
+  cancelDelete(): void {
+    this.closeDeleteModal();
+  }
+
+  // ✅ NEW: Close delete modal
+  private closeDeleteModal(): void {
+    this.showDeleteModal = false;
+    this.userToDelete = null;
+  }
+
+  // ✅ UPDATED: Restore user with custom modal
   restoreUser(user: any): void {
-    if (confirm(`Restore user ${user.username}?`)) {
-      console.log('🔄 Restoring user:', user);
-      
-      this.userService.restoreUser(user.id).subscribe({
-        next: (response: any) => {
-          console.log('✅ User restored successfully:', response);
-          this.loadDeletedUsers();
-          this.showSuccessMessage(`${user.username} restored successfully`);
-        },
-        error: (err: any) => {
-          console.error('❌ Failed to restore user:', err);
-          this.error = `Failed to restore user: ${err}`;
-        }
-      });
-    }
+    // Show custom restore modal instead of browser confirm
+    this.userToRestore = { 
+      id: user.id, 
+      username: user.username, 
+      role: user.role 
+    };
+    this.showRestoreModal = true;
+  }
+
+  // ✅ NEW: Confirm restore action
+  confirmRestore(): void {
+    if (!this.userToRestore) return;
+    
+    console.log('🔄 Restoring user:', this.userToRestore);
+    
+    this.userService.restoreUser(this.userToRestore.id).subscribe({
+      next: (response: any) => {
+        console.log('✅ User restored successfully:', response);
+        this.loadDeletedUsers();
+        this.showSuccessMessage(`${this.userToRestore!.username} restored successfully`);
+        this.closeRestoreModal();
+      },
+      error: (err: any) => {
+        console.error('❌ Failed to restore user:', err);
+        this.error = `Failed to restore user: ${err}`;
+        this.closeRestoreModal();
+      }
+    });
+  }
+
+  // ✅ NEW: Cancel restore action
+  cancelRestore(): void {
+    this.closeRestoreModal();
+  }
+
+  // ✅ NEW: Close restore modal
+  private closeRestoreModal(): void {
+    this.showRestoreModal = false;
+    this.userToRestore = null;
   }
 
   clearError(): void {
     this.error = null;
   }
 
-  // Helper methods
+  // ✅ UPDATED: Helper methods with Show All support
   get canGoPrevious(): boolean {
-    return this.page > 1;
+    return this.page > 1 && this.pageSize !== -1; // Disable pagination for Show All
   }
 
   get canGoNext(): boolean {
-    return this.page * this.pageSize < this.totalUsers;
+    return this.pageSize !== -1 && this.page * this.pageSize < this.totalUsers;
   }
 
   get currentList(): User[] {
@@ -263,5 +350,29 @@ export class UserListComponent implements OnInit {
 
   get toggleButtonText(): string {
     return this.showDeleted ? '👥 Show Active Users' : '🗑️ Show Deleted Users';
+  }
+
+  // ✅ NEW: Get total pages for display
+  get totalPages(): number {
+    if (this.pageSize === -1) return 1; // Show All = 1 page
+    return Math.ceil(this.totalUsers / this.pageSize);
+  }
+
+  // ✅ NEW: Get current page size label
+  get currentPageSizeLabel(): string {
+    if (this.pageSize === -1) return 'All';
+    return this.pageSize.toString();
+  }
+
+  // ✅ NEW: Get displayed items count
+  get displayedItemsInfo(): string {
+    if (this.pageSize === -1) {
+      return `Showing all ${this.totalUsers} items`;
+    }
+    
+    const startItem = (this.page - 1) * this.pageSize + 1;
+    const endItem = Math.min(this.page * this.pageSize, this.totalUsers);
+    
+    return `Showing ${startItem}-${endItem} of ${this.totalUsers} items`;
   }
 }

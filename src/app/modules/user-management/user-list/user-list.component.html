@@ -8,9 +8,30 @@
     </button>
   </div>
 
-  <!-- Search (only for active users) -->
-  <input *ngIf="!showDeleted" type="text" placeholder="Cari berdasarkan username/role..." [(ngModel)]="search"
-    (input)="onSearchChange()" />
+  <!-- Search and Page Size Controls -->
+  <div class="controls-section">
+    <!-- Search (only for active users) -->
+    <input *ngIf="!showDeleted" type="text" placeholder="Cari berdasarkan username/role..." [(ngModel)]="search"
+      (input)="onSearchChange()" class="search-input" />
+
+    <!-- ✅ NEW: Page Size Selector -->
+    <div class="page-size-selector">
+      <label for="pageSize">Items per page:</label>
+      <select id="pageSize" [value]="pageSize" (change)="onPageSizeChange($event)" class="page-size-dropdown">
+        <option *ngFor="let option of pageSizeOptions" [value]="option.value">
+          {{ option.label }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ✅ NEW: Data Info Bar -->
+  <div class="data-info-bar" *ngIf="!loading && currentList.length > 0">
+    <span class="items-info">{{ displayedItemsInfo }}</span>
+    <span class="page-info" *ngIf="pageSize !== -1">
+      Page {{ page }} of {{ totalPages }}
+    </span>
+  </div>
 
   <!-- Active Users Table -->
   <table *ngIf="!showDeleted && !loading && users.length > 0">
@@ -79,7 +100,7 @@
     </tbody>
   </table>
 
-  <!-- Deleted Users Table -->
+  <!-- ✅ FIXED: Deleted Users Table with consistent styling -->
   <table *ngIf="showDeleted && !loading && deletedUsers.length > 0">
     <thead>
       <tr>
@@ -90,13 +111,13 @@
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let user of deletedUsers">
+      <tr *ngFor="let user of deletedUsers" class="deleted-row">
         <td>
           <div class="user-cell">
             <div class="user-avatar deleted">
               {{ user.username.charAt(0).toUpperCase() }}
             </div>
-            <span class="username">{{ user.username }}</span>
+            <span class="username deleted">{{ user.username }}</span>
           </div>
         </td>
         <td>
@@ -105,29 +126,48 @@
           </span>
         </td>
         <td>
-          <span class="deleted">🗑️ Deleted</span>
+          <span class="deleted">Deleted</span>
         </td>
         <td>
-          <button class="action-btn restore-btn" (click)="restoreUser(user)">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path
-                d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
-            </svg>
-            Restore
-          </button>
+          <div class="action-buttons">
+            <button class="action-btn restore-btn" (click)="restoreUser(user)">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+              </svg>
+              Restore
+            </button>
+          </div>
         </td>
       </tr>
     </tbody>
   </table>
 
-  <!-- Pagination -->
-  <div class="pagination">
-    <button (click)="changePage(page - 1)" [disabled]="!canGoPrevious">
-      ← Previous
+  <!-- ✅ UPDATED: Enhanced Pagination with Show All support -->
+  <div class="pagination" *ngIf="!loading && currentList.length > 0">
+    <button (click)="changePage(page - 1)" [disabled]="!canGoPrevious" class="pagination-btn">
+      <svg viewBox="0 0 24 24" fill="currentColor" class="pagination-icon">
+        <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+      </svg>
+      Previous
     </button>
-    <span>Page {{ page }} of {{ Math.ceil(totalUsers / pageSize) }}</span>
-    <button (click)="changePage(page + 1)" [disabled]="!canGoNext">
-      Next →
+
+    <!-- Page Info (only shown when not "Show All") -->
+    <div class="pagination-info" *ngIf="pageSize !== -1">
+      <span class="page-display">Page {{ page }} of {{ totalPages }}</span>
+      <span class="items-display">{{ displayedItemsInfo }}</span>
+    </div>
+
+    <!-- Show All Info -->
+    <div class="pagination-info" *ngIf="pageSize === -1">
+      <span class="all-items-display">{{ displayedItemsInfo }}</span>
+    </div>
+
+    <button (click)="changePage(page + 1)" [disabled]="!canGoNext" class="pagination-btn">
+      Next
+      <svg viewBox="0 0 24 24" fill="currentColor" class="pagination-icon">
+        <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
+      </svg>
     </button>
   </div>
 
@@ -155,5 +195,81 @@
     </div>
     <h3>{{ showDeleted ? 'No deleted users found' : 'No users found' }}</h3>
     <p>{{ showDeleted ? 'All users are active.' : 'Try adjusting your search criteria.' }}</p>
+  </div>
+
+  <!-- ✅ NEW: Delete Confirmation Modal -->
+  <div class="modal-overlay" *ngIf="showDeleteModal" (click)="cancelDelete()">
+    <div class="delete-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+          </svg>
+        </div>
+        <h3>Delete User</h3>
+      </div>
+
+      <div class="modal-content">
+        <p>Are you sure you want to delete user <strong>{{ userToDelete?.username }}</strong>?</p>
+        <p class="warning-text">This action cannot be undone.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn cancel-btn" (click)="cancelDelete()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+          </svg>
+          Cancel
+        </button>
+
+        <button class="modal-btn delete-btn" (click)="confirmDelete()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+          </svg>
+          Delete User
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ FIXED: Restore Confirmation Modal - Same style as Delete Modal -->
+  <div class="modal-overlay" *ngIf="showRestoreModal" (click)="cancelRestore()">
+    <div class="delete-modal restore-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+          </svg>
+        </div>
+        <h3>Restore User</h3>
+      </div>
+
+      <div class="modal-content">
+        <p>Are you sure you want to restore user <strong>{{ userToRestore?.username }}</strong>?</p>
+        <p class="warning-text">This user will be reactivated and can access the system again.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn cancel-btn" (click)="cancelRestore()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+          </svg>
+          Cancel
+        </button>
+
+        <button class="modal-btn restore-btn" (click)="confirmRestore()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
+          </svg>
+          Restore User
+        </button>
+      </div>
+    </div>
   </div>
 </div>

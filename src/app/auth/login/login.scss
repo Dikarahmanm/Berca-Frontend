@@ -51,16 +51,157 @@
     outline: none;
   }
 
-  &:invalid.ng-touched {
+  &.error-input {
+    border-color: #dc3545;
+    background-color: #fff5f5;
+  }
+
+  &:invalid.ng-touched:not(.error-input) {
     border-color: #dc3545;
   }
 }
 
-.error-message {
+// ✅ FIELD-SPECIFIC ERROR STYLING
+.field-error {
   color: #dc3545;
-  font-size: 13px;
+  font-size: 12px;
   margin-top: 5px;
   display: block;
+  font-weight: 500;
+}
+
+// ✅ ENHANCED ERROR CONTAINER WITH TYPE-SPECIFIC STYLING
+.error-container {
+  margin: 20px 0;
+  padding: 16px;
+  border-radius: 8px;
+  border-left: 4px solid;
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-align: left;
+  animation: slideInDown 0.3s ease-out;
+
+  .error-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    .error-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .error-title {
+      font-weight: 700;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  .error-message {
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 12px;
+  }
+
+  .error-actions {
+    margin-top: 12px;
+
+    .contact-admin-btn {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      }
+    }
+  }
+
+  // ✅ ERROR TYPE SPECIFIC STYLES
+  &.error-deleted {
+    border-left-color: #9333ea;
+    background: linear-gradient(135deg, rgba(147, 51, 234, 0.05), rgba(126, 34, 206, 0.05));
+
+    .error-header .error-title {
+      color: #9333ea;
+    }
+
+    .error-message {
+      color: #7c2d92;
+    }
+
+    .contact-admin-btn {
+      background: linear-gradient(135deg, #9333ea, #7c2d92);
+    }
+  }
+
+  &.error-inactive {
+    border-left-color: #f59e0b;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(217, 119, 6, 0.05));
+
+    .error-header .error-title {
+      color: #f59e0b;
+    }
+
+    .error-message {
+      color: #d97706;
+    }
+
+    .contact-admin-btn {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+  }
+
+  &.error-credentials {
+    border-left-color: #dc3545;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(220, 38, 38, 0.05));
+
+    .error-header .error-title {
+      color: #dc3545;
+    }
+
+    .error-message {
+      color: #b91c1c;
+    }
+  }
+
+  &.error-session {
+    border-left-color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(37, 99, 235, 0.05));
+
+    .error-header .error-title {
+      color: #3b82f6;
+    }
+
+    .error-message {
+      color: #1d4ed8;
+    }
+  }
+
+  &.error-general {
+    border-left-color: #dc3545;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(220, 38, 38, 0.05));
+
+    .error-header .error-title {
+      color: #dc3545;
+    }
+
+    .error-message {
+      color: #b91c1c;
+    }
+  }
 }
 
 .options {
@@ -71,6 +212,8 @@
   .forgot-password {
     color: #007bff;
     text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
 
     &:hover {
       text-decoration: underline;
@@ -86,30 +229,95 @@
   border: none;
   border-radius: 4px;
   font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+
+  .btn-text {
+    display: inline-block;
+    transition: opacity 0.3s ease;
+  }
+
+  .btn-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    .loading-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top: 2px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+  }
 
   &:disabled {
     background-color: #b3d7ff;
     cursor: not-allowed;
+    transform: none;
   }
 
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled):not(.loading) {
     background-color: #0056b3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 91, 179, 0.3);
+  }
+
+  &.loading {
+    background-color: #0056b3;
+    cursor: wait;
   }
 }
 
 .signup-link {
   margin-top: 20px;
+  font-size: 14px;
 
   a {
     color: #007bff;
     text-decoration: none;
+    font-weight: 600;
 
     &:hover {
       text-decoration: underline;
     }
   }
+}
+
+// ✅ ANIMATIONS
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// ✅ PULSE ANIMATION FOR CRITICAL ERRORS
+@keyframes pulse {
+  0%, 100% { 
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  50% { 
+    box-shadow: 0 4px 16px rgba(220, 53, 69, 0.2);
+  }
+}
+
+.error-deleted, .error-inactive {
+  animation: slideInDown 0.3s ease-out, pulse 2s ease-in-out;
 }
 
 /* Responsive for smaller devices */
@@ -130,5 +338,29 @@
   .forgot-password,
   .signup-link p {
     font-size: 14px;
+  }
+
+  .error-container {
+    padding: 12px;
+    margin: 16px 0;
+
+    .error-header {
+      .error-icon {
+        font-size: 16px;
+      }
+
+      .error-title {
+        font-size: 12px;
+      }
+    }
+
+    .error-message {
+      font-size: 13px;
+    }
+
+    .contact-admin-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+    }
   }
 }

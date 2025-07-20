@@ -10,9 +10,13 @@
       <div class="input-group">
         <label for="username">Username</label>
         <input type="text" id="username" name="username" placeholder="Enter your username"
-          [(ngModel)]="credentials.username" required minlength="6" #username="ngModel" (input)="errorMessage = ''" />
-        <div class="error-message" *ngIf="username.invalid && username.touched">
-          Username must be at least 6 characters.
+          [(ngModel)]="credentials.username" required minlength="3" #username="ngModel" (input)="onInputChange()"
+          [class.error-input]="username.invalid && username.touched && !errorMessage" />
+
+        <!-- Field-specific validation -->
+        <div class="field-error" *ngIf="username.invalid && username.touched && !errorMessage">
+          <span *ngIf="username.errors?.['required']">Username is required.</span>
+          <span *ngIf="username.errors?.['minlength']">Username must be at least 3 characters.</span>
         </div>
       </div>
 
@@ -20,15 +24,34 @@
       <div class="input-group">
         <label for="password">Password</label>
         <input type="password" id="password" name="password" placeholder="Enter your password"
-          [(ngModel)]="credentials.password" required #password="ngModel" (input)="errorMessage = ''" />
-        <div class="error-message" *ngIf="password.invalid && password.touched">
-          Password is required.
+          [(ngModel)]="credentials.password" required #password="ngModel" (input)="onInputChange()"
+          [class.error-input]="password.invalid && password.touched && !errorMessage" />
+
+        <!-- Field-specific validation -->
+        <div class="field-error" *ngIf="password.invalid && password.touched && !errorMessage">
+          <span *ngIf="password.errors?.['required']">Password is required.</span>
         </div>
       </div>
 
-      <!-- Error after login attempt -->
-      <div class="input-group" *ngIf="errorMessage">
-        <span class="error-message">{{ errorMessage }}</span>
+      <!-- ✅ ENHANCED: Main error message with different styles based on error type -->
+      <div class="error-container" *ngIf="errorMessage" [ngClass]="getErrorClass()">
+        <div class="error-header">
+          <span class="error-icon">{{ getErrorIcon() }}</span>
+          <span class="error-title">
+            {{ errorType === 'deleted' ? 'Account Deleted' :
+            errorType === 'inactive' ? 'Account Inactive' :
+            errorType === 'credentials' ? 'Invalid Credentials' :
+            errorType === 'session' ? 'Session Expired' : 'Login Error' }}
+          </span>
+        </div>
+        <div class="error-message">{{ errorMessage }}</div>
+
+        <!-- ✅ NEW: Contact admin button for account issues -->
+        <div class="error-actions" *ngIf="shouldShowContactAdmin()">
+          <button type="button" class="contact-admin-btn" (click)="contactAdmin()">
+            Contact Administrator
+          </button>
+        </div>
       </div>
 
       <!-- Options -->
@@ -37,8 +60,13 @@
       </div>
 
       <!-- Submit Button -->
-      <button type="submit" class="login-btn" [disabled]="isLoading || loginForm.invalid">
-        {{ isLoading ? 'Signing in...' : 'Sign In' }}
+      <button type="submit" class="login-btn" [disabled]="isLoading || loginForm.invalid" [class.loading]="isLoading">
+
+        <span *ngIf="!isLoading" class="btn-text">Sign In</span>
+        <span *ngIf="isLoading" class="btn-loading">
+          <div class="loading-spinner"></div>
+          Signing in...
+        </span>
       </button>
     </form>
 

@@ -80,7 +80,7 @@ export class DashboardComponent implements OnInit {
         
         console.log('👤 User data updated:', { username: this.username, role: this.role });
       },
-      error: (error) => {
+      error: (error: any) => {
         console.error('❌ Failed to verify auth status:', error);
         // If auth fails, redirect to login
         if (error.status === 401) {
@@ -268,7 +268,7 @@ export class DashboardComponent implements OnInit {
         console.log('✅ Logout successful');
         this.router.navigate(['/login']);
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('❌ Logout failed:', err);
         // Force logout even if backend call fails
         localStorage.clear();

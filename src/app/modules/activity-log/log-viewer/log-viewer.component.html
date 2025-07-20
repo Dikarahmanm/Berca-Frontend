@@ -22,7 +22,7 @@
     </div>
   </div>
 
-  <!-- Advanced Filters Section -->
+  <!-- ✅ UPDATED: Compact Filters Section -->
   <div class="filters-section">
     <div class="filters-grid">
       <!-- Search Input -->
@@ -62,6 +62,21 @@
         <input type="date" class="filter-input date-input" [(ngModel)]="toDate" (change)="onDateChange()" />
       </div>
 
+      <!-- ✅ NEW: Page Size Selector -->
+      <div class="filter-group">
+        <label class="filter-label">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" />
+          </svg>
+          Items per page
+        </label>
+        <select class="filter-input page-size-dropdown" [value]="pageSize" (change)="onPageSizeChange($event)">
+          <option *ngFor="let option of pageSizeOptions" [value]="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
+
       <!-- Clear Filters -->
       <div class="filter-group">
         <button class="clear-btn" (click)="clearFilters()" [disabled]="!hasActiveFilters()">
@@ -96,6 +111,14 @@
     </div>
   </div>
 
+  <!-- ✅ NEW: Data Info Bar -->
+  <div class="data-info-bar" *ngIf="!loading && !error && logs.length > 0">
+    <span class="items-info">{{ displayedItemsInfo }}</span>
+    <span class="page-info" *ngIf="pageSize !== -1">
+      Page {{ page }} of {{ totalPages }}
+    </span>
+  </div>
+
   <!-- Loading State -->
   <div *ngIf="loading" class="loading-state">
     <div class="loading-spinner">
@@ -123,38 +146,15 @@
     </button>
   </div>
 
-  <!-- Logs Table -->
+  <!-- ✅ COMPACT: Logs Table -->
   <div class="table-container" *ngIf="!loading && !error">
     <table class="log-table" *ngIf="logs.length > 0">
       <thead>
         <tr>
           <th class="col-number">#</th>
-          <th class="col-user">
-            <div class="header-content">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Username
-            </div>
-          </th>
-          <th class="col-action">
-            <div class="header-content">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
-              Action
-            </div>
-          </th>
-          <th class="col-timestamp">
-            <div class="header-content">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-              </svg>
-              Timestamp
-            </div>
-          </th>
+          <th class="col-user">Username</th>
+          <th class="col-action">Action</th>
+          <th class="col-timestamp">Timestamp</th>
         </tr>
       </thead>
       <tbody>
@@ -206,30 +206,31 @@
     </div>
   </div>
 
-  <!-- Enhanced Pagination -->
+  <!-- ✅ UPDATED: Enhanced Pagination with Show All support -->
   <div class="pagination" *ngIf="!loading && !error && logs.length > 0">
-    <div class="pagination-info">
-      Showing {{ (page - 1) * pageSize + 1 }} to {{ Math.min(page * pageSize, total) }} of {{ total }} logs
+    <button (click)="prevPage()" [disabled]="!canGoPrevious" class="pagination-btn">
+      <svg viewBox="0 0 24 24" fill="currentColor" class="pagination-icon">
+        <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+      </svg>
+      Previous
+    </button>
+
+    <!-- Page Info (only shown when not "Show All") -->
+    <div class="pagination-info" *ngIf="pageSize !== -1">
+      <span class="page-display">Page {{ page }} of {{ totalPages }}</span>
+      <span class="items-display">{{ displayedItemsInfo }}</span>
     </div>
 
-    <div class="pagination-controls">
-      <button class="page-btn" (click)="prevPage()" [disabled]="page === 1">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
-        </svg>
-        Previous
-      </button>
-
-      <div class="page-numbers">
-        <span class="page-info">Page {{ page }} of {{ totalPages }}</span>
-      </div>
-
-      <button class="page-btn" (click)="nextPage()" [disabled]="page * pageSize >= total">
-        Next
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
-        </svg>
-      </button>
+    <!-- Show All Info -->
+    <div class="pagination-info" *ngIf="pageSize === -1">
+      <span class="all-items-display">{{ displayedItemsInfo }}</span>
     </div>
+
+    <button (click)="nextPage()" [disabled]="!canGoNext" class="pagination-btn">
+      Next
+      <svg viewBox="0 0 24 24" fill="currentColor" class="pagination-icon">
+        <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
+      </svg>
+    </button>
   </div>
 </div>

@@ -65,10 +65,10 @@
         background: white;
         padding: 8px 16px;
         border-radius: 20px;
-        border: 2px solid rgba(102, 126, 234, 0.1)
+        border: 2px solid rgba(102, 126, 234, 0.1);
       }
-    }
-  }// Modern User List Component - Compact SCSS (75% smaller cells)
+      }
+    }// Modern User List Component - Compact SCSS (75% smaller cells)
 .user-list {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
@@ -136,6 +136,179 @@
       &:active {
         transform: translateY(0);
       }
+    }
+  }
+
+  // ✅ NEW: Role Change Modal Styles (uses same base as delete modal)
+  .role-change-modal {
+    .modal-header {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(37, 99, 235, 0.05));
+      border-bottom: 2px solid rgba(59, 130, 246, 0.1);
+
+      .modal-icon {
+        background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+        color: #2563eb;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+      }
+
+      h3 {
+        color: #2563eb;
+      }
+    }
+
+    .modal-content {
+      .role-change-details {
+        margin: 20px 0;
+        padding: 16px;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(37, 99, 235, 0.05));
+        border-radius: 16px;
+        border: 1px solid rgba(59, 130, 246, 0.1);
+
+        .role-change-item {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+
+          .arrow-icon {
+            width: 20px;
+            height: 20px;
+            color: #667eea;
+            animation: arrowPulse 2s ease-in-out infinite;
+          }
+        }
+      }
+
+      .permission-info {
+        margin: 16px 0;
+        padding: 16px;
+        background: rgba(248, 250, 252, 0.8);
+        border-radius: 12px;
+        border: 1px solid rgba(226, 232, 240, 0.5);
+
+        h4 {
+          margin: 0 0 12px 0;
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: #374151;
+        }
+
+        .permission-list {
+          .permission-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 6px 0;
+
+            svg {
+              width: 14px;
+              height: 14px;
+              flex-shrink: 0;
+            }
+
+            &.admin {
+              color: #dc2626;
+              svg {
+                color: #dc2626;
+              }
+            }
+
+            &.manager {
+              color: #2563eb;
+              svg {
+                color: #2563eb;
+              }
+            }
+
+            &.user {
+              color: #059669;
+              svg {
+                color: #059669;
+              }
+            }
+          }
+        }
+      }
+
+      .warning-text {
+        color: #2563eb;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.1));
+        border: 1px solid rgba(59, 130, 246, 0.2);
+      }
+    }
+
+    .modal-actions {
+      .role-change-btn {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+
+        &:hover {
+          background: linear-gradient(135deg, #2563eb, #1d4ed8);
+          box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+        }
+      }
+    }
+  }
+
+  // ✅ UPDATED: No actions available message and admin restriction
+  .no-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-style: italic;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.1), rgba(100, 116, 139, 0.1));
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+
+    svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+  }
+
+  // ✅ NEW: Admin restriction indicator
+  .admin-restriction {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #2563eb;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.1));
+    border-radius: 12px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+
+    svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      color: #2563eb;
+    }
+
+    span {
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  }
+
+  @keyframes arrowPulse {
+    0%, 100% { 
+      transform: translateX(0);
+      opacity: 0.7;
+    }
+    50% { 
+      transform: translateX(4px);
+      opacity: 1;
     }
   }
 
@@ -633,7 +806,7 @@
     }
   }
 
-  // ✅ IMPROVED: Role Badge (for deleted users) with better styling
+  // ✅ IMPROVED: Role Badge (for deleted users) with better styling (no moderator)
   .role-badge-wrapper {
     display: flex;
     justify-content: flex-start;
@@ -681,10 +854,25 @@
       border: 1px solid rgba(16, 185, 129, 0.3);
     }
 
-    &.role-moderator {
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.15));
-      color: #d97706;
-      border: 1px solid rgba(245, 158, 11, 0.3);
+    // ✅ NEW: Read-only role badge styling
+    &.read-only {
+      opacity: 0.8;
+      cursor: not-allowed;
+      background: linear-gradient(135deg, rgba(148, 163, 184, 0.15), rgba(100, 116, 139, 0.15));
+      color: #64748b;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+
+      .read-only-indicator {
+        margin-left: 6px;
+        display: inline-flex;
+        align-items: center;
+
+        svg {
+          width: 12px;
+          height: 12px;
+          color: #64748b;
+        }
+      }
     }
   }
 

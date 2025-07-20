@@ -6,13 +6,12 @@ import { AuthService } from '../../core/services/auth.service';
 import { RouterModule } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 
-
 @Component({
   selector: 'app-login',
   templateUrl: './login.html',
   styleUrls: ['./login.scss'],
   standalone: true,
-  imports: [FormsModule, CommonModule,RouterModule],
+  imports: [FormsModule, CommonModule, RouterModule],
 })
 export class LoginComponent {
   credentials = { username: '', password: '' };
@@ -30,7 +29,6 @@ export class LoginComponent {
       }
     });
   }
-  
 
   login() {
     this.isLoading = true;
@@ -38,23 +36,21 @@ export class LoginComponent {
       next: (response: any) => {
         this.errorMessage = '';
         this.isLoading = false;
-  
+
         // Simpan username di localStorage
         localStorage.setItem('username', response.user); // pastikan backend mengirim field `user`
+        localStorage.setItem('role', response.role); // simpan role juga
         this.router.navigate(['/dashboard']);
       },
-      error: (err) => {
+      error: (err: any) => {
         this.errorMessage = 'Invalid username or password.';
         this.isLoading = false;
+        console.error('Login error:', err);
       }
     });
   }
-  
+
   showComingSoon() {
     alert('Feature coming soon!');
   }
-  
-  
-  
-  
 }

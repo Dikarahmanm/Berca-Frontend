@@ -54,14 +54,13 @@
           </div>
         </td>
         <td>
-          <!-- ✅ ROLE DROPDOWN -->
-          <div class="role-dropdown-wrapper">
+          <!-- ✅ UPDATED: ROLE DROPDOWN with permissions - Hide for Admin -->
+          <div class="role-dropdown-wrapper" *ngIf="canChangeRole(user); else roleDisplay">
             <select class="role-dropdown" [value]="user.role" (change)="changeUserRole(user, $event)"
               [class]="'role-' + user.role.toLowerCase()">
-              <option value="User">User</option>
-              <option value="Admin">Admin</option>
-              <option value="Manager">Manager</option>
-              <option value="Moderator">Moderator</option>
+              <option *ngFor="let role of getAvailableRolesForUser(user)" [value]="role">
+                {{ role }}
+              </option>
             </select>
             <div class="dropdown-arrow">
               <svg viewBox="0 0 24 24" fill="currentColor">
@@ -69,6 +68,18 @@
               </svg>
             </div>
           </div>
+          <!-- ✅ UPDATED: Read-only role display for Admin -->
+          <ng-template #roleDisplay>
+            <span class="role-badge role-{{ user.role.toLowerCase() }}" [class.read-only]="!canChangeRole(user)">
+              {{ user.role }}
+              <span *ngIf="!canChangeRole(user)" class="read-only-indicator">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1M10 17L6 13L7.41 11.59L10 14.17L16.59 7.58L18 9L10 17Z" />
+                </svg>
+              </span>
+            </span>
+          </ng-template>
         </td>
         <td>
           <span [ngClass]="{ 'active': user.isActive, 'inactive': !user.isActive }">
@@ -77,8 +88,9 @@
         </td>
         <td>
           <div class="action-buttons">
-            <button class="action-btn status-btn" (click)="toggleActive(user)" [class.activate]="!user.isActive"
-              [class.deactivate]="user.isActive">
+            <!-- ✅ UPDATED: Activate/Deactivate button - Always show for Admin/Manager -->
+            <button *ngIf="canToggleActive(user)" class="action-btn status-btn" (click)="toggleActive(user)"
+              [class.activate]="!user.isActive" [class.deactivate]="user.isActive">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path *ngIf="user.isActive"
                   d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
@@ -88,12 +100,31 @@
               {{ user.isActive ? 'Deactivate' : 'Activate' }}
             </button>
 
-            <button class="action-btn delete-btn" (click)="deleteUser(user.id)">
+            <!-- ✅ UPDATED: Delete button - Only show for Manager -->
+            <button *ngIf="canDeleteUser(user)" class="action-btn delete-btn" (click)="deleteUser(user.id)">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
               </svg>
               Delete
             </button>
+
+            <!-- ✅ UPDATED: Restricted access indicator for Admin -->
+            <div *ngIf="currentUserRole === 'Admin' && !canDeleteUser(user)" class="admin-restriction">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1M10 17L6 13L7.41 11.59L10 14.17L16.59 7.58L18 9L10 17Z" />
+              </svg>
+              <span>Admin Access</span>
+            </div>
+
+            <!-- ✅ UPDATED: No actions available for User role -->
+            <div *ngIf="currentUserRole === 'User'" class="no-actions">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
+              <span>Read Only</span>
+            </div>
           </div>
         </td>
       </tr>
@@ -268,6 +299,121 @@
               d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
           </svg>
           Restore User
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ NEW: Role Change Confirmation Modal -->
+  <div class="modal-overlay" *ngIf="showRoleChangeModal" (click)="cancelRoleChange()">
+    <div class="delete-modal role-change-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </div>
+        <h3>Change User Role</h3>
+      </div>
+
+      <div class="modal-content">
+        <p>Are you sure you want to change <strong>{{ roleChangeData?.user?.username }}</strong>'s role?</p>
+        <div class="role-change-details">
+          <div class="role-change-item">
+            <span class="role-badge role-{{ roleChangeData?.oldRole?.toLowerCase() }}">
+              {{ roleChangeData?.oldRole }}
+            </span>
+            <svg viewBox="0 0 24 24" fill="currentColor" class="arrow-icon">
+              <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z" />
+            </svg>
+            <span class="role-badge role-{{ roleChangeData?.newRole?.toLowerCase() }}">
+              {{ roleChangeData?.newRole }}
+            </span>
+          </div>
+        </div>
+        <div class="permission-info">
+          <h4>Role Permissions:</h4>
+          <div class="permission-list" [ngSwitch]="roleChangeData?.newRole">
+            <div *ngSwitchCase="'Admin'" class="permission-item admin">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+              Can activate/deactivate users only
+            </div>
+            <div *ngSwitchCase="'Manager'" class="permission-item manager">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+              Full access: change roles, activate/deactivate, delete users
+            </div>
+            <div *ngSwitchCase="'User'" class="permission-item user">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+              Read-only access
+            </div>
+          </div>
+        </div>
+        <p class="warning-text">This will change the user's access permissions.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn cancel-btn" (click)="cancelRoleChange()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+          </svg>
+          Cancel
+        </button>
+
+        <button class="modal-btn role-change-btn" (click)="confirmRoleChange()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          Change Role
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ NEW: Permission Denied Modal -->
+  <div class="modal-overlay" *ngIf="showPermissionModal" (click)="closePermissionModal()">
+    <div class="delete-modal permission-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1M10 17L6 13L7.41 11.59L10 14.17L16.59 7.58L18 9L10 17Z" />
+          </svg>
+        </div>
+        <h3>Access Denied</h3>
+      </div>
+
+      <div class="modal-content">
+        <p>You do not have permission to <strong>{{ permissionDeniedData?.action }}</strong>.</p>
+        <div class="permission-details">
+          <div class="permission-info">
+            <div class="info-row">
+              <span class="label">Your Role:</span>
+              <span class="role-badge role-{{ permissionDeniedData?.currentRole?.toLowerCase() }}">
+                {{ permissionDeniedData?.currentRole }}
+              </span>
+            </div>
+            <div class="info-row">
+              <span class="label">Required Role:</span>
+              <span class="required-role">{{ permissionDeniedData?.requiredRole }}</span>
+            </div>
+          </div>
+        </div>
+        <p class="info-text">Contact your system administrator to upgrade your permissions.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn understood-btn" (click)="closePermissionModal()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9 12l2 2 4-4" />
+          </svg>
+          I Understand
         </button>
       </div>
     </div>

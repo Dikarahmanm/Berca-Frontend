@@ -21,8 +21,17 @@ export class LogViewerComponent implements OnInit {
   toDate: string = '';
 
   page = 1;
-  pageSize = 10;
+  pageSize = 5;
   total = 0;
+
+  // ✅ NEW: Page size options
+  pageSizeOptions = [
+    { value: 5, label: '5 per page' },
+    { value: 15, label: '15 per page' },
+    { value: 30, label: '30 per page' },
+    { value: 50, label: '50 per page' },
+    //{ value: -1, label: 'Show All' }
+  ];
 
   // For Math.min in template
   Math = Math;
@@ -30,6 +39,18 @@ export class LogViewerComponent implements OnInit {
   constructor(private logService: LogService) {}
 
   ngOnInit(): void {
+    this.fetchLogs();
+  }
+
+  // ✅ NEW: Handle page size change
+  onPageSizeChange(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    const newPageSize = parseInt(target.value);
+    
+    console.log(`📄 Changing page size from ${this.pageSize} to ${newPageSize === -1 ? 'All' : newPageSize}`);
+    
+    this.pageSize = newPageSize;
+    this.page = 1; // Reset to first page
     this.fetchLogs();
   }
 
@@ -44,9 +65,13 @@ export class LogViewerComponent implements OnInit {
       fromDate: this.fromDate,
       toDate: this.toDate
     });
+
+    // If pageSize is -1 (Show All), pass a large number or handle differently
+    const requestPageSize = this.pageSize === -1 ? 1000 : this.pageSize;
+    const requestPage = this.pageSize === -1 ? 1 : this.page;
     
     this.logService
-      .getLogs(this.page, this.pageSize, this.search, this.fromDate, this.toDate)
+      .getLogs(requestPage, requestPageSize, this.search, this.fromDate, this.toDate)
       .subscribe({
         next: (res) => {
           console.log('✅ Logs fetched successfully:', res);
@@ -105,17 +130,43 @@ export class LogViewerComponent implements OnInit {
   }
 
   nextPage() {
-    if (this.page * this.pageSize < this.total) {
+    if (this.pageSize !== -1 && this.page * this.pageSize < this.total) {
       this.page++;
       this.fetchLogs();
     }
   }
 
   prevPage() {
-    if (this.page > 1) {
+    if (this.page > 1 && this.pageSize !== -1) {
       this.page--;
       this.fetchLogs();
     }
+  }
+
+  // ✅ UPDATED: Helper methods with Show All support
+  get canGoPrevious(): boolean {
+    return this.page > 1 && this.pageSize !== -1;
+  }
+
+  get canGoNext(): boolean {
+    return this.pageSize !== -1 && this.page * this.pageSize < this.total;
+  }
+
+  get totalPages(): number {
+    if (this.pageSize === -1) return 1; // Show All = 1 page
+    return Math.ceil(this.total / this.pageSize);
+  }
+
+  // ✅ NEW: Get displayed items info
+  get displayedItemsInfo(): string {
+    if (this.pageSize === -1) {
+      return `Showing all ${this.total} logs`;
+    }
+    
+    const startItem = (this.page - 1) * this.pageSize + 1;
+    const endItem = Math.min(this.page * this.pageSize, this.total);
+    
+    return `Showing ${startItem}-${endItem} of ${this.total} logs`;
   }
 
   // ✅ FILTER MANAGEMENT
@@ -178,10 +229,6 @@ export class LogViewerComponent implements OnInit {
     if (actionType.includes('updated') || actionType.includes('modified')) return 'action-update';
     
     return 'action-default';
-  }
-
-  get totalPages(): number {
-    return Math.ceil(this.total / this.pageSize);
   }
 
   private showSuccessMessage(message: string): void {

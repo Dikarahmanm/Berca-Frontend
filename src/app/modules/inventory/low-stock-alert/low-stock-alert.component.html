@@ -1,0 +1,109 @@
+<app-topbar [pageTitle]="'Stok Menipis'" [username]="currentUser.username" [role]="currentUser.role"
+    [notificationCount]="0">
+</app-topbar>
+
+<div class="low-stock-alert">
+    <!-- Alert Summary -->
+    <mat-card class="alert-summary">
+        <mat-card-content>
+            <div class="summary-content">
+                <div class="alert-icon">
+                    <mat-icon>warning</mat-icon>
+                </div>
+                <div class="alert-info">
+                    <h2>{{ lowStockProducts.length }} Produk Stok Menipis</h2>
+                    <p>Produk-produk berikut memerlukan perhatian segera untuk restok</p>
+                </div>
+                <div class="alert-actions">
+                    <button mat-raised-button color="primary" (click)="refreshData()">
+                        <mat-icon>refresh</mat-icon>
+                        Refresh Data
+                    </button>
+                </div>
+            </div>
+        </mat-card-content>
+    </mat-card>
+
+    <!-- Low Stock Products -->
+    <mat-card class="products-card" *ngIf="lowStockProducts.length > 0">
+        <mat-card-header>
+            <mat-card-title>Daftar Produk Stok Menipis</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+            <div class="products-list">
+                <div class="product-item" *ngFor="let product of lowStockProducts"
+                    [class]="getStockSeverityClass(product)">
+                    <div class="product-main">
+                        <div class="product-info">
+                            <h3>{{ product.name }}</h3>
+                            <p class="sku">SKU: {{ product.sku }}</p>
+                            <mat-chip-set>
+                                <mat-chip>{{ product.categoryName }}</mat-chip>
+                            </mat-chip-set>
+                        </div>
+
+                        <div class="stock-info">
+                            <div class="stock-display">
+                                <span class="current-stock" [class]="getStockStatusClass(product)">
+                                    {{ product.stock }}
+                                </span>
+                                <span class="unit">{{ product.unit }}</span>
+                            </div>
+                            <div class="stock-details">
+                                <span class="min-stock">Minimum: {{ product.minStock }} {{ product.unit }}</span>
+                                <div class="stock-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" [style.width.%]="getStockPercentage(product)"
+                                            [class]="getStockStatusClass(product)">
+                                        </div>
+                                    </div>
+                                    <span class="percentage">{{ getStockPercentage(product) }}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="urgency-indicator">
+                            <mat-icon [class]="getUrgencyClass(product)">
+                                {{ getUrgencyIcon(product) }}
+                            </mat-icon>
+                            <span class="urgency-text" [class]="getUrgencyClass(product)">
+                                {{ getUrgencyText(product) }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="product-actions">
+                        <button mat-raised-button color="primary"
+                            [routerLink]="['/inventory/products/edit', product.id]">
+                            <mat-icon>edit</mat-icon>
+                            Edit Produk
+                        </button>
+                        <button mat-raised-button color="accent" routerLink="/inventory/stock-adjustment">
+                            <mat-icon>add</mat-icon>
+                            Tambah Stok
+                        </button>
+                        <button mat-button (click)="viewProductDetails(product)">
+                            <mat-icon>visibility</mat-icon>
+                            Detail
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </mat-card-content>
+    </mat-card>
+
+    <!-- Empty State -->
+    <mat-card class="empty-state" *ngIf="lowStockProducts.length === 0">
+        <mat-card-content>
+            <div class="empty-content">
+                <mat-icon class="success-icon">check_circle</mat-icon>
+                <h2>Semua Stok Aman!</h2>
+                <p>Tidak ada produk dengan stok menipis saat ini.</p>
+                <button mat-raised-button color="primary" routerLink="/inventory/products">
+                    <mat-icon>inventory_2</mat-icon>
+                    Lihat Semua Produk
+                </button>
+            </div>
+        </mat-card-content>
+    </mat-card>
+</div>

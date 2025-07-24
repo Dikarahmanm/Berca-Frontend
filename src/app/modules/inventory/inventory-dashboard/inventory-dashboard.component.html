@@ -1,0 +1,221 @@
+<app-topbar [pageTitle]="'Dashboard Inventori'" [username]="currentUser.username" [role]="currentUser.role">
+</app-topbar>
+
+<div class="inventory-dashboard">
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="isLoading">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Memuat data inventori...</p>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content" *ngIf="!isLoading">
+        <!-- Stats Cards -->
+        <div class="stats-section">
+            <h2 class="section-title">Ringkasan Inventori</h2>
+            <div class="stats-grid">
+                <mat-card class="stat-card products-card">
+                    <mat-card-content>
+                        <div class="stat-header">
+                            <div class="stat-icon">
+                                <mat-icon>inventory_2</mat-icon>
+                            </div>
+                            <div class="stat-value">{{ stats.totalProducts }}</div>
+                        </div>
+                        <div class="stat-label">Total Produk</div>
+                        <div class="stat-change positive">+5 minggu ini</div>
+                    </mat-card-content>
+                </mat-card>
+
+                <mat-card class="stat-card categories-card">
+                    <mat-card-content>
+                        <div class="stat-header">
+                            <div class="stat-icon">
+                                <mat-icon>category</mat-icon>
+                            </div>
+                            <div class="stat-value">{{ stats.totalCategories }}</div>
+                        </div>
+                        <div class="stat-label">Kategori</div>
+                        <div class="stat-change neutral">Stabil</div>
+                    </mat-card-content>
+                </mat-card>
+
+                <mat-card class="stat-card low-stock-card" [class.has-alert]="stats.lowStockCount > 0">
+                    <mat-card-content>
+                        <div class="stat-header">
+                            <div class="stat-icon">
+                                <mat-icon>warning</mat-icon>
+                            </div>
+                            <div class="stat-value" [matBadge]="stats.lowStockCount"
+                                [matBadgeHidden]="stats.lowStockCount === 0" matBadgeColor="warn">
+                                {{ stats.lowStockCount }}
+                            </div>
+                        </div>
+                        <div class="stat-label">Stok Menipis</div>
+                        <div class="stat-change warning" *ngIf="stats.lowStockCount > 0">Perlu perhatian</div>
+                        <div class="stat-change positive" *ngIf="stats.lowStockCount === 0">Semua aman</div>
+                    </mat-card-content>
+                </mat-card>
+
+                <mat-card class="stat-card value-card">
+                    <mat-card-content>
+                        <div class="stat-header">
+                            <div class="stat-icon">
+                                <mat-icon>attach_money</mat-icon>
+                            </div>
+                            <div class="stat-value">{{ formatCurrency(stats.totalValue) }}</div>
+                        </div>
+                        <div class="stat-label">Nilai Total Inventori</div>
+                        <div class="stat-change positive">+12% bulan ini</div>
+                    </mat-card-content>
+                </mat-card>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions-section">
+            <h2 class="section-title">Aksi Cepat</h2>
+            <div class="actions-grid">
+                <mat-card class="action-card" routerLink="/inventory/products/add">
+                    <mat-card-content>
+                        <div class="action-icon">
+                            <mat-icon>add_box</mat-icon>
+                        </div>
+                        <h3>Tambah Produk</h3>
+                        <p>Tambah produk baru ke inventori</p>
+                        <div class="action-arrow">
+                            <mat-icon>arrow_forward</mat-icon>
+                        </div>
+                    </mat-card-content>
+                </mat-card>
+
+                <mat-card class="action-card" routerLink="/inventory/categories">
+                    <mat-card-content>
+                        <div class="action-icon">
+                            <mat-icon>category</mat-icon>
+                        </div>
+                        <h3>Kelola Kategori</h3>
+                        <p>Atur kategori produk</p>
+                        <div class="action-arrow">
+                            <mat-icon>arrow_forward</mat-icon>
+                        </div>
+                    </mat-card-content>
+                </mat-card>
+
+                <mat-card class="action-card" routerLink="/inventory/stock-adjustment">
+                    <mat-card-content>
+                        <div class="action-icon">
+                            <mat-icon>tune</mat-icon>
+                        </div>
+                        <h3>Sesuaikan Stok</h3>
+                        <p>Penyesuaian stok masuk/keluar</p>
+                        <div class="action-arrow">
+                            <mat-icon>arrow_forward</mat-icon>
+                        </div>
+                    </mat-card-content>
+                </mat-card>
+
+                <mat-card class="action-card" routerLink="/inventory/low-stock">
+                    <mat-card-content>
+                        <div class="action-icon">
+                            <mat-icon>warning</mat-icon>
+                        </div>
+                        <h3>Stok Menipis</h3>
+                        <p>Lihat produk yang perlu restock</p>
+                        <div class="action-arrow">
+                            <mat-icon>arrow_forward</mat-icon>
+                        </div>
+                    </mat-card-content>
+                </mat-card>
+            </div>
+        </div>
+
+        <!-- Low Stock Alert -->
+        <div class="low-stock-section" *ngIf="lowStockProducts.length > 0">
+            <h2 class="section-title">
+                <mat-icon class="warning-icon">warning</mat-icon>
+                Peringatan Stok Menipis
+            </h2>
+            <mat-card class="low-stock-card">
+                <mat-card-content>
+                    <div class="low-stock-list">
+                        <div class="low-stock-item" *ngFor="let product of lowStockProducts.slice(0, 5)">
+                            <div class="product-info">
+                                <h4>{{ product.name }}</h4>
+                                <p class="sku">SKU: {{ product.sku }}</p>
+                                <p class="category">{{ product.categoryName }}</p>
+                            </div>
+                            <div class="stock-info">
+                                <div class="stock-display">
+                                    <span class="current-stock" [class]="getStockStatusClass(product)">
+                                        {{ product.stock }}
+                                    </span>
+                                    <span class="stock-separator">/</span>
+                                    <span class="min-stock">{{ product.minStock }} min</span>
+                                </div>
+                                <div class="stock-status" [class]="getStockStatusClass(product)">
+                                    {{ getStockStatusText(product) }}
+                                </div>
+                            </div>
+                            <div class="product-actions">
+                                <button mat-icon-button color="primary"
+                                    [routerLink]="['/inventory/products/edit', product.id]" matTooltip="Edit Produk">
+                                    <mat-icon>edit</mat-icon>
+                                </button>
+                                <button mat-icon-button color="accent" routerLink="/inventory/stock-adjustment"
+                                    matTooltip="Sesuaikan Stok">
+                                    <mat-icon>add</mat-icon>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="view-all-section" *ngIf="lowStockProducts.length > 5">
+                        <mat-divider></mat-divider>
+                        <div class="view-all-button">
+                            <button mat-button color="primary" routerLink="/inventory/low-stock">
+                                <mat-icon>visibility</mat-icon>
+                                Lihat Semua Produk Stok Menipis ({{ lowStockProducts.length }})
+                            </button>
+                        </div>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+        </div>
+
+        <!-- Recent Activities -->
+        <div class="recent-activities-section">
+            <h2 class="section-title">Aktivitas Terbaru</h2>
+            <mat-card class="activities-card">
+                <mat-card-content>
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <mat-icon>add_box</mat-icon>
+                        </div>
+                        <div class="activity-content">
+                            <h4>Produk "Mie Instan ABC" ditambahkan</h4>
+                            <p>Oleh {{ currentUser.username }} • 2 jam lalu</p>
+                        </div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <mat-icon>tune</mat-icon>
+                        </div>
+                        <div class="activity-content">
+                            <h4>Stok "Beras Premium" disesuaikan +50</h4>
+                            <p>Oleh Admin • 4 jam lalu</p>
+                        </div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <mat-icon>warning</mat-icon>
+                        </div>
+                        <div class="activity-content">
+                            <h4>Peringatan stok menipis untuk 3 produk</h4>
+                            <p>Sistem • 6 jam lalu</p>
+                        </div>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+        </div>
+    </div>
+</div>

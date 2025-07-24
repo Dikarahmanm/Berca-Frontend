@@ -39,12 +39,12 @@ export class UserListComponent implements OnInit {
     { value: -1, label: 'Show All' }
   ];
 
-  // ✅ NEW: Modal states
+  // ✅ FIXED: Modal states with string IDs
   showDeleteModal = false;
-  userToDelete: { id: number; username: string } | null = null;
+  userToDelete: { id: string; username: string } | null = null; // ✅ Changed to string
 
   showRestoreModal = false;
-  userToRestore: { id: number; username: string; role: string } | null = null;
+  userToRestore: { id: string; username: string; role: string } | null = null; // ✅ Changed to string
 
   showRoleChangeModal = false;
   roleChangeData: { 
@@ -269,9 +269,9 @@ export class UserListComponent implements OnInit {
     });
   }
 
-  // ✅ UPDATED: Delete user with permission check first
-  deleteUser(id: number): void {
-    const user = this.users.find(u => u.id === id);
+  // ✅ FIXED: Delete user with string ID parameter
+  deleteUser(id: string): void { // ✅ Changed parameter type to string
+    const user = this.users.find(u => u.id === id); // ✅ Now works with string comparison
     
     // ✅ NEW: Check permission before proceeding
     if (!this.canDeleteUser(user!)) {
@@ -292,7 +292,7 @@ export class UserListComponent implements OnInit {
     
     console.log('🗑️ Deleting user:', this.userToDelete.id);
     
-    this.authService.deleteUser(this.userToDelete.id).subscribe({
+    this.authService.deleteUser(this.userToDelete.id).subscribe({ // ✅ Now uses string ID
       next: (response: any) => {
         console.log('✅ User deleted successfully:', response);
         this.loadUsers(); // Reload active users
@@ -322,7 +322,7 @@ export class UserListComponent implements OnInit {
 
     // Show custom restore modal
     this.userToRestore = { 
-      id: user.id, 
+      id: user.id, // ✅ Already string from User interface
       username: user.username, 
       role: user.role 
     };
@@ -335,7 +335,7 @@ export class UserListComponent implements OnInit {
     
     console.log('🔄 Restoring user:', this.userToRestore);
     
-    this.authService.restoreUser(this.userToRestore.id).subscribe({
+    this.authService.restoreUser(this.userToRestore.id).subscribe({ // ✅ Now uses string ID
       next: (response: any) => {
         console.log('✅ User restored successfully:', response);
         this.loadDeletedUsers();
@@ -370,7 +370,7 @@ export class UserListComponent implements OnInit {
       next: (res: any) => {
         console.log('✅ Users loaded successfully:', res);
         this.users = res.users;
-        this.totalUsers = res.total;
+        this.totalUsers = res.totalUsers || res.total || res.users.length;
         this.loading = false;
       },
       error: (err: any) => {
@@ -395,7 +395,7 @@ export class UserListComponent implements OnInit {
       next: (res: any) => {
         console.log('✅ Deleted users loaded successfully:', res);
         this.deletedUsers = res.users;
-        this.totalUsers = res.total;
+        this.totalUsers = res.totalUsers || res.total || res.users.length;
         this.loading = false;
       },
       error: (err: any) => {

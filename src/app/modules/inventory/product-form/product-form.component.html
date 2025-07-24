@@ -1,0 +1,250 @@
+<app-topbar [pageTitle]="pageTitle" [username]="currentUser.username" [role]="currentUser.role">
+</app-topbar>
+
+<div class="product-form-container">
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" *ngIf="isLoading">
+        <div class="loading-content">
+            <mat-spinner diameter="50"></mat-spinner>
+            <p>{{ isEditMode ? 'Memuat data produk...' : 'Menyimpan produk...' }}</p>
+        </div>
+    </div>
+
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <button mat-icon-button (click)="onCancel()" class="back-button">
+                <mat-icon>arrow_back</mat-icon>
+            </button>
+            <div class="header-text">
+                <h1>{{ pageTitle }}</h1>
+                <p>{{ isEditMode ? 'Perbarui informasi produk' : 'Tambahkan produk baru ke inventori' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Section -->
+    <form [formGroup]="productForm" (ngSubmit)="onSubmit()" class="product-form">
+        <div class="form-layout">
+            <!-- Basic Information -->
+            <mat-card class="form-section">
+                <mat-card-header>
+                    <mat-card-title>
+                        <mat-icon>info</mat-icon>
+                        Informasi Dasar
+                    </mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                    <div class="form-grid">
+                        <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>Nama Produk</mat-label>
+                            <input matInput formControlName="name" placeholder="Masukkan nama produk">
+                            <mat-error *ngIf="nameControl?.hasError('required')">
+                                Nama produk wajib diisi
+                            </mat-error>
+                            <mat-error *ngIf="nameControl?.hasError('minlength')">
+                                Nama produk minimal 2 karakter
+                            </mat-error>
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>Deskripsi</mat-label>
+                            <textarea matInput formControlName="description" rows="3"
+                                placeholder="Deskripsi produk (opsional)"></textarea>
+                        </mat-form-field>
+
+                        <div class="form-row">
+                            <mat-form-field appearance="outline">
+                                <mat-label>SKU</mat-label>
+                                <input matInput formControlName="sku" placeholder="SKU produk">
+                                <button mat-icon-button matSuffix type="button" (click)="generateSku()"
+                                    matTooltip="Generate SKU baru">
+                                    <mat-icon>refresh</mat-icon>
+                                </button>
+                                <mat-error *ngIf="skuControl?.hasError('required')">
+                                    SKU wajib diisi
+                                </mat-error>
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline">
+                                <mat-label>Barcode</mat-label>
+                                <input matInput formControlName="barcode" placeholder="Barcode (opsional)">
+                            </mat-form-field>
+                        </div>
+
+                        <div class="form-row">
+                            <mat-form-field appearance="outline">
+                                <mat-label>Kategori</mat-label>
+                                <mat-select formControlName="categoryId">
+                                    <mat-option value="">Pilih Kategori</mat-option>
+                                    <mat-option *ngFor="let category of categories" [value]="category.id">
+                                        {{ category.name }}
+                                    </mat-option>
+                                </mat-select>
+                                <mat-error *ngIf="categoryControl?.hasError('required')">
+                                    Kategori wajib dipilih
+                                </mat-error>
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline">
+                                <mat-label>Satuan</mat-label>
+                                <mat-select formControlName="unit">
+                                    <mat-option *ngFor="let unit of units" [value]="unit.value">
+                                        {{ unit.label }}
+                                    </mat-option>
+                                </mat-select>
+                                <mat-error *ngIf="unitControl?.hasError('required')">
+                                    Satuan wajib dipilih
+                                </mat-error>
+                            </mat-form-field>
+                        </div>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <!-- Pricing Information -->
+            <mat-card class="form-section">
+                <mat-card-header>
+                    <mat-card-title>
+                        <mat-icon>attach_money</mat-icon>
+                        Informasi Harga
+                    </mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                    <div class="form-grid">
+                        <div class="form-row">
+                            <mat-form-field appearance="outline">
+                                <mat-label>Harga Beli</mat-label>
+                                <input matInput type="number" formControlName="buyPrice" placeholder="0" min="0">
+                                <span matPrefix>Rp&nbsp;</span>
+                                <mat-error *ngIf="buyPriceControl?.hasError('required')">
+                                    Harga beli wajib diisi
+                                </mat-error>
+                                <mat-error *ngIf="buyPriceControl?.hasError('min')">
+                                    Harga beli harus lebih dari 0
+                                </mat-error>
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline">
+                                <mat-label>Harga Jual</mat-label>
+                                <input matInput type="number" formControlName="sellPrice" placeholder="0" min="0">
+                                <span matPrefix>Rp&nbsp;</span>
+                                <mat-error *ngIf="sellPriceControl?.hasError('required')">
+                                    Harga jual wajib diisi
+                                </mat-error>
+                                <mat-error *ngIf="sellPriceControl?.hasError('min')">
+                                    Harga jual harus lebih dari 0
+                                </mat-error>
+                                <mat-error *ngIf="sellPriceControl?.hasError('sellPriceTooLow')">
+                                    Harga jual harus lebih tinggi dari harga beli
+                                </mat-error>
+                            </mat-form-field>
+                        </div>
+
+                        <!-- Profit Calculation -->
+                        <div class="profit-info" *ngIf="buyPriceControl?.value > 0 && sellPriceControl?.value > 0">
+                            <div class="profit-card">
+                                <div class="profit-item">
+                                    <span class="label">Keuntungan per unit:</span>
+                                    <span class="value profit" [class.negative]="calculateProfit() < 0">
+                                        {{ formatCurrency(calculateProfit()) }}
+                                    </span>
+                                </div>
+                                <div class="profit-item">
+                                    <span class="label">Margin keuntungan:</span>
+                                    <span class="value margin" [class.negative]="calculateProfitMargin() < 0">
+                                        {{ calculateProfitMargin().toFixed(1) }}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <!-- Stock Information -->
+            <mat-card class="form-section">
+                <mat-card-header>
+                    <mat-card-title>
+                        <mat-icon>inventory</mat-icon>
+                        Informasi Stok
+                    </mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                    <div class="form-grid">
+                        <div class="form-row">
+                            <mat-form-field appearance="outline">
+                                <mat-label>Stok Awal</mat-label>
+                                <input matInput type="number" formControlName="stock" placeholder="0" min="0">
+                                <mat-error *ngIf="stockControl?.hasError('required')">
+                                    Stok awal wajib diisi
+                                </mat-error>
+                                <mat-error *ngIf="stockControl?.hasError('min')">
+                                    Stok tidak boleh negatif
+                                </mat-error>
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline">
+                                <mat-label>Stok Minimum</mat-label>
+                                <input matInput type="number" formControlName="minStock" placeholder="0" min="0">
+                                <mat-hint>Sistem akan memberi peringatan jika stok mencapai batas ini</mat-hint>
+                                <mat-error *ngIf="minStockControl?.hasError('required')">
+                                    Stok minimum wajib diisi
+                                </mat-error>
+                                <mat-error *ngIf="minStockControl?.hasError('min')">
+                                    Stok minimum tidak boleh negatif
+                                </mat-error>
+                            </mat-form-field>
+                        </div>
+
+                        <!-- Stock Warning -->
+                        <div class="stock-warning"
+                            *ngIf="stockControl?.value <= minStockControl?.value && stockControl?.value >= 0">
+                            <mat-icon>warning</mat-icon>
+                            <span>Stok awal sudah mencapai batas minimum!</span>
+                        </div>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <!-- Settings -->
+            <mat-card class="form-section">
+                <mat-card-header>
+                    <mat-card-title>
+                        <mat-icon>settings</mat-icon>
+                        Pengaturan
+                    </mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                    <div class="settings-row">
+                        <mat-checkbox formControlName="isActive">
+                            <span class="checkbox-label">Produk Aktif</span>
+                            <span class="checkbox-hint">Produk dapat dijual dan muncul di POS</span>
+                        </mat-checkbox>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+            <div class="action-buttons">
+                <button mat-button type="button" (click)="onCancel()" [disabled]="isLoading">
+                    <mat-icon>close</mat-icon>
+                    Batal
+                </button>
+
+                <button mat-button type="button" (click)="onReset()" [disabled]="isLoading">
+                    <mat-icon>refresh</mat-icon>
+                    Reset
+                </button>
+
+                <button mat-raised-button color="primary" type="submit" [disabled]="productForm.invalid || isLoading">
+                    <mat-icon *ngIf="!isLoading">{{ isEditMode ? 'save' : 'add' }}</mat-icon>
+                    <mat-icon *ngIf="isLoading" class="spinning">refresh</mat-icon>
+                    {{ isEditMode ? 'Simpan Perubahan' : 'Tambah Produk' }}
+                </button>
+            </div>
+        </div>
+    </form>
+</div>

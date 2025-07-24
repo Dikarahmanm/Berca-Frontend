@@ -1,0 +1,96 @@
+<app-topbar [pageTitle]="'Manajemen Kategori'" [username]="currentUser.username" [role]="currentUser.role">
+</app-topbar>
+
+<div class="category-management">
+    <!-- Add Category Form -->
+    <mat-card class="add-category-card">
+        <mat-card-header>
+            <mat-card-title>
+                <mat-icon>add</mat-icon>
+                Tambah Kategori Baru
+            </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+            <form [formGroup]="categoryForm" (ngSubmit)="onSubmit()" class="category-form">
+                <div class="form-row">
+                    <mat-form-field appearance="outline" class="name-field">
+                        <mat-label>Nama Kategori</mat-label>
+                        <input matInput formControlName="name" placeholder="Masukkan nama kategori">
+                        <mat-error *ngIf="categoryForm.get('name')?.hasError('required')">
+                            Nama kategori wajib diisi
+                        </mat-error>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="description-field">
+                        <mat-label>Deskripsi</mat-label>
+                        <input matInput formControlName="description" placeholder="Deskripsi kategori (opsional)">
+                    </mat-form-field>
+
+                    <button mat-raised-button color="primary" type="submit"
+                        [disabled]="categoryForm.invalid || isLoading" class="submit-btn">
+                        <mat-icon *ngIf="!isLoading">{{ editingCategory ? 'save' : 'add' }}</mat-icon>
+                        <mat-icon *ngIf="isLoading" class="spinning">refresh</mat-icon>
+                        {{ editingCategory ? 'Update' : 'Tambah' }}
+                    </button>
+
+                    <button mat-button type="button" (click)="cancelEdit()" *ngIf="editingCategory" class="cancel-btn">
+                        <mat-icon>close</mat-icon>
+                        Batal
+                    </button>
+                </div>
+            </form>
+        </mat-card-content>
+    </mat-card>
+
+    <!-- Categories List -->
+    <mat-card class="categories-list-card">
+        <mat-card-header>
+            <mat-card-title>
+                <mat-icon>category</mat-icon>
+                Daftar Kategori ({{ categories.length }})
+            </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+            <div class="categories-grid">
+                <div class="category-item" *ngFor="let category of categories" [class.inactive]="!category.isActive">
+                    <div class="category-header">
+                        <h3>{{ category.name }}</h3>
+                        <div class="category-actions">
+                            <button mat-icon-button (click)="editCategory(category)" matTooltip="Edit">
+                                <mat-icon>edit</mat-icon>
+                            </button>
+                            <button mat-icon-button (click)="toggleCategoryStatus(category)"
+                                [matTooltip]="category.isActive ? 'Nonaktifkan' : 'Aktifkan'">
+                                <mat-icon>{{ category.isActive ? 'visibility_off' : 'visibility' }}</mat-icon>
+                            </button>
+                            <button mat-icon-button (click)="deleteCategory(category)" matTooltip="Hapus" color="warn"
+                                [disabled]="category.productCount > 0">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <p class="category-description" *ngIf="category.description">
+                        {{ category.description }}
+                    </p>
+
+                    <div class="category-stats">
+                        <div class="stat-item">
+                            <mat-icon>inventory_2</mat-icon>
+                            <span>{{ category.productCount }} Produk</span>
+                        </div>
+                        <div class="category-status" [class]="category.isActive ? 'active' : 'inactive'">
+                            {{ category.isActive ? 'Aktif' : 'Nonaktif' }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="empty-state" *ngIf="categories.length === 0">
+                <mat-icon>category</mat-icon>
+                <h3>Belum ada kategori</h3>
+                <p>Tambahkan kategori pertama untuk mengorganisir produk Anda</p>
+            </div>
+        </mat-card-content>
+    </mat-card>
+</div>

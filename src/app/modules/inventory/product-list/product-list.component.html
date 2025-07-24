@@ -1,0 +1,174 @@
+<app-topbar [pageTitle]="'Daftar Produk'" [username]="currentUser.username" [role]="currentUser.role">
+</app-topbar>
+
+<div class="product-list-container">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1>Daftar Produk</h1>
+            <p>Kelola semua produk dalam inventori Anda</p>
+        </div>
+        <div class="header-actions">
+            <button mat-raised-button color="primary" routerLink="/inventory/products/add">
+                <mat-icon>add</mat-icon>
+                Tambah Produk
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <mat-card class="filters-card">
+        <mat-card-content>
+            <form [formGroup]="searchForm" class="search-form">
+                <div class="form-row">
+                    <mat-form-field appearance="outline" class="search-field">
+                        <mat-label>Cari Produk</mat-label>
+                        <input matInput formControlName="search" placeholder="Nama produk, SKU, atau barcode">
+                        <mat-icon matSuffix>search</mat-icon>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="category-field">
+                        <mat-label>Kategori</mat-label>
+                        <mat-select formControlName="categoryId">
+                            <mat-option value="">Semua Kategori</mat-option>
+                            <mat-option *ngFor="let category of categories" [value]="category.id">
+                                {{ category.name }}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <button mat-icon-button type="button" (click)="searchForm.reset()" matTooltip="Reset Filter">
+                        <mat-icon>refresh</mat-icon>
+                    </button>
+                </div>
+            </form>
+        </mat-card-content>
+    </mat-card>
+
+    <!-- Product Table -->
+    <mat-card class="table-card">
+        <mat-card-content>
+            <!-- Loading State -->
+            <div class="loading-container" *ngIf="isLoading">
+                <mat-spinner diameter="40"></mat-spinner>
+                <p>Memuat daftar produk...</p>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container" *ngIf="!isLoading">
+                <table mat-table [dataSource]="dataSource" matSort class="product-table">
+                    <!-- Product Name Column -->
+                    <ng-container matColumnDef="name">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Produk</th>
+                        <td mat-cell *matCellDef="let product">
+                            <div class="product-cell">
+                                <div class="product-main">
+                                    <h4>{{ product.name }}</h4>
+                                    <p *ngIf="product.description">{{ product.description }}</p>
+                                </div>
+                            </div>
+                        </td>
+                    </ng-container>
+
+                    <!-- SKU Column -->
+                    <ng-container matColumnDef="sku">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>SKU</th>
+                        <td mat-cell *matCellDef="let product">
+                            <div class="sku-cell">
+                                <span class="sku-code">{{ product.sku }}</span>
+                                <span class="barcode" *ngIf="product.barcode">{{ product.barcode }}</span>
+                            </div>
+                        </td>
+                    </ng-container>
+
+                    <!-- Category Column -->
+                    <ng-container matColumnDef="category">
+                        <th mat-header-cell *matHeaderCellDef>Kategori</th>
+                        <td mat-cell *matCellDef="let product">
+                            <mat-chip-set>
+                                <mat-chip>{{ product.categoryName }}</mat-chip>
+                            </mat-chip-set>
+                        </td>
+                    </ng-container>
+
+                    <!-- Stock Column -->
+                    <ng-container matColumnDef="stock">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Stok</th>
+                        <td mat-cell *matCellDef="let product">
+                            <div class="stock-cell">
+                                <div class="stock-info">
+                                    <span class="stock-amount" [class]="getStockStatusClass(product)">
+                                        {{ product.stock }} {{ product.unit }}
+                                    </span>
+                                    <span class="min-stock">Min: {{ product.minStock }}</span>
+                                </div>
+                                <div class="stock-status" [class]="getStockStatusClass(product)">
+                                    {{ getStockStatusText(product) }}
+                                </div>
+                            </div>
+                        </td>
+                    </ng-container>
+
+                    <!-- Price Column -->
+                    <ng-container matColumnDef="sellPrice">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Harga Jual</th>
+                        <td mat-cell *matCellDef="let product">
+                            <div class="price-cell">
+                                <span class="sell-price">{{ formatCurrency(product.sellPrice) }}</span>
+                                <span class="buy-price">Beli: {{ formatCurrency(product.buyPrice) }}</span>
+                            </div>
+                        </td>
+                    </ng-container>
+
+                    <!-- Status Column -->
+                    <ng-container matColumnDef="status">
+                        <th mat-header-cell *matHeaderCellDef>Status</th>
+                        <td mat-cell *matCellDef="let product">
+                            <mat-chip-set>
+                                <mat-chip [class]="product.isActive ? 'status-active' : 'status-inactive'">
+                                    {{ product.isActive ? 'Aktif' : 'Nonaktif' }}
+                                </mat-chip>
+                            </mat-chip-set>
+                        </td>
+                    </ng-container>
+
+                    <!-- Actions Column -->
+                    <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef>Aksi</th>
+                        <td mat-cell *matCellDef="let product">
+                            <div class="action-buttons">
+                                <button mat-icon-button [routerLink]="['/inventory/products/edit', product.id]"
+                                    matTooltip="Edit Produk">
+                                    <mat-icon>edit</mat-icon>
+                                </button>
+                                <button mat-icon-button (click)="deleteProduct(product)" matTooltip="Hapus Produk"
+                                    color="warn">
+                                    <mat-icon>delete</mat-icon>
+                                </button>
+                            </div>
+                        </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+                    <!-- No Data Row -->
+                    <tr class="mat-row" *matNoDataRow>
+                        <td class="mat-cell" [attr.colspan]="displayedColumns.length">
+                            <div class="no-data">
+                                <mat-icon>inbox</mat-icon>
+                                <h3>Tidak ada produk ditemukan</h3>
+                                <p>Coba ubah filter pencarian atau tambah produk baru</p>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Paginator -->
+                <mat-paginator [length]="totalItems" [pageSize]="pageSize" [pageSizeOptions]="[5, 10, 25, 50]"
+                    (page)="onPageChange($event)" showFirstLastButtons>
+                </mat-paginator>
+            </div>
+        </mat-card-content>
+    </mat-card>
+</div>

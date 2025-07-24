@@ -1,0 +1,187 @@
+<!-- src/app/pages/home/home.component.html -->
+<app-topbar [username]="currentUser.username" [role]="currentUser.role" [avatarUrl]="currentUser.avatarUrl"
+    [notificationCount]="8" [pageTitle]="'Dashboard'" (logoutClicked)="logout()">
+</app-topbar>
+
+<div class="home-container">
+    <!-- Welcome Section -->
+    <div class="welcome-section">
+        <div class="welcome-content">
+            <h1 class="welcome-title">{{ welcomeMessage }}</h1>
+            <p class="welcome-subtitle">{{ todayDate }} - {{ currentTimeString }}</p>
+            <p class="welcome-description">
+                Selamat datang di sistem Point of Sale Warung Eniwan.
+                Kelola toko Anda dengan mudah dan efisien.
+            </p>
+        </div>
+        <div class="welcome-actions">
+            <button mat-raised-button color="primary" class="primary-action-btn"
+                (click)="navigateToAction({title: 'Kasir/POS', route: '/pos', icon: 'point_of_sale', description: '', color: '', permission: ['Kasir', 'Admin', 'Owner', 'Manager']})"
+                *ngIf="hasPermission(['Kasir', 'Admin', 'Owner', 'Manager'])">
+                <mat-icon>point_of_sale</mat-icon>
+                Mulai Transaksi
+            </button>
+            <button mat-button class="secondary-action-btn" (click)="refreshDashboard()">
+                <mat-icon>refresh</mat-icon>
+                Refresh Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-section">
+        <h2 class="section-title">Statistik Hari Ini</h2>
+        <div class="stats-grid">
+            <mat-card class="stat-card sales-card">
+                <mat-card-content>
+                    <div class="stat-header">
+                        <div class="stat-icon">
+                            <mat-icon>attach_money</mat-icon>
+                        </div>
+                        <div class="stat-trend positive">
+                            <mat-icon>trending_up</mat-icon>
+                            <span>+{{ dashboardStats.weeklyGrowth }}%</span>
+                        </div>
+                    </div>
+                    <div class="stat-content">
+                        <h3 class="stat-value">{{ formatCurrency(dashboardStats.todaySales) }}</h3>
+                        <p class="stat-label">Total Penjualan</p>
+                        <small class="stat-description">Dibandingkan minggu lalu</small>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <mat-card class="stat-card transactions-card">
+                <mat-card-content>
+                    <div class="stat-header">
+                        <div class="stat-icon">
+                            <mat-icon>receipt</mat-icon>
+                        </div>
+                        <div class="stat-trend positive">
+                            <mat-icon>trending_up</mat-icon>
+                            <span>+15</span>
+                        </div>
+                    </div>
+                    <div class="stat-content">
+                        <h3 class="stat-value">{{ dashboardStats.totalTransactions }}</h3>
+                        <p class="stat-label">Transaksi</p>
+                        <small class="stat-description">Transaksi hari ini</small>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <mat-card class="stat-card inventory-card">
+                <mat-card-content>
+                    <div class="stat-header">
+                        <div class="stat-icon">
+                            <mat-icon>inventory</mat-icon>
+                        </div>
+                        <div class="stat-trend warning" *ngIf="dashboardStats.lowStockItems > 0">
+                            <mat-icon>warning</mat-icon>
+                            <span>{{ dashboardStats.lowStockItems }}</span>
+                        </div>
+                    </div>
+                    <div class="stat-content">
+                        <h3 class="stat-value">{{ dashboardStats.lowStockItems }}</h3>
+                        <p class="stat-label">Stok Menipis</p>
+                        <small class="stat-description">Item perlu restok</small>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+            <mat-card class="stat-card users-card">
+                <mat-card-content>
+                    <div class="stat-header">
+                        <div class="stat-icon">
+                            <mat-icon>people</mat-icon>
+                        </div>
+                        <div class="stat-status online">
+                            <span class="status-dot"></span>
+                            <span>Online</span>
+                        </div>
+                    </div>
+                    <div class="stat-content">
+                        <h3 class="stat-value">{{ dashboardStats.activeUsers }}</h3>
+                        <p class="stat-label">Pengguna Aktif</p>
+                        <small class="stat-description">Sedang online</small>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions-section">
+        <h2 class="section-title">Menu Utama</h2>
+        <div class="quick-actions-grid">
+            <mat-card class="quick-action-card" *ngFor="let action of getFilteredQuickActions()"
+                [style.border-left-color]="action.color" (click)="navigateToAction(action)">
+                <mat-card-content>
+                    <div class="action-icon" [style.color]="action.color">
+                        <mat-icon>{{ action.icon }}</mat-icon>
+                    </div>
+                    <div class="action-content">
+                        <h3 class="action-title">{{ action.title }}</h3>
+                        <p class="action-description">{{ action.description }}</p>
+                    </div>
+                    <div class="action-arrow">
+                        <mat-icon>arrow_forward_ios</mat-icon>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+        </div>
+    </div>
+
+    <!-- Recent Activities -->
+    <div class="activities-section">
+        <div class="activities-header">
+            <h2 class="section-title">Aktivitas Terbaru</h2>
+            <button mat-button routerLink="/logs" class="view-all-btn">
+                Lihat Semua
+                <mat-icon>arrow_forward</mat-icon>
+            </button>
+        </div>
+
+        <mat-card class="activities-card">
+            <mat-card-content>
+                <div class="activity-list" *ngIf="recentActivities.length > 0; else noActivities">
+                    <div class="activity-item" *ngFor="let activity of recentActivities.slice(0, 5)">
+                        <div class="activity-icon" [style.color]="getActivityColor(activity.type)">
+                            <mat-icon>{{ getActivityIcon(activity.type) }}</mat-icon>
+                        </div>
+                        <div class="activity-content">
+                            <h4 class="activity-title">{{ activity.title }}</h4>
+                            <p class="activity-description">{{ activity.description }}</p>
+                            <div class="activity-meta">
+                                <span class="activity-user">{{ activity.user }}</span>
+                                <span class="activity-time">{{ activity.time }}</span>
+                                <span class="activity-amount" *ngIf="activity.amount">
+                                    {{ formatCurrency(activity.amount) }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="activity-badge" [style.background-color]="getActivityColor(activity.type)">
+                            <mat-icon>{{ getActivityIcon(activity.type) }}</mat-icon>
+                        </div>
+                    </div>
+                </div>
+
+                <ng-template #noActivities>
+                    <div class="no-activities">
+                        <mat-icon>timeline</mat-icon>
+                        <h3>Belum ada aktivitas</h3>
+                        <p>Aktivitas terbaru akan muncul di sini</p>
+                    </div>
+                </ng-template>
+            </mat-card-content>
+        </mat-card>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" *ngIf="isLoading">
+        <div class="loading-content">
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <p>Memuat data dashboard...</p>
+        </div>
+    </div>
+</div>

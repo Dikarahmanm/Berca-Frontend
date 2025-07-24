@@ -1,0 +1,511 @@
+<!-- src/app/pages/user-profile/user-profile.component.html -->
+<app-topbar [username]="userProfile.username" [role]="userProfile.role" [avatarUrl]="userProfile.photoUrl"
+    [notificationCount]="3" [pageTitle]="'Profil Pengguna'">
+</app-topbar>
+
+<div class="user-profile-container">
+    <!-- Profile Header -->
+    <div class="profile-header">
+        <div class="profile-header-content">
+            <div class="profile-avatar-section">
+                <img [src]="displayPhoto" [alt]="userProfile.fullName + ' photo'" class="profile-avatar-large">
+
+                <button mat-fab class="avatar-upload-btn" (click)="avatarInput.click()" matTooltip="Ubah Foto">
+                    <mat-icon>camera_alt</mat-icon>
+                </button>
+
+                <input #avatarInput type="file" accept="image/*" class="avatar-upload-input"
+                    (change)="onFileSelected($event)">
+            </div>
+
+            <div class="profile-info">
+                <h1 class="profile-name">{{ userProfile.fullName }}</h1>
+                <span class="profile-role" [style.background-color]="getRoleColor()">
+                    {{ userProfile.role }}
+                </span>
+                <div class="profile-meta">
+                    <div class="meta-item">
+                        <mat-icon>email</mat-icon>
+                        <span>{{ userProfile.email }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <mat-icon>phone</mat-icon>
+                        <span>{{ userProfile.phoneNumber }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <mat-icon>work</mat-icon>
+                        <span>{{ userProfile.department }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <button mat-raised-button class="edit-btn" [class.editing]="isEditing" (click)="toggleEdit()">
+                    <mat-icon>{{ isEditing ? 'close' : 'edit' }}</mat-icon>
+                    {{ isEditing ? 'Batal' : 'Edit Profil' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Content -->
+    <div class="profile-content">
+        <mat-tab-group class="profile-tabs" dynamicHeight>
+            <!-- Profile Information Tab -->
+            <mat-tab label="Informasi Profil">
+                <div class="profile-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <mat-icon>work_history</mat-icon>
+                        </div>
+                        <div class="stat-value">{{ yearsOfService }}</div>
+                        <div class="stat-label">Tahun Bekerja</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <mat-icon>calendar_today</mat-icon>
+                        </div>
+                        <div class="stat-value">{{ formattedJoinDate }}</div>
+                        <div class="stat-label">Bergabung</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <mat-icon>access_time</mat-icon>
+                        </div>
+                        <div class="stat-value">{{ formattedLastLogin }}</div>
+                        <div class="stat-label">Login Terakhir</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <mat-icon>verified_user</mat-icon>
+                        </div>
+                        <div class="stat-value">{{ userProfile.isActive ? 'Aktif' : 'Nonaktif' }}</div>
+                        <div class="stat-label">Status</div>
+                    </div>
+                </div>
+
+                <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" class="profile-form">
+                    <div class="form-section">
+                        <h3 class="section-title">Informasi Dasar</h3>
+                        <div class="form-grid two-columns">
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Username</mat-label>
+                                    <input matInput formControlName="username" placeholder="Masukkan username">
+                                    <mat-error *ngIf="profileForm.get('username')?.hasError('required')">
+                                        Username wajib diisi
+                                    </mat-error>
+                                    <mat-error *ngIf="profileForm.get('username')?.hasError('minlength')">
+                                        Username minimal 3 karakter
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Email</mat-label>
+                                    <input matInput type="email" formControlName="email" placeholder="Masukkan email">
+                                    <mat-error *ngIf="profileForm.get('email')?.hasError('required')">
+                                        Email wajib diisi
+                                    </mat-error>
+                                    <mat-error *ngIf="profileForm.get('email')?.hasError('email')">
+                                        Format email tidak valid
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Nama Depan</mat-label>
+                                    <input matInput formControlName="firstName" placeholder="Masukkan nama depan">
+                                    <mat-error *ngIf="profileForm.get('firstName')?.hasError('required')">
+                                        Nama depan wajib diisi
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Nama Belakang</mat-label>
+                                    <input matInput formControlName="lastName" placeholder="Masukkan nama belakang">
+                                    <mat-error *ngIf="profileForm.get('lastName')?.hasError('required')">
+                                        Nama belakang wajib diisi
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Nomor Telepon</mat-label>
+                                    <input matInput type="tel" formControlName="phoneNumber"
+                                        placeholder="Masukkan nomor telepon">
+                                    <mat-error *ngIf="profileForm.get('phoneNumber')?.hasError('required')">
+                                        Nomor telepon wajib diisi
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Jenis Kelamin</mat-label>
+                                    <mat-select formControlName="gender">
+                                        <mat-option value="Laki-laki">Laki-laki</mat-option>
+                                        <mat-option value="Perempuan">Perempuan</mat-option>
+                                    </mat-select>
+                                    <mat-error *ngIf="profileForm.get('gender')?.hasError('required')">
+                                        Jenis kelamin wajib dipilih
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Tanggal Lahir</mat-label>
+                                    <input matInput type="date" formControlName="birthDate">
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Alamat</mat-label>
+                                    <textarea matInput formControlName="address" rows="3"
+                                        placeholder="Masukkan alamat lengkap"></textarea>
+                                </mat-form-field>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3 class="section-title">Informasi Pekerjaan</h3>
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Department</mat-label>
+                                    <mat-select formControlName="department">
+                                        <mat-option *ngFor="let dept of departments" [value]="dept">
+                                            {{ dept }}
+                                        </mat-option>
+                                    </mat-select>
+                                    <mat-error *ngIf="profileForm.get('department')?.hasError('required')">
+                                        Department wajib dipilih
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Jabatan</mat-label>
+                                    <mat-select formControlName="position">
+                                        <mat-option *ngFor="let pos of positions" [value]="pos">
+                                            {{ pos }}
+                                        </mat-option>
+                                    </mat-select>
+                                    <mat-error *ngIf="profileForm.get('position')?.hasError('required')">
+                                        Jabatan wajib dipilih
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-field">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Divisi</mat-label>
+                                    <mat-select formControlName="division">
+                                        <mat-option *ngFor="let div of divisions" [value]="div">
+                                            {{ div }}
+                                        </mat-option>
+                                    </mat-select>
+                                    <mat-error *ngIf="profileForm.get('division')?.hasError('required')">
+                                        Divisi wajib dipilih
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions" *ngIf="isEditing">
+                        <button type="button" mat-button class="cancel-btn" (click)="toggleEdit()">
+                            <mat-icon>close</mat-icon>
+                            Batal
+                        </button>
+                        <button type="submit" mat-raised-button class="save-btn"
+                            [disabled]="profileForm.invalid || isLoading">
+                            <mat-icon *ngIf="!isLoading">save</mat-icon>
+                            <mat-icon *ngIf="isLoading" class="spinning">refresh</mat-icon>
+                            {{ isLoading ? 'Menyimpan...' : 'Simpan Perubahan' }}
+                        </button>
+                    </div>
+                </form>
+            </mat-tab>
+
+            <!-- Password Change Tab -->
+            <mat-tab label="Ubah Password">
+                <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="password-form">
+                    <div class="form-section">
+                        <h3 class="section-title">Keamanan Akun</h3>
+
+                        <div class="password-field">
+                            <mat-form-field appearance="outline">
+                                <mat-label>Password Saat Ini</mat-label>
+                                <input matInput type="password" formControlName="currentPassword"
+                                    placeholder="Masukkan password saat ini">
+                                <mat-error *ngIf="passwordForm.get('currentPassword')?.hasError('required')">
+                                    Password saat ini wajib diisi
+                                </mat-error>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="password-field">
+                            <mat-form-field appearance="outline">
+                                <mat-label>Password Baru</mat-label>
+                                <input matInput type="password" formControlName="newPassword"
+                                    placeholder="Masukkan password baru">
+                                <mat-error *ngIf="passwordForm.get('newPassword')?.hasError('required')">
+                                    Password baru wajib diisi
+                                </mat-error>
+                                <mat-error *ngIf="passwordForm.get('newPassword')?.hasError('minlength')">
+                                    Password minimal 6 karakter
+                                </mat-error>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="password-field">
+                            <mat-form-field appearance="outline">
+                                <mat-label>Konfirmasi Password Baru</mat-label>
+                                <input matInput type="password" formControlName="confirmPassword"
+                                    placeholder="Konfirmasi password baru">
+                                <mat-error *ngIf="passwordForm.get('confirmPassword')?.hasError('required')">
+                                    Konfirmasi password wajib diisi
+                                </mat-error>
+                                <mat-error *ngIf="passwordForm.get('confirmPassword')?.hasError('passwordMismatch')">
+                                    Password tidak cocok
+                                </mat-error>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="password-requirements">
+                            <h4>Persyaratan Password:</h4>
+                            <ul>
+                                <li>
+                                    <mat-icon [class.valid]="passwordForm.get('newPassword')?.value?.length >= 6">
+                                        {{ passwordForm.get('newPassword')?.value?.length >= 6 ? 'check_circle' :
+                                        'radio_button_unchecked' }}
+                                    </mat-icon>
+                                    Minimal 6 karakter
+                                </li>
+                                <li>
+                                    <mat-icon [class.valid]="upperCaseRegex.test(passwordForm.get('newPassword')?.value)">
+                                        {{ upperCaseRegex.test(passwordForm.get('newPassword')?.value) ? 'check_circle' :
+                                        'radio_button_unchecked' }}
+                                    </mat-icon>
+                                    Mengandung huruf besar
+                                </li>
+                                <li>
+                                    <mat-icon [class.valid]="lowerCaseRegex.test(passwordForm.get('newPassword')?.value)">
+                                        {{ lowerCaseRegex.test(passwordForm.get('newPassword')?.value) ? 'check_circle' :
+                                        'radio_button_unchecked' }}
+                                    </mat-icon>
+                                    Mengandung huruf kecil
+                                </li>
+                                <li>
+                                    <mat-icon [class.valid]="numberRegex.test(passwordForm.get('newPassword')?.value)">
+                                        {{ numberRegex.test(passwordForm.get('newPassword')?.value) ? 'check_circle' :
+                                        'radio_button_unchecked' }}
+                                    </mat-icon>
+                                    Mengandung angka
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" mat-button class="cancel-btn" (click)="passwordForm.reset()">
+                            <mat-icon>refresh</mat-icon>
+                            Reset Form
+                        </button>
+                        <button type="submit" mat-raised-button class="save-btn"
+                            [disabled]="passwordForm.invalid || isLoading">
+                            <mat-icon *ngIf="!isLoading">lock</mat-icon>
+                            <mat-icon *ngIf="isLoading" class="spinning">refresh</mat-icon>
+                            {{ isLoading ? 'Mengubah...' : 'Ubah Password' }}
+                        </button>
+                    </div>
+                </form>
+            </mat-tab>
+
+            <!-- Activity History Tab -->
+            <mat-tab label="Riwayat Aktivitas">
+                <div class="activity-history">
+                    <div class="form-section">
+                        <h3 class="section-title">Aktivitas Terbaru</h3>
+
+                        <div class="activity-list">
+                            <div class="activity-item" *ngFor="let activity of recentActivities">
+                                <div class="activity-icon" [style.color]="getActivityColor(activity.type)">
+                                    <mat-icon>{{ getActivityIcon(activity.type) }}</mat-icon>
+                                </div>
+                                <div class="activity-content">
+                                    <h4 class="activity-title">{{ activity.title }}</h4>
+                                    <p class="activity-description">{{ activity.description }}</p>
+                                    <div class="activity-meta">
+                                        <span class="activity-time">{{ activity.time }}</span>
+                                        <span class="activity-amount" *ngIf="activity.amount">
+                                            {{ formatCurrency(activity.amount) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="activity-badge" [style.background-color]="getActivityColor(activity.type)">
+                                    <mat-icon>{{ getActivityIcon(activity.type) }}</mat-icon>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="load-more-section" style="text-align: center; margin-top: 24px;">
+                            <button mat-button color="primary">
+                                <mat-icon>expand_more</mat-icon>
+                                Muat Lebih Banyak
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </mat-tab>
+        </mat-tab-group>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" *ngIf="isLoading">
+        <div class="loading-content">
+            <mat-progress-spinner diameter="40" mode="indeterminate"></mat-progress-spinner>
+            <p>Memproses data...</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .activity-history {
+        .activity-list {
+            .activity-item {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding: 16px;
+                border: 1px solid #f0f0f0;
+                border-radius: 12px;
+                margin-bottom: 12px;
+                transition: all 0.2s ease;
+
+                &:hover {
+                    background: #f8f9fa;
+                    transform: translateX(4px);
+                }
+
+                .activity-icon {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 10px;
+                    background: rgba(0, 0, 0, 0.05);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                }
+
+                .activity-content {
+                    flex: 1;
+
+                    .activity-title {
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: #2c3e50;
+                        margin: 0 0 4px 0;
+                    }
+
+                    .activity-description {
+                        font-size: 13px;
+                        color: #7f8c8d;
+                        margin: 0 0 8px 0;
+                        line-height: 1.4;
+                    }
+
+                    .activity-meta {
+                        display: flex;
+                        gap: 12px;
+                        font-size: 12px;
+
+                        .activity-time {
+                            color: #95a5a6;
+                        }
+
+                        .activity-amount {
+                            color: #27ae60;
+                            font-weight: 600;
+                            background: rgba(39, 174, 96, 0.1);
+                            padding: 2px 8px;
+                            border-radius: 8px;
+                        }
+                    }
+                }
+
+                .activity-badge {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    flex-shrink: 0;
+
+                    mat-icon {
+                        font-size: 14px;
+                        width: 14px;
+                        height: 14px;
+                    }
+                }
+            }
+        }
+    }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+
+        .loading-content {
+            text-align: center;
+            padding: 30px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+
+            p {
+                margin-top: 16px;
+                color: #7f8c8d;
+                font-weight: 500;
+            }
+        }
+    }
+
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .spinning {
+        animation: spin 1s linear infinite;
+    }
+</style>

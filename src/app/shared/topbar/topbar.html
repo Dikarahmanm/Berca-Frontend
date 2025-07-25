@@ -56,18 +56,37 @@
                 </div>
             </div>
 
-            <!-- ✅ DROPDOWN WITHOUT ANIMATION BINDING -->
-            <div *ngIf="dropdownOpen" class="dropdown-menu glass-dropdown">
+            <div class="dropdown-menu" *ngIf="dropdownOpen">
                 <div class="dropdown-header">
                     <div class="dropdown-avatar">
-                        <img [src]="avatarUrl" alt="Avatar">
+                        <img [src]="avatarUrl" alt="User avatar" (error)="onAvatarError($event)">
                     </div>
                     <div class="dropdown-user-info">
                         <span class="dropdown-username">{{ username }}</span>
-                        <span class="dropdown-role">{{ roleDisplayName }}</span>
-                        <span class="dropdown-status">• Online</span>
+                        <span class="dropdown-role" [style.color]="getRoleColor()">{{ roleDisplayName }}</span>
+                        <span class="dropdown-status">● Online</span>
                     </div>
                 </div>
+            
+                <div class="dropdown-body">
+                    <!-- Profile Section -->
+                    <div class="dropdown-section">
+                        <h4 class="section-title">Akun</h4>
+                        <!-- ✅ UPDATE: Use routerLink instead of href -->
+                        <a routerLink="/profile" class="dropdown-item" (click)="onProfileClick()">
+                            <svg class="dropdown-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path
+                                    d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                            </svg>
+                            <div class="item-content">
+                                <span class="item-label">Profil Saya</span>
+                                <span class="item-description">Kelola informasi pribadi</span>
+                            </div>
+                            <svg class="arrow-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+                            </svg>
+                        </a>
+                    </div>
 
                 <div class="dropdown-divider"></div>
 
@@ -90,6 +109,7 @@
             </div>
         </div>
     </div>
+</div>
 
     <!-- Floating Background Elements -->
     <div class="floating-elements">

@@ -1,24 +1,38 @@
-// Simple & Elegant Topbar SCSS - Matching Dashboard Design
-.topbar {
-  position: relative;
-  width: 100%;
-  height: 70px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+// src/app/shared/topbar/topbar.scss - CLEAN VERSION
 
+// Toko Eniwan Color Variables
+:root {
+  --clr-primary: #FF914D;           // Orange utama
+  --clr-primary-dark: #E07A3B;      // Orange gelap
+  --clr-primary-light: #FFD3B3;     // Orange terang
+  --clr-accent: #4BBF7B;            // Hijau sukses
+  --clr-warning: #FFB84D;           // Warning kuning
+  --clr-error: #E15A4F;             // Error merah
+  --clr-surface: rgba(255, 255, 255, 0.25);  // Glass surface
+  --clr-bg-base: #FDF9F6;           // Background utama
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  height: 70px; // Fixed height sesuai dashboard
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255, 145, 77, 0.15) !important;
+  box-shadow: 0 4px 20px rgba(255, 145, 77, 0.1) !important;
+  
   .topbar-content {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     height: 100%;
-    padding: 0 32px;
+    padding: 0 32px; // Fixed padding
+    max-width: none; // Remove max-width constraint
   }
 }
 
-// Left Section - Page Title
+// Left Section
 .left-section {
   .page-title-wrapper {
     .page-title {
@@ -26,20 +40,29 @@
       font-weight: 800;
       color: #1e293b;
       letter-spacing: -0.025em;
-      background: linear-gradient(135deg, #1e293b, #667eea);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      background: linear-gradient(135deg, var(--clr-primary-dark), var(--clr-primary)) !important;
+      -webkit-background-clip: text !important;
+      -webkit-text-fill-color: black !important;
+      background-clip: text !important;
+      margin: 0;
+    }
+    
+    // Hide particles yang tidak perlu
+    .title-particles {
+      display: none;
     }
   }
 }
 
-// Right Section
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
 .right-section {
   display: flex;
   align-items: center;
-  gap: 20px;
-  position: relative;
+  gap: 20px; // Consistent spacing
 }
 
 // Notification Bell
@@ -59,10 +82,6 @@
       border-color: rgba(255, 255, 255, 0.3);
       transform: translateY(-2px);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-    }
-
-    &:active {
-      transform: translateY(0);
     }
 
     .bell-icon {
@@ -94,11 +113,11 @@
 // Divider
 .modern-divider {
   width: 1px;
-  height: 30px;
+  height: 24px;
   background: linear-gradient(
     to bottom,
     transparent,
-    rgba(255, 255, 255, 0.3),
+    rgba(255, 145, 77, 0.3),
     transparent
   );
 }
@@ -109,23 +128,24 @@
   align-items: center;
   gap: 12px;
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 145, 77, 0.1) !important;
+  border: 1px solid rgba(255, 145, 77, 0.2) !important;
   backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 145, 77, 0.15) !important;
+    border-color: rgba(255, 145, 77, 0.3) !important;
+    box-shadow: 0 8px 24px rgba(255, 145, 77, 0.15) !important;
     transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
   }
 
   &.active {
-    background: rgba(255, 255, 255, 0.3);
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    background: rgba(255, 145, 77, 0.2) !important;
+    border-color: rgba(255, 145, 77, 0.4) !important;
+    box-shadow: 0 12px 32px rgba(255, 145, 77, 0.2) !important;
     transform: translateY(-3px);
     box-shadow: 
       0 15px 40px rgba(102, 126, 234, 0.2),
@@ -139,7 +159,7 @@
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #667eea, #764ba2);
+      background: linear-gradient(135deg, #FF914D, #E07A3B);
       padding: 2px;
       
       .avatar {
@@ -201,28 +221,36 @@
   }
 }
 
+@keyframes pulse-status {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 // Dropdown Menu
+// DROPDOWN MENU - Orange Theme Fix (Ganti yang ada)
+
 .dropdown-menu {
   position: absolute;
   top: calc(100% + 12px);
   right: 0;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 145, 77, 0.2); // Orange border
   border-radius: 20px;
   min-width: 280px;
   padding: 0;
   z-index: 1001;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(255, 145, 77, 0.15); // Orange shadow
   overflow: hidden;
+  animation: dropdown-appear 0.2s ease-out;
 
   .dropdown-header {
     padding: 20px;
     background: linear-gradient(135deg, 
-      rgba(255, 255, 255, 0.1), 
-      rgba(255, 255, 255, 0.05)
-    );
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      rgba(255, 145, 77, 0.08), 
+      rgba(255, 145, 77, 0.04)
+    ); // Orange gradient background
+    border-bottom: 1px solid rgba(255, 145, 77, 0.1); // Orange divider
     display: flex;
     align-items: center;
     gap: 12px;
@@ -231,7 +259,7 @@
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #667eea, #764ba2);
+      background: linear-gradient(135deg, #FF914D, #E07A3B); // Orange gradient
       padding: 2px;
 
       img {
@@ -239,7 +267,7 @@
         height: 100%;
         border-radius: 50%;
         object-fit: cover;
-        border: 2px solid rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 145, 77, 0.2); // Orange border
       }
     }
 
@@ -251,24 +279,122 @@
       .dropdown-username {
         font-weight: 700;
         font-size: 1rem;
-        color: #1e293b;
+        color: #E07A3B; // Orange dark text
       }
 
       .dropdown-role {
         font-size: 0.8rem;
         font-weight: 600;
-        color: #64748b;
+        color: rgba(224, 122, 59, 0.7); // Orange muted
         text-transform: uppercase;
         letter-spacing: 0.5px;
       }
 
       .dropdown-status {
         font-size: 0.7rem;
-        color: #10b981;
+        color: #4BBF7B; // Green accent
         font-weight: 600;
         display: flex;
         align-items: center;
         gap: 4px;
+
+        &::before {
+          content: '●';
+          color: #4BBF7B;
+          font-size: 0.6rem;
+        }
+      }
+    }
+  }
+
+  .dropdown-body {
+    padding: 0;
+
+    .dropdown-section {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 145, 77, 0.08); // Orange divider
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .section-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: rgba(224, 122, 59, 0.6); // Orange muted
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0 0 8px 0;
+        padding: 0 20px;
+      }
+
+      .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 12px 20px;
+        text-decoration: none;
+        color: #E07A3B; // Orange dark
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+        background: none;
+        cursor: pointer;
+        text-align: left;
+        font-size: 0.875rem;
+        font-weight: 600;
+
+        &:hover {
+          background: rgba(255, 145, 77, 0.08); // Orange hover
+          color: #E07A3B;
+          transform: translateX(4px);
+
+          .dropdown-icon {
+            color: #FF914D; // Orange primary
+            transform: scale(1.05);
+          }
+
+          .arrow-icon {
+            transform: translateX(2px);
+            color: #FF914D;
+          }
+        }
+
+        .dropdown-icon {
+          width: 18px;
+          height: 18px;
+          color: rgba(224, 122, 59, 0.6); // Orange muted
+          transition: all 0.3s ease;
+          flex-shrink: 0;
+        }
+
+        .item-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+
+          .item-label {
+            font-weight: 600;
+            font-size: 0.875rem;
+            line-height: 1.2;
+            color: #E07A3B; // Orange dark
+          }
+
+          .item-description {
+            font-size: 0.75rem;
+            color: rgba(224, 122, 59, 0.6); // Orange muted
+            line-height: 1.2;
+          }
+        }
+
+        .arrow-icon {
+          width: 16px;
+          height: 16px;
+          color: rgba(224, 122, 59, 0.4); // Orange light
+          transition: all 0.3s ease;
+          flex-shrink: 0;
+        }
       }
     }
   }
@@ -278,7 +404,7 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(0, 0, 0, 0.08),
+      rgba(255, 145, 77, 0.08), // Orange divider
       transparent
     );
     margin: 0;
@@ -305,9 +431,13 @@
       font-weight: 600;
 
       &:hover:not(:disabled) {
-        background: rgba(102, 126, 234, 0.1);
-        color: #1e293b;
+        background: rgba(255, 145, 77, 0.1); // Orange hover
+        color: #E07A3B; // Orange dark
         transform: translateX(4px);
+
+        .dropdown-icon {
+          color: #FF914D; // Orange primary
+        }
       }
 
       &:disabled {
@@ -320,15 +450,24 @@
         height: 18px;
         opacity: 0.8;
         flex-shrink: 0;
+        color: rgba(224, 122, 59, 0.6); // Orange muted
       }
 
       &.logout-item {
-        color: #ef4444;
+        color: #E15A4F; // Error red
         margin-top: 8px;
 
         &:hover:not(:disabled) {
-          background: rgba(239, 68, 68, 0.1);
-          color: #dc2626;
+          background: rgba(225, 90, 79, 0.1); // Error red hover
+          color: #c53030;
+
+          .dropdown-icon {
+            color: #E15A4F;
+          }
+        }
+
+        .dropdown-icon {
+          color: #E15A4F;
         }
       }
 
@@ -336,6 +475,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        color: inherit;
 
         .loading-spinner {
           position: relative;
@@ -345,8 +485,8 @@
           .spinner-ring {
             width: 16px;
             height: 16px;
-            border: 2px solid rgba(239, 68, 68, 0.3);
-            border-top: 2px solid #ef4444;
+            border: 2px solid rgba(225, 90, 79, 0.3);
+            border-top: 2px solid #E15A4F;
             border-radius: 50%;
             animation: spin 1s linear infinite;
           }
@@ -356,38 +496,115 @@
   }
 }
 
+// Animation untuk dropdown
+@keyframes dropdown-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
-// Simple shake animation for bell
+// Responsive untuk dropdown
+@media (max-width: 768px) {
+  .dropdown-menu {
+    min-width: 260px;
+    right: -8px;
+    
+    .dropdown-header {
+      padding: 16px;
+      
+      .dropdown-avatar {
+        width: 40px;
+        height: 40px;
+      }
+      
+      .dropdown-user-info {
+        .dropdown-username {
+          font-size: 0.9rem;
+        }
+        
+        .dropdown-role {
+          font-size: 0.75rem;
+        }
+      }
+    }
+    
+    .dropdown-actions {
+      padding: 10px;
+      
+      .dropdown-item {
+        padding: 10px 14px;
+        font-size: 0.8rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .dropdown-menu {
+    min-width: 240px;
+    right: -12px;
+    
+    .dropdown-header {
+      padding: 14px;
+    }
+    
+    .dropdown-body .dropdown-section .dropdown-item {
+      padding: 10px 16px;
+      font-size: 0.8rem;
+      
+      .dropdown-icon {
+        width: 16px;
+        height: 16px;
+      }
+    }
+  }
+}
+
+@keyframes dropdown-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Shake Animation untuk Notification
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
 }
 
 .shake-animation {
-  animation: shake 0.6s ease;
+  animation: shake 0.5s ease;
 }
 
 // Responsive Design
 @media (max-width: 1024px) {
-  .topbar {
-    height: 65px;
-    
-    .topbar-content {
-      padding: 0 24px;
-    }
-    
-    .left-section .page-title-wrapper .page-title {
-      font-size: 1.25rem;
-    }
-    
-    .right-section {
-      gap: 16px;
-    }
+  .topbar .topbar-content {
+    padding: 0 24px;
+  }
+  
+  .left-section .page-title-wrapper .page-title {
+    font-size: 1.25rem;
   }
 }
 
@@ -398,45 +615,31 @@
     .topbar-content {
       padding: 0 16px;
     }
+  }
+  
+  .left-section .page-title-wrapper .page-title {
+    font-size: 1.1rem;
+  }
+  
+  .right-section {
+    gap: 12px;
+  }
+  
+  .profile-wrapper {
+    padding: 6px 12px;
     
-    .left-section .page-title-wrapper .page-title {
-      font-size: 1.1rem;
+    .avatar-container .avatar-ring {
+      width: 36px;
+      height: 36px;
     }
     
-    .right-section {
-      gap: 12px;
-    }
-    
-    .profile-wrapper {
-      padding: 6px 12px;
-      
-      .avatar-container .avatar-ring {
-        width: 36px;
-        height: 36px;
+    .user-info {
+      .username {
+        font-size: 0.85rem;
       }
       
-      .user-info {
-        .username {
-          font-size: 0.85rem;
-        }
-        
-        .role {
-          font-size: 0.7rem;
-        }
-      }
-    }
-    
-    .dropdown-menu {
-      min-width: 240px;
-      right: -8px;
-      
-      .dropdown-header {
-        padding: 16px;
-        
-        .dropdown-avatar {
-          width: 40px;
-          height: 40px;
-        }
+      .role {
+        font-size: 0.7rem;
       }
     }
   }
@@ -449,39 +652,57 @@
     .topbar-content {
       padding: 0 12px;
     }
+  }
+  
+  .left-section .page-title-wrapper .page-title {
+    font-size: 1rem;
+  }
+  
+  .right-section {
+    gap: 8px;
+  }
+  
+  .profile-wrapper {
+    padding: 4px 8px;
     
-    .left-section .page-title-wrapper .page-title {
-      font-size: 1rem;
+    .avatar-container .avatar-ring {
+      width: 32px;
+      height: 32px;
     }
     
-    .right-section {
-      gap: 8px;
+    .user-info {
+      display: none; // Hide on mobile
     }
     
-    .profile-wrapper {
-      padding: 4px 8px;
-      
-      .avatar-container .avatar-ring {
-        width: 32px;
-        height: 32px;
-      }
-      
-      .user-info {
-        display: none;
-      }
-      
-      .dropdown-arrow-container {
-        display: none;
-      }
+    .dropdown-arrow-container {
+      display: none; // Hide on mobile
     }
-    
-    .dropdown-menu {
-      min-width: 200px;
-      right: -12px;
-    }
-    
-    .modern-divider {
-      display: none;
-    }
+  }
+  
+  .modern-divider {
+    display: none; // Hide on mobile
+  }
+}
+
+// Focus Styles
+.glass-button:focus-visible,
+.profile-wrapper:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+}
+
+// High Contrast Support
+@media (prefers-contrast: high) {
+  .topbar {
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom: 2px solid var(--clr-primary);
+  }
+  
+  .profile-wrapper {
+    border: 2px solid var(--clr-primary);
+  }
+  
+  .dropdown-menu {
+    border: 2px solid var(--clr-primary);
   }
 }

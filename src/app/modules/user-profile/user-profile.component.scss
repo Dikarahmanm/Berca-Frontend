@@ -1,0 +1,1281 @@
+// src/app/modules/user-profile/user-profile.component.scss
+// Orange Modern Color Palette - Toko Eniwan (Fixed & Optimized)
+
+:root {
+  --clr-primary: #FF914D;           // Orange utama
+  --clr-primary-dark: #E07A3B;      // Orange gelap
+  --clr-primary-light: #FFD3B3;     // Orange terang
+  --clr-accent: #4BBF7B;            // Hijau sukses
+  --clr-warning: #FFB84D;           // Warning kuning
+  --clr-error: #E15A4F;             // Error merah
+  --clr-surface: rgba(255, 255, 255, 0.25);  // Glass surface
+  --clr-bg-base: #FDF9F6;           // Background utama
+  --transition-smooth: all 120ms ease-out;   // Smooth transition
+  --shadow-base: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.profile-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, 
+    var(--clr-bg-base) 0%, 
+    rgba(255, 145, 77, 0.03) 30%,
+    rgba(255, 145, 77, 0.05) 70%, 
+    var(--clr-bg-base) 100%);
+  padding: 1.5rem;
+  
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 0.75rem;
+  }
+}
+
+// Header Section - Fixed spacing and alignment
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--clr-surface);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 145, 77, 0.2);
+    border-radius: 12px;
+    color: var(--clr-primary-dark);
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: var(--transition-smooth);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    
+    .back-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    
+    &:hover:not(:disabled) {
+      background: rgba(255, 145, 77, 0.15);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-hover);
+      border-color: rgba(255, 145, 77, 0.4);
+    }
+    
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+  
+  .header-content {
+    flex: 1;
+    
+    .page-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: clamp(1.25rem, 4vw, 2rem);
+      font-weight: 700;
+      color: var(--clr-primary-dark);
+      margin: 0 0 0.25rem 0;
+      
+      .title-icon {
+        width: clamp(24px, 6vw, 32px);
+        height: clamp(24px, 6vw, 32px);
+        color: var(--clr-primary);
+        flex-shrink: 0;
+      }
+    }
+    
+    .page-subtitle {
+      color: rgba(224, 122, 59, 0.7);
+      margin: 0;
+      font-weight: 500;
+      font-size: clamp(0.875rem, 3vw, 1rem);
+    }
+  }
+}
+
+// Loading State
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+  
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 145, 77, 0.2);
+    border-top: 3px solid var(--clr-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    color: var(--clr-primary-dark);
+    font-weight: 500;
+    margin: 0;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Alert Messages - Improved visibility
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+  animation: slideIn 0.3s ease-out;
+  line-height: 1.5;
+  
+  .alert-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  
+  &.alert-success {
+    background: rgba(75, 191, 123, 0.15);
+    border: 1px solid rgba(75, 191, 123, 0.3);
+    color: #2d7a3e;
+  }
+  
+  &.alert-error {
+    background: rgba(225, 90, 79, 0.15);
+    border: 1px solid rgba(225, 90, 79, 0.3);
+    color: #c53030;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Glass Card Base - Improved contrast
+.glass-card {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: var(--shadow-base);
+  transition: var(--transition-smooth);
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, 
+      rgba(255, 145, 77, 0.1), 
+      transparent, 
+      rgba(255, 145, 77, 0.05));
+    mask: linear-gradient(#fff 0 0) content-box, 
+          linear-gradient(#fff 0 0);
+    mask-composite: xor;
+    pointer-events: none;
+  }
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+    border-color: rgba(255, 145, 77, 0.2);
+  }
+  
+  @media (max-width: 768px) {
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 1.25rem;
+    border-radius: 14px;
+  }
+}
+
+// Profile Grid Layout - Responsive improvements
+.profile-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 350px) 1fr;
+  gap: 2rem;
+  align-items: start;
+  
+  @media (max-width: 1200px) {
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+  }
+  
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  @media (max-width: 480px) {
+    gap: 1rem;
+  }
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--clr-primary-dark);
+  margin: 0 0 1.5rem 0;
+  
+  .section-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--clr-primary);
+    flex-shrink: 0;
+  }
+  
+  &::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(to right, 
+      rgba(255, 145, 77, 0.3), 
+      transparent);
+    margin-left: 1rem;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1.125rem;
+    
+    .section-icon {
+      width: 22px;
+      height: 22px;
+    }
+  }
+}
+
+// Photo Section - FIXED avatar overlay and button visibility
+.photo-section {
+  .avatar-section {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    
+    .avatar-container {
+      position: relative;
+      display: inline-block;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: var(--transition-smooth);
+      
+      .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 4px solid rgba(255, 145, 77, 0.2);
+        transition: var(--transition-smooth);
+        display: block;
+      }
+      
+      // FIXED: Avatar overlay with better contrast and visibility
+      .avatar-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 128px;
+        height: 128px;
+        background: linear-gradient(135deg, 
+          rgba(255, 145, 77, 0.92), 
+          rgba(224, 122, 59, 0.95));
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: var(--transition-smooth);
+        color: white;
+        font-weight: 600;
+        font-size: 0.875rem;
+        text-align: center;
+        padding: 1rem;
+        backdrop-filter: blur(2px);
+        
+        .camera-icon {
+          width: 28px;
+          height: 28px;
+          margin-bottom: 6px;
+          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+        }
+        
+        span {
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+          margin-bottom: 2px;
+        }
+        
+        small {
+          font-size: 0.75rem;
+          opacity: 0.95;
+          font-weight: 500;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+      }
+      
+      &:hover {
+        //transform: scale(1.02);
+        
+        .profile-avatar {
+          border-color: rgba(255, 145, 77, 0.4);
+        }
+        
+        .avatar-overlay {
+          opacity: 1;
+        }
+      }
+      
+      @media (max-width: 480px) {
+        .profile-avatar {
+          width: 100px;
+          height: 100px;
+        }
+        
+        .avatar-overlay {
+          .camera-icon {
+            width: 24px;
+            height: 24px;
+          }
+          
+          span {
+            font-size: 0.8rem;
+          }
+          
+          small {
+            font-size: 0.7rem;
+          }
+        }
+      }
+    }
+  }
+  
+  // FIXED: Photo actions with better button styling
+  .photo-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    
+    @media (max-width: 480px) {
+      gap: 0.5rem;
+    }
+  }
+  
+  .photo-info {
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: rgba(224, 122, 59, 0.7);
+      margin-bottom: 0.5rem;
+      
+      .info-icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        color: var(--clr-primary);
+      }
+      
+      @media (max-width: 480px) {
+        font-size: 0.8rem;
+        
+        .info-icon {
+          width: 14px;
+          height: 14px;
+        }
+      }
+    }
+  }
+}
+
+// Form Section - FIXED form field sizing and overlap issues
+.profile-form {
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    
+    @media (max-width: 480px) {
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+  }
+  
+  .form-group {
+    margin-bottom: 1.5rem;
+    
+    @media (max-width: 480px) {
+      margin-bottom: 1rem;
+    }
+    
+    .form-label {
+      display: block;
+      font-weight: 600;
+      color: var(--clr-primary-dark);
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      
+      &.required::after {
+        content: ' *';
+        color: var(--clr-error);
+      }
+      
+      @media (max-width: 480px) {
+        font-size: 0.8rem;
+        margin-bottom: 0.375rem;
+      }
+    }
+    
+    // FIXED: Form inputs with better sizing and no overlap
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      max-width: 100%;
+      padding: 0.75rem 1rem;
+      border: 2px solid rgba(255, 145, 77, 0.2);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(10px);
+      transition: var(--transition-smooth);
+      font-size: 0.875rem;
+      font-family: inherit;
+      line-height: 1.4;
+      box-sizing: border-box;
+       color: #1e293b !important;
+      &:focus {
+        outline: none;
+        border-color: var(--clr-primary);
+        box-shadow: 0 0 0 3px rgba(255, 145, 77, 0.1);
+        background: rgba(255, 255, 255, 0.95);
+      }
+      
+      &.error {
+        border-color: var(--clr-error);
+        background: rgba(225, 90, 79, 0.05);
+      }
+      
+      &::placeholder {
+        color: rgba(224, 122, 59, 0.5);
+      }
+      
+      @media (max-width: 480px) {
+        padding: 0.625rem 0.875rem;
+        font-size: 0.8rem;
+        border-radius: 10px;
+      }
+    }
+    
+    .form-textarea {
+      resize: vertical;
+      min-height: 100px;
+      font-family: inherit;
+      
+      @media (max-width: 480px) {
+        min-height: 80px;
+      }
+    }
+    
+    .error-message {
+      display: block;
+      color: var(--clr-error);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      font-weight: 500;
+      
+      @media (max-width: 480px) {
+        font-size: 0.7rem;
+      }
+    }
+    
+    .char-counter {
+      text-align: right;
+      margin-top: 0.25rem;
+      
+      span {
+        font-size: 0.75rem;
+        color: rgba(224, 122, 59, 0.6);
+        
+        &.warning {
+          color: var(--clr-warning);
+          font-weight: 600;
+        }
+        
+        @media (max-width: 480px) {
+          font-size: 0.7rem;
+        }
+      }
+    }
+  }
+}
+
+// User Info Display
+.user-info-display {
+  background: rgba(255, 145, 77, 0.05);
+  border: 1px solid rgba(255, 145, 77, 0.15);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 2rem;
+  
+  @media (max-width: 480px) {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: 10px;
+  }
+  
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+    
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      
+      .info-label {
+        font-weight: 600;
+        color: rgba(224, 122, 59, 0.7);
+        font-size: 0.875rem;
+        flex-shrink: 0;
+        
+        @media (max-width: 480px) {
+          font-size: 0.8rem;
+        }
+      }
+      
+      .info-value {
+        font-weight: 500;
+        color: var(--clr-primary-dark);
+        text-align: right;
+        
+        &.role-badge {
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+          font-size: 0.75rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          
+          &[data-role="Admin"] {
+            background: rgba(225, 90, 79, 0.15);
+            color: #c53030;
+          }
+          
+          &[data-role="Manager"] {
+            background: rgba(75, 191, 123, 0.15);
+            color: #2d7a3e;
+          }
+          
+          &[data-role="User"] {
+            background: rgba(255, 145, 77, 0.15);
+            color: var(--clr-primary-dark);
+          }
+          
+          @media (max-width: 480px) {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.6rem;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          font-size: 0.8rem;
+        }
+      }
+    }
+  }
+}
+
+// FIXED: Button styling with better text visibility and spacing
+.primary-button,
+.upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, var(--clr-primary), var(--clr-primary-dark));
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: var(--transition-smooth);
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(255, 145, 77, 0.3);
+  text-decoration: none;
+  white-space: nowrap;
+  min-height: 44px; // Ensures proper touch target
+  
+  .btn-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 145, 77, 0.4);
+    background: linear-gradient(135deg, 
+      var(--clr-primary-dark), 
+      #d06929);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 8px rgba(255, 145, 77, 0.2);
+  }
+  
+  @media (max-width: 480px) {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.8rem;
+    border-radius: 10px;
+    
+    .btn-icon {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+// FIXED: Danger button with better text visibility
+.danger-button,
+.delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, var(--clr-error), #c53030);
+  color: black;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: var(--transition-smooth);
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(225, 90, 79, 0.3);
+  text-decoration: none;
+  white-space: nowrap;
+  min-height: 44px;
+  
+  .btn-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(225, 90, 79, 0.4);
+    background: linear-gradient(135deg, #c53030, #b91c1c);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 8px rgba(225, 90, 79, 0.2);
+  }
+  
+  @media (max-width: 480px) {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.8rem;
+    border-radius: 10px;
+    
+    .btn-icon {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+.cancel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--clr-primary-dark);
+  border: 2px solid rgba(255, 145, 77, 0.2);
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: var(--transition-smooth);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  min-height: 44px;
+  
+  .btn-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  
+  &:hover:not(:disabled) {
+    background: rgba(255, 145, 77, 0.1);
+    border-color: var(--clr-primary);
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.8rem;
+    border-radius: 10px;
+    
+    .btn-icon {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+// Custom Save Button Styles - Tambahkan ke user-profile.component.scss
+
+.save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  
+  // Orange gradient background
+  background: linear-gradient(135deg, #FF914D, #E07A3B);
+  color: white;
+  border: none;
+  padding: 0.875rem 1.75rem;
+  border-radius: 12px;
+  
+  // Typography
+  font-weight: 700;
+  font-size: 0.875rem;
+  font-family: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  
+  // Layout
+  min-height: 48px;
+  min-width: auto;
+  box-sizing: border-box;
+  
+  // Effects
+  transition: all 120ms ease-out;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255, 145, 77, 0.3);
+  
+  // Icon styling
+  .btn-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: white;
+  }
+  
+  // Text styling
+  span {
+    color: white !important;
+    font-weight: 700;
+    text-shadow: inherit;
+  }
+  
+  // Loading dots styling
+  .loading-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: white !important;
+    
+    .loading-dots {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      position: relative;
+      
+      &::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: white;
+        animation: save-button-loading 1.4s infinite ease-in-out both;
+        box-shadow: 
+          5px 0 0 white,
+          10px 0 0 white;
+      }
+    }
+  }
+  
+  // Hover state
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #E07A3B, #d06929);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 145, 77, 0.4);
+  }
+  
+  // Focus state
+  &:focus:not(:disabled) {
+    outline: 2px solid #FF914D;
+    outline-offset: 2px;
+  }
+  
+  // Disabled state
+  &:disabled {
+    background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+    color: #64748b !important;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 8px rgba(203, 213, 225, 0.3);
+    
+    .btn-icon {
+      color: #64748b;
+    }
+    
+    span {
+      color: #64748b !important;
+    }
+    
+    .loading-text {
+      color: #64748b !important;
+      
+      .loading-dots::after {
+        background: #64748b;
+        box-shadow: 
+          5px 0 0 #64748b,
+          10px 0 0 #64748b;
+      }
+    }
+  }
+  
+  // Active state
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(255, 145, 77, 0.3);
+  }
+  
+  // Mobile responsive
+  @media (max-width: 768px) {
+    width: 100%;
+    justify-content: center;
+    padding: 1rem 1.5rem;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.8rem;
+    border-radius: 10px;
+    
+    .btn-icon {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+// Loading animation for save button
+@keyframes save-button-loading {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: translateY(-50%) scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  .save-button {
+    border: 2px solid #FF914D;
+    
+    &:disabled {
+      border-color: #94a3b8;
+    }
+  }
+}
+
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+  .save-button {
+    transition: none;
+    
+    &:hover:not(:disabled) {
+      transform: none;
+    }
+    
+    .loading-dots::after {
+      animation: none;
+      opacity: 1;
+    }
+  }
+}
+// FIXED: Form Actions with better responsive layout
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 145, 77, 0.1);
+  align-items: center;
+  flex-wrap: wrap;
+  
+  @media (max-width: 768px) {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+    
+    button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    padding-top: 1rem;
+    gap: 0.5rem;
+  }
+}
+
+// FIXED: Loading animation with better visibility
+.loading-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  
+  .loading-dots {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: loading-dots 1.4s infinite ease-in-out both;
+      box-shadow: 
+        6px 0 0 currentColor,
+        12px 0 0 currentColor;
+    }
+  }
+}
+
+@keyframes loading-dots {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: translateY(-50%) scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+// Glass Button Base
+.glass-button {
+  background: var(--clr-surface);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  transition: var(--transition-smooth);
+  cursor: pointer;
+  
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.35);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-base);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// Accessibility Improvements
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 2px;
+}
+
+// High Contrast Mode Support
+@media (prefers-contrast: high) {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid var(--clr-primary);
+  }
+  
+  .form-input,
+  .form-select,
+  .form-textarea {
+    background: white;
+    border: 2px solid var(--clr-primary-dark);
+  }
+  
+  .avatar-overlay {
+    background: var(--clr-primary-dark) !important;
+  }
+}
+
+// Reduced Motion Support
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .loading-dots::after {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+// Modern scrollbar styling
+.profile-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--clr-primary) transparent;
+}
+
+.profile-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.profile-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.profile-container::-webkit-scrollbar-thumb {
+  background: var(--clr-primary);
+  border-radius: 4px;
+}
+
+.profile-container::-webkit-scrollbar-thumb:hover {
+  background: var(--clr-primary-dark);
+}
+
+// Touch improvements for mobile
+@media (hover: none) and (pointer: coarse) {
+  .avatar-container:active .avatar-overlay {
+    opacity: 1;
+  }
+  
+  // Ensure buttons are properly sized for touch
+  button {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  
+  // Increase tap targets for mobile
+  .form-input,
+  .form-select,
+  .form-textarea {
+    min-height: 48px;
+  }
+}
+
+// Print styles
+@media print {
+  .profile-container {
+    background: white;
+    padding: 0;
+  }
+  
+  .glass-card {
+    background: white;
+    border: 1px solid #ccc;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  
+  .back-button,
+  .form-actions {
+    display: none;
+  }
+  
+  .avatar-overlay {
+    display: none;
+  }
+}
+
+// Dark mode support (optional)
+@media (prefers-color-scheme: dark) {
+  :root {
+    --clr-bg-base: #1a1a1a;
+    --clr-surface: rgba(255, 255, 255, 0.1);
+  }
+  
+  .glass-card {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .form-input,
+  .form-select,
+  .form-textarea {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.5);
+    }
+  }
+  
+  .page-title,
+  .section-title {
+    color: #FFB366;
+  }
+  
+  .page-subtitle {
+    color: rgba(255, 179, 102, 0.7);
+  }
+}
+
+// Performance optimizations
+.profile-container * {
+  will-change: auto;
+}
+
+.avatar-container,
+.glass-card,
+button {
+  will-change: transform;
+}
+
+// Ensure proper stacking context
+.glass-card {
+  isolation: isolate;
+}
+
+.avatar-overlay {
+  z-index: 1;
+}
+
+// Fix potential layout shifts
+.profile-avatar {
+  aspect-ratio: 1 / 1;
+}
+
+// Ensure consistent line heights
+.form-label,
+.info-label,
+.info-value {
+  line-height: 1.4;
+}
+
+// Better focus indicators for keyboard navigation
+.glass-card:focus-within {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 4px;
+}
+
+// Smooth state transitions
+.form-input:not(:focus):valid {
+  border-color: var(--clr-accent);
+}
+
+.form-input:not(:focus):invalid:not(:placeholder-shown) {
+  border-color: var(--clr-error);
+}
+
+// Loading state improvements
+.primary-button:disabled .loading-text,
+.upload-btn:disabled .loading-text {
+  opacity: 1;
+}
+
+// Better visual hierarchy
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.profile-grid > :first-child {
+  position: sticky;
+  top: 2rem;
+  align-self: start;
+  
+  @media (max-width: 1024px) {
+    position: static;
+  }
+}

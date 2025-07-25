@@ -1,13 +1,13 @@
 // topbar.component.ts - NO ANIMATIONS VERSION
 import { Component, Input, Output, EventEmitter, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-
+import { RouterModule } from '@angular/router';
 @Component({
   selector: 'app-topbar',
   templateUrl: './topbar.html',
   styleUrls: ['./topbar.scss'],
   standalone: true,
-  imports: [CommonModule]
+  imports: [CommonModule, RouterModule] 
   // ✅ NO animations array
 })
 export class TopbarComponent implements OnInit {
@@ -107,5 +107,9 @@ export class TopbarComponent implements OnInit {
       default:
         return '#6c5ce7';
     }
+  }
+  onProfileClick() {
+    this.dropdownOpen = false; // Close dropdown when profile clicked
+    // Navigation handled by routerLink
   }
 }

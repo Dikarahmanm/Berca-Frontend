@@ -51,7 +51,11 @@ export class CategoryService {
       params = params.set('color', filter.color.trim());
     }
 
-    return this.http.get<CategoryListResponse>(this.apiUrl, { params }).pipe(
+    // ✅ FIX: Add withCredentials for cookie authentication
+    return this.http.get<CategoryListResponse>(this.apiUrl, { 
+      params,
+      withCredentials: true 
+    }).pipe(
       tap(response => {
         this.categoriesSubject.next(response.categories);
         this.setLoading(false);
@@ -64,7 +68,10 @@ export class CategoryService {
    * Get simple category list (untuk dropdowns)
    */
   getCategoriesSimple(): Observable<Category[]> {
-    return this.http.get<Category[]>(`${this.apiUrl}/simple`).pipe(
+    // ✅ FIX: Add withCredentials for cookie authentication
+    return this.http.get<Category[]>(`${this.apiUrl}/simple`, {
+      withCredentials: true
+    }).pipe(
       tap(categories => this.categoriesSubject.next(categories)),
       catchError(error => this.handleError(error))
     );
@@ -74,7 +81,10 @@ export class CategoryService {
    * Get category by ID
    */
   getCategoryById(id: number): Observable<Category> {
-    return this.http.get<Category>(`${this.apiUrl}/${id}`).pipe(
+    // ✅ FIX: Add withCredentials for cookie authentication
+    return this.http.get<Category>(`${this.apiUrl}/${id}`, {
+      withCredentials: true
+    }).pipe(
       catchError(error => this.handleError(error))
     );
   }
@@ -86,7 +96,10 @@ export class CategoryService {
     this.setLoading(true);
     this.clearError();
 
-    return this.http.post<Category>(this.apiUrl, categoryData).pipe(
+    // ✅ FIX: Add withCredentials for cookie authentication
+    return this.http.post<Category>(this.apiUrl, categoryData, {
+      withCredentials: true
+    }).pipe(
       tap(newCategory => {
         // Add to current categories list
         const currentCategories = this.categoriesSubject.value;
@@ -104,7 +117,10 @@ export class CategoryService {
     this.setLoading(true);
     this.clearError();
 
-    return this.http.put<Category>(`${this.apiUrl}/${id}`, categoryData).pipe(
+    // ✅ FIX: Add withCredentials for cookie authentication
+    return this.http.put<Category>(`${this.apiUrl}/${id}`, categoryData, {
+      withCredentials: true
+    }).pipe(
       tap(updatedCategory => {
         // Update in current categories list
         const currentCategories = this.categoriesSubject.value;
@@ -125,7 +141,10 @@ export class CategoryService {
     this.setLoading(true);
     this.clearError();
 
-    return this.http.delete<void>(`${this.apiUrl}/${id}`).pipe(
+    // ✅ FIX: Add withCredentials for cookie authentication
+    return this.http.delete<void>(`${this.apiUrl}/${id}`, {
+      withCredentials: true
+    }).pipe(
       tap(() => {
         // Remove from current categories list
         const currentCategories = this.categoriesSubject.value;
@@ -147,7 +166,11 @@ export class CategoryService {
       params = params.set('excludeId', excludeId.toString());
     }
 
-    return this.http.get<CategoryNameCheckResponse>(`${this.apiUrl}/check-name`, { params }).pipe(
+    // ✅ FIX: Add withCredentials for cookie authentication
+    return this.http.get<CategoryNameCheckResponse>(`${this.apiUrl}/check-name`, { 
+      params,
+      withCredentials: true
+    }).pipe(
       map(response => response.exists),
       catchError(error => this.handleError(error))
     );
@@ -247,6 +270,16 @@ export class CategoryService {
     
     this.errorSubject.next(errorMessage);
     console.error('CategoryService Error:', error);
+    
+    // ✅ NEW: Debug cookie status on auth errors
+    if (error.status === 401) {
+      console.error('🍪 Authentication failed - checking cookies:');
+      console.error('Current cookies:', document.cookie);
+      const hasAuthCookie = document.cookie.includes('.AspNetCore.Cookies');
+      console.error('Has auth cookie:', hasAuthCookie);
+      console.error('Username in localStorage:', localStorage.getItem('username'));
+      console.error('Role in localStorage:', localStorage.getItem('role'));
+    }
     
     return throwError(() => new Error(errorMessage));
   }

@@ -1,4 +1,4 @@
-// src/app/dashboard/dashboard.component.ts - ADD Missing Event Handlers
+// src/app/dashboard/dashboard.component.ts - ADD Missing Event Handlers + Categories Integration
 
 import { Component, OnInit } from '@angular/core';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
@@ -39,6 +39,9 @@ export class DashboardComponent implements OnInit {
     inactive: 0,
     deleted: 0
   };
+
+  // ✅ ADD Categories stats for integration
+  totalCategories = 5; // Default value, will be updated
 
   // Loading states
   isLoadingStats = true;
@@ -164,7 +167,7 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  // ✅ ADD NEW EVENT HANDLERS
+  // ✅ ADD NEW EVENT HANDLERS (from original code)
   onLogout() {
     this.logout(); // Call existing logout method
   }
@@ -199,7 +202,7 @@ export class DashboardComponent implements OnInit {
     alert('❓ Bantuan & Dukungan\n\nButuh bantuan?\n\n📖 Panduan pengguna\n🎥 Video tutorial\n📞 Hubungi support\n💬 Live chat\n\nFitur bantuan akan segera hadir!');
   }
 
-  // ✅ UTILITY GETTERS
+  // ✅ UTILITY GETTERS (from original code)
   get isLoading(): boolean {
     return this.isLoadingStats || this.isLoadingNotifications;
   }
@@ -211,20 +214,26 @@ export class DashboardComponent implements OnInit {
   get activeUsers(): number {
     return this.userStats.active;
   }
+
+  get newUsersThisMonth(): number {
+    // Calculate new users this month (mock calculation)
+    return Math.floor(this.userStats.active * 0.2);
+  }
+
   refreshData() {
-  console.log('🔄 Refreshing dashboard data...');
-  this.isLoadingStats = true;
-  this.isLoadingNotifications = true;
-  
-  // Reload user stats
-  this.loadUserStats();
-  
-  // Reload notifications
-  this.loadNotifications();
-  
-  // Show success message
-  setTimeout(() => {
-    alert('✅ Data berhasil diperbarui!');
-  }, 1000);
-}
+    console.log('🔄 Refreshing dashboard data...');
+    this.isLoadingStats = true;
+    this.isLoadingNotifications = true;
+    
+    // Reload user stats
+    this.loadUserStats();
+    
+    // Reload notifications
+    this.loadNotifications();
+    
+    // Show success message
+    setTimeout(() => {
+      alert('✅ Data berhasil diperbarui!');
+    }, 1000);
+  }
 }

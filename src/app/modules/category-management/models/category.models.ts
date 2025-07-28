@@ -43,7 +43,11 @@ export interface CategoryFilter {
   sortBy: 'name' | 'color' | 'createdAt' | 'updatedAt';
   sortOrder: 'asc' | 'desc';
 }
-
+export interface CategorySuggestion {
+  name: string;
+  color: string;
+  description: string;
+}
 // Check name availability response
 export interface CategoryNameCheckResponse {
   exists: boolean;

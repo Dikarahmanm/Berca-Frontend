@@ -3,11 +3,12 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener } fro
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
-import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { Subject, Observable } from 'rxjs';
+import { takeUntil, debounceTime, distinctUntilChanged, switchMap, catchError, take } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 // Services
-import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData } from '../../../core/services/pos.service';
+import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData, ProductListResponseApiResponse } from '../../../core/services/pos.service';
 import { AuthService } from '../../../core/services/auth.service';
 
 // Import standalone components
@@ -65,6 +66,7 @@ export class POSComponent implements OnInit, OnDestroy {
     this.initializeComponent();
     this.setupCartSubscription();
     this.setupSearchListener();
+    this.initializeCartTotals();
   }
 
   ngOnDestroy() {
@@ -73,6 +75,19 @@ export class POSComponent implements OnInit, OnDestroy {
   }
 
   // ===== INITIALIZATION =====
+
+  private initializeCartTotals() {
+    this.cartTotals$ = this.posService.cart$.pipe(
+      switchMap(() => this.posService.getCartTotals(this.globalDiscount)),
+      catchError(() => of({
+        subtotal: 0,
+        globalDiscount: this.globalDiscount,
+        discountAmount: 0,
+        taxAmount: 0,
+        total: 0
+      }))
+    );
+  }
 
   private initializeComponent() {
     // Get current user info using the fixed AuthService
@@ -140,13 +155,20 @@ export class POSComponent implements OnInit, OnDestroy {
     this.isSearching = true;
     this.errorMessage = '';
 
-    this.posService.searchProducts(query)
+    // Use getProducts for empty query, searchProducts for specific search
+    const searchObservable = query.length === 0 
+      ? this.posService.getProducts()
+      : this.posService.searchProducts(query);
+
+    searchObservable
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (response: any) => {
+        next: (response: ProductListResponseApiResponse) => {
           this.isSearching = false;
           if (response.success && response.data) {
-            this.filteredProducts = response.data.filter((p: Product) => p.isActive && p.stock > 0);
+            // Handle both getProducts and searchProducts response format
+            const products = response.data.items || [];
+            this.filteredProducts = products.filter((p: Product) => p.isActive && p.stock > 0);
           } else {
             this.filteredProducts = [];
             this.errorMessage = response.message || 'Gagal memuat produk';
@@ -272,14 +294,19 @@ export class POSComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ===== CALCULATIONS =====
+  // ===== CALCULATIONS - USING BACKEND =====
+  
+  cartTotals$: Observable<any> = new Observable(); // Initialize properly in ngOnInit
 
   getCartTotals() {
-    return this.posService.getCartTotals(this.globalDiscount);
+    // For backward compatibility, return sync version but prefer async
+    return this.posService.getCartTotalsSync(this.globalDiscount);
   }
 
   onGlobalDiscountChange() {
     this.globalDiscount = Math.max(0, Math.min(100, this.globalDiscount));
+    // Trigger recalculation by emitting cart change
+    this.posService.cart$.pipe(take(1)).subscribe();
   }
 
   // ===== BARCODE OPERATIONS =====
@@ -332,7 +359,7 @@ export class POSComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Validate stock before payment
+    // Validate stock before payment using new backend method
     const saleItems: CreateSaleItemRequest[] = this.cart.map(item => ({
       productId: item.product.id,
       quantity: item.quantity,
@@ -341,7 +368,7 @@ export class POSComponent implements OnInit, OnDestroy {
     }));
 
     this.isLoading = true;
-    this.posService.validateStockAvailability(saleItems)
+    this.posService.validateStock({ items: saleItems })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {
@@ -371,55 +398,64 @@ export class POSComponent implements OnInit, OnDestroy {
   }
 
   private completeSale(paymentData: PaymentData) {
-    const totals = this.getCartTotals();
-    
-    const saleRequest: CreateSaleRequest = {
-      items: this.cart.map(item => ({
-        productId: item.product.id,
-        quantity: item.quantity,
-        sellPrice: item.product.sellPrice,
-        discount: item.discount
-      })),
-      subTotal: totals.subtotal,
-      discountAmount: totals.discountAmount,
-      taxAmount: totals.taxAmount,
-      total: totals.total,
-      amountPaid: paymentData.amountPaid,
-      changeAmount: paymentData.change,
-      paymentMethod: paymentData.method,
-      paymentReference: paymentData.reference,
-      customerName: this.customerName || undefined,
-      notes: this.notes || undefined,
-      redeemedPoints: 0 // TODO: Implement loyalty points
-    };
-
-    this.isLoading = true;
-    this.posService.createSale(saleRequest)
+    // Use backend calculation for totals
+    this.posService.getCartTotals(this.globalDiscount)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (response: any) => {
-          this.isLoading = false;
-          if (response.success && response.data) {
-            this.successMessage = `Transaksi berhasil! No: ${response.data.saleNumber}`;
-            
-            // Reset form
-            this.globalDiscount = 0;
-            this.customerName = '';
-            this.customerPhone = '';
-            this.notes = '';
-            
-            // Navigate to receipt preview
-            this.router.navigate(['/pos/receipt', response.data.id]);
-          } else {
-            this.errorMessage = response.message || 'Gagal menyimpan transaksi';
-            this.clearMessages();
-          }
+        next: (totals) => {
+          const saleRequest: CreateSaleRequest = {
+            items: this.cart.map(item => ({
+              productId: item.product.id,
+              quantity: item.quantity,
+              sellPrice: item.product.sellPrice,
+              discount: item.discount
+            })),
+            subTotal: totals.subtotal,
+            discountAmount: totals.discountAmount,
+            taxAmount: totals.taxAmount,
+            total: totals.total,
+            amountPaid: paymentData.amountPaid,
+            changeAmount: paymentData.change,
+            paymentMethod: paymentData.method,
+            paymentReference: paymentData.reference,
+            customerName: this.customerName || undefined,
+            notes: this.notes || undefined,
+            redeemedPoints: 0 // TODO: Implement loyalty points
+          };
+
+          this.isLoading = true;
+          this.posService.createSale(saleRequest)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: (response: any) => {
+                this.isLoading = false;
+                if (response.success && response.data) {
+                  this.successMessage = `Transaksi berhasil! No: ${response.data.saleNumber}`;
+                  
+                  // Reset form
+                  this.globalDiscount = 0;
+                  this.customerName = '';
+                  this.customerPhone = '';
+                  this.notes = '';
+                  
+                  // Navigate to receipt preview
+                  this.router.navigate(['/pos/receipt', response.data.id]);
+                } else {
+                  this.errorMessage = response.message || 'Gagal menyimpan transaksi';
+                  this.clearMessages();
+                }
+              },
+              error: (error: any) => {
+                this.isLoading = false;
+                this.errorMessage = error.message || 'Gagal menyimpan transaksi';
+                this.clearMessages();
+                console.error('Error creating sale:', error);
+              }
+            });
         },
         error: (error: any) => {
-          this.isLoading = false;
-          this.errorMessage = error.message || 'Gagal menyimpan transaksi';
+          this.errorMessage = error.message || 'Gagal menghitung total';
           this.clearMessages();
-          console.error('Error creating sale:', error);
         }
       });
   }

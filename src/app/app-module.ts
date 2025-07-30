@@ -22,8 +22,8 @@ import { NotificationService } from './core/services/notification.service';
 // Guards
 import { AuthGuard } from './core/guard/auth.guard';
 
-// Interceptors (if any)
-// import { AuthInterceptor } from './core/interceptors/auth.interceptor';
+// Interceptors
+import { AppHttpInterceptor } from './core/interceptors/http.interceptor';
 
 @NgModule({
   declarations: [
@@ -47,14 +47,14 @@ import { AuthGuard } from './core/guard/auth.guard';
     NotificationService,
     
     // Guards
-    AuthGuard
+    AuthGuard,
     
     // Interceptors
-    // {
-    //   provide: HTTP_INTERCEPTORS,
-    //   useClass: AuthInterceptor,
-    //   multi: true
-    // }
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: AppHttpInterceptor,
+      multi: true
+    }
   ],
   bootstrap: [App]
 })

@@ -1,4 +1,7 @@
-// src/app/shared/topbar/topbar.ts - MINIMALIST VERSION
+// src/app/shared/topbar/topbar.component.ts
+// ✅ FIXED: TopbarComponent dengan proper @Input properties
+// Mengatasi NG8002 error dengan menambahkan notificationCount input
+
 import { Component, OnInit, OnDestroy, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
@@ -11,17 +14,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, debounceTime } from 'rxjs/operators';
 
-// Notification interface for dropdown
-interface NotificationItem {
-  id: number;
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-  type: 'info' | 'warning' | 'success' | 'error';
-}
+// Import notification service dan types
+import { NotificationService, NotificationDto } from '../../core/services/notification.service';
 
 @Component({
   selector: 'app-topbar',
@@ -44,63 +40,41 @@ interface NotificationItem {
 export class TopbarComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  // ✅ MINIMAL INPUT PROPERTIES
+  // ===== INPUT PROPERTIES ===== //
   @Input() pageTitle: string = 'Dashboard';
   @Input() username: string = '';
   @Input() role: string = '';
   @Input() avatarUrl: string = '';
-  @Input() notificationCount: number = 0;
+  @Input() notificationCount!: number; // ✅ FIXED: Added required input for NG8002
 
-  // ✅ MINIMAL OUTPUT EVENTS
+  // ===== OUTPUT EVENTS ===== //
   @Output() logoutClicked = new EventEmitter<void>();
 
-  // UI State
+  // ===== INTERNAL STATE ===== //
+  recentNotifications: NotificationDto[] = [];
+  isLoadingNotifications: boolean = false;
+  notificationError: string | null = null;
   isLoading = false;
 
-  // ✅ MOCK NOTIFICATIONS for dropdown (replace with real service)
-  mockNotifications: NotificationItem[] = [
-    {
-      id: 1,
-      title: 'Stock Alert',
-      message: 'Low stock for Mie Instan Sedap',
-      time: '5 minutes ago',
-      read: false,
-      type: 'warning'
-    },
-    {
-      id: 2,
-      title: 'New Sale',
-      message: 'Transaction #001234 completed',
-      time: '15 minutes ago',
-      read: false,
-      type: 'success'
-    },
-    {
-      id: 3,
-      title: 'System Update',
-      message: 'POS system updated successfully',
-      time: '1 hour ago',
-      read: true,
-      type: 'info'
-    }
-  ];
-
-  // Role display mapping
+  // ===== ROLE DISPLAY MAPPING ===== //
   roleDisplayMap: { [key: string]: string } = {
     'Admin': 'Administrator',
     'Manager': 'Manager',
     'User': 'Kasir',
-    'Cashier': 'Kasir'
+    'Cashier': 'Kasir',
+    'Staff': 'Staff'
   };
 
   constructor(
     private router: Router,
     private snackBar: MatSnackBar,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private notificationService: NotificationService
   ) {}
 
   ngOnInit() {
-    console.log('🔧 Minimalist Topbar initialized');
+    console.log('🔧 Fixed Topbar initialized with proper inputs');
+    this.subscribeToNotificationData();
   }
 
   ngOnDestroy() {
@@ -108,7 +82,135 @@ export class TopbarComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ===== NAVIGATION METHODS =====
+  // ===== NOTIFICATION DATA SUBSCRIPTION ===== //
+
+  /**
+   * Subscribe ke notification data dari service
+   */
+  private subscribeToNotificationData(): void {
+    // Subscribe ke recent notifications untuk dropdown
+    this.notificationService.notifications$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (notifications: NotificationDto[]) => {
+          this.recentNotifications = notifications.slice(0, 5);
+          console.log('📧 Recent notifications updated in topbar:', this.recentNotifications.length);
+        },
+        error: (error: any) => {
+          console.error('Error loading recent notifications:', error);
+          this.notificationError = 'Failed to load recent notifications';
+        }
+      });
+
+    // Subscribe ke loading state
+    this.notificationService.isLoading$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(isLoading => {
+        this.isLoadingNotifications = isLoading;
+      });
+
+    // Subscribe ke error state
+    this.notificationService.error$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(error => {
+        this.notificationError = error;
+      });
+
+    // Initial load notifications
+    this.loadInitialNotifications();
+  }
+
+  /**
+   * Load initial notification data
+   */
+  private loadInitialNotifications(): void {
+    this.notificationService.getUserNotifications(1, 5).subscribe({
+      next: (notifications: NotificationDto[]) => {
+        this.recentNotifications = notifications;
+      },
+      error: (error: any) => {
+        console.error('Error loading initial notifications:', error);
+      }
+    });
+  }
+
+  // ===== NOTIFICATION METHODS ===== //
+
+  /**
+   * Mark notification as read
+   */
+  markNotificationAsRead(notificationId: number): void {
+    this.notificationService.markAsRead(notificationId).subscribe({
+      next: (success: boolean) => {
+        if (success) {
+          console.log('✅ Notification marked as read:', notificationId);
+          this.showSuccess('Notifikasi ditandai sebagai dibaca');
+        } else {
+          this.showError('Gagal menandai notifikasi sebagai dibaca');
+        }
+      },
+      error: (error: any) => {
+        console.error('Error marking notification as read:', error);
+        this.showError('Terjadi kesalahan saat menandai notifikasi');
+      }
+    });
+  }
+
+  /**
+   * Mark all notifications as read
+   */
+  markAllNotificationsAsRead(): void {
+    this.notificationService.markAllAsRead().subscribe({
+      next: (success: boolean) => {
+        if (success) {
+          console.log('✅ All notifications marked as read');
+          this.showSuccess('Semua notifikasi ditandai sebagai dibaca');
+        } else {
+          this.showError('Gagal menandai semua notifikasi sebagai dibaca');
+        }
+      },
+      error: (error: any) => {
+        console.error('Error marking all notifications as read:', error);
+        this.showError('Terjadi kesalahan saat menandai notifikasi');
+      }
+    });
+  }
+
+  /**
+   * Handle notification click
+   */
+  onNotificationClick(notification: NotificationDto): void {
+    // Mark as read jika belum dibaca
+    if (!notification.isRead) {
+      this.markNotificationAsRead(notification.id);
+    }
+
+    // Navigate ke action URL atau notification center
+    if (notification.actionUrl) {
+      this.navigateTo(notification.actionUrl);
+    } else {
+      this.navigateTo('/notifications');
+    }
+  }
+
+  /**
+   * Refresh notification data
+   */
+  refreshNotifications(): void {
+    console.log('🔄 Refreshing notifications from backend...');
+    
+    this.notificationService.refreshNotifications().subscribe({
+      next: () => {
+        this.showSuccess('Notifikasi berhasil diperbarui');
+      },
+      error: (error: any) => {
+        console.error('Error refreshing notifications:', error);
+        this.showError('Gagal memperbarui notifikasi');
+      }
+    });
+  }
+
+  // ===== NAVIGATION METHODS ===== //
 
   /**
    * Navigate to route
@@ -125,11 +227,27 @@ export class TopbarComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Navigate to profile page
+   */
+  navigateToProfile(): void {
+    this.navigateTo('/profile');
+  }
+
+  /**
+   * Navigate to notifications center
+   */
+  navigateToNotifications(): void {
+    this.navigateTo('/notifications');
+  }
+
+  /**
    * Show change user dialog
    */
   showChangeUserDialog(): void {
-    // TODO: Implement change user dialog
-    this.snackBar.open('Change user feature coming soon', 'Close', { duration: 3000 });
+    this.snackBar.open('Fitur ganti user akan segera hadir', 'Tutup', { 
+      duration: 3000,
+      panelClass: ['snackbar-info']
+    });
   }
 
   /**
@@ -137,99 +255,109 @@ export class TopbarComponent implements OnInit, OnDestroy {
    */
   logout(): void {
     this.isLoading = true;
+    
+    // Clear notification service state
+    this.notificationService.clearError();
+    
+    // Emit logout event ke parent component
     this.logoutClicked.emit();
     
-    // Simulate logout process
+    // Simulate logout process (actual logout handled by parent)
     setTimeout(() => {
       this.isLoading = false;
-      this.showSuccess('Logout successful!');
-    }, 1000);
+    }, 1500);
   }
 
-  // ===== USER DATA METHODS =====
-
-  /**
-   * Get user display name
-   */
-  getUserDisplayName(): string {
-    return this.username || 'Guest User';
-  }
+  // ===== UTILITY METHODS ===== //
 
   /**
    * Get user initials for avatar
    */
-  getUserInitials(): string {
-    const name = this.getUserDisplayName();
-    return name.split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-  }
-
-  /**
-   * Get user avatar URL
-   */
-  getUserAvatar(): string {
-    return this.avatarUrl || '';
-  }
-
-  /**
-   * Get role display name
-   */
-  get roleDisplayName(): string {
-    return this.roleDisplayMap[this.role] || this.role || 'User';
-  }
-
-  /**
-   * Get notification count
-   */
-  getNotificationCount(): number {
-    return this.notificationCount;
-  }
-
-  // ===== NOTIFICATION METHODS =====
-
-  /**
-   * Mark all notifications as read
-   */
-  markAllNotificationsRead(): void {
-    this.mockNotifications.forEach(notification => {
-      notification.read = true;
-    });
-    this.notificationCount = 0;
-    this.showSuccess('All notifications marked as read');
-  }
-
-  /**
-   * Mark single notification as read
-   */
-  markNotificationRead(notificationId: number): void {
-    const notification = this.mockNotifications.find(n => n.id === notificationId);
-    if (notification && !notification.read) {
-      notification.read = true;
-      this.notificationCount = Math.max(0, this.notificationCount - 1);
+  getInitials(name: string): string {
+    if (!name) return 'U';
+    
+    const words = name.trim().split(' ');
+    if (words.length === 1) {
+      return words[0].charAt(0).toUpperCase();
+    } else {
+      return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
     }
   }
 
-  // ===== UTILITY METHODS =====
+  /**
+   * Get notification type icon
+   */
+  getNotificationIcon(type: string): string {
+    const iconMap: { [key: string]: string } = {
+      'LOW_STOCK': 'warning',
+      'SALE_COMPLETED': 'point_of_sale',
+      'SYSTEM_MAINTENANCE': 'settings',
+      'USER_ACTION': 'person',
+      'BACKUP_COMPLETED': 'backup',
+      'ERROR': 'error',
+      'INFO': 'info',
+      'SUCCESS': 'check_circle'
+    };
+    
+    return iconMap[type] || 'notifications';
+  }
 
   /**
-   * Handle avatar error
+   * Get notification type class for styling
    */
-  onAvatarError(event: Event): void {
-    const img = event.target as HTMLImageElement;
-    // Set default avatar on error
-    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGRjkxNEQiLz4KPHN2ZyB4PSI4IiB5PSI4IiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPgo8cGF0aCBkPSJNMTIgMTJjMi4yMSAwIDQtMS43OSA0LTRzLTEuNzktNC00LTQtNCAxLjc5LTQgNCAxLjc5IDQgNCA0em0wIDJjLTIuNjcgMC04IDEuMzQtOCA0djJoMTZ2LTJjMC0yLjY2LTUuMzMtNC04LTR6Ii8+Cjwvc3ZnPgo8L3N2Zz4K';
+  getNotificationTypeClass(type: string): string {
+    const classMap: { [key: string]: string } = {
+      'LOW_STOCK': 'type-warning',
+      'SALE_COMPLETED': 'type-success',
+      'SYSTEM_MAINTENANCE': 'type-info',
+      'USER_ACTION': 'type-info',
+      'BACKUP_COMPLETED': 'type-success',
+      'ERROR': 'type-error',
+      'INFO': 'type-info',
+      'SUCCESS': 'type-success'
+    };
+    
+    return classMap[type] || 'type-info';
   }
+
+  /**
+   * Get relative time untuk notification
+   */
+  getRelativeTime(timestamp: string): string {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    
+    if (diffMinutes < 1) return 'Baru saja';
+    if (diffMinutes < 60) return `${diffMinutes} menit yang lalu`;
+    
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} jam yang lalu`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays} hari yang lalu`;
+    
+    return date.toLocaleDateString('id-ID');
+  }
+
+  /**
+   * Truncate text untuk display
+   */
+  truncateText(text: string, maxLength: number = 60): string {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  }
+
+  // ===== NOTIFICATION METHODS ===== //
 
   /**
    * Show success message
    */
   private showSuccess(message: string): void {
-    this.snackBar.open(`✅ ${message}`, 'Close', {
+    this.snackBar.open(message, 'Tutup', {
       duration: 3000,
-      panelClass: ['success-snackbar']
+      panelClass: ['snackbar-success']
     });
   }
 
@@ -237,9 +365,60 @@ export class TopbarComponent implements OnInit, OnDestroy {
    * Show error message
    */
   private showError(message: string): void {
-    this.snackBar.open(`❌ ${message}`, 'Close', {
+    this.snackBar.open(message, 'Tutup', {
       duration: 5000,
-      panelClass: ['error-snackbar']
+      panelClass: ['snackbar-error']
     });
+  }
+
+  // ===== TRACK BY FUNCTIONS ===== //
+
+  /**
+   * Track by function untuk notifications
+   */
+  trackByNotificationId(index: number, item: NotificationDto): number {
+    return item.id;
+  }
+
+  // ===== COMPUTED PROPERTIES ===== //
+
+  /**
+   * Check if there are unread notifications
+   */
+  get hasUnreadNotifications(): boolean {
+    return this.notificationCount > 0;
+  }
+
+  /**
+   * Get notification badge text
+   */
+  get notificationBadgeText(): string {
+    if (this.notificationCount === 0) return '';
+    if (this.notificationCount > 99) return '99+';
+    return this.notificationCount.toString();
+  }
+
+  /**
+   * Check if notifications are available
+   */
+  get hasNotifications(): boolean {
+    return this.recentNotifications.length > 0;
+  }
+
+  /**
+   * Get notification dropdown title
+   */
+  get notificationDropdownTitle(): string {
+    if (this.isLoadingNotifications) return 'Memuat...';
+    if (this.notificationError) return 'Error';
+    if (this.notificationCount === 0) return 'Tidak ada notifikasi';
+    return `${this.notificationCount} notifikasi baru`;
+  }
+
+  /**
+   * Check if should show notification error
+   */
+  get shouldShowNotificationError(): boolean {
+    return !this.isLoadingNotifications && !!this.notificationError;
   }
 }

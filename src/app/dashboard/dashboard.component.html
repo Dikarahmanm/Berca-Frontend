@@ -1,0 +1,425 @@
+<!-- src/app/dashboard/dashboard.component.html -->
+<!-- ✅ FIXED: Complete dashboard template tanpa binding errors -->
+<!-- Mengatasi NG8107, NG8002, TS2339 dengan proper property usage -->
+
+<div class="dashboard-wrapper">
+
+  <!-- ✅ FIXED: Topbar dengan proper input binding -->
+  <app-topbar [pageTitle]="pageTitle" [username]="username" [role]="role" [notificationCount]="notificationCount"
+    (logoutClicked)="logout()">
+  </app-topbar>
+
+  <!-- ✅ MAIN DASHBOARD CONTAINER -->
+  <div class="dashboard-container">
+
+    <!-- ✅ SIDEBAR NAVIGATION -->
+    <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
+
+      <!-- Sidebar Header -->
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <div class="brand-icon">
+            <mat-icon>store</mat-icon>
+          </div>
+          <span class="brand-text" *ngIf="!sidebarCollapsed">Toko Eniwan</span>
+        </div>
+
+        <button class="collapse-btn" (click)="toggleSidebar()" matTooltip="Toggle Sidebar"
+          [matTooltipPosition]="'right'">
+          <mat-icon>{{ sidebarCollapsed ? 'menu_open' : 'menu' }}</mat-icon>
+        </button>
+      </div>
+
+      <!-- Sidebar Navigation -->
+      <nav class="sidebar-nav">
+
+        <!-- MAIN SECTION -->
+        <div class="nav-section">
+          <span class="nav-section-title" *ngIf="!sidebarCollapsed">MAIN</span>
+
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/dashboard" routerLinkActive="active"
+                [routerLinkActiveOptions]="{exact: true}" [matTooltip]="sidebarCollapsed ? 'Dashboard' : ''"
+                [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">dashboard</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Dashboard</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/pos" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Point of Sale' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">point_of_sale</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">POS</span>
+                <span class="nav-badge" *ngIf="!sidebarCollapsed">HOT</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/dashboard/inventory" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Inventory' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">inventory_2</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Inventory</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- MANAGEMENT SECTION -->
+        <div class="nav-section">
+          <span class="nav-section-title" *ngIf="!sidebarCollapsed">MANAGEMENT</span>
+
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/dashboard/categories" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Categories' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">category</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Categories</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/dashboard/users" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Users' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">people</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Users</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/dashboard/membership" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Membership' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">card_membership</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Membership</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- ANALYTICS SECTION -->
+        <div class="nav-section">
+          <span class="nav-section-title" *ngIf="!sidebarCollapsed">ANALYTICS</span>
+
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/dashboard/reports" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Reports' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">analytics</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Reports</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/dashboard/logs" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Activity Logs' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">history</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Logs</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/notifications" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Notifications' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">notifications</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Notifications</span>
+                <span class="notification-badge" *ngIf="notificationCount > 0 && !sidebarCollapsed">
+                  {{ notificationCount }}
+                </span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- SETTINGS SECTION -->
+        <div class="nav-section">
+          <span class="nav-section-title" *ngIf="!sidebarCollapsed">SETTINGS</span>
+
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/profile" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Profile' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">person</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Profile</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/settings" routerLinkActive="active"
+                [matTooltip]="sidebarCollapsed ? 'Settings' : ''" [matTooltipPosition]="'right'">
+                <mat-icon class="nav-icon">settings</mat-icon>
+                <span class="nav-text" *ngIf="!sidebarCollapsed">Settings</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer" *ngIf="!sidebarCollapsed">
+        <div class="footer-content">
+          <div class="user-info">
+            <div class="user-avatar">
+              <span>{{ getInitials(username) }}</span>
+            </div>
+            <div class="user-details">
+              <span class="user-name">{{ username }}</span>
+              <span class="user-role">{{ roleDisplayMap[role] || role }}</span>
+            </div>
+          </div>
+
+          <button class="logout-btn" (click)="logout()" matTooltip="Logout" [disabled]="isLoadingStats">
+            <mat-icon>logout</mat-icon>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ✅ MAIN CONTENT AREA -->
+    <main class="content-area">
+
+      <!-- ✅ DASHBOARD HOME CONTENT (ketika di route /dashboard) -->
+      <div class="dashboard-home" *ngIf="isDashboardHome">
+
+        <!-- Welcome Section -->
+        <section class="welcome-section">
+          <div class="welcome-card glass-card">
+            <div class="welcome-content">
+              <div class="welcome-text">
+                <h1>{{ getGreeting() }}, {{ username }}! 👋</h1>
+                <p>{{ getCurrentDate() }}</p>
+                <p class="welcome-subtitle">Selamat datang di sistem POS Toko Eniwan</p>
+              </div>
+
+              <div class="welcome-actions">
+                <button class="action-btn primary-btn" (click)="startPOS()">
+                  <mat-icon>point_of_sale</mat-icon>
+                  Mulai Transaksi
+                </button>
+
+                <button class="action-btn secondary-btn" (click)="manageInventory()">
+                  <mat-icon>inventory_2</mat-icon>
+                  Kelola Stok
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Stats Grid -->
+        <section class="stats-section">
+          <div class="stats-grid">
+
+            <!-- ✅ FIXED: Total Users tanpa optional chaining -->
+            <div class="stat-card glass-card">
+              <div class="stat-icon users">
+                <mat-icon>people</mat-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ formatNumber(userStats.total) }}</div>
+                <div class="stat-label">Total Users</div>
+                <div class="stat-meta">
+                  <span class="stat-detail">{{ userStats.active }} active</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ✅ FIXED: Categories tanpa optional chaining -->
+            <div class="stat-card glass-card">
+              <div class="stat-icon categories">
+                <mat-icon>category</mat-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ formatNumber(totalCategories) }}</div>
+                <div class="stat-label">Categories</div>
+                <div class="stat-meta">
+                  <span class="stat-detail">Produk dikategorikan</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Daily Sales -->
+            <div class="stat-card glass-card">
+              <div class="stat-icon sales">
+                <mat-icon>trending_up</mat-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ formatCurrency(dashboardStats.dailySales) }}</div>
+                <div class="stat-label">Penjualan Hari Ini</div>
+                <div class="stat-meta">
+                  <span class="stat-detail positive">Target tercapai</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ✅ FIXED: Notifications tanpa optional chaining -->
+            <div class="stat-card glass-card clickable" (click)="openNotifications()">
+              <div class="stat-icon notifications">
+                <mat-icon>notifications</mat-icon>
+              </div>
+              <div class="stat-content">
+                <div class="stat-value">{{ formatNumber(notificationCount) }}</div>
+                <div class="stat-label">Notifikasi</div>
+                <div class="stat-meta">
+                  <span class="stat-detail">Belum dibaca</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="quick-actions-section">
+          <div class="section-header">
+            <h2>Quick Actions</h2>
+            <p>Akses cepat ke fitur utama</p>
+          </div>
+
+          <div class="quick-actions-grid">
+
+            <div class="quick-action-card glass-card" (click)="startPOS()">
+              <div class="action-icon pos">
+                <mat-icon>point_of_sale</mat-icon>
+              </div>
+              <div class="action-content">
+                <h3>Point of Sale</h3>
+                <p>Mulai transaksi penjualan</p>
+              </div>
+              <div class="action-arrow">
+                <mat-icon>arrow_forward</mat-icon>
+              </div>
+            </div>
+
+            <div class="quick-action-card glass-card" (click)="manageInventory()">
+              <div class="action-icon inventory">
+                <mat-icon>inventory_2</mat-icon>
+              </div>
+              <div class="action-content">
+                <h3>Inventory</h3>
+                <p>Kelola stok produk</p>
+              </div>
+              <div class="action-arrow">
+                <mat-icon>arrow_forward</mat-icon>
+              </div>
+            </div>
+
+            <div class="quick-action-card glass-card" (click)="navigateTo('/dashboard/categories')">
+              <div class="action-icon categories">
+                <mat-icon>category</mat-icon>
+              </div>
+              <div class="action-content">
+                <h3>Categories</h3>
+                <p>Atur kategori produk</p>
+              </div>
+              <div class="action-arrow">
+                <mat-icon>arrow_forward</mat-icon>
+              </div>
+            </div>
+
+            <div class="quick-action-card glass-card" (click)="navigateTo('/dashboard/users')">
+              <div class="action-icon users">
+                <mat-icon>people</mat-icon>
+              </div>
+              <div class="action-content">
+                <h3>User Management</h3>
+                <p>Kelola pengguna sistem</p>
+              </div>
+              <div class="action-arrow">
+                <mat-icon>arrow_forward</mat-icon>
+              </div>
+            </div>
+
+            <div class="quick-action-card glass-card" (click)="navigateTo('/dashboard/membership')">
+              <div class="action-icon membership">
+                <mat-icon>card_membership</mat-icon>
+              </div>
+              <div class="action-content">
+                <h3>Membership</h3>
+                <p>Program loyalitas</p>
+              </div>
+              <div class="action-arrow">
+                <mat-icon>arrow_forward</mat-icon>
+              </div>
+            </div>
+
+            <div class="quick-action-card glass-card" (click)="viewReports()">
+              <div class="action-icon reports">
+                <mat-icon>analytics</mat-icon>
+              </div>
+              <div class="action-content">
+                <h3>Reports</h3>
+                <p>Laporan dan analitik</p>
+              </div>
+              <div class="action-arrow">
+                <mat-icon>arrow_forward</mat-icon>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- Recent Activity -->
+        <section class="recent-activity-section">
+          <div class="section-header">
+            <h2>Aktivitas Terbaru</h2>
+            <button class="view-all-btn" (click)="navigateTo('/dashboard/logs')">
+              <span>Lihat Semua</span>
+              <mat-icon>arrow_forward</mat-icon>
+            </button>
+          </div>
+
+          <div class="activity-list glass-card">
+            <!-- ✅ FIXED: RecentActivity dengan proper time property -->
+            <div class="activity-item" *ngFor="let activity of recentActivities; trackBy: trackByActivityId"
+              (click)="navigateTo('/dashboard/logs')">
+              <div class="activity-icon" [ngClass]="activity.type">
+                <mat-icon>{{ activity.icon }}</mat-icon>
+              </div>
+              <div class="activity-content">
+                <div class="activity-text">{{ activity.description }}</div>
+                <div class="activity-time">{{ activity.time }}</div>
+              </div>
+            </div>
+
+            <div class="activity-empty" *ngIf="recentActivities.length === 0">
+              <mat-icon>history</mat-icon>
+              <p>Belum ada aktivitas</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ✅ ROUTER OUTLET untuk child routes (users, categories, dll.) -->
+      <div class="child-content" *ngIf="isNotDashboardHome">
+        <router-outlet></router-outlet>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- ✅ LOADING OVERLAY -->
+  <div class="loading-overlay" *ngIf="isLoadingStats">
+    <div class="loading-content">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading dashboard data...</p>
+    </div>
+  </div>
+
+  <!-- ✅ ERROR STATE -->
+  <div class="error-overlay" *ngIf="error && !isLoadingStats">
+    <div class="error-content">
+      <mat-icon>error</mat-icon>
+      <h3>Terjadi Kesalahan</h3>
+      <p>{{ error }}</p>
+      <button class="action-btn primary-btn" (click)="clearError()">
+        <mat-icon>refresh</mat-icon>
+        Coba Lagi
+      </button>
+    </div>
+  </div>
+
+</div>

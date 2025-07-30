@@ -1,10 +1,14 @@
-<!-- src/app/shared/topbar/topbar.html - MINIMALIST DESIGN -->
-<nav class="topbar">
+<!-- src/app/shared/topbar/topbar.html -->
+<!-- ✅ REAL DATA INTEGRATION: Template menggunakan data real dari backend -->
+<!-- Menghilangkan semua mock data dan menggunakan NotificationService -->
+
+<header class="topbar">
     <div class="topbar-container">
 
-        <!-- Left Section: Brand Only -->
+        <!-- ===== LEFT SECTION - BRAND ===== -->
         <div class="topbar-left">
-            <div class="brand" (click)="navigateTo('/dashboard')">
+            <div class="brand" (click)="navigateTo('/dashboard')" role="button" tabindex="0"
+                (keydown.enter)="navigateTo('/dashboard')" (keydown.space)="navigateTo('/dashboard')">
                 <div class="brand-logo">
                     <mat-icon>store</mat-icon>
                 </div>
@@ -12,117 +16,205 @@
             </div>
         </div>
 
-        <!-- Center Section: Page Title -->
+        <!-- ===== CENTER SECTION - PAGE TITLE ===== -->
         <div class="topbar-center">
             <h1 class="page-title">{{ pageTitle }}</h1>
         </div>
 
-        <!-- Right Section: Notifications + Profile Only -->
+        <!-- ===== RIGHT SECTION - ACTIONS ===== -->
         <div class="topbar-right">
 
-            <!-- Notification Bell with Dropdown -->
+            <!-- ✅ REAL NOTIFICATION SECTION dengan Backend Data -->
             <div class="notification-section">
-                <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="notification-button"
-                    matTooltip="Notifications">
-                    <mat-icon [matBadge]="getNotificationCount()" [matBadgeHidden]="getNotificationCount() === 0"
-                        matBadgeColor="warn" matBadgeSize="small">
-                        notifications
-                    </mat-icon>
+                <button class="notification-button" [matMenuTriggerFor]="notificationMenu" matTooltip="Notifikasi"
+                    [matBadge]="notificationBadgeText" [matBadgeHidden]="!hasUnreadNotifications" matBadgeColor="warn"
+                    matBadgeSize="small" [disabled]="isLoadingNotifications" aria-label="Open notifications">
+
+                    <!-- Loading spinner atau icon notifikasi -->
+                    <mat-icon *ngIf="!isLoadingNotifications">notifications</mat-icon>
+                    <mat-icon *ngIf="isLoadingNotifications" class="spin">refresh</mat-icon>
                 </button>
 
-                <!-- Notification Dropdown Menu -->
-                <mat-menu #notificationMenu="matMenu" class="notification-dropdown">
-                    <div class="notification-header">
-                        <h3>Notifications</h3>
-                        <button mat-button class="mark-all-read" (click)="markAllNotificationsRead()">
-                            Mark all read
-                        </button>
+                <!-- ✅ REAL Notification Dropdown Menu dengan Backend Data -->
+                <mat-menu #notificationMenu="matMenu" class="notification-dropdown" xPosition="before">
+
+                    <!-- Header dengan real count -->
+                    <div class="notification-header" (click)="$event.stopPropagation()">
+                        <div class="notification-title">
+                            <mat-icon>notifications</mat-icon>
+                            <span>{{ notificationDropdownTitle }}</span>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="notification-header-actions">
+                            <!-- Refresh button -->
+                            <button mat-icon-button (click)="refreshNotifications()" matTooltip="Refresh"
+                                [disabled]="isLoadingNotifications">
+                                <mat-icon [class.spin]="isLoadingNotifications">refresh</mat-icon>
+                            </button>
+
+                            <!-- Mark all read button -->
+                            <button mat-icon-button (click)="markAllNotificationsAsRead()"
+                                matTooltip="Tandai Semua Dibaca"
+                                [disabled]="!hasUnreadNotifications || isLoadingNotifications">
+                                <mat-icon>done_all</mat-icon>
+                            </button>
+
+                            <!-- View all button -->
+                            <button mat-icon-button (click)="navigateToNotifications()" matTooltip="Lihat Semua">
+                                <mat-icon>open_in_new</mat-icon>
+                            </button>
+                        </div>
                     </div>
+
                     <mat-divider></mat-divider>
 
-                    <div class="notification-list">
-                        <button mat-menu-item class="notification-item" *ngFor="let notification of mockNotifications">
-                            <div class="notification-content">
-                                <div class="notification-title">{{ notification.title }}</div>
-                                <div class="notification-message">{{ notification.message }}</div>
-                                <div class="notification-time">{{ notification.time }}</div>
+                    <!-- ✅ REAL Notification Items dari Backend -->
+                    <div class="notification-list" (click)="$event.stopPropagation()">
+
+                        <!-- Loading state -->
+                        <div *ngIf="isLoadingNotifications" class="notification-loading">
+                            <mat-icon class="spin">refresh</mat-icon>
+                            <p>Memuat notifikasi...</p>
+                        </div>
+
+                        <!-- Error state -->
+                        <div *ngIf="shouldShowNotificationError" class="notification-error">
+                            <mat-icon>error</mat-icon>
+                            <p>{{ notificationError }}</p>
+                            <button mat-button (click)="refreshNotifications()">
+                                <mat-icon>refresh</mat-icon>
+                                Coba Lagi
+                            </button>
+                        </div>
+
+                        <!-- Real notification items dari backend -->
+                        <div *ngFor="let notification of recentNotifications; trackBy: trackByNotificationId"
+                            class="notification-item" [class.unread]="!notification.isRead"
+                            [class]="getNotificationTypeClass(notification.type)"
+                            (click)="onNotificationClick(notification)">
+
+                            <div class="notification-icon" [class]="getNotificationTypeClass(notification.type)">
+                                <mat-icon>{{ getNotificationIcon(notification.type) }}</mat-icon>
                             </div>
-                            <div class="notification-badge" *ngIf="!notification.read"></div>
-                        </button>
+
+                            <div class="notification-content">
+                                <div class="notification-text">
+                                    <h4>{{ notification.title }}</h4>
+                                    <p>{{ truncateText(notification.message, 80) }}</p>
+                                </div>
+                                <div class="notification-time">
+                                    {{ getRelativeTime(notification.createdAt) }}
+                                </div>
+                            </div>
+
+                            <!-- Unread indicator -->
+                            <div *ngIf="!notification.isRead" class="unread-dot"></div>
+                        </div>
+
+                        <!-- Empty state - tidak ada notifikasi -->
+                        <div *ngIf="!isLoadingNotifications && !shouldShowNotificationError && !hasNotifications"
+                            class="notification-empty">
+                            <mat-icon>notifications_none</mat-icon>
+                            <p>Tidak ada notifikasi</p>
+                        </div>
                     </div>
 
-                    <mat-divider></mat-divider>
-                    <button mat-menu-item class="view-all-notifications" (click)="navigateTo('/notifications')">
-                        <mat-icon>visibility</mat-icon>
-                        View all notifications
-                    </button>
+                    <mat-divider *ngIf="hasNotifications"></mat-divider>
+
+                    <!-- Footer Action - View All -->
+                    <div class="notification-footer" (click)="$event.stopPropagation()" *ngIf="hasNotifications">
+                        <button mat-button class="view-all-button" (click)="navigateToNotifications()">
+                            <mat-icon>visibility</mat-icon>
+                            Lihat Semua Notifikasi
+                        </button>
+                    </div>
                 </mat-menu>
             </div>
 
-            <!-- User Profile with Dropdown -->
+            <!-- ✅ PROFILE SECTION dengan User Data Real -->
             <div class="profile-section">
-                <button mat-button [matMenuTriggerFor]="profileMenu" class="profile-button" matTooltip="Profile Menu">
+                <button class="profile-button" [matMenuTriggerFor]="profileMenu" matTooltip="Profile Menu"
+                    aria-label="Open profile menu">
 
-                    <!-- User Avatar -->
-                    <div class="user-avatar">
-                        <img *ngIf="getUserAvatar()" [src]="getUserAvatar()" [alt]="getUserDisplayName()"
-                            (error)="onAvatarError($event)" class="avatar-image">
-                        <div *ngIf="!getUserAvatar()" class="avatar-initials">
-                            {{ getUserInitials() }}
-                        </div>
+                    <div class="profile-avatar">
+                        <img *ngIf="avatarUrl; else avatarInitials" [src]="avatarUrl" [alt]="username + ' avatar'"
+                            (error)="avatarUrl = ''">
+
+                        <ng-template #avatarInitials>
+                            <div class="avatar-initials">
+                                {{ getInitials(username) }}
+                            </div>
+                        </ng-template>
                     </div>
-
-                    <!-- User Info -->
-                    <div class="user-info">
-                        <span class="username">{{ getUserDisplayName() }}</span>
-                        <span class="user-role">{{ roleDisplayName }}</span>
-                    </div>
-
-                    <!-- Dropdown Arrow -->
-                    <mat-icon class="dropdown-arrow">keyboard_arrow_down</mat-icon>
                 </button>
 
                 <!-- Profile Dropdown Menu -->
-                <mat-menu #profileMenu="matMenu" class="profile-dropdown">
-                    <!-- User Info Header -->
-                    <div class="profile-header">
-                        <div class="profile-avatar">
-                            <img *ngIf="getUserAvatar()" [src]="getUserAvatar()" [alt]="getUserDisplayName()"
-                                (error)="onAvatarError($event)">
-                            <div *ngIf="!getUserAvatar()" class="avatar-initials-large">
-                                {{ getUserInitials() }}
-                            </div>
+                <mat-menu #profileMenu="matMenu" class="profile-dropdown" xPosition="before">
+
+                    <!-- Profile Header dengan Real User Data -->
+                    <div class="profile-header" (click)="$event.stopPropagation()">
+                        <div class="profile-avatar-large">
+                            <img *ngIf="avatarUrl; else avatarInitialsLarge" [src]="avatarUrl"
+                                [alt]="username + ' avatar'" (error)="avatarUrl = ''">
+
+                            <ng-template #avatarInitialsLarge>
+                                <div class="avatar-initials-large">
+                                    {{ getInitials(username) }}
+                                </div>
+                            </ng-template>
                         </div>
+
                         <div class="profile-details">
-                            <h4>{{ getUserDisplayName() }}</h4>
-                            <p>{{ roleDisplayName }}</p>
+                            <h4>{{ username || 'Guest User' }}</h4>
+                            <p>{{ roleDisplayMap[role] || role || 'User' }}</p>
                         </div>
                     </div>
 
                     <mat-divider></mat-divider>
 
                     <!-- Profile Menu Items -->
+                    <button mat-menu-item (click)="navigateToProfile()">
+                        <mat-icon>person</mat-icon>
+                        <span>Edit Profile</span>
+                    </button>
+
                     <button mat-menu-item (click)="navigateToSettings()">
                         <mat-icon>settings</mat-icon>
-                        <span>Settings</span>
+                        <span>Pengaturan</span>
                     </button>
 
                     <button mat-menu-item (click)="showChangeUserDialog()">
                         <mat-icon>swap_horiz</mat-icon>
-                        <span>Change User</span>
+                        <span>Ganti User</span>
                     </button>
 
                     <mat-divider></mat-divider>
 
-                    <button mat-menu-item (click)="logout()" class="logout-item">
+                    <!-- Logout dengan loading state -->
+                    <button mat-menu-item class="logout-item" (click)="logout()" [disabled]="isLoading">
                         <mat-icon>logout</mat-icon>
                         <span>Logout</span>
+
+                        <!-- Loading spinner saat logout -->
                         <div *ngIf="isLoading" class="loading-spinner">
-                            <mat-icon class="spin">sync</mat-icon>
+                            <mat-icon class="spin">refresh</mat-icon>
                         </div>
                     </button>
                 </mat-menu>
             </div>
+
         </div>
     </div>
-</nav>
+</header>
+
+<!-- ✅ REAL DATA DEBUG INFO (hanya untuk development) -->
+<div *ngIf="false" class="debug-info">
+    <p>Real Data Debug:</p>
+    <p>Notification Count: {{ notificationCount }}</p>
+    <p>Recent Notifications: {{ recentNotifications.length }}</p>
+    <p>Loading: {{ isLoadingNotifications }}</p>
+    <p>Error: {{ notificationError }}</p>
+    <p>Username: {{ username }}</p>
+    <p>Role: {{ role }}</p>
+</div>

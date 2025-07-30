@@ -1,11 +1,10 @@
-// src/app/app.module.ts
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 
 // Application Components
-import { App } from './app'
+import { App } from './app';
 import { AppRoutingModule } from './app-routing-module';
 
 // Shared Module
@@ -22,13 +21,12 @@ import { NotificationService } from './core/services/notification.service';
 // Guards
 import { AuthGuard } from './core/guard/auth.guard';
 
-// Interceptors (if any)
-// import { AuthInterceptor } from './core/interceptors/auth.interceptor';
+// ✅ UNCOMMENT: Import AuthInterceptor
+import { AuthInterceptor } from './core/interceptors/auth.interceptor';
 
 @NgModule({
   declarations: [
     App
-    // TopbarComponent sudah di-declare di SharedModule
   ],
   imports: [
     BrowserModule,
@@ -47,14 +45,14 @@ import { AuthGuard } from './core/guard/auth.guard';
     NotificationService,
     
     // Guards
-    AuthGuard
+    AuthGuard,
     
-    // Interceptors
-    // {
-    //   provide: HTTP_INTERCEPTORS,
-    //   useClass: AuthInterceptor,
-    //   multi: true
-    // }
+    // ✅ UNCOMMENT: Enable AuthInterceptor
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: AuthInterceptor,
+      multi: true
+    }
   ],
   bootstrap: [App]
 })

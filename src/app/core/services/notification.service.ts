@@ -4,11 +4,11 @@
 
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError, timer } from 'rxjs';
+import { Observable, BehaviorSubject, throwError, timer, of } from 'rxjs';
 import { map, catchError, tap, retry, shareReplay, switchMap } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { environment } from '../../../environment/environment';
-
+import { AuthService } from './auth.service';
 // ===== BACKEND DTO INTERFACES ===== //
 // Sesuai dengan backend NotificationController response
 
@@ -72,8 +72,10 @@ export class NotificationService {
 
   constructor(
     private http: HttpClient,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private authService: AuthService  // ✅ Add AuthService injection
   ) {
+    console.log('🔔 NotificationService initialized with AuthService');
     this.initializeRealTimeUpdates();
   }
 
@@ -84,25 +86,48 @@ export class NotificationService {
    * Endpoint: GET /api/Notification/summary
    */
   getUnreadCount(): Observable<number> {
-    return this.http.get<ApiResponse<NotificationSummaryDto>>(`${this.apiUrl}/summary`)
-      .pipe(
-        map(response => {
-          if (response.success && response.data) {
-            // Update local state
-            this.unreadCountSubject.next(response.data.unreadCount);
-            this.summarySubject.next(response.data);
-            return response.data.unreadCount;
-          }
-          throw new Error(response.message || 'Failed to get notification count');
-        }),
-        retry(2), // Retry up to 2 times on failure
-        catchError((error: HttpErrorResponse) => {
+    console.log('🔔 === GETTING NOTIFICATION COUNT ===');
+    console.log('API URL:', `${this.apiUrl}/summary`);
+    console.log('Auth Status:', this.authService.isAuthenticated());
+    console.log('Current User:', this.authService.getCurrentUser());
+    console.log('Cookies:', document.cookie);
+    
+    // Check authentication first
+    if (!this.authService.isAuthenticated()) {
+      console.log('❌ User not authenticated, returning 0');
+      this.unreadCountSubject.next(0);
+      return of(0);
+    }
+
+    return this.http.get<ApiResponse<NotificationSummaryDto>>(`${this.apiUrl}/summary`).pipe(
+      tap((response) => {
+        console.log('✅ Notification API Response:', response);
+      }),
+      map(response => {
+        if (response.success && response.data) {
+          this.unreadCountSubject.next(response.data.unreadCount);
+          this.summarySubject.next(response.data);
+          console.log('✅ Updated notification count:', response.data.unreadCount);
+          return response.data.unreadCount;
+        }
+        throw new Error(response.message || 'Failed to get notification count');
+      }),
+      catchError((error: HttpErrorResponse) => {
+        console.error('❌ Notification API Error:', {
+          status: error.status,
+          url: error.url,
+          message: error.message,
+          error: error.error
+        });
+        
+        // Don't show error for auth issues - interceptor handles it
+        if (error.status !== 401 && error.status !== 405) {
           this.handleApiError('Failed to load notification count', error);
-          // Return current value as fallback
-          return [this.unreadCountSubject.value];
-        }),
-        shareReplay(1) // Cache the latest result
-      );
+        }
+        
+        return of(this.unreadCountSubject.value);
+      })
+    );
   }
 
   /**

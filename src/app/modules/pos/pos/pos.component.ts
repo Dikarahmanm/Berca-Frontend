@@ -148,10 +148,15 @@ loadProducts(): void {
   }
 
   private setupCartSubscription() {
-    this.posService.cart$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((cart: CartItem[]) => {
-        this.cart = cart;
+  this.posService.cart$
+    .pipe(
+      takeUntil(this.destroy$),
+      // ✅ Add distinctUntilChanged to prevent unnecessary updates
+      distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr))
+    )
+    .subscribe((cart: CartItem[]) => {
+      this.cart = [...cart]; // Always create new array reference
+      console.log('🛒 Cart subscription updated:', this.cart.length, 'items');
       });
   }
 
@@ -214,28 +219,37 @@ loadProducts(): void {
   // ===== CART OPERATIONS =====
 
   addToCart(product: Product, quantity: number = 1) {
-    // Check stock availability
-    if (product.stock < quantity) {
-      this.errorMessage = `Stok tidak mencukupi. Tersedia: ${product.stock}`;
-      this.clearMessages();
-      return;
-    }
-
-    // Check if already in cart
-    const existingItem = this.cart.find(item => item.product.id === product.id);
-    const totalQuantity = existingItem ? existingItem.quantity + quantity : quantity;
-
-    if (totalQuantity > product.stock) {
-      this.errorMessage = `Jumlah melebihi stok. Maksimal: ${product.stock}`;
-      this.clearMessages();
-      return;
-    }
-
-    this.posService.addToCart(product, quantity, 0);
-    this.successMessage = `${product.name} ditambahkan ke keranjang`;
+  // Check stock availability
+  if (product.stock < quantity) {
+    this.errorMessage = `Stok tidak mencukupi. Tersedia: ${product.stock}`;
     this.clearMessages();
+    return;
+  }
 
-    // Clear search
+  // Check if already in cart
+  const existingItem = this.cart.find(item => item.product.id === product.id);
+  const totalQuantity = existingItem ? existingItem.quantity + quantity : quantity;
+
+  if (totalQuantity > product.stock) {
+    this.errorMessage = `Jumlah melebihi stok. Maksimal: ${product.stock}`;
+    this.clearMessages();
+    return;
+  }
+
+  // ✅ FIX: Add to cart dan force refresh UI
+  this.posService.addToCart(product, quantity, 0);
+  
+  // ✅ FIX: Ensure cart updates immediately
+  this.posService.cart$.pipe(take(1)).subscribe(cart => {
+    this.cart = [...cart]; // Force array reference change
+    console.log('✅ Cart updated:', this.cart.length, 'items');
+  });
+  
+  this.successMessage = `${product.name} ditambahkan ke keranjang`;
+  this.clearMessages();
+
+  // Clear search AFTER cart update
+  setTimeout(() => {
     this.searchQuery = '';
     this.filteredProducts = [];
     
@@ -243,7 +257,8 @@ loadProducts(): void {
     if (this.productSearchInput) {
       this.productSearchInput.nativeElement.focus();
     }
-  }
+  }, 100);
+}
 
   // ===== ENHANCED INPUT HANDLERS =====
 
@@ -525,45 +540,62 @@ loadProducts(): void {
   // ===== KEYBOARD SHORTCUTS =====
 
   @HostListener('window:keydown', ['$event'])
-  onKeyDown(event: KeyboardEvent) {
-    // Don't trigger shortcuts if user is typing in an input
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
-      return;
-    }
+onKeyDown(event: KeyboardEvent) {
+  // ✅ FIX: Enhanced input detection
+  const isInputActive = (
+    event.target instanceof HTMLInputElement || 
+    event.target instanceof HTMLTextAreaElement ||
+    event.target instanceof HTMLSelectElement ||
+    (event.target as HTMLElement).isContentEditable
+  );
 
-    // Prevent shortcuts when modal is open
-    if (this.showPaymentModal || this.showBarcodeScanner) return;
-
-    switch (event.key) {
-      case 'F1':
-        event.preventDefault();
-        this.showBarcodeScanner = true;
-        break;
-      
-      case 'F2':
-        event.preventDefault();
-        if (this.productSearchInput) {
-          this.productSearchInput.nativeElement.focus();
-        }
-        break;
-      
-      case 'F9':
-        event.preventDefault();
-        this.processPayment();
-        break;
-      
-      case 'F12':
-        event.preventDefault();
-        this.clearCart();
-        break;
-      
-      case 'Escape':
-        if (this.showBarcodeScanner) {
-          this.showBarcodeScanner = false;
-        }
-        break;
-    }
+  // ✅ FIX: Skip shortcuts when typing in any input or modal is open
+  if (isInputActive || this.showPaymentModal || this.showBarcodeScanner) {
+    return; // Let the input handle the event normally
   }
+
+  // ✅ FIX: Additional check for specific input contexts
+  const activeElement = document.activeElement;
+  if (activeElement && (
+    activeElement.tagName === 'INPUT' ||
+    activeElement.tagName === 'TEXTAREA' ||
+    activeElement.hasAttribute('contenteditable')
+  )) {
+    return;
+  }
+
+  switch (event.key) {
+    case 'F1':
+      event.preventDefault();
+      this.showBarcodeScanner = true;
+      break;
+    
+    case 'F2':
+      event.preventDefault();
+      if (this.productSearchInput) {
+        this.productSearchInput.nativeElement.focus();
+      }
+      break;
+    
+    case 'F9':
+      event.preventDefault();
+      this.processPayment();
+      break;
+    
+    case 'F12':
+      event.preventDefault();
+      this.clearCart();
+      break;
+    
+    case 'Escape':
+      if (this.showBarcodeScanner) {
+        this.showBarcodeScanner = false;
+      } else if (this.showPaymentModal) {
+        this.showPaymentModal = false;
+      }
+      break;
+  }
+}
   increaseQuantity(index: number) {
   const item = this.cart[index];
   if (item && item.quantity < item.product.stock) {

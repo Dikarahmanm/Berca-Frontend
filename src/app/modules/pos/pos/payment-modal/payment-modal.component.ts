@@ -319,63 +319,60 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   // ===== KEYBOARD SHORTCUTS =====
 
   @HostListener('window:keydown', ['$event'])
-  handleKeyboardShortcuts(event: KeyboardEvent) {
-    if (!this.isVisible || this.isProcessing) return;
+handleKeyboardShortcuts(event: KeyboardEvent) {
+  if (!this.isVisible || this.isProcessing) return;
 
-    switch (event.key) {
-      case 'Enter':
-        event.preventDefault();
-        this.processPayment();
-        break;
-      
-      case 'Escape':
-        event.preventDefault();
-        this.onCancel();
-        break;
-      
-      case '1':
-        if (!event.ctrlKey && !event.altKey) {
-          event.preventDefault();
-          this.selectPaymentMethod('cash');
-        }
-        break;
-      
-      case '2':
-        if (!event.ctrlKey && !event.altKey) {
-          event.preventDefault();
-          this.selectPaymentMethod('card');
-        }
-        break;
-      
-      case '3':
-        if (!event.ctrlKey && !event.altKey) {
-          event.preventDefault();
-          this.selectPaymentMethod('digital');
-        }
-        break;
-      
-      case '4':
-        if (this.selectedMethod === 'cash' && !event.ctrlKey && !event.altKey) {
-          event.preventDefault();
-          this.selectQuickAmount(this.quickAmounts[0]);
-        }
-        break;
-      
-      case '5':
-        if (this.selectedMethod === 'cash' && !event.ctrlKey && !event.altKey) {
-          event.preventDefault();
-          this.selectQuickAmount(this.quickAmounts[1]);
-        }
-        break;
-      
-      case '6':
-        if (this.selectedMethod === 'cash' && !event.ctrlKey && !event.altKey) {
-          event.preventDefault();
-          this.selectQuickAmount(this.quickAmounts[2]);
-        }
-        break;
+  // ✅ FIX: Better input detection
+  const isTypingInInput = (
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement ||
+    document.activeElement?.tagName === 'INPUT'
+  );
+
+  // ✅ FIX: Allow normal typing in input fields
+  if (isTypingInInput) {
+    // Only handle specific keys that should work even in inputs
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.processPayment();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.onCancel();
     }
+    return; // Let other keys work normally in inputs
   }
+
+  // Handle shortcuts only when not typing
+  switch (event.key) {
+    case '1':
+      if (!event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        this.selectPaymentMethod('cash');
+      }
+      break;
+    
+    case '2':
+      if (!event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        this.selectPaymentMethod('card');
+      }
+      break;
+    
+    case '3':
+      if (!event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        this.selectPaymentMethod('digital');
+      }
+      break;
+    
+    case '4':
+      if (this.selectedMethod === 'cash' && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        this.selectQuickAmount(this.quickAmounts[0]);
+      }
+      break;
+  }
+}
 
   // ===== UTILITY METHODS =====
 

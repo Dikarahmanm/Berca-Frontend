@@ -6,7 +6,7 @@ import { tap, catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environment/environment';
 import { ApiResponse } from './user-profile.service';
 
-// ===== INTERFACES SESUAI BACKEND DTOs =====
+// ===== BACKEND DTO INTERFACES - EXACT MATCH =====
 
 export interface CreateSaleRequest {
   items: CreateSaleItemRequest[];
@@ -31,7 +31,16 @@ export interface CreateSaleItemRequest {
   discount: number;
 }
 
-export interface Sale {
+export interface ValidateStockRequest {
+  items: CreateSaleItemRequest[];
+}
+
+export interface CalculateTotalRequest {
+  items: CreateSaleItemRequest[];
+  globalDiscountPercent?: number;
+}
+
+export interface SaleDto {
   id: number;
   saleNumber: string;
   saleDate: Date;
@@ -53,7 +62,7 @@ export interface Sale {
   notes?: string;
   receiptPrinted: boolean;
   receiptPrintedAt?: Date;
-  items: SaleItem[];
+  items: SaleItemDto[];
   createdAt: Date;
   totalItems: number;
   totalProfit: number;
@@ -61,7 +70,7 @@ export interface Sale {
   redeemedPoints: number;
 }
 
-export interface SaleItem {
+export interface SaleItemDto {
   id: number;
   saleId: number;
   productId: number;
@@ -75,7 +84,7 @@ export interface SaleItem {
   totalProfit: number;
 }
 
-export interface Product {
+export interface ProductDto {
   id: number;
   name: string;
   barcode: string;
@@ -90,6 +99,54 @@ export interface Product {
   updatedAt: Date;
 }
 
+export interface ReceiptDataDto {
+  sale: SaleDto;
+  storeName: string;
+  storeAddress: string;
+  storePhone: string;
+  storeEmail?: string;
+  footerMessage?: string;
+}
+
+// API Response wrappers
+export interface ProductListResponseApiResponse {
+  success: boolean;
+  data: {
+    items: ProductDto[];
+    totalCount: number;
+  };
+  message?: string;
+}
+
+export interface ProductDtoApiResponse {
+  success: boolean;
+  data: ProductDto;
+  message?: string;
+}
+
+export interface SaleDtoApiResponse {
+  success: boolean;
+  data: SaleDto;
+  message?: string;
+}
+
+export interface BooleanApiResponse {
+  success: boolean;
+  data: boolean;
+  message?: string;
+}
+
+export interface DecimalApiResponse {
+  success: boolean;
+  data: number;
+  message?: string;
+}
+
+// Use backend DTOs for consistency
+export interface Sale extends SaleDto {}
+export interface SaleItem extends SaleItemDto {}
+export interface Product extends ProductDto {}
+
 export interface CartItem {
   product: Product;
   quantity: number;
@@ -98,14 +155,7 @@ export interface CartItem {
 }
 
 // ===== RECEIPT DATA INTERFACE =====
-export interface ReceiptData {
-  sale: Sale;
-  storeName: string;
-  storeAddress: string;
-  storePhone: string;
-  storeEmail?: string;
-  footerMessage?: string;
-}
+export interface ReceiptData extends ReceiptDataDto {}
 
 // ===== UI INTERFACES =====
 export interface PaymentData {
@@ -131,13 +181,31 @@ export class POSService {
 
   constructor(private http: HttpClient) {}
 
-  // ===== TRANSACTION OPERATIONS =====
-  
+  // ===== REQUIRED METHODS FROM PROBLEM STATEMENT =====
+
+  /**
+   * Get all products
+   */
+  getProducts(): Observable<ProductListResponseApiResponse> {
+    return this.http.get<ProductListResponseApiResponse>(`${environment.apiUrl}/Product`, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  /**
+   * Get product by barcode
+   */
+  getProductByBarcode(barcode: string): Observable<ProductDtoApiResponse> {
+    return this.http.get<ProductDtoApiResponse>(`${environment.apiUrl}/Product/barcode/${barcode}`, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
   /**
    * Create a new sale transaction
    */
-  createSale(request: CreateSaleRequest): Observable<ApiResponse<Sale>> {
-    return this.http.post<ApiResponse<Sale>>(`${this.apiUrl}/sales`, request, {
+  createSale(data: CreateSaleRequest): Observable<SaleDtoApiResponse> {
+    return this.http.post<SaleDtoApiResponse>(`${this.apiUrl}/sales`, data, {
       withCredentials: true
     }).pipe(
       tap(response => {
@@ -151,10 +219,29 @@ export class POSService {
   }
 
   /**
+   * Validate stock availability for items
+   */
+  validateStock(items: ValidateStockRequest): Observable<BooleanApiResponse> {
+    return this.http.post<BooleanApiResponse>(`${this.apiUrl}/validate-stock`, items, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  /**
+   * Calculate total using backend (replaces manual calculation)
+   */
+  calculateTotal(data: CalculateTotalRequest): Observable<DecimalApiResponse> {
+    return this.http.post<DecimalApiResponse>(`${this.apiUrl}/calculate-total`, data, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  // ===== ADDITIONAL TRANSACTION OPERATIONS =====
+  /**
    * Get sale by ID
    */
-  getSaleById(id: number): Observable<ApiResponse<Sale>> {
-    return this.http.get<ApiResponse<Sale>>(`${this.apiUrl}/sales/${id}`, {
+  getSaleById(id: number): Observable<SaleDtoApiResponse> {
+    return this.http.get<SaleDtoApiResponse>(`${this.apiUrl}/sales/${id}`, {
       withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
@@ -162,8 +249,8 @@ export class POSService {
   /**
    * Get sale by sale number
    */
-  getSaleByNumber(saleNumber: string): Observable<ApiResponse<Sale>> {
-    return this.http.get<ApiResponse<Sale>>(`${this.apiUrl}/sales/number/${saleNumber}`, {
+  getSaleByNumber(saleNumber: string): Observable<SaleDtoApiResponse> {
+    return this.http.get<SaleDtoApiResponse>(`${this.apiUrl}/sales/number/${saleNumber}`, {
       withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
@@ -206,15 +293,13 @@ export class POSService {
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
-  // ===== VALIDATION =====
+  // ===== LEGACY METHODS - UPDATED FOR COMPATIBILITY =====
 
   /**
-   * Validate stock availability for items
+   * @deprecated Use validateStock instead
    */
-  validateStockAvailability(items: CreateSaleItemRequest[]): Observable<ApiResponse<boolean>> {
-    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/validate-stock`, items, {
-      withCredentials: true
-    }).pipe(catchError(this.handleError.bind(this)));
+  validateStockAvailability(items: CreateSaleItemRequest[]): Observable<BooleanApiResponse> {
+    return this.validateStock({ items });
   }
 
   // ===== RECEIPT OPERATIONS =====
@@ -222,8 +307,8 @@ export class POSService {
   /**
    * Get receipt data for printing
    */
-  getReceiptData(saleId: number): Observable<ApiResponse<ReceiptData>> {
-    return this.http.get<ApiResponse<ReceiptData>>(`${this.apiUrl}/sales/${saleId}/receipt`, {
+  getReceiptData(saleId: number): Observable<ApiResponse<ReceiptDataDto>> {
+    return this.http.get<ApiResponse<ReceiptDataDto>>(`${this.apiUrl}/sales/${saleId}/receipt`, {
       withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
@@ -240,33 +325,18 @@ export class POSService {
   // ===== PRODUCT SEARCH (Integration with Product Service) =====
 
   /**
-   * Search products by name or barcode
+   * Search products by name or barcode (uses getProducts with search)
    */
-  searchProducts(query: string): Observable<ApiResponse<Product[]>> {
+  searchProducts(query: string): Observable<ProductListResponseApiResponse> {
     const params = new HttpParams()
       .set('search', query)
       .set('page', '1')
       .set('pageSize', '50')
       .set('isActive', 'true');
 
-    return this.http.get<ApiResponse<{items: Product[]; totalCount: number}>>(`${environment.apiUrl}/Product`, { 
+    return this.http.get<ProductListResponseApiResponse>(`${environment.apiUrl}/Product`, { 
       params,
       withCredentials: true 
-    }).pipe(
-      map(response => ({
-        ...response,
-        data: response.data?.items || []
-      })),
-      catchError(this.handleError.bind(this))
-    );
-  }
-
-  /**
-   * Get product by barcode
-   */
-  getProductByBarcode(barcode: string): Observable<ApiResponse<Product>> {
-    return this.http.get<ApiResponse<Product>>(`${environment.apiUrl}/Product/barcode/${barcode}`, {
-      withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
@@ -361,9 +431,70 @@ export class POSService {
   }
 
   /**
-   * Get cart totals
+   * Get cart totals using backend calculation (replaces manual calculation)
    */
-  getCartTotals(globalDiscountPercent: number = 0): {
+  getCartTotals(globalDiscountPercent: number = 0): Observable<{
+    subtotal: number;
+    globalDiscount: number;
+    discountAmount: number;
+    taxAmount: number;
+    total: number;
+  }> {
+    const cart = this.cartSubject.value;
+    
+    if (cart.length === 0) {
+      return new Observable(observer => {
+        observer.next({
+          subtotal: 0,
+          globalDiscount: globalDiscountPercent,
+          discountAmount: 0,
+          taxAmount: 0,
+          total: 0
+        });
+        observer.complete();
+      });
+    }
+
+    const items: CreateSaleItemRequest[] = cart.map(item => ({
+      productId: item.product.id,
+      quantity: item.quantity,
+      sellPrice: item.product.sellPrice,
+      discount: item.discount
+    }));
+
+    const request: CalculateTotalRequest = {
+      items,
+      globalDiscountPercent
+    };
+
+    return this.calculateTotal(request).pipe(
+      map(response => {
+        if (response.success) {
+          // Calculate individual components for UI display
+          const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
+          const discountAmount = subtotal * (globalDiscountPercent / 100);
+          const afterDiscount = subtotal - discountAmount;
+          const taxAmount = afterDiscount * 0.11; // This should also come from backend in future
+          
+          return {
+            subtotal,
+            globalDiscount: globalDiscountPercent,
+            discountAmount,
+            taxAmount,
+            total: response.data
+          };
+        } else {
+          throw new Error(response.message || 'Failed to calculate total');
+        }
+      })
+    );
+  }
+
+  /**
+   * Get cart totals synchronously (for compatibility, but prefers async version)
+   * @deprecated Use getCartTotals() Observable version instead
+   */
+  getCartTotalsSync(globalDiscountPercent: number = 0): {
     subtotal: number;
     globalDiscount: number;
     discountAmount: number;

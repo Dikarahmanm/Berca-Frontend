@@ -1,4 +1,4 @@
-// src/app/shared/notification-dropdown/notification-dropdown.component.ts
+// src/app/modules/notifications/notification-dropdown/notification-dropdown.component.ts
 import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -8,32 +8,10 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { Subject, takeUntil, interval } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 
-// Simple notification interface (matches backend DTO)
-interface Notification {
-  id: number;
-  type: string;
-  title: string;
-  message: string;
-  actionUrl?: string;
-  actionText?: string;
-  isRead: boolean;
-  priority: string; // "Low", "Normal", "High", "Critical"
-  createdAt: string;
-  readAt?: string;
-  timeAgo: string;
-  isExpired: boolean;
-}
-
-interface NotificationSummary {
-  totalCount: number;
-  unreadCount: number;
-  lowStockCount: number;
-  systemCount: number;
-  salesCount: number;
-  lastUpdated: Date;
-}
+// Import real service and interfaces
+import { NotificationService, NotificationDto, NotificationSummaryDto } from '../../../core/services/notification.service';
 
 @Component({
   selector: 'app-notification-dropdown',
@@ -53,26 +31,22 @@ interface NotificationSummary {
 export class NotificationDropdownComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  // Data
-  notifications: Notification[] = [];
-  summary: NotificationSummary = {
-    totalCount: 0,
-    unreadCount: 0,
-    lowStockCount: 0,
-    systemCount: 0,
-    salesCount: 0,
-    lastUpdated: new Date()
-  };
+  // Data from real service
+  recentNotifications: NotificationDto[] = [];
+  summary: NotificationSummaryDto | null = null;
 
   // UI State
   isLoading = false;
   isOpen = false;
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private notificationService: NotificationService
+  ) {}
 
   ngOnInit() {
-    this.loadMockData();
-    this.startPolling();
+    this.loadNotificationSummary();
+    this.setupReactiveUpdates();
   }
 
   ngOnDestroy() {
@@ -90,71 +64,50 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Load mock notification data (replace with real service call)
+   * Load notification summary from real service
    */
-  private loadMockData() {
-    // Mock notifications for demo
-    this.notifications = [
-      {
-        id: 1,
-        type: 'LOW_STOCK',
-        title: 'Stok Menipis',
-        message: 'Produk Mie Instan tinggal 5 unit',
-        actionUrl: '/inventory',
-        actionText: 'Lihat Inventori',
-        isRead: false,
-        priority: 'High',
-        createdAt: new Date().toISOString(),
-        timeAgo: '5 menit lalu',
-        isExpired: false
-      },
-      {
-        id: 2,
-        type: 'MONTHLY_REVENUE',
-        title: 'Laporan Bulanan',
-        message: 'Laporan penjualan bulan ini sudah tersedia',
-        actionUrl: '/reports',
-        actionText: 'Lihat Laporan',
-        isRead: false,
-        priority: 'Normal',
-        createdAt: new Date().toISOString(),
-        timeAgo: '2 jam lalu',
-        isExpired: false
-      },
-      {
-        id: 3,
-        type: 'SALE_COMPLETED',
-        title: 'Penjualan Selesai',
-        message: 'Transaksi #001234 berhasil diselesaikan',
-        actionUrl: '/pos',
-        actionText: 'Lihat Detail',
-        isRead: true,
-        priority: 'Normal',
-        createdAt: new Date().toISOString(),
-        timeAgo: '1 hari lalu',
-        isExpired: false
-      }
-    ];
-
-    this.summary = {
-      totalCount: this.notifications.length,
-      unreadCount: this.notifications.filter(n => !n.isRead).length,
-      lowStockCount: this.notifications.filter(n => n.type === 'LOW_STOCK').length,
-      systemCount: this.notifications.filter(n => n.type === 'SYSTEM_MAINTENANCE').length,
-      salesCount: this.notifications.filter(n => n.type === 'SALE_COMPLETED').length,
-      lastUpdated: new Date()
-    };
+  private loadNotificationSummary() {
+    this.notificationService.getNotificationSummary()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (summary) => {
+          this.summary = summary;
+          this.recentNotifications = summary.recentNotifications || [];
+        },
+        error: (error) => {
+          console.error('Error loading notification summary:', error);
+        }
+      });
   }
 
   /**
-   * Start polling for new notifications (replace with SignalR)
+   * Setup reactive updates from service
    */
-  private startPolling() {
-    interval(30000) // Poll every 30 seconds
+  private setupReactiveUpdates() {
+    // Subscribe to real-time summary updates
+    this.notificationService.summary$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        // In real implementation, call notification service
-        console.log('🔔 Polling for new notifications...');
+      .subscribe((summary) => {
+        if (summary) {
+          this.summary = summary;
+          this.recentNotifications = summary.recentNotifications || [];
+        }
+      });
+
+    // Subscribe to unread count updates
+    this.notificationService.unreadCount$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((count) => {
+        if (this.summary) {
+          this.summary.unreadCount = count;
+        }
+      });
+
+    // Subscribe to loading state
+    this.notificationService.isLoading$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((isLoading) => {
+        this.isLoading = isLoading;
       });
   }
 
@@ -164,7 +117,7 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
   toggleDropdown() {
     this.isOpen = !this.isOpen;
     if (this.isOpen) {
-      this.loadMockData(); // Refresh data when opening
+      this.loadNotificationSummary(); // Refresh data when opening
     }
   }
 
@@ -178,13 +131,22 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
   /**
    * Handle notification click
    */
-  onNotificationClick(notification: Notification) {
-    // Mark as read
+  onNotificationClick(notification: NotificationDto) {
+    // Mark as read using real service
     if (!notification.isRead) {
-      notification.isRead = true;
-      this.summary.unreadCount = Math.max(0, this.summary.unreadCount - 1);
-      // In real implementation, call service to mark as read
-      console.log('📧 Marked notification as read:', notification.id);
+      this.notificationService.markAsRead(notification.id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (success) => {
+            if (success) {
+              notification.isRead = true;
+              notification.readAt = new Date().toISOString();
+            }
+          },
+          error: (error) => {
+            console.error('Error marking notification as read:', error);
+          }
+        });
     }
 
     // Navigate to action URL
@@ -204,13 +166,45 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Mark all as read
+   * Mark all as read using real service
    */
   markAllAsRead() {
-    this.notifications.forEach(n => n.isRead = true);
-    this.summary.unreadCount = 0;
-    // In real implementation, call service
-    console.log('📧 Marked all notifications as read');
+    this.notificationService.markAllAsRead()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (success) => {
+          if (success) {
+            this.recentNotifications.forEach(n => {
+              n.isRead = true;
+              n.readAt = new Date().toISOString();
+            });
+          }
+        },
+        error: (error) => {
+          console.error('Error marking all notifications as read:', error);
+        }
+      });
+  }
+
+  /**
+   * Get badge count
+   */
+  getBadgeCount(): number {
+    return this.summary?.unreadCount || 0;
+  }
+
+  /**
+   * Check if has unread notifications
+   */
+  hasUnreadNotifications(): boolean {
+    return (this.summary?.unreadCount || 0) > 0;
+  }
+
+  /**
+   * Check if has any notifications
+   */
+  hasNotifications(): boolean {
+    return this.recentNotifications.length > 0;
   }
 
   /**
@@ -263,20 +257,6 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get badge count
-   */
-  getBadgeCount(): number {
-    return this.summary.unreadCount;
-  }
-
-  /**
-   * Check if has unread notifications
-   */
-  hasUnreadNotifications(): boolean {
-    return this.summary.unreadCount > 0;
-  }
-
-  /**
    * Get notification type label
    */
   getNotificationTypeLabel(type: string): string {
@@ -311,7 +291,7 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
   /**
    * Track by function for ngFor performance
    */
-  trackByNotificationId(index: number, notification: Notification): number {
+  trackByNotificationId(index: number, notification: NotificationDto): number {
     return notification.id;
   }
 }

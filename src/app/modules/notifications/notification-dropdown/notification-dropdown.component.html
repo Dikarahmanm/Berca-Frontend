@@ -45,13 +45,13 @@
         <div class="notification-list" *ngIf="!isLoading">
 
             <!-- Empty State -->
-            <div class="notification-empty" *ngIf="notifications.length === 0">
+            <div class="notification-empty" *ngIf="recentNotifications.length === 0">
                 <mat-icon>notifications_off</mat-icon>
                 <span>{{getEmptyStateMessage()}}</span>
             </div>
 
             <!-- Notification Items -->
-            <div class="notification-item" *ngFor="let notification of notifications; trackBy: trackByNotificationId"
+            <div class="notification-item" *ngFor="let notification of recentNotifications; trackBy: trackByNotificationId"
                 [class.unread]="!notification.isRead" (click)="onNotificationClick(notification)">
 
                 <div class="notification-icon" [style.background-color]="getNotificationColor(notification.priority)">
@@ -82,7 +82,7 @@
         </div>
 
         <!-- Footer -->
-        <div class="notification-menu-footer" *ngIf="notifications.length > 0">
+        <div class="notification-menu-footer" *ngIf="recentNotifications.length > 0">
             <button mat-button (click)="viewAllNotifications()" class="view-all-notifications-btn">
                 <mat-icon>visibility</mat-icon>
                 Lihat Semua Notifikasi

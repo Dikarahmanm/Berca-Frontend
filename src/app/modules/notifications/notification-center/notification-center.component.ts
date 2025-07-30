@@ -2,33 +2,11 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { Subject, interval } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize } from 'rxjs/operators';
 
-// Simple notification interfaces
-interface Notification {
-  id: number;
-  type: string;
-  title: string;
-  message: string;
-  actionUrl?: string;
-  actionText?: string;
-  isRead: boolean;
-  priority: string; // "Low", "Normal", "High", "Critical"
-  createdAt: string;
-  readAt?: string;
-  timeAgo: string;
-  isExpired: boolean;
-}
-
-interface NotificationSummary {
-  totalCount: number;
-  unreadCount: number;
-  lowStockCount: number;
-  systemCount: number;
-  salesCount: number;
-  lastUpdated: Date;
-}
+// Import real service and interfaces
+import { NotificationService, NotificationDto, NotificationSummaryDto } from '../../../core/services/notification.service';
 
 type FilterType = 'all' | 'unread' | 'low_stock' | 'system' | 'sales';
 
@@ -42,16 +20,9 @@ type FilterType = 'all' | 'unread' | 'low_stock' | 'system' | 'sales';
 export class NotificationCenterComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  // Data
-  notifications: Notification[] = [];
-  summary: NotificationSummary = {
-    totalCount: 0,
-    unreadCount: 0,
-    lowStockCount: 0,
-    systemCount: 0,
-    salesCount: 0,
-    lastUpdated: new Date()
-  };
+  // Data from real service
+  notifications: NotificationDto[] = [];
+  summary: NotificationSummaryDto | null = null;
 
   // UI State
   isLoading = false;
@@ -71,12 +42,15 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
     { value: 'sales' as FilterType, label: 'Penjualan', icon: 'point_of_sale', count: 0 }
   ];
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private notificationService: NotificationService
+  ) {}
 
   ngOnInit() {
-    this.loadMockData();
-    this.updateFilterCounts();
-    this.startPolling();
+    this.loadNotifications();
+    this.loadSummary();
+    this.setupReactiveUpdates();
   }
 
   ngOnDestroy() {
@@ -85,144 +59,136 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Load mock notification data
+   * Load notifications from real service
    */
-  private loadMockData() {
+  private loadNotifications() {
     this.isLoading = true;
+    this.error = null;
     
-    // Simulate API delay
-    setTimeout(() => {
-      this.notifications = [
-        {
-          id: 1,
-          type: 'LOW_STOCK',
-          title: 'Stok Menipis',
-          message: 'Produk Mie Instan Sedap Goreng tinggal 5 unit. Segera lakukan restocking untuk menghindari kehabisan stok.',
-          actionUrl: '/inventory',
-          actionText: 'Lihat Inventori',
-          isRead: false,
-          priority: 'High',
-          createdAt: new Date(Date.now() - 5 * 60000).toISOString(), // 5 minutes ago
-          timeAgo: '5 menit lalu',
-          isExpired: false
+    const isReadFilter = this.selectedFilter === 'unread' ? false : undefined;
+    
+    this.notificationService.getUserNotifications(this.page, this.pageSize, isReadFilter)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => this.isLoading = false)
+      )
+      .subscribe({
+        next: (notifications) => {
+          if (this.page === 1) {
+            this.notifications = notifications;
+          } else {
+            this.notifications = [...this.notifications, ...notifications];
+          }
+          this.hasMoreNotifications = notifications.length === this.pageSize;
         },
-        {
-          id: 2,
-          type: 'MONTHLY_REVENUE',
-          title: 'Laporan Bulanan Tersedia',
-          message: 'Laporan penjualan bulan Januari 2025 sudah siap. Total pendapatan Rp 15.200.000 dengan peningkatan 12% dari bulan sebelumnya.',
-          actionUrl: '/reports',
-          actionText: 'Lihat Laporan',
-          isRead: false,
-          priority: 'Normal',
-          createdAt: new Date(Date.now() - 2 * 3600000).toISOString(), // 2 hours ago
-          timeAgo: '2 jam lalu',
-          isExpired: false
-        },
-        {
-          id: 3,
-          type: 'SALE_COMPLETED',
-          title: 'Transaksi Besar Selesai',
-          message: 'Transaksi #001234 senilai Rp 850.000 berhasil diselesaikan oleh kasir Siti.',
-          actionUrl: '/pos',
-          actionText: 'Lihat Detail',
-          isRead: true,
-          priority: 'Normal',
-          createdAt: new Date(Date.now() - 24 * 3600000).toISOString(), // 1 day ago
-          timeAgo: '1 hari lalu',
-          isExpired: false
-        },
-        {
-          id: 4,
-          type: 'INVENTORY_AUDIT',
-          title: 'Audit Inventori Diperlukan',
-          message: 'Sudah 30 hari sejak audit inventori terakhir. Waktu untuk melakukan pengecekan stok menyeluruh.',
-          actionUrl: '/inventory/audit',
-          actionText: 'Mulai Audit',
-          isRead: false,
-          priority: 'High',
-          createdAt: new Date(Date.now() - 3 * 24 * 3600000).toISOString(), // 3 days ago
-          timeAgo: '3 hari lalu',
-          isExpired: false
-        },
-        {
-          id: 5,
-          type: 'SYSTEM_MAINTENANCE',
-          title: 'Pemeliharaan Sistem Terjadwal',
-          message: 'Sistem akan menjalani pemeliharaan rutin pada Minggu, 2 Februari 2025 pukul 02:00 - 04:00 WIB.',
-          isRead: true,
-          priority: 'Low',
-          createdAt: new Date(Date.now() - 7 * 24 * 3600000).toISOString(), // 7 days ago
-          timeAgo: '1 minggu lalu',
-          isExpired: false
-        },
-        {
-          id: 6,
-          type: 'LOW_STOCK',
-          title: 'Stok Kritis',
-          message: 'Produk Susu UHT Indomilk habis. Perlu segera melakukan pembelian ulang.',
-          actionUrl: '/inventory',
-          actionText: 'Lihat Inventori',
-          isRead: false,
-          priority: 'Critical',
-          createdAt: new Date(Date.now() - 30 * 60000).toISOString(), // 30 minutes ago
-          timeAgo: '30 menit lalu',
-          isExpired: false
+        error: (error) => {
+          this.error = 'Gagal memuat notifikasi. Silakan coba lagi.';
+          console.error('Error loading notifications:', error);
         }
-      ];
-
-      this.summary = {
-        totalCount: this.notifications.length,
-        unreadCount: this.notifications.filter(n => !n.isRead).length,
-        lowStockCount: this.notifications.filter(n => n.type === 'LOW_STOCK').length,
-        systemCount: this.notifications.filter(n => n.type === 'SYSTEM_MAINTENANCE').length,
-        salesCount: this.notifications.filter(n => n.type === 'SALE_COMPLETED').length,
-        lastUpdated: new Date()
-      };
-
-      this.updateFilterCounts();
-      this.isLoading = false;
-    }, 1000);
-  }
-
-  /**
-   * Start polling for new notifications
-   */
-  private startPolling() {
-    interval(30000)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        console.log('🔔 Polling for new notifications...');
-        // In real implementation, call API to check for new notifications
       });
   }
 
   /**
-   * Update filter counts
+   * Load notification summary from real service
    */
-  private updateFilterCounts() {
-    this.filterOptions[0].count = this.summary.totalCount; // all
-    this.filterOptions[1].count = this.summary.unreadCount; // unread
-    this.filterOptions[2].count = this.summary.lowStockCount; // low_stock
-    this.filterOptions[3].count = this.summary.systemCount; // system
-    this.filterOptions[4].count = this.summary.salesCount; // sales
+  private loadSummary() {
+    this.notificationService.getNotificationSummary()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (summary) => {
+          this.summary = summary;
+          this.updateFilterCounts();
+        },
+        error: (error) => {
+          console.error('Error loading summary:', error);
+        }
+      });
   }
 
   /**
-   * Change filter
+   * Setup reactive updates from service
+   */
+  private setupReactiveUpdates() {
+    // Subscribe to real-time updates
+    this.notificationService.summary$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((summary) => {
+        if (summary) {
+          this.summary = summary;
+          this.updateFilterCounts();
+        }
+      });
+
+    this.notificationService.notifications$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((notifications) => {
+        this.notifications = notifications;
+      });
+
+    this.notificationService.error$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((error) => {
+        this.error = error;
+      });
+  }
+
+  /**
+   * Get dynamic count for specific notification types
+   */
+  getLowStockCount(): number {
+    return this.notifications.filter(n => n.type === 'LOW_STOCK').length;
+  }
+
+  getSystemCount(): number {
+    return this.notifications.filter(n => 
+      ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED'].includes(n.type)
+    ).length;
+  }
+
+  getSalesCount(): number {
+    return this.notifications.filter(n => 
+      ['SALE_COMPLETED', 'MONTHLY_REVENUE'].includes(n.type)
+    ).length;
+  }
+
+  /**
+   * Update filter counts based on summary
+   */
+  private updateFilterCounts() {
+    if (!this.summary) return;
+    
+    this.filterOptions[0].count = this.summary.totalCount; // all
+    this.filterOptions[1].count = this.summary.unreadCount; // unread
+    
+    // Calculate type-specific counts from actual notifications
+    const lowStockCount = this.notifications.filter(n => n.type === 'LOW_STOCK').length;
+    const systemCount = this.notifications.filter(n => 
+      ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED'].includes(n.type)
+    ).length;
+    const salesCount = this.notifications.filter(n => 
+      ['SALE_COMPLETED', 'MONTHLY_REVENUE'].includes(n.type)
+    ).length;
+    
+    this.filterOptions[2].count = lowStockCount; // low_stock
+    this.filterOptions[3].count = systemCount; // system
+    this.filterOptions[4].count = salesCount; // sales
+  }
+
+  /**
+   * Change filter and reload notifications
    */
   changeFilter(filter: FilterType, index: number) {
     this.selectedFilter = filter;
     this.selectedFilterIndex = index;
     this.page = 1;
     this.hasMoreNotifications = true;
-    // In real implementation, load filtered notifications from API
+    this.loadNotifications();
   }
 
   /**
    * Get filtered notifications for display
    */
-  getFilteredNotifications(): Notification[] {
+  getFilteredNotifications(): NotificationDto[] {
     switch (this.selectedFilter) {
       case 'unread':
         return this.notifications.filter(n => !n.isRead);
@@ -242,73 +208,100 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Mark notification as read
+   * Mark notification as read using real service
    */
-  markAsRead(notification: Notification) {
+  markAsRead(notification: NotificationDto) {
     if (notification.isRead) return;
 
-    notification.isRead = true;
-    this.summary.unreadCount = Math.max(0, this.summary.unreadCount - 1);
-    this.updateFilterCounts();
-    
-    console.log('📧 Marked notification as read:', notification.id);
+    this.notificationService.markAsRead(notification.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (success) => {
+          if (success) {
+            notification.isRead = true;
+            notification.readAt = new Date().toISOString();
+            this.loadSummary(); // Refresh summary
+          }
+        },
+        error: (error) => {
+          console.error('Error marking notification as read:', error);
+        }
+      });
   }
 
   /**
-   * Mark all notifications as read
+   * Mark all notifications as read using real service
    */
   markAllAsRead() {
-    this.notifications.forEach(n => n.isRead = true);
-    this.summary.unreadCount = 0;
-    this.updateFilterCounts();
-    console.log('📧 Marked all notifications as read');
+    this.notificationService.markAllAsRead()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (success) => {
+          if (success) {
+            this.notifications.forEach(n => {
+              n.isRead = true;
+              n.readAt = new Date().toISOString();
+            });
+            this.loadSummary(); // Refresh summary
+          }
+        },
+        error: (error) => {
+          console.error('Error marking all notifications as read:', error);
+        }
+      });
   }
 
   /**
-   * Delete notification
+   * Delete notification using real service
    */
-  deleteNotification(notification: Notification, event: Event) {
+  deleteNotification(notification: NotificationDto, event: Event) {
     event.stopPropagation();
 
     if (confirm('Yakin ingin menghapus notifikasi ini?')) {
-      const index = this.notifications.findIndex(n => n.id === notification.id);
-      if (index > -1) {
-        this.notifications.splice(index, 1);
-        this.summary.totalCount--;
-        if (!notification.isRead) {
-          this.summary.unreadCount--;
-        }
-        this.updateFilterCounts();
-        console.log('🗑️ Deleted notification:', notification.id);
-      }
+      this.notificationService.deleteNotification(notification.id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (success) => {
+            if (success) {
+              const index = this.notifications.findIndex(n => n.id === notification.id);
+              if (index > -1) {
+                this.notifications.splice(index, 1);
+                this.loadSummary(); // Refresh summary
+              }
+            }
+          },
+          error: (error) => {
+            console.error('Error deleting notification:', error);
+          }
+        });
     }
   }
 
   /**
-   * Refresh notifications
+   * Refresh notifications from service
    */
   refresh() {
     this.page = 1;
     this.hasMoreNotifications = true;
     this.error = null;
-    this.loadMockData();
+    this.loadNotifications();
+    this.loadSummary();
   }
 
   /**
-   * Load more notifications
+   * Load more notifications (pagination)
    */
   loadMore() {
     if (!this.hasMoreNotifications || this.isLoading) return;
     
     this.page++;
-    // In real implementation, load more from API
-    console.log('Loading more notifications, page:', this.page);
+    this.loadNotifications();
   }
 
   /**
    * Handle notification click
    */
-  onNotificationClick(notification: Notification) {
+  onNotificationClick(notification: NotificationDto) {
     this.markAsRead(notification);
     
     if (notification.actionUrl) {
@@ -319,7 +312,7 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   /**
    * Get notification icon
    */
-  getNotificationIcon(notification: Notification): string {
+  getNotificationIcon(notification: NotificationDto): string {
     const icons: { [key: string]: string } = {
       'LOW_STOCK': 'inventory_2',
       'MONTHLY_REVENUE': 'analytics',
@@ -336,7 +329,7 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   /**
    * Get notification color
    */
-  getNotificationColor(notification: Notification): string {
+  getNotificationColor(notification: NotificationDto): string {
     const colors: { [key: string]: string } = {
       'Low': '#4BBF7B',      // Green
       'Normal': '#FF914D',   // Orange
@@ -368,21 +361,24 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   /**
    * Check if notification is expired
    */
-  isNotificationExpired(notification: Notification): boolean {
-    return notification.isExpired;
+  isNotificationExpired(notification: NotificationDto): boolean {
+    const now = new Date();
+    const notificationDate = new Date(notification.createdAt);
+    const diffDays = Math.floor((now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays > 30; // Consider expired after 30 days
   }
 
   /**
    * Get notification priority class
    */
-  getNotificationPriorityClass(notification: Notification): string {
+  getNotificationPriorityClass(notification: NotificationDto): string {
     return `priority-${notification.priority.toLowerCase()}`;
   }
 
   /**
    * Track by function for ngFor performance
    */
-  trackByNotificationId(index: number, notification: Notification): number {
+  trackByNotificationId(index: number, notification: NotificationDto): number {
     return notification.id;
   }
 
@@ -391,6 +387,7 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
    */
   clearError() {
     this.error = null;
+    this.notificationService.clearError();
   }
 
   /**

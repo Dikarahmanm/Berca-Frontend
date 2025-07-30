@@ -1,0 +1,200 @@
+<!-- src/app/modules/pos/receipt-preview/receipt-preview.component.html -->
+<div class="receipt-preview-container">
+
+    <!-- Header -->
+    <div class="preview-header">
+        <h1 class="preview-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 7H7V7h6v2zm0 2H7v-2h6v2zm0 2H7v-2h6v2z" />
+            </svg>
+            Preview Struk
+        </h1>
+
+        <div class="header-actions">
+            <button class="secondary-button" (click)="close()">
+                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </svg>
+                Tutup
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="isLoading">
+        <div class="spinner">
+            <div class="spinner-ring"></div>
+        </div>
+        <p>Memuat struk...</p>
+    </div>
+
+    <!-- Receipt Content -->
+    <div class="receipt-content" *ngIf="!isLoading && transaction">
+
+        <!-- Receipt Preview -->
+        <div class="receipt-preview">
+            <div class="receipt-paper">
+
+                <!-- Store Header -->
+                <div class="receipt-header">
+                    <div class="store-logo">
+                        <svg class="logo-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M7 18c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1z" />
+                        </svg>
+                    </div>
+                    <h2 class="store-name">TOKO ENIWAN</h2>
+                    <div class="store-info">
+                        <p>Jl. Contoh No. 123, Jakarta</p>
+                        <p>Telp: (021) 1234567</p>
+                        <p>Email:</p>
+                    </div>
+                </div>
+
+                <!-- Transaction Info -->
+                <div class="transaction-info">
+                    <div class="info-row">
+                        <span class="label">No. Transaksi:</span>
+                        <span class="value">{{transaction.id}}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Tanggal:</span>
+                        <span class="value">{{formatDate(transaction.timestamp)}}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Kasir:</span>
+                        <span class="value">{{transaction.cashierName}}</span>
+                    </div>
+                    <div class="info-row" *ngIf="transaction.customerName">
+                        <span class="label">Customer:</span>
+                        <span class="value">{{transaction.customerName}}</span>
+                    </div>
+                </div>
+
+                <!-- Items List -->
+                <div class="items-section">
+                    <div class="section-divider"></div>
+
+                    <div class="items-header">
+                        <span class="col-item">Item</span>
+                        <span class="col-qty">Qty</span>
+                        <span class="col-price">Harga</span>
+                        <span class="col-total">Total</span>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <div class="item-row" *ngFor="let item of transaction.items">
+                        <div class="item-info">
+                            <span class="item-name">{{item.name}}</span>
+                            <div class="item-details">
+                                <span class="item-qty">{{item.quantity}} x {{formatCurrency(item.price)}}</span>
+                                <span class="item-total">{{formatCurrency(item.subtotal)}}</span>
+                            </div>
+                            <div class="item-discount" *ngIf="item.discount > 0">
+                                Diskon {{item.discount}}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Totals Section -->
+                <div class="totals-section">
+                    <div class="section-divider"></div>
+
+                    <div class="total-row">
+                        <span class="label">Subtotal:</span>
+                        <span class="value">{{formatCurrency(transaction.subtotal)}}</span>
+                    </div>
+
+                    <div class="total-row" *ngIf="transaction.discount > 0">
+                        <span class="label">Diskon:</span>
+                        <span class="value discount">-{{formatCurrency(transaction.discount)}}</span>
+                    </div>
+
+                    <div class="total-row">
+                        <span class="label">Pajak (10%):</span>
+                        <span class="value">{{formatCurrency(transaction.tax)}}</span>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <div class="total-row grand-total">
+                        <span class="label">TOTAL:</span>
+                        <span class="value">{{formatCurrency(transaction.total)}}</span>
+                    </div>
+
+                    <div class="total-row">
+                        <span class="label">Dibayar ({{getPaymentMethodDisplay(transaction.paymentMethod)}}):</span>
+                        <span class="value">{{formatCurrency(transaction.paid)}}</span>
+                    </div>
+
+                    <div class="total-row">
+                        <span class="label">Kembalian:</span>
+                        <span class="value">{{formatCurrency(transaction.change)}}</span>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="receipt-footer">
+                    <div class="section-divider"></div>
+                    <div class="footer-info">
+                        <p><strong>Terima kasih atas kunjungan Anda!</strong></p>
+                        <p>Barang yang sudah dibeli tidak dapat ditukar</p>
+                        <p>Simpan struk ini sebagai bukti pembelian</p>
+                    </div>
+
+                    <div class="footer-stats">
+                        <p>Total Item: {{getTotalItems()}} pcs</p>
+                        <p>Metode Pembayaran: {{getPaymentMethodDisplay(transaction.paymentMethod)}}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="primary-button" (click)="printReceipt()" [disabled]="isPrinting">
+                <div class="spinner small" *ngIf="isPrinting">
+                    <div class="spinner-ring"></div>
+                </div>
+                <svg class="icon" *ngIf="!isPrinting" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z" />
+                </svg>
+                {{isPrinting ? 'Mencetak...' : 'Cetak Struk'}}
+            </button>
+
+            <button class="secondary-button" (click)="downloadPDF()" [disabled]="isDownloading">
+                <div class="spinner small" *ngIf="isDownloading">
+                    <div class="spinner-ring"></div>
+                </div>
+                <svg class="icon" *ngIf="!isDownloading" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                </svg>
+                {{isDownloading ? 'Mengunduh...' : 'Download PDF'}}
+            </button>
+
+            <button class="whatsapp-button" (click)="shareWhatsApp()" title="Bagikan via WhatsApp">
+                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.893 3.386" />
+                </svg>
+                WhatsApp
+            </button>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-state" *ngIf="!isLoading && !transaction">
+        <svg class="error-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+        </svg>
+        <h3>Struk Tidak Ditemukan</h3>
+        <p>Data transaksi tidak dapat dimuat</p>
+        <button class="primary-button" (click)="close()">Kembali ke POS</button>
+    </div>
+</div>

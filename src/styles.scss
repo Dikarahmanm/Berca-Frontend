@@ -1,1 +1,106 @@
 /* You can add global styles to this file, and also import other style files */
+/* Add this to src/styles.scss */
+
+/* Material Icons Fallback */
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+
+.material-icons {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Icon Fallback for common icons */
+.material-icons.fallback {
+  &:before {
+    font-family: sans-serif;
+    font-weight: bold;
+  }
+  
+  &[data-icon="notifications"]:before { content: "🔔"; }
+  &[data-icon="inventory_2"]:before { content: "📦"; }
+  &[data-icon="trending_up"]:before { content: "📈"; }
+  &[data-icon="fact_check"]:before { content: "✅"; }
+  &[data-icon="build"]:before { content: "🔧"; }
+  &[data-icon="point_of_sale"]:before { content: "💰"; }
+  &[data-icon="person"]:before { content: "👤"; }
+  &[data-icon="backup"]:before { content: "💾"; }
+  &[data-icon="delete"]:before { content: "🗑️"; }
+  &[data-icon="close"]:before { content: "✖️"; }
+  &[data-icon="menu"]:before { content: "☰"; }
+  &[data-icon="search"]:before { content: "🔍"; }
+  &[data-icon="add"]:before { content: "+"; }
+  &[data-icon="remove"]:before { content: "-"; }
+  &[data-icon="payment"]:before { content: "💳"; }
+  &[data-icon="print"]:before { content: "🖨️"; }
+  &[data-icon="download"]:before { content: "⬇️"; }
+}
+
+/* Angular Material icon fix */
+mat-icon {
+  font-family: 'Material Icons' !important;
+}
+
+/* Orange Modern Theme - Color Variables */
+:root {
+  --clr-primary: #FF914D;
+  --clr-primary-dark: #E07A3B;
+  --clr-primary-light: rgba(255, 145, 77, 0.3);
+  --clr-accent: #4BBF7B;
+  --clr-warning: #FFB84D;
+  --clr-error: #E15A4F;
+  --clr-surface: rgba(255, 255, 255, 0.25);
+  --clr-bg-base: #FDF9F6;
+}
+
+/* Glass Morphism Base Styles */
+.glass-card {
+  background: var(--clr-surface);
+  backdrop-filter: blur(15px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  transition: all 120ms ease-out;
+}
+
+/* Global body styling */
+html, body {
+  height: 100%;
+  font-family: 'Roboto', sans-serif;
+  background: var(--clr-bg-base);
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(135deg, #FDF9F6 0%, #FFE5D9 100%);
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 145, 77, 0.3);
+  border-radius: 3px;
+  
+  &:hover {
+    background: rgba(255, 145, 77, 0.5);
+  }
+}

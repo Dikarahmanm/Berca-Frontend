@@ -33,6 +33,8 @@
     "@angular/material": "^20.1.3",
     "@angular/platform-browser": "^20.0.0",
     "@angular/router": "^20.0.0",
+    "jspdf": "^2.5.1",
+    "quagga": "^0.12.1",
     "rxjs": "~7.8.0",
     "save": "^2.9.0",
     "tslib": "^2.3.0",

@@ -1,0 +1,159 @@
+<!-- src/app/modules/pos/payment-modal/payment-modal.component.html -->
+<div class="payment-modal">
+    <!-- Header -->
+    <div class="modal-header">
+        <h2 class="modal-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M11 9h2V6h3V4h-3V1h-2v3H8v2h3v3zm-4 9c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2zm-9.83-3.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25z" />
+            </svg>
+            Proses Pembayaran
+        </h2>
+
+        <button class="close-btn" (click)="paymentCancelled.emit()" title="Tutup">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Total Amount Display -->
+    <div class="total-display">
+        <div class="total-card">
+            <span class="total-label">Total Pembayaran</span>
+            <span class="total-amount">{{formatCurrency(totalAmount)}}</span>
+        </div>
+    </div>
+
+    <!-- Payment Methods -->
+    <div class="payment-methods">
+        <h3 class="section-title">Pilih Metode Pembayaran</h3>
+
+        <div class="method-grid">
+            <div *ngFor="let method of paymentMethods" class="method-card"
+                [class.selected]="selectedMethod === method.id" (click)="selectPaymentMethod(method.id)">
+
+                <div class="method-icon">
+                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"
+                            *ngIf="method.id === 'card'" />
+                        <path
+                            d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"
+                            *ngIf="method.id === 'cash'" />
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"
+                            *ngIf="method.id === 'digital'" />
+                    </svg>
+                </div>
+
+                <div class="method-info">
+                    <h4 class="method-label">{{method.label}}</h4>
+                    <p class="method-description">{{method.description}}</p>
+                </div>
+
+                <div class="method-indicator">
+                    <div class="indicator-dot" [class.active]="selectedMethod === method.id"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Amount Input Section -->
+    <div class="amount-section" [formGroup]="paymentForm">
+        <h3 class="section-title">Jumlah Pembayaran</h3>
+
+        <!-- Quick Amount Buttons (Cash only) -->
+        <div class="quick-amounts" *ngIf="selectedMethod === 'cash'">
+            <button *ngFor="let amount of quickAmounts" class="quick-btn" (click)="setQuickAmount(amount)"
+                type="button">
+                {{formatCurrency(amount)}}
+            </button>
+            <button class="quick-btn exact-btn" (click)="setExactAmount()" type="button">
+                Pas
+            </button>
+        </div>
+
+        <!-- Amount Input -->
+        <div class="amount-input-group">
+            <label for="amountPaid">Jumlah Dibayar</label>
+            <div class="amount-input-wrapper">
+                <span class="currency-symbol">Rp</span>
+                <input #amountInput id="amountPaid" type="number" formControlName="amountPaid"
+                    (input)="onAmountChange($event)" class="amount-input" [class.insufficient]="!isSufficientAmount()"
+                    placeholder="0" min="0">
+                <button class="clear-btn" (click)="clearAmount()" type="button" title="Clear">
+                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Change Display -->
+        <div class="change-display" *ngIf="selectedMethod === 'cash' && getChange() > 0">
+            <div class="change-card">
+                <span class="change-label">Kembalian</span>
+                <span class="change-amount" [class.highlight]="getChange() > 0">
+                    {{formatCurrency(getChange())}}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Summary -->
+    <div class="payment-summary">
+        <div class="summary-row">
+            <span class="label">Total Belanja:</span>
+            <span class="value">{{formatCurrency(totalAmount)}}</span>
+        </div>
+        <div class="summary-row">
+            <span class="label">Metode Bayar:</span>
+            <span class="value">{{getSelectedPaymentMethod()?.label}}</span>
+        </div>
+        <div class="summary-row" *ngIf="selectedMethod === 'cash'">
+            <span class="label">Dibayar:</span>
+            <span class="value">{{formatCurrency(paymentForm.get('amountPaid')?.value || 0)}}</span>
+        </div>
+        <div class="summary-row" *ngIf="selectedMethod === 'cash' && getChange() > 0">
+            <span class="label">Kembalian:</span>
+            <span class="value change">{{formatCurrency(getChange())}}</span>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="modal-actions">
+        <button class="secondary-button" (click)="paymentCancelled.emit()" [disabled]="isProcessing">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+            </svg>
+            Batal
+        </button>
+
+        <button class="primary-button" (click)="processPayment()" [disabled]="!isSufficientAmount() || isProcessing"
+            [class.processing]="isProcessing">
+
+            <div class="spinner" *ngIf="isProcessing">
+                <div class="spinner-ring"></div>
+            </div>
+
+            <svg class="icon" *ngIf="!isProcessing" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+            </svg>
+
+            <span *ngIf="!isProcessing">Proses Pembayaran</span>
+            <span *ngIf="isProcessing">Memproses...</span>
+        </button>
+    </div>
+
+    <!-- Keyboard Shortcuts Info -->
+    <div class="shortcuts-info">
+        <small>
+            <strong>Shortcuts:</strong>
+            F1: Tunai | F2: Kartu | F3: Digital | Enter: Bayar | Esc: Batal
+        </small>
+    </div>
+</div>

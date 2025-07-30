@@ -1,30 +1,61 @@
+// src/app/app.module.ts
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { FormsModule } from '@angular/forms'; // Import FormsModule
-import { HttpClientModule } from '@angular/common/http'; // Import HttpClientModule
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 
+// Application Components
+import { App } from './app'
 import { AppRoutingModule } from './app-routing-module';
-import { App } from './app';
-import { RouterModule } from '@angular/router';
-import { LoginComponent } from './auth/login/login';
-import { DashboardComponent } from './dashboard/dashboard.component';
-import { DashboardModule } from './dashboard/dashboard.module';
+
+// Shared Module
+import { SharedModule } from './shared/shared.module';
+
+// Core Services
+import { AuthService } from './core/services/auth.service';
+import { UserProfileService } from './core/services/user-profile.service';
+import { POSService } from './core/services/pos.service';
+import { BarcodeService } from './core/services/barcode.service';
+import { ReceiptService } from './core/services/receipt.service';
+import { NotificationService } from './core/services/notification.service';
+
+// Guards
+import { AuthGuard } from './core/guard/auth.guard';
+
+// Interceptors (if any)
+// import { AuthInterceptor } from './core/interceptors/auth.interceptor';
 
 @NgModule({
   declarations: [
     App
+    // TopbarComponent sudah di-declare di SharedModule
   ],
   imports: [
     BrowserModule,
+    BrowserAnimationsModule,
+    HttpClientModule,
     AppRoutingModule,
-    FormsModule, // Add FormsModule here
-    HttpClientModule, // Add HttpClientModule here
-    RouterModule,
-    LoginComponent,
-    DashboardComponent,
-    DashboardModule
+    SharedModule
   ],
-  providers: [],
+  providers: [
+    // Core Services
+    AuthService,
+    UserProfileService,
+    POSService,
+    BarcodeService,
+    ReceiptService,
+    NotificationService,
+    
+    // Guards
+    AuthGuard
+    
+    // Interceptors
+    // {
+    //   provide: HTTP_INTERCEPTORS,
+    //   useClass: AuthInterceptor,
+    //   multi: true
+    // }
+  ],
   bootstrap: [App]
 })
 export class AppModule { }

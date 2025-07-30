@@ -1,6 +1,23 @@
+<!-- src/app/shared/topbar/topbar.component.html -->
 <nav class="topbar">
-    <div class="topbar-content">
-        <div class="left-section">
+    <div class="topbar-container">
+
+        <!-- Left Section -->
+        <div class="topbar-left">
+            <!-- Menu Toggle -->
+            <button mat-icon-button (click)="toggleMenu()" class="menu-toggle" [class.active]="isMenuOpen">
+                <mat-icon>{{isMenuOpen ? 'close' : 'menu'}}</mat-icon>
+            </button>
+
+            <!-- Logo & Brand -->
+            <div class="brand" (click)="navigateTo('/dashboard')">
+                <div class="brand-logo">
+                    <mat-icon>store</mat-icon>
+                </div>
+                <span class="brand-text">Toko Eniwan</span>
+            </div>
+
+            <!-- Page Title -->
             <div class="page-title-wrapper">
                 <span class="page-title">{{ pageTitle }}</span>
                 <div class="title-particles">
@@ -9,9 +26,24 @@
                     <span class="particle"></span>
                 </div>
             </div>
+
+            <!-- Desktop Navigation -->
+            <div class="desktop-nav" [class.show]="isMenuOpen">
+                <ng-container *ngFor="let item of navigationItems">
+                    <a *ngIf="shouldShowNavItem(item)" [routerLink]="item.route"
+                        [class.active]="isRouteActive(item.route)" [class.disabled]="item.disabled"
+                        [class.highlight]="item.highlight" class="nav-item" (click)="isMenuOpen = false">
+                        <mat-icon>{{item.icon}}</mat-icon>
+                        <span>{{item.label}}</span>
+                        <span class="new-badge" *ngIf="item.highlight">BARU</span>
+                    </a>
+                </ng-container>
+            </div>
         </div>
 
-        <div class="right-section">
+        <!-- Right Section -->
+        <div class="topbar-right">
+
             <!-- Notification Bell -->
             <div class="notification-wrapper" (click)="onNotificationClick()">
                 <button aria-label="Notifications" class="glass-button bell-button">
@@ -20,8 +52,8 @@
                             d="M12 2a6 6 0 00-6 6v3.586l-1.707 1.707a1 1 0 00.707 1.707h14a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm1 18a2 2 0 11-2-2 2 2 0 012 2z"
                             fill="currentColor" />
                     </svg>
-                    <span *ngIf="notificationCount > 0" class="badge">
-                        {{ notificationCount > 99 ? '99+' : notificationCount }}
+                    <span *ngIf="getNotificationCount() > 0" class="badge">
+                        {{ getNotificationCount() > 99 ? '99+' : getNotificationCount() }}
                     </span>
                 </button>
             </div>
@@ -29,87 +61,141 @@
             <!-- Modern Divider -->
             <div class="modern-divider"></div>
 
-            <!-- Profile Section -->
-            <div class="profile-wrapper glass-element" (click)="toggleDropdown()" [class.active]="dropdownOpen">
+            <!-- User Profile Menu -->
+            <div class="profile-menu" [class.open]="isProfileMenuOpen">
+                <!-- Profile Trigger -->
+                <button mat-button (click)="toggleProfileMenu()" class="profile-trigger"
+                    [class.active]="isProfileMenuOpen">
 
-                <!-- Avatar with Status -->
-                <div class="avatar-container">
-                    <div class="avatar-ring">
-                        <img class="avatar" [src]="avatarUrl" alt="User avatar" (error)="onAvatarError($event)">
+                    <!-- User Avatar -->
+                    <div class="user-avatar">
+                        <img *ngIf="getUserAvatar()" [src]="getUserAvatar()" [alt]="getUserDisplayName()"
+                            class="avatar-image" (error)="onAvatarError($event)">
+                        <div *ngIf="!getUserAvatar()" class="avatar-initials">
+                            {{getUserInitials()}}
+                        </div>
                     </div>
-                    <div class="status-indicator online">
-                        <div class="status-pulse"></div>
+
+                    <!-- User Info -->
+                    <div class="user-info">
+                        <span class="user-name">{{getUserDisplayName()}}</span>
+                        <span class="user-role" *ngIf="getUserRole()"
+                            [style.color]="getRoleColor()">{{roleDisplayName}}</span>
                     </div>
-                </div>
 
-                <!-- User Info -->
-                <div class="user-info">
-                    <span class="username">{{ username }}</span>
-                    <span class="role" [style.color]="getRoleColor()">{{ roleDisplayName }}</span>
-                </div>
+                    <!-- Dropdown Arrow -->
+                    <mat-icon class="dropdown-arrow" [class.rotated]="isProfileMenuOpen">
+                        keyboard_arrow_down
+                    </mat-icon>
+                </button>
 
-                <!-- Dropdown Arrow -->
-                <div class="dropdown-arrow-container">
-                    <svg class="dropdown-arrow" [class.rotated]="dropdownOpen" viewBox="0 0 24 24">
-                        <path d="M7 10l5 5 5-5H7z" fill="currentColor" />
-                    </svg>
+                <!-- Profile Dropdown -->
+                <div class="profile-dropdown" [class.show]="isProfileMenuOpen" (clickOutside)="closeProfileMenu()">
+
+                    <!-- User Header -->
+                    <div class="profile-header">
+                        <div class="user-avatar-large">
+                            <img *ngIf="getUserAvatar()" [src]="getUserAvatar()" [alt]="getUserDisplayName()"
+                                (error)="onAvatarError($event)">
+                            <div *ngIf="!getUserAvatar()" class="avatar-initials-large">
+                                {{getUserInitials()}}
+                            </div>
+                        </div>
+                        <div class="user-details">
+                            <h4>{{getUserDisplayName()}}</h4>
+                            <p *ngIf="getUserRole()">{{roleDisplayName}}</p>
+                            <p *ngIf="userProfile?.email" class="user-email">{{userProfile.email}}</p>
+                        </div>
+                    </div>
+
+                    <!-- Menu Items -->
+                    <div class="profile-menu-items">
+                        <ng-container *ngFor="let item of profileMenuItems">
+
+                            <!-- Divider -->
+                            <mat-divider *ngIf="item.type === 'divider'"></mat-divider>
+
+                            <!-- Menu Item -->
+                            <button *ngIf="item.type !== 'divider'" mat-menu-item (click)="onProfileMenuItemClick(item)"
+                                [class.danger]="item.danger" class="profile-menu-item">
+                                <mat-icon>{{item.icon}}</mat-icon>
+                                <span>{{item.label}}</span>
+                                <div *ngIf="item.label === 'Logout' && isLoading" class="loading-spinner">
+                                    <mat-icon class="spin">sync</mat-icon>
+                                </div>
+                            </button>
+                        </ng-container>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="dropdown-menu" *ngIf="dropdownOpen">
-                <div class="dropdown-header">
-                    <div class="dropdown-avatar">
-                        <img [src]="avatarUrl" alt="User avatar" (error)="onAvatarError($event)">
+    <!-- Mobile Navigation Overlay -->
+    <div class="mobile-nav-overlay" [class.show]="isMenuOpen" (click)="isMenuOpen = false">
+
+        <div class="mobile-nav" [class.show]="isMenuOpen" (click)="$event.stopPropagation()">
+
+            <!-- Mobile Header -->
+            <div class="mobile-nav-header">
+                <div class="brand">
+                    <mat-icon>store</mat-icon>
+                    <span>Toko Eniwan</span>
+                </div>
+                <button mat-icon-button (click)="isMenuOpen = false">
+                    <mat-icon>close</mat-icon>
+                </button>
+            </div>
+
+            <!-- Mobile Menu Items -->
+            <div class="mobile-nav-items">
+                <ng-container *ngFor="let item of navigationItems">
+                    <a *ngIf="shouldShowNavItem(item)" [routerLink]="item.route"
+                        [class.active]="isRouteActive(item.route)" [class.disabled]="item.disabled"
+                        [class.highlight]="item.highlight" class="mobile-nav-item" (click)="isMenuOpen = false">
+                        <mat-icon>{{item.icon}}</mat-icon>
+                        <span>{{item.label}}</span>
+                        <span class="new-badge" *ngIf="item.highlight">BARU</span>
+                    </a>
+                </ng-container>
+            </div>
+
+            <!-- Mobile User Section -->
+            <div class="mobile-user-section">
+                <div class="mobile-user-info">
+                    <div class="user-avatar">
+                        <img *ngIf="getUserAvatar()" [src]="getUserAvatar()" [alt]="getUserDisplayName()"
+                            (error)="onAvatarError($event)">
+                        <div *ngIf="!getUserAvatar()" class="avatar-initials">
+                            {{getUserInitials()}}
+                        </div>
                     </div>
-                    <div class="dropdown-user-info">
-                        <span class="dropdown-username">{{ username }}</span>
-                        <span class="dropdown-role" [style.color]="getRoleColor()">{{ roleDisplayName }}</span>
-                        <span class="dropdown-status">● Online</span>
+                    <div class="user-details">
+                        <h4>{{getUserDisplayName()}}</h4>
+                        <p *ngIf="getUserRole()">{{roleDisplayName}}</p>
                     </div>
                 </div>
-            
-                <div class="dropdown-body">
-                    <!-- Profile Section -->
-                    <div class="dropdown-section">
-                        <h4 class="section-title">Akun</h4>
-                        <!-- ✅ UPDATE: Use routerLink instead of href -->
-                        <a routerLink="/profile" class="dropdown-item" (click)="onProfileClick()">
-                            <svg class="dropdown-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                            </svg>
-                            <div class="item-content">
-                                <span class="item-label">Profil Saya</span>
-                                <span class="item-description">Kelola informasi pribadi</span>
-                            </div>
-                            <svg class="arrow-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
-                            </svg>
-                        </a>
-                    </div>
 
-                <div class="dropdown-divider"></div>
+                <!-- Mobile Profile Actions -->
+                <div class="mobile-profile-actions">
+                    <button mat-stroked-button (click)="navigateToProfile()" class="profile-btn">
+                        <mat-icon>person</mat-icon>
+                        Profil Saya
+                    </button>
 
-                <div class="dropdown-actions">
-                    <button class="dropdown-item logout-item" (click)="logout()" [disabled]="isLoading">
-                        <svg class="dropdown-icon" viewBox="0 0 24 24">
-                            <path
-                                d="M17.44 14.44L16 13l2-2-2-2 1.44-1.44L21 11l-3.56 3.44zM3 3h12v2H3v14h12v2H3c-1.1 0-2-.9-2 2z"
-                                fill="currentColor" />
-                        </svg>
+                    <button mat-stroked-button (click)="logout()" class="logout-btn" [disabled]="isLoading">
+                        <mat-icon>logout</mat-icon>
                         <span *ngIf="!isLoading">Logout</span>
-                        <span *ngIf="isLoading" class="loading-text">
-                            <div class="loading-spinner">
-                                <div class="spinner-ring"></div>
-                            </div>
-                            Logging out...
-                        </span>
+                        <span *ngIf="isLoading">Logging out...</span>
                     </button>
                 </div>
             </div>
         </div>
     </div>
-</div>
+
+    <!-- Backdrop -->
+    <div class="backdrop" *ngIf="isMenuOpen || isProfileMenuOpen" (click)="onOutsideClick()">
+    </div>
 
     <!-- Floating Background Elements -->
     <div class="floating-elements">

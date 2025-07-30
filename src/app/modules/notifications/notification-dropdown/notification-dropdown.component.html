@@ -1,0 +1,95 @@
+<!-- src/app/shared/notification-dropdown/notification-dropdown.component.html -->
+<div class="notification-dropdown">
+    <!-- Notification Bell Button -->
+    <button mat-icon-button [matBadge]="getBadgeCount()" [matBadgeHidden]="!hasUnreadNotifications()"
+        matBadgeColor="warn" matBadgeSize="small" (click)="toggleDropdown()" [class.active]="isOpen"
+        matTooltip="Notifikasi" class="notification-trigger">
+        <mat-icon [class.has-unread]="hasUnreadNotifications()">
+            {{hasUnreadNotifications() ? 'notifications_active' : 'notifications'}}
+        </mat-icon>
+    </button>
+
+    <!-- Dropdown Menu -->
+    <div class="notification-menu" [class.show]="isOpen">
+
+        <!-- Header -->
+        <div class="notification-menu-header">
+            <div class="header-title">
+                <mat-icon>notifications</mat-icon>
+                <span>Notifikasi</span>
+                <span class="unread-count" *ngIf="hasUnreadNotifications()">
+                    {{getBadgeCount()}}
+                </span>
+            </div>
+
+            <div class="header-actions">
+                <button mat-icon-button (click)="markAllAsRead()" [disabled]="!hasUnreadNotifications()"
+                    matTooltip="Tandai semua sebagai dibaca" class="mark-all-read-btn">
+                    <mat-icon>done_all</mat-icon>
+                </button>
+
+                <button mat-icon-button (click)="viewAllNotifications()" matTooltip="Lihat semua notifikasi"
+                    class="view-all-btn">
+                    <mat-icon>open_in_new</mat-icon>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div class="notification-loading" *ngIf="isLoading">
+            <mat-spinner diameter="24"></mat-spinner>
+            <span>Memuat notifikasi...</span>
+        </div>
+
+        <!-- Notification List -->
+        <div class="notification-list" *ngIf="!isLoading">
+
+            <!-- Empty State -->
+            <div class="notification-empty" *ngIf="notifications.length === 0">
+                <mat-icon>notifications_off</mat-icon>
+                <span>{{getEmptyStateMessage()}}</span>
+            </div>
+
+            <!-- Notification Items -->
+            <div class="notification-item" *ngFor="let notification of notifications; trackBy: trackByNotificationId"
+                [class.unread]="!notification.isRead" (click)="onNotificationClick(notification)">
+
+                <div class="notification-icon" [style.background-color]="getNotificationColor(notification.priority)">
+                    <mat-icon>{{getNotificationIcon(notification.type)}}</mat-icon>
+                </div>
+
+                <div class="notification-content">
+                    <div class="notification-header">
+                        <h4 class="notification-title">{{notification.title}}</h4>
+                        <span class="notification-time">{{formatNotificationTime(notification.createdAt)}}</span>
+                    </div>
+
+                    <p class="notification-message">
+                        {{truncateMessage(notification.message)}}
+                    </p>
+
+                    <div class="notification-meta">
+                        <span class="notification-type">{{getNotificationTypeLabel(notification.type)}}</span>
+                        <span class="notification-priority priority-{{notification.priority.toLowerCase()}}">
+                            {{notification.priority}}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Unread Indicator -->
+                <div class="unread-indicator" *ngIf="!notification.isRead"></div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="notification-menu-footer" *ngIf="notifications.length > 0">
+            <button mat-button (click)="viewAllNotifications()" class="view-all-notifications-btn">
+                <mat-icon>visibility</mat-icon>
+                Lihat Semua Notifikasi
+            </button>
+        </div>
+    </div>
+
+    <!-- Backdrop -->
+    <div class="notification-backdrop" *ngIf="isOpen" (click)="closeDropdown()"></div>
+</div>

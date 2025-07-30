@@ -1,27 +1,110 @@
-// src/app/modules/pos/interfaces/pos.interfaces.ts
-// ✅ Complete interfaces for POS module
+// ===== BACKEND DTO INTERFACES - EXACT MATCH =====
+// These interfaces must match exactly with backend schema
 
-export interface Product {
+export interface ProductDto {
   id: number;
   name: string;
   barcode: string;
-  price: number;
   stock: number;
-  category: string;
-  imageUrl?: string;
-  description?: string;
-  minStock?: number;
-  supplier?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  buyPrice: number;
+  sellPrice: number;
+  categoryId: number;
+  categoryName: string;
+  isActive: boolean;
+  minStock: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
+
+export interface CreateSaleRequest {
+  items: CreateSaleItemRequest[];
+  subTotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  total: number;
+  amountPaid: number;
+  changeAmount: number;
+  paymentMethod: string;
+  paymentReference?: string;
+  memberId?: number;
+  customerName?: string;
+  notes?: string;
+  redeemedPoints?: number;
+}
+
+export interface CreateSaleItemRequest {
+  productId: number;
+  quantity: number;
+  sellPrice: number;
+  discount: number;
+}
+
+export interface SaleDto {
+  id: number;
+  saleNumber: string;
+  saleDate: Date;
+  subtotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  total: number;
+  amountPaid: number;
+  changeAmount: number;
+  paymentMethod: string;
+  paymentReference?: string;
+  memberId?: number;
+  memberName?: string;
+  memberNumber?: string;
+  customerName?: string;
+  cashierId: number;
+  cashierName: string;
+  status: string;
+  notes?: string;
+  receiptPrinted: boolean;
+  receiptPrintedAt?: Date;
+  items: SaleItemDto[];
+  createdAt: Date;
+  totalItems: number;
+  totalProfit: number;
+  discountPercentage: number;
+  redeemedPoints: number;
+}
+
+export interface SaleItemDto {
+  id: number;
+  saleId: number;
+  productId: number;
+  productName: string;
+  productBarcode: string;
+  quantity: number;
+  sellPrice: number;
+  buyPrice: number;
+  discount: number;
+  subtotal: number;
+  totalProfit: number;
+}
+
+export interface ReceiptDataDto {
+  sale: SaleDto;
+  storeName: string;
+  storeAddress: string;
+  storePhone: string;
+  storeEmail?: string;
+  footerMessage?: string;
+}
+
+// ===== FRONTEND SPECIFIC INTERFACES =====
+
+// Compatibility aliases
+export interface Product extends ProductDto {}
+export interface Sale extends SaleDto {}
+export interface SaleItem extends SaleItemDto {}
+export interface ReceiptData extends ReceiptDataDto {}
 
 export interface CartItem {
   product: Product;
   quantity: number;
   discount: number; // Individual item discount percentage
   subtotal: number;
-  notes?: string;
 }
 
 export interface Customer {
@@ -33,129 +116,20 @@ export interface Customer {
   points?: number;
 }
 
-export interface Transaction {
-  id: string;
-  transactionNumber: string;
-  items: CartItem[];
-  subtotal: number;
-  globalDiscount: number; // Global discount percentage
-  discountAmount: number;
-  tax: number;
-  taxAmount: number;
-  total: number;
-  paid: number;
-  change: number;
-  paymentMethod: PaymentMethod;
-  timestamp: Date;
-  cashierName: string;
-  cashierId: number;
-  customer?: Customer;
-  notes?: string;
-  status: TransactionStatus;
-}
-
-export interface CartTotals {
-  subtotal: number;
-  globalDiscount: number;
-  discountAmount: number;
-  total: number;
-  tax: number;
-  taxAmount: number;
-  grandTotal: number;
-}
+// ===== UI INTERFACES =====
 
 export interface PaymentData {
-  amount: number;
-  method: PaymentMethod;
+  method: 'cash' | 'card' | 'digital';
+  amountPaid: number;
   change: number;
-  cardNumber?: string;
-  digitalWalletId?: string;
-  notes?: string;
+  reference?: string;
 }
 
-export interface ProductCategory {
-  id: number;
-  name: string;
-  color: string;
-  description?: string;
-}
+// ===== API RESPONSE INTERFACES =====
 
-export interface PosSettings {
-  taxRate: number; // Default: 0.1 (10%)
-  defaultPaymentMethod: PaymentMethod;
-  autoCalculateChange: boolean;
-  printReceiptAutomatic: boolean;
-  enableBarcodeScan: boolean;
-  maxDiscountPercentage: number;
-}
-
-// Enums
-export enum PaymentMethod {
-  CASH = 'cash',
-  CARD = 'card',
-  DIGITAL = 'digital',
-  BANK_TRANSFER = 'bank_transfer'
-}
-
-export enum TransactionStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-  REFUNDED = 'refunded'
-}
-
-export enum StockStatus {
-  IN_STOCK = 'in_stock',
-  LOW_STOCK = 'low_stock',
-  OUT_OF_STOCK = 'out_of_stock'
-}
-
-// API Response interfaces
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
   message?: string;
   errors?: string[];
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  totalCount: number;
-  currentPage: number;
-  totalPages: number;
-  pageSize: number;
-}
-
-// Search and filter interfaces
-export interface ProductSearchParams {
-  query?: string;
-  categoryId?: number;
-  inStock?: boolean;
-  priceMin?: number;
-  priceMax?: number;
-  sortBy?: 'name' | 'price' | 'stock' | 'category';
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface TransactionSearchParams {
-  dateFrom?: Date;
-  dateTo?: Date;
-  paymentMethod?: PaymentMethod;
-  status?: TransactionStatus;
-  cashierId?: number;
-  customerPhone?: string;
-  minAmount?: number;
-  maxAmount?: number;
-}
-
-// Receipt interface
-export interface ReceiptData {
-  transaction: Transaction;
-  storeName: string;
-  storeAddress: string;
-  storePhone: string;
-  storeEmail?: string;
-  receiptNumber: string;
-  qrCodeData?: string;
-  footerMessage?: string;
 }

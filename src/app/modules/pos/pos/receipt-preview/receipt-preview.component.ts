@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
-import { POSService, Sale } from '../../../../core/services/pos.service';
+import { POSService, SaleDto } from '../../../../core/services/pos.service';
 import { ReceiptService } from '../../../../core/services/receipt.service';
 import { environment } from '../../../../../environment/environment';
 
@@ -20,7 +20,7 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   // Data
-  sale: Sale | null = null;
+  sale: SaleDto | null = null;
   saleId: number = 0;
   
   // UI State

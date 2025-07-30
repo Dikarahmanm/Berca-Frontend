@@ -1,58 +1,18 @@
-// src/app/modules/pos/pos/pos.component.ts
-// ✅ FIXED - Removed Reactive Forms, using template-driven approach
-
+// src/app/modules/pos/pos/pos.component.ts - FIXED INTEGRATION
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms'; // ✅ Using FormsModule instead of ReactiveFormsModule
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
-import { takeUntil, debounceTime } from 'rxjs/operators';
+import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
+
+// Services
+import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData } from '../../../core/services/pos.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 // Import standalone components
 import { BarcodeToolsComponent } from './barcode-tools/barcode-tools.component';
 import { PaymentModalComponent } from './payment-modal/payment-modal.component';
-
-// Interfaces
-interface Product {
-  id: number;
-  name: string;
-  barcode: string;
-  price: number;
-  stock: number;
-  category: string;
-}
-
-interface CartItem {
-  product: Product;
-  quantity: number;
-  discount: number;
-  subtotal: number;
-}
-
-interface Transaction {
-  id: string;
-  items: CartItem[];
-  subtotal: number;
-  discount: number;
-  tax: number;
-  total: number;
-  paid: number;
-  change: number;
-  paymentMethod: 'cash' | 'card' | 'digital';
-  timestamp: Date;
-  cashierName: string;
-  customerName?: string;
-  customerPhone?: string;
-}
-
-interface CartTotals {
-  subtotal: number;
-  globalDiscount: number;
-  discountAmount: number;
-  total: number;
-  tax: number;
-  grandTotal: number;
-}
 
 @Component({
   selector: 'app-pos',
@@ -61,7 +21,7 @@ interface CartTotals {
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule, // ✅ Using FormsModule for template-driven forms
+    FormsModule,
     BarcodeToolsComponent,
     PaymentModalComponent
   ]
@@ -70,8 +30,9 @@ export class POSComponent implements OnInit, OnDestroy {
   @ViewChild('productSearchInput') productSearchInput!: ElementRef<HTMLInputElement>;
   
   private destroy$ = new Subject<void>();
+  private searchSubject$ = new Subject<string>();
 
-  // ✅ Template-driven form properties
+  // Template-driven form properties
   searchQuery = '';
   globalDiscount = 0;
   customerName = '';
@@ -85,101 +46,25 @@ export class POSComponent implements OnInit, OnDestroy {
   
   // UI State
   isLoading = false;
+  isSearching = false;
   showPaymentModal = false;
   showBarcodeScanner = false;
+  errorMessage = '';
+  successMessage = '';
   
-  // Transaction
-  currentTransaction: Transaction | null = null;
-  
-  // Mock products data - Enhanced with more realistic data
-  private mockProducts: Product[] = [
-    {
-      id: 1,
-      name: 'Mie Instan Sedap Goreng',
-      barcode: '8994587123456',
-      price: 3500,
-      stock: 25,
-      category: 'Makanan'
-    },
-    {
-      id: 2,
-      name: 'Susu UHT Indomilk 250ml',
-      barcode: '8991234567890',
-      price: 5500,
-      stock: 0, // Out of stock
-      category: 'Minuman'
-    },
-    {
-      id: 3,
-      name: 'Sabun Mandi Lifebuoy',
-      barcode: '8887654321098',
-      price: 12000,
-      stock: 15,
-      category: 'Kebersihan'
-    },
-    {
-      id: 4,
-      name: 'Beras Premium 5kg',
-      barcode: '8881122334455',
-      price: 65000,
-      stock: 8,
-      category: 'Sembako'
-    },
-    {
-      id: 5,
-      name: 'Kopi Kapal Api 200g',
-      barcode: '8889988776655',
-      price: 18500,
-      stock: 12,
-      category: 'Minuman'
-    },
-    {
-      id: 6,
-      name: 'Teh Botol Sosro 350ml',
-      barcode: '8991111222333',
-      price: 4000,
-      stock: 30,
-      category: 'Minuman'
-    },
-    {
-      id: 7,
-      name: 'Pasta Gigi Pepsodent',
-      barcode: '8887777888999',
-      price: 8500,
-      stock: 20,
-      category: 'Kebersihan'
-    },
-    {
-      id: 8,
-      name: 'Roti Tawar Sari Roti',
-      barcode: '8994444555666',
-      price: 12500,
-      stock: 18,
-      category: 'Makanan'
-    },
-    {
-      id: 9,
-      name: 'Minyak Goreng Bimoli 1L',
-      barcode: '8882222333444',
-      price: 15000,
-      stock: 10,
-      category: 'Sembako'
-    },
-    {
-      id: 10,
-      name: 'Aqua 600ml',
-      barcode: '8995555666777',
-      price: 3000,
-      stock: 50,
-      category: 'Minuman'
-    }
-  ];
+  // Current user info
+  currentUser: any = null;
 
-  constructor(private router: Router) {}
+  constructor(
+    private posService: POSService,
+    private authService: AuthService,
+    private router: Router
+  ) {}
 
   ngOnInit() {
-    this.loadProducts();
-    this.focusProductSearch();
+    this.initializeComponent();
+    this.setupCartSubscription();
+    this.setupSearchListener();
   }
 
   ngOnDestroy() {
@@ -187,486 +72,498 @@ export class POSComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  /**
-   * Load products (mock data)
-   */
-  private loadProducts() {
-    this.isLoading = true;
-    
-    // Simulate API call
-    setTimeout(() => {
-      this.products = [...this.mockProducts];
-      this.filteredProducts = [...this.products];
-      this.isLoading = false;
-    }, 500);
-  }
+  // ===== INITIALIZATION =====
 
-  /**
-   * Focus on product search input
-   */
-  private focusProductSearch() {
+  private initializeComponent() {
+    // Get current user info using the fixed AuthService
+    this.currentUser = this.authService.getCurrentUser();
+    
+    // Subscribe to user changes
+    this.authService.getCurrentUser$()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((user: any) => {
+        this.currentUser = user;
+        console.log('👤 Current user updated:', this.currentUser);
+      });
+    
+    // Check if user is authenticated
+    if (!this.authService.isAuthenticated()) {
+      console.log('❌ User not authenticated, redirecting to login');
+      this.router.navigate(['/auth/login']);
+      return;
+    }
+    
+    // Focus search input
     setTimeout(() => {
       if (this.productSearchInput) {
         this.productSearchInput.nativeElement.focus();
       }
     }, 100);
+
+    // Load initial products if needed
+    this.performSearch('');
   }
 
-  /**
-   * Handle search input change
-   */
-  onSearchInput(event: Event) {
-    const target = event.target as HTMLInputElement;
-    this.searchQuery = target.value;
+  private setupCartSubscription() {
+    this.posService.cart$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((cart: CartItem[]) => {
+        this.cart = cart;
+      });
   }
 
-  /**
-   * Get filtered products based on search query
-   */
-  getFilteredProducts(): Product[] {
-    if (!this.searchQuery.trim()) {
-      return this.products.slice(0, 20); // Show first 20 products
-    }
-    
-    const query = this.searchQuery.toLowerCase();
-    return this.products.filter(product => 
-      product.name.toLowerCase().includes(query) ||
-      product.barcode.includes(query) ||
-      product.category.toLowerCase().includes(query)
-    ).slice(0, 20); // Limit results for performance
+  private setupSearchListener() {
+    this.searchSubject$
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((query: string) => {
+        this.performSearch(query);
+      });
   }
 
-  /**
-   * Add product to cart
-   */
-  addToCart(product: Product, quantity: number = 1) {
-    if (product.stock < quantity) {
-      this.showError(`Stok ${product.name} tidak mencukupi (tersisa: ${product.stock})`);
+  // ===== PRODUCT OPERATIONS =====
+
+  onSearchInput(event: any) {
+    this.searchQuery = event.target.value;
+    this.searchSubject$.next(this.searchQuery);
+  }
+
+  private performSearch(query: string) {
+    if (query.length < 2 && query.length > 0) {
+      this.filteredProducts = [];
       return;
     }
 
-    const existingItem = this.cart.find(item => item.product.id === product.id);
-    
-    if (existingItem) {
-      const newQuantity = existingItem.quantity + quantity;
-      if (newQuantity > product.stock) {
-        this.showError(`Stok ${product.name} tidak mencukupi (tersisa: ${product.stock})`);
-        return;
-      }
-      existingItem.quantity = newQuantity;
-      existingItem.subtotal = this.calculateSubtotal(existingItem);
-    } else {
-      const cartItem: CartItem = {
-        product,
-        quantity,
-        discount: 0,
-        subtotal: product.price * quantity
-      };
-      this.cart.push(cartItem);
-    }
+    this.isSearching = true;
+    this.errorMessage = '';
 
-    // Clear search and focus
-    this.searchQuery = '';
-    this.focusProductSearch();
-    
-    // Show success feedback
-    this.showSuccess(`${product.name} ditambahkan ke keranjang`);
-    
-    console.log('Added to cart:', product.name, 'Qty:', quantity);
+    this.posService.searchProducts(query)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          this.isSearching = false;
+          if (response.success && response.data) {
+            this.filteredProducts = response.data.filter((p: Product) => p.isActive && p.stock > 0);
+          } else {
+            this.filteredProducts = [];
+            this.errorMessage = response.message || 'Gagal memuat produk';
+          }
+        },
+        error: (error: any) => {
+          this.isSearching = false;
+          this.filteredProducts = [];
+          this.errorMessage = error.message || 'Gagal memuat produk';
+          console.error('Error loading products:', error);
+        }
+      });
   }
 
-  /**
-   * Update cart item quantity
-   */
+  // ===== CART OPERATIONS =====
+
+  addToCart(product: Product, quantity: number = 1) {
+    // Check stock availability
+    if (product.stock < quantity) {
+      this.errorMessage = `Stok tidak mencukupi. Tersedia: ${product.stock}`;
+      this.clearMessages();
+      return;
+    }
+
+    // Check if already in cart
+    const existingItem = this.cart.find(item => item.product.id === product.id);
+    const totalQuantity = existingItem ? existingItem.quantity + quantity : quantity;
+
+    if (totalQuantity > product.stock) {
+      this.errorMessage = `Jumlah melebihi stok. Maksimal: ${product.stock}`;
+      this.clearMessages();
+      return;
+    }
+
+    this.posService.addToCart(product, quantity, 0);
+    this.successMessage = `${product.name} ditambahkan ke keranjang`;
+    this.clearMessages();
+
+    // Clear search
+    this.searchQuery = '';
+    this.filteredProducts = [];
+    
+    // Focus back to search
+    if (this.productSearchInput) {
+      this.productSearchInput.nativeElement.focus();
+    }
+  }
+
+  // ===== ENHANCED INPUT HANDLERS =====
+
+  onQuantityInputChange(index: number, event: Event) {
+    const target = event.target as HTMLInputElement;
+    const newQuantity = parseInt(target.value) || 1;
+    this.updateCartItemQuantity(index, newQuantity);
+  }
+
+  onDiscountInputChange(index: number, event: Event) {
+    const target = event.target as HTMLInputElement;
+    const newDiscount = parseFloat(target.value) || 0;
+    this.updateCartItemDiscount(index, newDiscount);
+  }
+
   updateCartItemQuantity(index: number, quantity: number) {
-    if (quantity <= 0) {
+    const item = this.cart[index];
+    if (!item) return;
+
+    // Validate quantity
+    const validQuantity = Math.max(1, Math.min(item.product.stock, quantity));
+    
+    if (validQuantity !== quantity) {
+      if (quantity > item.product.stock) {
+        this.errorMessage = `Stok maksimal ${item.product.stock}`;
+        this.clearMessages();
+      }
+    }
+
+    if (validQuantity <= 0) {
       this.removeFromCart(index);
       return;
     }
 
-    const item = this.cart[index];
-    if (quantity > item.product.stock) {
-      this.showError(`Stok ${item.product.name} tidak mencukupi (maksimal: ${item.product.stock})`);
-      return;
-    }
-
-    item.quantity = quantity;
-    item.subtotal = this.calculateSubtotal(item);
+    this.posService.updateCartItemQuantity(item.product.id, validQuantity);
   }
 
-  /**
-   * Update cart item discount
-   */
   updateCartItemDiscount(index: number, discount: number) {
     const item = this.cart[index];
-    item.discount = Math.max(0, Math.min(100, discount));
-    item.subtotal = this.calculateSubtotal(item);
+    if (!item) return;
+
+    // Validate discount
+    const validDiscount = Math.max(0, Math.min(100, discount));
+    
+    if (validDiscount !== discount) {
+      if (discount > 100) {
+        this.errorMessage = 'Diskon maksimal 100%';
+        this.clearMessages();
+      } else if (discount < 0) {
+        this.errorMessage = 'Diskon minimal 0%';
+        this.clearMessages();
+      }
+    }
+
+    this.posService.updateCartItemDiscount(item.product.id, validDiscount);
   }
 
-  /**
-   * Remove item from cart
-   */
   removeFromCart(index: number) {
     const item = this.cart[index];
-    if (confirm(`Hapus ${item.product.name} dari keranjang?`)) {
-      this.cart.splice(index, 1);
-      this.showSuccess(`${item.product.name} dihapus dari keranjang`);
+    if (item) {
+      this.posService.removeFromCart(item.product.id);
     }
   }
 
-  /**
-   * Clear entire cart
-   */
   clearCart() {
     if (this.cart.length === 0) return;
-    
+
     if (confirm('Yakin ingin mengosongkan keranjang?')) {
-      this.cart = [];
-      this.searchQuery = '';
+      this.posService.clearCart();
+      this.globalDiscount = 0;
       this.customerName = '';
       this.customerPhone = '';
-      this.globalDiscount = 0;
       this.notes = '';
-      this.showSuccess('Keranjang berhasil dikosongkan');
-      this.focusProductSearch();
+      this.successMessage = 'Keranjang dikosongkan';
+      this.clearMessages();
     }
   }
 
-  /**
-   * Handle global discount change
-   */
+  // ===== CALCULATIONS =====
+
+  getCartTotals() {
+    return this.posService.getCartTotals(this.globalDiscount);
+  }
+
   onGlobalDiscountChange() {
-    // Ensure discount is within valid range
     this.globalDiscount = Math.max(0, Math.min(100, this.globalDiscount));
   }
 
-  /**
-   * Calculate subtotal for cart item
-   */
-  private calculateSubtotal(item: CartItem): number {
-    const baseAmount = item.product.price * item.quantity;
-    const discountAmount = baseAmount * (item.discount / 100);
-    return baseAmount - discountAmount;
-  }
+  // ===== BARCODE OPERATIONS =====
 
-  /**
-   * Calculate cart totals
-   */
-  getCartTotals(): CartTotals {
-    const subtotal = this.cart.reduce((sum, item) => sum + item.subtotal, 0);
-    const globalDiscountValue = this.globalDiscount || 0;
-    const discountAmount = subtotal * (globalDiscountValue / 100);
-    const total = subtotal - discountAmount;
-    const tax = total * 0.1; // 10% tax
-    const grandTotal = total + tax;
-
-    return {
-      subtotal,
-      globalDiscount: globalDiscountValue,
-      discountAmount,
-      total,
-      tax,
-      grandTotal
-    };
-  }
-
-  /**
-   * Handle barcode scan
-   */
   onBarcodeScanned(barcode: string) {
-    console.log('Barcode scanned:', barcode);
-    
-    const product = this.products.find(p => p.barcode === barcode);
-    if (product) {
-      this.addToCart(product);
-      this.showSuccess(`Produk ${product.name} berhasil di-scan`);
-    } else {
-      this.showError(`Produk dengan barcode ${barcode} tidak ditemukan`);
-    }
-    
     this.showBarcodeScanner = false;
+    this.searchByBarcode(barcode);
   }
 
-  /**
-   * Process payment
-   */
+  private searchByBarcode(barcode: string) {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.posService.getProductByBarcode(barcode)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          this.isLoading = false;
+          if (response.success && response.data) {
+            const product = response.data;
+            if (product.isActive && product.stock > 0) {
+              this.addToCart(product);
+              this.successMessage = `${product.name} ditambahkan ke keranjang`;
+              this.clearMessages();
+            } else {
+              this.errorMessage = product.stock <= 0 ? 
+                'Produk habis stok' : 'Produk tidak aktif';
+              this.clearMessages();
+            }
+          } else {
+            this.errorMessage = 'Produk dengan barcode ini tidak ditemukan';
+            this.clearMessages();
+          }
+        },
+        error: (error: any) => {
+          this.isLoading = false;
+          this.errorMessage = error.message || 'Gagal mencari produk';
+          this.clearMessages();
+          console.error('Error searching by barcode:', error);
+        }
+      });
+  }
+
+  // ===== PAYMENT OPERATIONS =====
+
   processPayment() {
     if (this.cart.length === 0) {
-      this.showError('Keranjang masih kosong');
+      this.errorMessage = 'Keranjang kosong';
+      this.clearMessages();
       return;
     }
 
     // Validate stock before payment
-    for (const item of this.cart) {
-      if (item.quantity > item.product.stock) {
-        this.showError(`Stok ${item.product.name} tidak mencukupi`);
-        return;
-      }
-    }
+    const saleItems: CreateSaleItemRequest[] = this.cart.map(item => ({
+      productId: item.product.id,
+      quantity: item.quantity,
+      sellPrice: item.product.sellPrice,
+      discount: item.discount
+    }));
 
-    this.showPaymentModal = true;
+    this.isLoading = true;
+    this.posService.validateStockAvailability(saleItems)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          this.isLoading = false;
+          if (response.success && response.data) {
+            this.showPaymentModal = true;
+          } else {
+            this.errorMessage = response.message || 'Stok tidak mencukupi untuk beberapa item';
+            this.clearMessages();
+          }
+        },
+        error: (error: any) => {
+          this.isLoading = false;
+          this.errorMessage = error.message || 'Gagal memvalidasi stok';
+          this.clearMessages();
+        }
+      });
   }
 
-  /**
-   * Handle payment completion
-   */
-  onPaymentComplete(paymentData: any) {
-    const totals = this.getCartTotals();
-    
-    // Create transaction
-    const transaction: Transaction = {
-      id: 'TXN' + Date.now(),
-      items: [...this.cart],
-      subtotal: totals.subtotal,
-      discount: totals.discountAmount,
-      tax: totals.tax,
-      total: totals.grandTotal,
-      paid: paymentData.amountPaid,
-      change: paymentData.change,
-      paymentMethod: paymentData.method,
-      timestamp: new Date(),
-      cashierName: localStorage.getItem('username') || 'Kasir',
-      customerName: this.customerName || undefined,
-      customerPhone: this.customerPhone || undefined
-    };
-
-    // Update stock (in real app, this would be done via API)
-    this.updateProductStock();
-
-    // Save transaction (mock - in real app, save to backend)
-    this.currentTransaction = transaction;
-    localStorage.setItem('lastTransaction', JSON.stringify(transaction));
-    
-    console.log('Transaction completed:', transaction);
-
-    // Clear cart and form
-    this.cart = [];
-    this.searchQuery = '';
-    this.customerName = '';
-    this.customerPhone = '';
-    this.globalDiscount = 0;
-    this.notes = '';
+  onPaymentComplete(paymentData: PaymentData) {
     this.showPaymentModal = false;
-
-    // Show success message
-    this.showSuccess('Transaksi berhasil! Generating receipt...');
-
-    // Navigate to receipt preview after short delay
-    setTimeout(() => {
-      this.router.navigate(['/pos/receipt', transaction.id]);
-    }, 1500);
+    this.completeSale(paymentData);
   }
 
-  /**
-   * Handle payment cancellation
-   */
   onPaymentCancelled() {
     this.showPaymentModal = false;
-    this.showInfo('Pembayaran dibatalkan');
   }
 
-  /**
-   * Update product stock after sale
-   */
-  private updateProductStock() {
-    this.cart.forEach(item => {
-      const product = this.products.find(p => p.id === item.product.id);
-      if (product) {
-        product.stock -= item.quantity;
-        console.log(`Updated stock for ${product.name}: ${product.stock}`);
-      }
-    });
+  private completeSale(paymentData: PaymentData) {
+    const totals = this.getCartTotals();
+    
+    const saleRequest: CreateSaleRequest = {
+      items: this.cart.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        sellPrice: item.product.sellPrice,
+        discount: item.discount
+      })),
+      subTotal: totals.subtotal,
+      discountAmount: totals.discountAmount,
+      taxAmount: totals.taxAmount,
+      total: totals.total,
+      amountPaid: paymentData.amountPaid,
+      changeAmount: paymentData.change,
+      paymentMethod: paymentData.method,
+      paymentReference: paymentData.reference,
+      customerName: this.customerName || undefined,
+      notes: this.notes || undefined,
+      redeemedPoints: 0 // TODO: Implement loyalty points
+    };
+
+    this.isLoading = true;
+    this.posService.createSale(saleRequest)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          this.isLoading = false;
+          if (response.success && response.data) {
+            this.successMessage = `Transaksi berhasil! No: ${response.data.saleNumber}`;
+            
+            // Reset form
+            this.globalDiscount = 0;
+            this.customerName = '';
+            this.customerPhone = '';
+            this.notes = '';
+            
+            // Navigate to receipt preview
+            this.router.navigate(['/pos/receipt', response.data.id]);
+          } else {
+            this.errorMessage = response.message || 'Gagal menyimpan transaksi';
+            this.clearMessages();
+          }
+        },
+        error: (error: any) => {
+          this.isLoading = false;
+          this.errorMessage = error.message || 'Gagal menyimpan transaksi';
+          this.clearMessages();
+          console.error('Error creating sale:', error);
+        }
+      });
   }
 
-  /**
-   * Format currency
-   */
+  // ===== UI HELPERS =====
+
   formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
+    return this.posService.formatCurrency(amount);
   }
 
-  /**
-   * Show error message
-   */
-  private showError(message: string) {
-    // In real app, use toast/snackbar service
-    console.error('POS Error:', message);
-    alert('❌ ' + message);
+  getFilteredProducts(): Product[] {
+    return this.filteredProducts;
   }
 
-  /**
-   * Show success message
-   */
-  private showSuccess(message: string) {
-    // In real app, use toast/snackbar service
-    console.log('POS Success:', message);
-    // You can implement a toast notification here
+  getCartItemCount(): number {
+    return this.cart.reduce((sum, item) => sum + item.quantity, 0);
   }
 
-  /**
-   * Show info message
-   */
-  private showInfo(message: string) {
-    // In real app, use toast/snackbar service
-    console.info('POS Info:', message);
+  getCartTotalValue(): number {
+    return this.getCartTotals().total;
   }
 
-  /**
-   * Handle keyboard shortcuts
-   */
-  @HostListener('document:keydown', ['$event'])
+  isProductInCart(productId: number): boolean {
+    return this.cart.some(item => item.product.id === productId);
+  }
+
+  getProductQuantityInCart(productId: number): number {
+    const item = this.cart.find(item => item.product.id === productId);
+    return item ? item.quantity : 0;
+  }
+
+  private clearMessages() {
+    setTimeout(() => {
+      this.errorMessage = '';
+      this.successMessage = '';
+    }, 3000);
+  }
+
+  // ===== KEYBOARD SHORTCUTS =====
+
+  @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent) {
     // Don't trigger shortcuts if user is typing in an input
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
       return;
     }
 
+    // Prevent shortcuts when modal is open
+    if (this.showPaymentModal || this.showBarcodeScanner) return;
+
     switch (event.key) {
       case 'F1':
         event.preventDefault();
         this.showBarcodeScanner = true;
         break;
+      
       case 'F2':
         event.preventDefault();
-        this.focusProductSearch();
+        if (this.productSearchInput) {
+          this.productSearchInput.nativeElement.focus();
+        }
         break;
+      
       case 'F9':
         event.preventDefault();
         this.processPayment();
         break;
+      
       case 'F12':
         event.preventDefault();
         this.clearCart();
         break;
+      
       case 'Escape':
-        event.preventDefault();
         if (this.showBarcodeScanner) {
           this.showBarcodeScanner = false;
-        } else if (this.showPaymentModal) {
-          this.showPaymentModal = false;
         }
         break;
     }
   }
-
-  /**
-   * Get cart item count
-   */
-  getCartItemCount(): number {
-    return this.cart.reduce((sum, item) => sum + item.quantity, 0);
+  increaseQuantity(index: number) {
+  const item = this.cart[index];
+  if (item && item.quantity < item.product.stock) {
+    this.onQuantityChange(index, item.quantity + 1);
+  } else {
+    this.errorMessage = `Stok maksimal ${item.product.stock}`;
+    this.clearMessages();
   }
+}
 
-  /**
-   * Check if product is in cart
-   */
-  isProductInCart(productId: number): boolean {
-    return this.cart.some(item => item.product.id === productId);
+decreaseQuantity(index: number) {
+  const item = this.cart[index];
+  if (item && item.quantity > 1) {
+    this.onQuantityChange(index, item.quantity - 1);
   }
+}
 
-  /**
-   * Get product quantity in cart
-   */
-  getProductQuantityInCart(productId: number): number {
-    const item = this.cart.find(item => item.product.id === productId);
-    return item ? item.quantity : 0;
-  }
+onQuantityChange(index: number, newQuantity: number) {
+  const item = this.cart[index];
+  if (!item) return;
 
-  /**
-   * Get cart total value
-   */
-  getCartTotalValue(): number {
-    return this.getCartTotals().grandTotal;
-  }
-
-  /**
-   * Check if cart has items
-   */
-  hasCartItems(): boolean {
-    return this.cart.length > 0;
-  }
-
-  /**
-   * Get low stock products
-   */
-  getLowStockProducts(): Product[] {
-    return this.products.filter(p => p.stock > 0 && p.stock <= 5);
-  }
-
-  /**
-   * Get out of stock products
-   */
-  getOutOfStockProducts(): Product[] {
-    return this.products.filter(p => p.stock === 0);
-  }
-
-  /**
-   * Quick add product by barcode
-   */
-  quickAddByBarcode(barcode: string): boolean {
-    const product = this.products.find(p => p.barcode === barcode);
-    if (product && product.stock > 0) {
-      this.addToCart(product);
-      return true;
+  // Validate quantity
+  const validQuantity = Math.max(1, Math.min(item.product.stock, newQuantity));
+  
+  // Update item quantity in local cart first
+  item.quantity = validQuantity;
+  
+  // Update in service
+  this.posService.updateCartItemQuantity(item.product.id, validQuantity);
+  
+  // Show warning if quantity was adjusted
+  if (validQuantity !== newQuantity) {
+    if (newQuantity > item.product.stock) {
+      this.errorMessage = `Stok maksimal ${item.product.stock}`;
+      this.clearMessages();
+    } else if (newQuantity < 1) {
+      this.errorMessage = 'Jumlah minimal 1';
+      this.clearMessages();
     }
-    return false;
   }
+}
 
-  /**
-   * Get categories
-   */
-  getCategories(): string[] {
-    const categories = [...new Set(this.products.map(p => p.category))];
-    return categories.sort();
-  }
+onDiscountChange(index: number, newDiscount: number) {
+  const item = this.cart[index];
+  if (!item) return;
 
-  /**
-   * Filter products by category
-   */
-  filterByCategory(category: string) {
-    this.filteredProducts = this.products.filter(p => p.category === category);
-    this.searchQuery = '';
+  // Validate discount
+  const validDiscount = Math.max(0, Math.min(100, newDiscount));
+  
+  // Update item discount in local cart first
+  item.discount = validDiscount;
+  
+  // Update in service
+  this.posService.updateCartItemDiscount(item.product.id, validDiscount);
+  
+  // Show warning if discount was adjusted
+  if (validDiscount !== newDiscount) {
+    if (newDiscount > 100) {
+      this.errorMessage = 'Diskon maksimal 100%';
+      this.clearMessages();
+    } else if (newDiscount < 0) {
+      this.errorMessage = 'Diskon minimal 0%';
+      this.clearMessages();
+    }
   }
-
-  /**
-   * Clear category filter
-   */
-  clearCategoryFilter() {
-    this.filteredProducts = [...this.products];
-    this.searchQuery = '';
-  }
-
-  /**
-   * Get product by ID
-   */
-  getProductById(id: number): Product | undefined {
-    return this.products.find(p => p.id === id);
-  }
-
-  /**
-   * Calculate item total including tax
-   */
-  calculateItemTotal(item: CartItem): number {
-    return item.subtotal * 1.1; // Including 10% tax
-  }
-
-  /**
-   * Get transaction summary
-   */
-  getTransactionSummary() {
-    const totals = this.getCartTotals();
-    return {
-      itemCount: this.getCartItemCount(),
-      uniqueItems: this.cart.length,
-      subtotal: totals.subtotal,
-      discount: totals.discountAmount,
-      tax: totals.tax,
-      total: totals.grandTotal,
-      hasDiscount: totals.discountAmount > 0
-    };
-  }
+}
 }

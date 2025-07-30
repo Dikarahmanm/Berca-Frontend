@@ -1,7 +1,5 @@
-<!-- src/app/modules/pos/pos/pos.component.html -->
-<!-- ✅ FIXED - Corrected form controls and Angular template syntax -->
-
-<div class="pos-container" (keydown)="onKeyDown($event)">
+<!-- src/app/modules/pos/pos/pos.component.html - FIXED TEMPLATE -->
+<div class="pos-container">
 
     <!-- Header -->
     <div class="pos-header">
@@ -65,24 +63,27 @@
 
             <!-- Product List -->
             <div class="product-list">
-                <div class="loading-spinner" *ngIf="isLoading">
+                <!-- Loading Spinner -->
+                <div class="loading-spinner" *ngIf="isSearching">
                     <div class="spinner-ring"></div>
-                    <span>Memuat produk...</span>
+                    <span>Mencari produk...</span>
                 </div>
 
-                <div class="product-grid" *ngIf="!isLoading">
+                <!-- Product Grid -->
+                <div class="product-grid" *ngIf="!isSearching">
                     <div *ngFor="let product of getFilteredProducts()" class="product-card"
                         [class.out-of-stock]="product.stock === 0" [class.in-cart]="isProductInCart(product.id)"
                         (click)="addToCart(product)">
 
                         <div class="product-info">
                             <h3 class="product-name">{{product.name}}</h3>
-                            <p class="product-category">{{product.category}}</p>
-                            <p class="product-price">{{formatCurrency(product.price)}}</p>
+                            <p class="product-category">{{product.categoryName}}</p>
+                            <p class="product-price">{{formatCurrency(product.sellPrice)}}</p>
                         </div>
 
                         <div class="product-meta">
-                            <span class="product-stock" [class.low-stock]="product.stock > 0 && product.stock < 5"
+                            <span class="product-stock"
+                                [class.low-stock]="product.stock > 0 && product.stock <= product.minStock"
                                 [class.out-of-stock]="product.stock === 0">
                                 Stok: {{product.stock}}
                             </span>
@@ -107,7 +108,7 @@
                 </div>
 
                 <!-- Empty State -->
-                <div class="empty-state" *ngIf="!isLoading && getFilteredProducts().length === 0">
+                <div class="empty-state" *ngIf="!isSearching && getFilteredProducts().length === 0">
                     <div class="empty-icon">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path
@@ -136,6 +137,7 @@
 
             <!-- Cart Items -->
             <div class="cart-items">
+                <!-- Empty Cart -->
                 <div class="empty-cart" *ngIf="cart.length === 0">
                     <svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path
@@ -145,43 +147,49 @@
                     <small>Pilih produk untuk memulai transaksi</small>
                 </div>
 
+                <!-- Cart Item List -->
+                <!-- ALTERNATIVE APPROACH: Two-way binding dengan temporary properties -->
+                <!-- src/app/modules/pos/pos/pos.component.html - CART ITEMS SECTION -->
+                
+                <!-- Cart Item List dengan Two-way Binding -->
                 <div class="cart-item" *ngFor="let item of cart; let i = index">
                     <div class="item-info">
                         <h4 class="item-name">{{item.product.name}}</h4>
-                        <p class="item-price">{{formatCurrency(item.product.price)}}</p>
+                        <p class="item-price">{{formatCurrency(item.product.sellPrice)}}</p>
                     </div>
-
+                
                     <div class="item-controls">
                         <div class="quantity-control">
-                            <button class="qty-btn" (click)="updateCartItemQuantity(i, item.quantity - 1)">
+                            <button class="qty-btn" (click)="decreaseQuantity(i)" [disabled]="item.quantity <= 1">
                                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M19 13H5v-2h14v2z" />
                                 </svg>
                             </button>
-                            <input type="number" [value]="item.quantity"
-                                (input)="updateCartItemQuantity(i, +($event.target as HTMLInputElement).value)"
+                
+                            <!-- FIXED: Simple two-way binding -->
+                            <input type="number" [(ngModel)]="item.quantity" (ngModelChange)="onQuantityChange(i, $event)"
                                 class="qty-input" min="1" [max]="item.product.stock">
-                            <button class="qty-btn" (click)="updateCartItemQuantity(i, item.quantity + 1)">
+                
+                            <button class="qty-btn" (click)="increaseQuantity(i)" [disabled]="item.quantity >= item.product.stock">
                                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                                 </svg>
                             </button>
                         </div>
-
+                
                         <div class="discount-control">
                             <label>Diskon %</label>
-                            <input type="number" [value]="item.discount"
-                                (input)="updateCartItemDiscount(i, +($event.target as HTMLInputElement).value)"
-                                class="discount-input" min="0" max="100">
+                            <!-- FIXED: Simple two-way binding -->
+                            <input type="number" [(ngModel)]="item.discount" (ngModelChange)="onDiscountChange(i, $event)"
+                                class="discount-input" min="0" max="100" step="0.1">
                         </div>
                     </div>
-
+                
                     <div class="item-total">
                         <span class="subtotal">{{formatCurrency(item.subtotal)}}</span>
                         <button class="remove-btn" (click)="removeFromCart(i)" title="Hapus item">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
                             </svg>
                         </button>
                     </div>
@@ -190,12 +198,36 @@
 
             <!-- Cart Summary -->
             <div class="cart-summary" *ngIf="cart.length > 0">
+                <!-- Customer Info -->
+                <div class="customer-info">
+                    <div class="input-group">
+                        <label for="customerName">Nama Pelanggan (Opsional)</label>
+                        <input id="customerName" type="text" [(ngModel)]="customerName" class="customer-input"
+                            placeholder="Masukkan nama pelanggan">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="customerPhone">No. Telepon (Opsional)</label>
+                        <input id="customerPhone" type="text" [(ngModel)]="customerPhone" class="customer-input"
+                            placeholder="Masukkan nomor telepon">
+                    </div>
+                </div>
+
+                <!-- Global Discount -->
                 <div class="global-discount">
                     <label for="globalDiscount">Diskon Global (%)</label>
                     <input id="globalDiscount" type="number" [(ngModel)]="globalDiscount"
                         (input)="onGlobalDiscountChange()" class="discount-input" min="0" max="100">
                 </div>
 
+                <!-- Notes -->
+                <div class="notes-section">
+                    <label for="notes">Catatan (Opsional)</label>
+                    <textarea id="notes" [(ngModel)]="notes" class="notes-input" placeholder="Catatan tambahan"
+                        rows="2"></textarea>
+                </div>
+
+                <!-- Summary Lines -->
                 <div class="summary-lines">
                     <div class="summary-line">
                         <span>Subtotal</span>
@@ -206,25 +238,45 @@
                         <span class="discount-amount">-{{formatCurrency(getCartTotals().discountAmount)}}</span>
                     </div>
                     <div class="summary-line">
-                        <span>Pajak (10%)</span>
-                        <span>{{formatCurrency(getCartTotals().tax)}}</span>
+                        <span>Pajak (11%)</span>
+                        <span>{{formatCurrency(getCartTotals().taxAmount)}}</span>
                     </div>
                     <div class="summary-line total-line">
                         <span>TOTAL</span>
-                        <span class="total-amount">{{formatCurrency(getCartTotals().grandTotal)}}</span>
+                        <span class="total-amount">{{formatCurrency(getCartTotals().total)}}</span>
                     </div>
                 </div>
 
                 <!-- Checkout Button -->
-                <button class="checkout-btn" (click)="processPayment()" [disabled]="cart.length === 0"
+                <button class="checkout-btn" (click)="processPayment()" [disabled]="cart.length === 0 || isLoading"
                     title="Process Payment (F9)">
-                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor" *ngIf="!isLoading">
                         <path
                             d="M11 9h2V6h3V4h-3V1h-2v3H8v2h3v3zm-4 9c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2zm-9.83-3.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25z" />
                     </svg>
-                    Bayar (F9)
+                    <div class="spinner" *ngIf="isLoading"></div>
+                    {{isLoading ? 'Memproses...' : 'Bayar (F9)'}}
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Error/Success Messages -->
+    <div class="message-overlay" *ngIf="errorMessage || successMessage">
+        <div class="message error" *ngIf="errorMessage">
+            <svg class="message-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L17,15.59L13.41,12L17,8.41L15.59,7Z" />
+            </svg>
+            {{errorMessage}}
+        </div>
+
+        <div class="message success" *ngIf="successMessage">
+            <svg class="message-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.08L11,13.67L7.91,10.58L6.5,12L11,16.5Z" />
+            </svg>
+            {{successMessage}}
         </div>
     </div>
 
@@ -239,7 +291,7 @@
     <!-- Payment Modal -->
     <div class="modal-overlay" *ngIf="showPaymentModal" (click)="showPaymentModal = false">
         <div class="modal-content payment-modal" (click)="$event.stopPropagation()">
-            <app-payment-modal [totalAmount]="getCartTotals().grandTotal" [isVisible]="showPaymentModal"
+            <app-payment-modal [totalAmount]="getCartTotals().total" [isVisible]="showPaymentModal"
                 (paymentComplete)="onPaymentComplete($event)" (paymentCancelled)="onPaymentCancelled()">
             </app-payment-modal>
         </div>
@@ -249,7 +301,7 @@
     <div class="shortcuts-help">
         <small>
             <strong>Shortcuts:</strong>
-            F1: Scan | F2: Search | F9: Bayar | F12: Clear
+            F1: Scan | F2: Search | F9: Bayar | F12: Clear | ESC: Close
         </small>
     </div>
 </div>

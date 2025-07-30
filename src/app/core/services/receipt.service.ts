@@ -1,6 +1,6 @@
-// src/app/core/services/receipt.service.ts
+// src/app/core/services/receipt.service.ts - FIXED BACKEND INTEGRATION
 import { Injectable } from '@angular/core';
-import { Observable, BehaviorSubject } from 'rxjs';
+import { Observable } from 'rxjs';
 import { POSService, Sale, ReceiptData } from './pos.service';
 import jsPDF from 'jspdf';
 
@@ -16,14 +16,6 @@ export interface ReceiptTemplate {
     right: number;
     bottom: number;
   };
-}
-
-export interface PrinterSettings {
-  printerName?: string;
-  paperSize: 'thermal58' | 'thermal80' | 'a4';
-  copies: number;
-  autoCut: boolean;
-  cashDrawer: boolean;
 }
 
 @Injectable({
@@ -48,32 +40,10 @@ export class ReceiptService {
       fontSize: 10,
       lineHeight: 4,
       margins: { top: 5, left: 3, right: 3, bottom: 5 }
-    },
-    {
-      id: 'a4',
-      name: 'A4 Paper',
-      width: 210,
-      fontSize: 12,
-      lineHeight: 5,
-      margins: { top: 20, left: 20, right: 20, bottom: 20 }
     }
   ];
 
-  // Default printer settings
-  private defaultSettings: PrinterSettings = {
-    paperSize: 'thermal58',
-    copies: 1,
-    autoCut: true,
-    cashDrawer: false
-  };
-
-  // Current printer settings
-  private settingsSubject = new BehaviorSubject<PrinterSettings>(this.defaultSettings);
-  public settings$ = this.settingsSubject.asObservable();
-
-  constructor(private posService: POSService) {
-    this.loadSettings();
-  }
+  constructor(private posService: POSService) {}
 
   // ===== RECEIPT GENERATION =====
 
@@ -162,7 +132,7 @@ export class ReceiptService {
 
         <!-- Items -->
         <div class="receipt-items" style="border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
-          ${sale.items.map((item: any) => `
+          ${sale.items.map((item) => `
             <div class="receipt-item" style="margin-bottom: 8px;">
               <div style="font-weight: bold;">${item.productName}</div>
               <div style="display: flex; justify-content: space-between; font-size: 10px;">
@@ -250,7 +220,6 @@ export class ReceiptService {
     let yPosition = template.margins.top;
     const lineHeight = template.lineHeight;
     const pageWidth = template.width;
-    const contentWidth = pageWidth - template.margins.left - template.margins.right;
 
     // Set font
     pdf.setFont('courier');
@@ -297,7 +266,7 @@ export class ReceiptService {
     addLine();
 
     // Items
-    sale.items.forEach((item: any) => {
+    sale.items.forEach((item) => {
       addText(item.productName, 'left', true);
       addText(`${item.quantity} x ${this.formatCurrency(item.sellPrice)} = ${this.formatCurrency(item.subtotal)}`);
       if (item.discount > 0) {
@@ -394,11 +363,6 @@ export class ReceiptService {
       // Mark receipt as printed
       await this.posService.markReceiptPrinted(saleId).toPromise();
 
-      // Open cash drawer if requested
-      if (openCashDrawer) {
-        await this.openCashDrawer();
-      }
-
       return true;
       
     } catch (error) {
@@ -488,38 +452,7 @@ export class ReceiptService {
     }
   }
 
-  // ===== CASH DRAWER =====
-
-  /**
-   * Open cash drawer (for compatible thermal printers)
-   */
-  async openCashDrawer(): Promise<boolean> {
-    try {
-      // ESC/POS command to open cash drawer
-      const openDrawerCommand = '\x1B\x70\x00\x19\x19';
-      
-      // Try to send command via printer (requires browser printer access)
-      // This is a simplified implementation - real implementation would depend on printer API
-      console.log('Opening cash drawer...');
-      
-      // For now, just log the command
-      console.log('Cash drawer command sent:', openDrawerCommand);
-      
-      return true;
-    } catch (error) {
-      console.error('Error opening cash drawer:', error);
-      return false;
-    }
-  }
-
-  // ===== TEMPLATES & SETTINGS =====
-
-  /**
-   * Get available receipt templates
-   */
-  getTemplates(): ReceiptTemplate[] {
-    return [...this.templates];
-  }
+  // ===== TEMPLATES =====
 
   /**
    * Get template by ID
@@ -530,49 +463,6 @@ export class ReceiptService {
       throw new Error(`Template not found: ${templateId}`);
     }
     return template;
-  }
-
-  /**
-   * Get current printer settings
-   */
-  getSettings(): PrinterSettings {
-    return this.settingsSubject.value;
-  }
-
-  /**
-   * Update printer settings
-   */
-  updateSettings(settings: Partial<PrinterSettings>): void {
-    const currentSettings = this.settingsSubject.value;
-    const newSettings = { ...currentSettings, ...settings };
-    this.settingsSubject.next(newSettings);
-    this.saveSettings(newSettings);
-  }
-
-  /**
-   * Save settings to localStorage
-   */
-  private saveSettings(settings: PrinterSettings): void {
-    try {
-      localStorage.setItem('receipt_printer_settings', JSON.stringify(settings));
-    } catch (error) {
-      console.error('Error saving printer settings:', error);
-    }
-  }
-
-  /**
-   * Load settings from localStorage
-   */
-  private loadSettings(): void {
-    try {
-      const saved = localStorage.getItem('receipt_printer_settings');
-      if (saved) {
-        const settings = JSON.parse(saved);
-        this.settingsSubject.next({ ...this.defaultSettings, ...settings });
-      }
-    } catch (error) {
-      console.error('Error loading printer settings:', error);
-    }
   }
 
   // ===== UTILITY METHODS =====
@@ -609,151 +499,10 @@ export class ReceiptService {
    */
   private getPaymentMethodLabel(method: string): string {
     const labels: { [key: string]: string } = {
-      'CASH': 'Tunai',
-      'DEBIT': 'Kartu Debit',
-      'CREDIT': 'Kartu Kredit',
-      'QRIS': 'QRIS',
-      'TRANSFER': 'Transfer Bank'
+      'cash': 'Tunai',
+      'card': 'Kartu',
+      'digital': 'Digital/E-wallet'
     };
-    return labels[method] || method;
-  }
-
-  /**
-   * Validate receipt data
-   */
-  validateReceiptData(data: ReceiptData): {
-    isValid: boolean;
-    errors: string[];
-  } {
-    const errors: string[] = [];
-
-    if (!data.sale) {
-      errors.push('Sale data is required');
-    } else {
-      if (!data.sale.saleNumber) errors.push('Sale number is required');
-      if (!data.sale.items || data.sale.items.length === 0) errors.push('Sale items are required');
-      if (data.sale.total <= 0) errors.push('Sale total must be greater than 0');
-    }
-
-    if (!data.storeName) errors.push('Store name is required');
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
-
-  /**
-   * Get receipt preview URL
-   */
-  async getReceiptPreviewURL(saleId: number): Promise<string> {
-    try {
-      const html = await this.generateReceiptHTML(saleId);
-      const blob = new Blob([html], { type: 'text/html' });
-      return URL.createObjectURL(blob);
-    } catch (error) {
-      console.error('Error creating receipt preview URL:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Print test receipt
-   */
-  async printTestReceipt(): Promise<boolean> {
-    try {
-      const testData: ReceiptData = {
-        sale: {
-          id: 999,
-          saleNumber: 'TEST-001',
-          saleDate: new Date(),
-          subtotal: 50000,
-          discountAmount: 5000,
-          taxAmount: 4950,
-          total: 49950,
-          amountPaid: 50000,
-          changeAmount: 50,
-          paymentMethod: 'CASH',
-          cashierId: 1,
-          cashierName: 'Test Cashier',
-          status: 'Completed',
-          receiptPrinted: false,
-          items: [
-            {
-              id: 1,
-              saleId: 999,
-              productId: 1,
-              productName: 'Test Product',
-              productBarcode: 'TEST123',
-              quantity: 2,
-              sellPrice: 25000,
-              buyPrice: 20000,
-              discount: 5000,
-              subtotal: 45000,
-              totalProfit: 5000
-            }
-          ],
-          createdAt: new Date(),
-          totalItems: 2,
-          totalProfit: 5000,
-          discountPercentage: 10,
-          redeemedPoints: 0
-        } as Sale,
-        storeName: 'Toko Eniwan',
-        storeAddress: 'Jl. Test No. 123, Jakarta',
-        storePhone: '021-123456',
-        footerMessage: 'Test receipt - please ignore'
-      };
-
-      const html = this.buildReceiptHTML(testData);
-      
-      // Create print window for test
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
-      
-      if (!printWindow) {
-        throw new Error('Failed to open print window');
-      }
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Test Receipt</title>
-          <style>
-            @media print {
-              body { margin: 0; }
-              .receipt { width: 100% !important; }
-              @page { margin: 0; size: 58mm auto; }
-            }
-            body { 
-              font-family: 'Courier New', monospace; 
-              margin: 0; 
-              padding: 10px;
-            }
-          </style>
-        </head>
-        <body>
-          ${html}
-          <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-                setTimeout(function() {
-                  window.close();
-                }, 1000);
-              }, 500);
-            };
-          </script>
-        </body>
-        </html>
-      `);
-      
-      printWindow.document.close();
-      return true;
-      
-    } catch (error) {
-      console.error('Error printing test receipt:', error);
-      throw error;
-    }
+    return labels[method.toLowerCase()] || method;
   }
 }

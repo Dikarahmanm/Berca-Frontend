@@ -1,6 +1,7 @@
+// src/app/core/services/auth.service.ts - FIXED for Cookie-Based Auth
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, tap, catchError, throwError, map } from 'rxjs';
+import { BehaviorSubject, Observable, tap, catchError, throwError, map, of } from 'rxjs';
 
 interface LoginRequest {
   username: string;
@@ -23,7 +24,7 @@ interface RegisterResponse {
   message: string;
 }
 
-// ✅ NEW: User management interfaces
+// User management interfaces
 export interface User {
   id: number;
   username: string;
@@ -42,13 +43,25 @@ export interface UpdateUserRequest {
   isActive: boolean;
 }
 
+// Current user interface for POS Component
+export interface CurrentUser {
+  id: number;
+  username: string;
+  role: string;
+  isActive: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  // ✅ DIRECT URLS TO BACKEND
+  // DIRECT URLS TO BACKEND (Cookie-based auth)
   private baseUrl = 'http://localhost:5171';
   
   private isLoggedInSubject = new BehaviorSubject<boolean>(false);
   public isLoggedIn$ = this.isLoggedInSubject.asObservable();
+
+  // Current user data
+  private currentUserSubject = new BehaviorSubject<CurrentUser | null>(null);
+  public currentUser$ = this.currentUserSubject.asObservable();
 
   constructor(private http: HttpClient) {
     console.log('🔧 AuthService initialized with DIRECT URL:', this.baseUrl);
@@ -57,7 +70,7 @@ export class AuthService {
 
   login(data: LoginRequest): Observable<LoginResponse> {
     const url = `${this.baseUrl}/auth/login`;
-    console.log('🔐 === LOGIN ATTEMPT (DIRECT) ===');
+    console.log('🔐 === LOGIN ATTEMPT (COOKIE-BASED) ===');
     console.log('URL:', url);
     console.log('Username:', data.username);
     console.log('🍪 Cookies BEFORE login:', document.cookie);
@@ -67,7 +80,7 @@ export class AuthService {
       observe: 'response'
     }).pipe(
       tap((response: any) => {
-        console.log('✅ === LOGIN SUCCESS (DIRECT) ===');
+        console.log('✅ === LOGIN SUCCESS (COOKIE-BASED) ===');
         console.log('Status:', response.status);
         console.log('Response body:', response.body);
         
@@ -77,10 +90,20 @@ export class AuthService {
           this.debugCookies();
           
           if (response.body?.success) {
+            // Store user data
+            const userData: CurrentUser = {
+              id: 1, // Will be set properly when we get user profile
+              username: response.body.user,
+              role: response.body.role,
+              isActive: true
+            };
+            
             localStorage.setItem('username', response.body.user);
             localStorage.setItem('role', response.body.role);
+            
+            this.currentUserSubject.next(userData);
             this.isLoggedInSubject.next(true);
-            console.log('💾 User data stored in localStorage');
+            console.log('💾 User data stored in localStorage and state');
           }
         }, 100);
       }),
@@ -91,7 +114,7 @@ export class AuthService {
 
   register(data: RegisterRequest): Observable<RegisterResponse> {
     const url = `${this.baseUrl}/auth/register`;
-    console.log('📝 === REGISTER ATTEMPT (DIRECT) ===');
+    console.log('📝 === REGISTER ATTEMPT (COOKIE-BASED) ===');
     console.log('URL:', url);
     console.log('Username:', data.username);
     
@@ -114,17 +137,18 @@ export class AuthService {
       tap(() => {
         localStorage.removeItem('username');
         localStorage.removeItem('role');
+        this.currentUserSubject.next(null);
         this.isLoggedInSubject.next(false);
-        console.log('✅ Logged out and cleared localStorage');
+        console.log('✅ Logged out and cleared localStorage + state');
       }),
       catchError(this.handleError.bind(this))
     );
   }
 
-  // ✅ UPDATED: Renamed method to match dashboard usage
+  // Auth status testing
   testAuthStatus(): Observable<any> {
     const url = `${this.baseUrl}/auth/debug-auth`;
-    console.log('🧪 === TESTING AUTH STATUS (DIRECT) ===');
+    console.log('🧪 === TESTING AUTH STATUS (COOKIE-BASED) ===');
     console.log('URL:', url);
     console.log('🍪 Current cookies:', document.cookie);
     
@@ -140,6 +164,68 @@ export class AuthService {
       })
     );
   }
+
+  // ===== NEW: METHODS FOR POS COMPONENT =====
+
+  /**
+   * Get current user data (for POS Component)
+   */
+  getCurrentUser(): CurrentUser | null {
+    return this.currentUserSubject.value;
+  }
+
+  /**
+   * Get current user observable
+   */
+  getCurrentUser$(): Observable<CurrentUser | null> {
+    return this.currentUser$;
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated(): boolean {
+    return this.isLoggedInSubject.value;
+  }
+
+  /**
+   * Get user role
+   */
+  getUserRole(): string | null {
+    const user = this.getCurrentUser();
+    return user ? user.role : localStorage.getItem('role');
+  }
+
+  /**
+   * Get username
+   */
+  getUsername(): string | null {
+    const user = this.getCurrentUser();
+    return user ? user.username : localStorage.getItem('username');
+  }
+
+  /**
+   * Get token (returns null for cookie-based auth)
+   * This method exists for compatibility with interceptor
+   */
+  getToken(): string | null {
+    // Cookie-based auth doesn't use tokens
+    return null;
+  }
+
+  /**
+   * Refresh token (not needed for cookie-based auth)
+   * This method exists for compatibility with interceptor
+   */
+  refreshToken(): Observable<string> {
+    // For cookie-based auth, we just test the auth status
+    return this.testAuthStatus().pipe(
+      map(() => 'cookie-refreshed'), // Dummy token
+      catchError(() => throwError(() => new Error('Cookie refresh failed')))
+    );
+  }
+
+  // ===== COOKIE DEBUGGING =====
 
   debugCookies(): void {
     const cookies = document.cookie;
@@ -166,28 +252,47 @@ export class AuthService {
 
   private checkAuthStatus(): void {
     const username = localStorage.getItem('username');
-    if (username) {
-      console.log('🔍 Found username in localStorage, testing auth...');
+    const role = localStorage.getItem('role');
+    
+    if (username && role) {
+      console.log('🔍 Found user data in localStorage, testing auth...');
+      
+      // Set user data immediately
+      const userData: CurrentUser = {
+        id: 1, // Will be updated when we get full profile
+        username: username,
+        role: role,
+        isActive: true
+      };
+      this.currentUserSubject.next(userData);
+      
+      // Test auth status
       this.testAuthStatus().subscribe({
-        next: () => this.isLoggedInSubject.next(true),
-        error: () => this.isLoggedInSubject.next(false)
+        next: () => {
+          this.isLoggedInSubject.next(true);
+          console.log('✅ Auth status confirmed');
+        },
+        error: () => {
+          console.log('❌ Auth status failed, clearing data');
+          this.currentUserSubject.next(null);
+          this.isLoggedInSubject.next(false);
+          localStorage.removeItem('username');
+          localStorage.removeItem('role');
+        }
       });
     }
   }
 
   private handleError(error: HttpErrorResponse) {
-    console.error('❌ === AUTH ERROR (DIRECT) ===');
+    console.error('❌ === AUTH ERROR (COOKIE-BASED) ===');
     console.error('Status:', error.status);
     console.error('Message:', error.message);
     console.error('Error body:', error.error);
     return throwError(() => error);
   }
 
-  isAuthenticated(): boolean {
-    return this.isLoggedInSubject.value;
-  }
+  // ===== USER MANAGEMENT METHODS =====
 
-  // ✅ NEW: User Management Methods
   private debugAuth(action: string): void {
     const username = localStorage.getItem('username');
     const role = localStorage.getItem('role');

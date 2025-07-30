@@ -1,200 +1,236 @@
-<!-- src/app/modules/pos/receipt-preview/receipt-preview.component.html -->
-<div class="receipt-preview-container">
-
+<div class="receipt-preview">
     <!-- Header -->
-    <div class="preview-header">
-        <h1 class="preview-title">
+    <div class="receipt-header">
+        <button class="back-btn" (click)="goBackToPOS()">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" />
+            </svg>
+            Kembali ke POS
+        </button>
+
+        <h2 class="receipt-title">
             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                 <path
-                    d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h8c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 7H7V7h6v2zm0 2H7v-2h6v2zm0 2H7v-2h6v2z" />
+                    d="M3,22L4.5,20.5L6,22L7.5,20.5L9,22L10.5,20.5L12,22L13.5,20.5L15,22L16.5,20.5L18,22L19.5,20.5L21,22V2L19.5,3.5L18,2L16.5,3.5L15,2L13.5,3.5L12,2L10.5,3.5L9,2L7.5,3.5L6,2L4.5,3.5L3,2V22M5,5H19V7H5V5M5,9H19V11H5V9M5,13H19V15H5V13M5,17H19V19H5V17Z" />
             </svg>
-            Preview Struk
-        </h1>
+            Struk Pembelian
+        </h2>
 
-        <div class="header-actions">
-            <button class="secondary-button" (click)="close()">
+        <div class="receipt-actions">
+            <button class="action-btn" (click)="printReceipt()" [disabled]="isLoading">
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path
-                        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                        d="M18,3H6V7H18M19,12A1,1 0 0,1 18,11A1,1 0 0,1 19,10A1,1 0 0,1 20,11A1,1 0 0,1 19,12M16,19H8V14H16M19,8H5A3,3 0 0,0 2,11V17H6V21H18V17H22V11A3,3 0 0,0 19,8Z" />
                 </svg>
-                Tutup
+                Print
+            </button>
+
+            <button class="action-btn" (click)="downloadPDF()" [disabled]="isLoading">
+                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                </svg>
+                Download PDF
+            </button>
+
+            <button class="action-btn share-btn" (click)="shareReceipt()" [disabled]="isLoading">
+                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.91 18,21.91C19.61,21.91 20.92,20.61 20.92,19A2,2 0 0,0 18.92,17A2,2 0 0,0 16.92,19C16.92,18.77 16.95,18.55 17,18.34L9.88,14.19C9.56,14.69 9,15 8.32,15C7.65,15 7.09,14.69 6.77,14.19L13.91,10.3C13.96,10.53 14,10.76 14,11C14,11.24 13.96,11.47 13.91,11.7L6.96,15.81C6.5,15.31 5.79,15 5,15A3,3 0 0,0 2,18A3,3 0 0,0 5,21C5.79,21 6.5,20.69 7.04,20.19L14.16,16.34C14.11,16.55 14.08,16.77 14.08,17C14.08,18.61 15.39,19.91 17,19.91C18.61,19.91 19.92,18.61 19.92,17A2,2 0 0,0 17.92,15A2,2 0 0,0 15.92,17" />
+                </svg>
+                Share
             </button>
         </div>
     </div>
 
     <!-- Loading State -->
-    <div class="loading-container" *ngIf="isLoading">
-        <div class="spinner">
-            <div class="spinner-ring"></div>
-        </div>
-        <p>Memuat struk...</p>
-    </div>
-
-    <!-- Receipt Content -->
-    <div class="receipt-content" *ngIf="!isLoading && transaction">
-
-        <!-- Receipt Preview -->
-        <div class="receipt-preview">
-            <div class="receipt-paper">
-
-                <!-- Store Header -->
-                <div class="receipt-header">
-                    <div class="store-logo">
-                        <svg class="logo-icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M7 18c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1z" />
-                        </svg>
-                    </div>
-                    <h2 class="store-name">TOKO ENIWAN</h2>
-                    <div class="store-info">
-                        <p>Jl. Contoh No. 123, Jakarta</p>
-                        <p>Telp: (021) 1234567</p>
-                        <p>Email:</p>
-                    </div>
-                </div>
-
-                <!-- Transaction Info -->
-                <div class="transaction-info">
-                    <div class="info-row">
-                        <span class="label">No. Transaksi:</span>
-                        <span class="value">{{transaction.id}}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Tanggal:</span>
-                        <span class="value">{{formatDate(transaction.timestamp)}}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Kasir:</span>
-                        <span class="value">{{transaction.cashierName}}</span>
-                    </div>
-                    <div class="info-row" *ngIf="transaction.customerName">
-                        <span class="label">Customer:</span>
-                        <span class="value">{{transaction.customerName}}</span>
-                    </div>
-                </div>
-
-                <!-- Items List -->
-                <div class="items-section">
-                    <div class="section-divider"></div>
-
-                    <div class="items-header">
-                        <span class="col-item">Item</span>
-                        <span class="col-qty">Qty</span>
-                        <span class="col-price">Harga</span>
-                        <span class="col-total">Total</span>
-                    </div>
-
-                    <div class="section-divider"></div>
-
-                    <div class="item-row" *ngFor="let item of transaction.items">
-                        <div class="item-info">
-                            <span class="item-name">{{item.name}}</span>
-                            <div class="item-details">
-                                <span class="item-qty">{{item.quantity}} x {{formatCurrency(item.price)}}</span>
-                                <span class="item-total">{{formatCurrency(item.subtotal)}}</span>
-                            </div>
-                            <div class="item-discount" *ngIf="item.discount > 0">
-                                Diskon {{item.discount}}%
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Totals Section -->
-                <div class="totals-section">
-                    <div class="section-divider"></div>
-
-                    <div class="total-row">
-                        <span class="label">Subtotal:</span>
-                        <span class="value">{{formatCurrency(transaction.subtotal)}}</span>
-                    </div>
-
-                    <div class="total-row" *ngIf="transaction.discount > 0">
-                        <span class="label">Diskon:</span>
-                        <span class="value discount">-{{formatCurrency(transaction.discount)}}</span>
-                    </div>
-
-                    <div class="total-row">
-                        <span class="label">Pajak (10%):</span>
-                        <span class="value">{{formatCurrency(transaction.tax)}}</span>
-                    </div>
-
-                    <div class="section-divider"></div>
-
-                    <div class="total-row grand-total">
-                        <span class="label">TOTAL:</span>
-                        <span class="value">{{formatCurrency(transaction.total)}}</span>
-                    </div>
-
-                    <div class="total-row">
-                        <span class="label">Dibayar ({{getPaymentMethodDisplay(transaction.paymentMethod)}}):</span>
-                        <span class="value">{{formatCurrency(transaction.paid)}}</span>
-                    </div>
-
-                    <div class="total-row">
-                        <span class="label">Kembalian:</span>
-                        <span class="value">{{formatCurrency(transaction.change)}}</span>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <div class="receipt-footer">
-                    <div class="section-divider"></div>
-                    <div class="footer-info">
-                        <p><strong>Terima kasih atas kunjungan Anda!</strong></p>
-                        <p>Barang yang sudah dibeli tidak dapat ditukar</p>
-                        <p>Simpan struk ini sebagai bukti pembelian</p>
-                    </div>
-
-                    <div class="footer-stats">
-                        <p>Total Item: {{getTotalItems()}} pcs</p>
-                        <p>Metode Pembayaran: {{getPaymentMethodDisplay(transaction.paymentMethod)}}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-            <button class="primary-button" (click)="printReceipt()" [disabled]="isPrinting">
-                <div class="spinner small" *ngIf="isPrinting">
-                    <div class="spinner-ring"></div>
-                </div>
-                <svg class="icon" *ngIf="!isPrinting" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                        d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z" />
-                </svg>
-                {{isPrinting ? 'Mencetak...' : 'Cetak Struk'}}
-            </button>
-
-            <button class="secondary-button" (click)="downloadPDF()" [disabled]="isDownloading">
-                <div class="spinner small" *ngIf="isDownloading">
-                    <div class="spinner-ring"></div>
-                </div>
-                <svg class="icon" *ngIf="!isDownloading" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-                </svg>
-                {{isDownloading ? 'Mengunduh...' : 'Download PDF'}}
-            </button>
-
-            <button class="whatsapp-button" (click)="shareWhatsApp()" title="Bagikan via WhatsApp">
-                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.893 3.386" />
-                </svg>
-                WhatsApp
-            </button>
+    <div class="loading-state" *ngIf="isLoading">
+        <div class="spinner-container">
+            <svg class="spinner" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-dasharray="31.416" stroke-dashoffset="31.416">
+                    <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416"
+                        repeatCount="indefinite" />
+                    <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416"
+                        repeatCount="indefinite" />
+                </circle>
+            </svg>
+            <span>Memuat struk...</span>
         </div>
     </div>
 
     <!-- Error State -->
-    <div class="error-state" *ngIf="!isLoading && !transaction">
-        <svg class="error-icon" viewBox="0 0 24 24" fill="currentColor">
+    <div class="error-state" *ngIf="errorMessage && !isLoading">
+        <div class="error-content">
+            <svg class="error-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L17,15.59L13.41,12L17,8.41L15.59,7Z" />
+            </svg>
+            <h3>Gagal Memuat Struk</h3>
+            <p>{{errorMessage}}</p>
+            <button class="retry-btn" (click)="loadSale()">Coba Lagi</button>
+        </div>
+    </div>
+
+    <!-- Receipt Content -->
+    <div class="receipt-content" *ngIf="sale && !isLoading">
+        <div class="receipt-paper">
+            <!-- Store Header -->
+            <div class="store-header">
+                <h1 class="store-name">{{storeInfo.storeName}}</h1>
+                <p class="store-address">{{storeInfo.storeAddress}}</p>
+                <p class="store-contact">{{storeInfo.storePhone}}</p>
+                <p class="store-email" *ngIf="storeInfo.storeEmail">{{storeInfo.storeEmail}}</p>
+            </div>
+
+            <!-- Divider -->
+            <div class="divider">================================</div>
+
+            <!-- Transaction Info -->
+            <div class="transaction-info">
+                <div class="info-row">
+                    <span class="label">No. Transaksi:</span>
+                    <span class="value">{{sale.saleNumber}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Tanggal:</span>
+                    <span class="value">{{formatDate(sale.saleDate)}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Waktu:</span>
+                    <span class="value">{{formatTime(sale.saleDate)}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Kasir:</span>
+                    <span class="value">{{sale.cashierName}}</span>
+                </div>
+                <div class="info-row" *ngIf="sale.customerName">
+                    <span class="label">Pelanggan:</span>
+                    <span class="value">{{sale.customerName}}</span>
+                </div>
+                <div class="info-row" *ngIf="sale.memberName">
+                    <span class="label">Member:</span>
+                    <span class="value">{{sale.memberName}} ({{sale.memberNumber}})</span>
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="divider">================================</div>
+
+            <!-- Items -->
+            <div class="items-section">
+                <div class="items-header">
+                    <span class="col-name">Item</span>
+                    <span class="col-qty">Qty</span>
+                    <span class="col-price">Harga</span>
+                    <span class="col-total">Total</span>
+                </div>
+
+                <div class="item-row" *ngFor="let item of sale.items">
+                    <div class="item-main">
+                        <span class="item-name">{{item.productName}}</span>
+                        <span class="item-qty">{{item.quantity}}</span>
+                        <span class="item-price">{{formatCurrency(item.sellPrice)}}</span>
+                        <span class="item-total">{{formatCurrency(item.subtotal)}}</span>
+                    </div>
+
+                    <div class="item-details" *ngIf="item.discount > 0">
+                        <span class="discount-info">Diskon {{item.discount}}%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="divider">================================</div>
+
+            <!-- Summary -->
+            <div class="summary-section">
+                <div class="summary-row">
+                    <span class="label">Subtotal:</span>
+                    <span class="value">{{formatCurrency(sale.subtotal)}}</span>
+                </div>
+
+                <div class="summary-row" *ngIf="sale.discountAmount > 0">
+                    <span class="label">Diskon:</span>
+                    <span class="value">-{{formatCurrency(sale.discountAmount)}}</span>
+                </div>
+
+                <div class="summary-row" *ngIf="sale.taxAmount > 0">
+                    <span class="label">PPN (11%):</span>
+                    <span class="value">{{formatCurrency(sale.taxAmount)}}</span>
+                </div>
+
+                <div class="summary-row total-row">
+                    <span class="label">TOTAL:</span>
+                    <span class="value">{{formatCurrency(sale.total)}}</span>
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="divider">================================</div>
+
+            <!-- Payment Info -->
+            <div class="payment-section">
+                <div class="payment-row">
+                    <span class="label">Metode Bayar:</span>
+                    <span class="value">{{getPaymentMethodLabel(sale.paymentMethod)}}</span>
+                </div>
+
+                <div class="payment-row">
+                    <span class="label">Jumlah Bayar:</span>
+                    <span class="value">{{formatCurrency(sale.amountPaid)}}</span>
+                </div>
+
+                <div class="payment-row" *ngIf="sale.changeAmount > 0">
+                    <span class="label">Kembalian:</span>
+                    <span class="value">{{formatCurrency(sale.changeAmount)}}</span>
+                </div>
+
+                <div class="payment-row" *ngIf="sale.paymentReference">
+                    <span class="label">Ref. Number:</span>
+                    <span class="value">{{sale.paymentReference}}</span>
+                </div>
+            </div>
+
+            <!-- Loyalty Points -->
+            <div class="loyalty-section" *ngIf="sale.memberId">
+                <div class="divider">================================</div>
+                <div class="loyalty-info">
+                    <div class="points-earned" *ngIf="getPointsEarned() > 0">
+                        <span class="label">Poin Diperoleh:</span>
+                        <span class="value">+{{getPointsEarned()}} poin</span>
+                    </div>
+                    <div class="points-redeemed" *ngIf="sale.redeemedPoints > 0">
+                        <span class="label">Poin Digunakan:</span>
+                        <span class="value">-{{sale.redeemedPoints}} poin</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="receipt-footer">
+                <div class="divider">================================</div>
+                <p class="footer-message">{{storeInfo.footerMessage}}</p>
+                <p class="thank-you">Terima kasih atas kunjungan Anda!</p>
+                <p class="footer-note">Barang yang sudah dibeli tidak dapat dikembalikan</p>
+
+                <!-- QR Code for digital receipt -->
+                <div class="qr-section" *ngIf="digitalReceiptUrl">
+                    <p class="qr-label">Scan untuk struk digital:</p>
+                    <div class="qr-placeholder">
+                        <!-- QR Code would be generated here -->
+                        <span class="qr-text">QR Code</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    <div class="success-message" *ngIf="successMessage" [@fadeInOut]>
+        <svg class="success-icon" viewBox="0 0 24 24" fill="currentColor">
             <path
-                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.08L11,13.67L7.91,10.58L6.5,12L11,16.5Z" />
         </svg>
-        <h3>Struk Tidak Ditemukan</h3>
-        <p>Data transaksi tidak dapat dimuat</p>
-        <button class="primary-button" (click)="close()">Kembali ke POS</button>
+        {{successMessage}}
     </div>
 </div>

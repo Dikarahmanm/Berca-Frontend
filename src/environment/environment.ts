@@ -1,58 +1,99 @@
-// src/environments/environment.ts
 export const environment = {
   production: false,
+  development: true,
   apiUrl: 'http://localhost:5171/api',
-  appName: 'Toko Eniwan POS',
-  version: '2.0.0',
+  apiVersion: 'v1',
   
-  // Feature flags for Sprint 2
-  features: {
-    pos: true,
-    notifications: true,
-    barcode: true,
-    receipt: true,
-    inventory: false, // Will be enabled in future sprints
-    membership: false, // Will be enabled in future sprints
-    reports: false // Will be enabled in future sprints
+  // App Configuration
+  appName: 'Toko Eniwan POS',
+  appVersion: '2.0.0',
+  
+  // API Endpoints
+  endpoints: {
+    auth: '/auth',
+    userProfile: '/UserProfile',
+    products: '/Product',
+    categories: '/Category',
+    pos: '/POS',
+    members: '/Member',
+    notifications: '/Notification',
+    dashboard: '/Dashboard'
   },
   
-  // App configuration
-  config: {
-    // Notification polling interval (ms)
-    notificationPollingInterval: 30000,
-    
-    // Receipt settings
-    receipt: {
-      defaultTemplate: 'thermal58',
+  // POS Configuration
+  pos: {
+    taxRate: 0.11, // 11% PPN
+    defaultPageSize: 20,
+    maxCartItems: 100,
+    receiptSettings: {
       storeName: 'Toko Eniwan',
-      storeAddress: 'Jl. Raya No. 123, Jakarta',
-      storePhone: '021-123456',
+      storeAddress: 'Jl. Contoh No. 123, Jakarta',
+      storePhone: '(021) 1234-5678',
+      storeEmail: 'info@tokoeniwan.com',
       footerMessage: 'Terima kasih atas kunjungan Anda!'
-    },
-    
-    // POS settings
-    pos: {
-      defaultPaymentMethod: 'CASH',
-      taxRate: 0.11, // 11% PPN
-      enableLoyaltyPoints: true,
-      enableDiscounts: true
-    },
-    
-    // Barcode scanner settings
-    barcode: {
-      cameraFacingMode: 'environment', // 'user' for front camera
-      scannerWidth: 640,
-      scannerHeight: 480,
-      enableManualInput: true
-    },
-    
-    // UI settings
-    ui: {
-      theme: 'orange-modern',
-      language: 'id-ID',
-      currency: 'IDR',
-      dateFormat: 'dd/MM/yyyy',
-      timeFormat: 'HH:mm:ss'
     }
+  },
+  
+  // Notification Configuration
+  notifications: {
+    enableRealTime: true,
+    signalRUrl: 'http://localhost:5171/hubs/notification',
+    fallbackPollingInterval: 30000, // 30 seconds
+    maxNotifications: 50
+  },
+  
+  // Storage Configuration
+  storage: {
+    tokenKey: 'pos_auth_token',
+    userKey: 'pos_current_user',
+    cartKey: 'pos_cart_items',
+    settingsKey: 'pos_settings'
+  },
+  
+  // Feature Flags
+  features: {
+    offlineMode: true,
+    barcodeScanner: true,
+    receiptPrinter: true,
+    loyaltyProgram: true,
+    multiLanguage: false,
+    darkMode: true
+  },
+  
+  // UI Configuration
+  ui: {
+    primaryColor: '#FF914D',
+    primaryColorDark: '#E07A3B',
+    primaryColorLight: '#FFD3B3',
+    accentColor: '#4BBF7B',
+    warningColor: '#FFB84D',
+    errorColor: '#E15A4F',
+    
+    // Animation settings
+    animationDuration: 120,
+    animationEasing: 'ease-out',
+    
+    // Theme settings
+    glassMorphism: true,
+    borderRadius: '12px',
+    backdropBlur: 'blur(20px)'
+  },
+  
+  // Security Configuration
+  security: {
+    sessionTimeout: 480, // 8 hours in minutes
+    maxLoginAttempts: 5,
+    lockoutDuration: 900, // 15 minutes in seconds
+    passwordMinLength: 8,
+    requireStrongPassword: true
+  },
+  
+  // Logging Configuration
+  logging: {
+    level: 'debug',
+    enableConsoleLogging: true,
+    enableRemoteLogging: false,
+    logApiErrors: true,
+    logUserActions: true
   }
 };

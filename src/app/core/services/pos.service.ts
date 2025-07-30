@@ -1,10 +1,12 @@
-// src/app/core/services/pos.service.ts
+// src/app/core/services/pos.service.ts - COMPLETE BACKEND INTEGRATION
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
+import { Observable, BehaviorSubject, throwError } from 'rxjs';
+import { tap, catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environment/environment';
 import { ApiResponse } from './user-profile.service';
+
+// ===== INTERFACES SESUAI BACKEND DTOs =====
 
 export interface CreateSaleRequest {
   items: CreateSaleItemRequest[];
@@ -73,31 +75,29 @@ export interface SaleItem {
   totalProfit: number;
 }
 
-export interface SaleSummary {
-  totalSales: number;
-  totalTransactions: number;
-  averageTransaction: number;
-  totalProfit: number;
-  cashSales: number;
-  cardSales: number;
-  digitalSales: number;
-  topSellingProducts: TopSellingProduct[];
-  hourlySales: HourlySales[];
+export interface Product {
+  id: number;
+  name: string;
+  barcode: string;
+  stock: number;
+  buyPrice: number;
+  sellPrice: number;
+  categoryId: number;
+  categoryName: string;
+  isActive: boolean;
+  minStock: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface TopSellingProduct {
-  productId: number;
-  productName: string;
-  quantitySold: number;
-  revenue: number;
+export interface CartItem {
+  product: Product;
+  quantity: number;
+  discount: number;
+  subtotal: number;
 }
 
-export interface HourlySales {
-  hour: number;
-  sales: number;
-  transactions: number;
-}
-
+// ===== RECEIPT DATA INTERFACE =====
 export interface ReceiptData {
   sale: Sale;
   storeName: string;
@@ -107,6 +107,14 @@ export interface ReceiptData {
   footerMessage?: string;
 }
 
+// ===== UI INTERFACES =====
+export interface PaymentData {
+  method: 'cash' | 'card' | 'digital';
+  amountPaid: number;
+  change: number;
+  reference?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -114,11 +122,11 @@ export class POSService {
   private readonly apiUrl = `${environment.apiUrl}/POS`;
   
   // Real-time cart state
-  private cartSubject = new BehaviorSubject<any[]>([]);
+  private cartSubject = new BehaviorSubject<CartItem[]>([]);
   public cart$ = this.cartSubject.asObservable();
 
   // Current sale session
-  private currentSaleSubject = new BehaviorSubject<any>(null);
+  private currentSaleSubject = new BehaviorSubject<Sale | null>(null);
   public currentSale$ = this.currentSaleSubject.asObservable();
 
   constructor(private http: HttpClient) {}
@@ -129,32 +137,35 @@ export class POSService {
    * Create a new sale transaction
    */
   createSale(request: CreateSaleRequest): Observable<ApiResponse<Sale>> {
-    return this.http.post<ApiResponse<Sale>>(`${this.apiUrl}/sales`, request)
-      .pipe(
-        tap(response => {
-          if (response.success) {
-            this.clearCart();
-            this.currentSaleSubject.next(response.data);
-          }
-        }),
-        catchError(this.handleError)
-      );
+    return this.http.post<ApiResponse<Sale>>(`${this.apiUrl}/sales`, request, {
+      withCredentials: true
+    }).pipe(
+      tap(response => {
+        if (response.success && response.data) {
+          this.clearCart();
+          this.currentSaleSubject.next(response.data);
+        }
+      }),
+      catchError(this.handleError.bind(this))
+    );
   }
 
   /**
    * Get sale by ID
    */
   getSaleById(id: number): Observable<ApiResponse<Sale>> {
-    return this.http.get<ApiResponse<Sale>>(`${this.apiUrl}/sales/${id}`)
-      .pipe(catchError(this.handleError));
+    return this.http.get<ApiResponse<Sale>>(`${this.apiUrl}/sales/${id}`, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
   }
 
   /**
    * Get sale by sale number
    */
   getSaleByNumber(saleNumber: string): Observable<ApiResponse<Sale>> {
-    return this.http.get<ApiResponse<Sale>>(`${this.apiUrl}/sales/number/${saleNumber}`)
-      .pipe(catchError(this.handleError));
+    return this.http.get<ApiResponse<Sale>>(`${this.apiUrl}/sales/number/${saleNumber}`, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
   }
 
   /**
@@ -167,7 +178,7 @@ export class POSService {
     paymentMethod?: string;
     page?: number;
     pageSize?: number;
-  }): Observable<ApiResponse<Sale[]>> {
+  } = {}): Observable<ApiResponse<Sale[]>> {
     let params = new HttpParams();
     
     if (filters.startDate) {
@@ -189,96 +200,10 @@ export class POSService {
       params = params.set('pageSize', filters.pageSize.toString());
     }
 
-    return this.http.get<ApiResponse<Sale[]>>(`${this.apiUrl}/sales`, { params })
-      .pipe(catchError(this.handleError));
-  }
-
-  /**
-   * Get recent sales (today's sales)
-   */
-  getRecentSales(): Observable<ApiResponse<Sale[]>> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    return this.getSales({
-      startDate: today,
-      endDate: new Date(),
-      pageSize: 10
-    });
-  }
-
-  // ===== RECEIPT OPERATIONS =====
-
-  /**
-   * Mark receipt as printed
-   */
-  markReceiptPrinted(saleId: number): Observable<ApiResponse<boolean>> {
-    return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/sales/${saleId}/receipt-printed`, {})
-      .pipe(catchError(this.handleError));
-  }
-
-  /**
-   * Get receipt data for printing
-   */
-  getReceiptData(saleId: number): Observable<ApiResponse<ReceiptData>> {
-    return this.http.get<ApiResponse<ReceiptData>>(`${this.apiUrl}/sales/${saleId}/receipt`)
-      .pipe(catchError(this.handleError));
-  }
-
-  // ===== SALE MANAGEMENT =====
-
-  /**
-   * Cancel a sale
-   */
-  cancelSale(saleId: number, reason: string): Observable<ApiResponse<boolean>> {
-    return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/sales/${saleId}/cancel`, { reason })
-      .pipe(catchError(this.handleError));
-  }
-
-  /**
-   * Refund a sale
-   */
-  refundSale(saleId: number, reason: string): Observable<ApiResponse<Sale>> {
-    return this.http.post<ApiResponse<Sale>>(`${this.apiUrl}/sales/${saleId}/refund`, { reason })
-      .pipe(catchError(this.handleError));
-  }
-
-  // ===== ANALYTICS =====
-
-  /**
-   * Get sales summary for a date range
-   */
-  getSalesSummary(startDate: Date, endDate: Date): Observable<ApiResponse<SaleSummary>> {
-    const params = new HttpParams()
-      .set('startDate', startDate.toISOString())
-      .set('endDate', endDate.toISOString());
-
-    return this.http.get<ApiResponse<SaleSummary>>(`${this.apiUrl}/summary`, { params })
-      .pipe(catchError(this.handleError));
-  }
-
-  /**
-   * Get daily sales data
-   */
-  getDailySales(startDate: Date, endDate: Date): Observable<ApiResponse<any[]>> {
-    const params = new HttpParams()
-      .set('startDate', startDate.toISOString())
-      .set('endDate', endDate.toISOString());
-
-    return this.http.get<ApiResponse<any[]>>(`${this.apiUrl}/daily-sales`, { params })
-      .pipe(catchError(this.handleError));
-  }
-
-  /**
-   * Get payment method summary
-   */
-  getPaymentMethodSummary(startDate: Date, endDate: Date): Observable<ApiResponse<any[]>> {
-    const params = new HttpParams()
-      .set('startDate', startDate.toISOString())
-      .set('endDate', endDate.toISOString());
-
-    return this.http.get<ApiResponse<any[]>>(`${this.apiUrl}/payment-methods`, { params })
-      .pipe(catchError(this.handleError));
+    return this.http.get<ApiResponse<Sale[]>>(`${this.apiUrl}/sales`, { 
+      params,
+      withCredentials: true 
+    }).pipe(catchError(this.handleError.bind(this)));
   }
 
   // ===== VALIDATION =====
@@ -287,23 +212,62 @@ export class POSService {
    * Validate stock availability for items
    */
   validateStockAvailability(items: CreateSaleItemRequest[]): Observable<ApiResponse<boolean>> {
-    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/validate-stock`, { items })
-      .pipe(catchError(this.handleError));
+    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/validate-stock`, items, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  // ===== RECEIPT OPERATIONS =====
+
+  /**
+   * Get receipt data for printing
+   */
+  getReceiptData(saleId: number): Observable<ApiResponse<ReceiptData>> {
+    return this.http.get<ApiResponse<ReceiptData>>(`${this.apiUrl}/sales/${saleId}/receipt`, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
   }
 
   /**
-   * Calculate total for items
+   * Mark receipt as printed
    */
-  calculateTotal(
-    items: CreateSaleItemRequest[], 
-    discountAmount: number = 0, 
-    taxAmount: number = 0
-  ): Observable<ApiResponse<number>> {
-    return this.http.post<ApiResponse<number>>(`${this.apiUrl}/calculate-total`, {
-      items,
-      discountAmount,
-      taxAmount
-    }).pipe(catchError(this.handleError));
+  markReceiptPrinted(saleId: number): Observable<ApiResponse<boolean>> {
+    return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/sales/${saleId}/receipt-printed`, {}, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  // ===== PRODUCT SEARCH (Integration with Product Service) =====
+
+  /**
+   * Search products by name or barcode
+   */
+  searchProducts(query: string): Observable<ApiResponse<Product[]>> {
+    const params = new HttpParams()
+      .set('search', query)
+      .set('page', '1')
+      .set('pageSize', '50')
+      .set('isActive', 'true');
+
+    return this.http.get<ApiResponse<{items: Product[]; totalCount: number}>>(`${environment.apiUrl}/Product`, { 
+      params,
+      withCredentials: true 
+    }).pipe(
+      map(response => ({
+        ...response,
+        data: response.data?.items || []
+      })),
+      catchError(this.handleError.bind(this))
+    );
+  }
+
+  /**
+   * Get product by barcode
+   */
+  getProductByBarcode(barcode: string): Observable<ApiResponse<Product>> {
+    return this.http.get<ApiResponse<Product>>(`${environment.apiUrl}/Product/barcode/${barcode}`, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
   }
 
   // ===== CART MANAGEMENT (CLIENT-SIDE) =====
@@ -311,43 +275,72 @@ export class POSService {
   /**
    * Get current cart items
    */
-  getCart(): any[] {
+  getCart(): CartItem[] {
     return this.cartSubject.value;
   }
 
   /**
    * Add item to cart
    */
-  addToCart(item: any): void {
+  addToCart(product: Product, quantity: number = 1, discount: number = 0): void {
     const currentCart = this.cartSubject.value;
-    const existingItemIndex = currentCart.findIndex(cartItem => cartItem.productId === item.productId);
+    const existingItemIndex = currentCart.findIndex(item => item.product.id === product.id);
 
     if (existingItemIndex > -1) {
-      currentCart[existingItemIndex].quantity += item.quantity;
-      currentCart[existingItemIndex].total = this.calculateItemTotal(currentCart[existingItemIndex]);
+      // Update existing item
+      const updatedCart = [...currentCart];
+      updatedCart[existingItemIndex].quantity += quantity;
+      updatedCart[existingItemIndex].discount = discount;
+      updatedCart[existingItemIndex].subtotal = this.calculateItemSubtotal(
+        updatedCart[existingItemIndex]
+      );
+      this.cartSubject.next(updatedCart);
     } else {
-      const cartItem = {
-        ...item,
-        total: this.calculateItemTotal(item)
+      // Add new item
+      const newItem: CartItem = {
+        product,
+        quantity,
+        discount,
+        subtotal: this.calculateItemSubtotal({ product, quantity, discount } as CartItem)
       };
-      currentCart.push(cartItem);
+      this.cartSubject.next([...currentCart, newItem]);
     }
-
-    this.cartSubject.next([...currentCart]);
   }
 
   /**
-   * Update cart item
+   * Update cart item quantity
    */
-  updateCartItem(productId: number, updates: any): void {
+  updateCartItemQuantity(productId: number, quantity: number): void {
     const currentCart = this.cartSubject.value;
-    const itemIndex = currentCart.findIndex(item => item.productId === productId);
+    const updatedCart = currentCart.map(item => {
+      if (item.product.id === productId) {
+        return {
+          ...item,
+          quantity,
+          subtotal: this.calculateItemSubtotal({ ...item, quantity })
+        };
+      }
+      return item;
+    });
+    this.cartSubject.next(updatedCart);
+  }
 
-    if (itemIndex > -1) {
-      currentCart[itemIndex] = { ...currentCart[itemIndex], ...updates };
-      currentCart[itemIndex].total = this.calculateItemTotal(currentCart[itemIndex]);
-      this.cartSubject.next([...currentCart]);
-    }
+  /**
+   * Update cart item discount
+   */
+  updateCartItemDiscount(productId: number, discount: number): void {
+    const currentCart = this.cartSubject.value;
+    const updatedCart = currentCart.map(item => {
+      if (item.product.id === productId) {
+        return {
+          ...item,
+          discount,
+          subtotal: this.calculateItemSubtotal({ ...item, discount })
+        };
+      }
+      return item;
+    });
+    this.cartSubject.next(updatedCart);
   }
 
   /**
@@ -355,8 +348,8 @@ export class POSService {
    */
   removeFromCart(productId: number): void {
     const currentCart = this.cartSubject.value;
-    const filteredCart = currentCart.filter(item => item.productId !== productId);
-    this.cartSubject.next(filteredCart);
+    const updatedCart = currentCart.filter(item => item.product.id !== productId);
+    this.cartSubject.next(updatedCart);
   }
 
   /**
@@ -364,120 +357,72 @@ export class POSService {
    */
   clearCart(): void {
     this.cartSubject.next([]);
+    this.currentSaleSubject.next(null);
   }
 
   /**
-   * Calculate cart totals
+   * Get cart totals
    */
-  getCartTotals(): {
+  getCartTotals(globalDiscountPercent: number = 0): {
     subtotal: number;
-    tax: number;
+    globalDiscount: number;
+    discountAmount: number;
+    taxAmount: number;
     total: number;
-    itemCount: number;
   } {
     const cart = this.cartSubject.value;
-    const subtotal = cart.reduce((sum, item) => sum + item.total, 0);
-    const tax = subtotal * 0.11; // 11% PPN
-    const total = subtotal + tax;
-    const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
+    const discountAmount = subtotal * (globalDiscountPercent / 100);
+    const afterDiscount = subtotal - discountAmount;
+    const taxAmount = afterDiscount * 0.11; // 11% PPN
+    const total = afterDiscount + taxAmount;
 
-    return { subtotal, tax, total, itemCount };
+    return {
+      subtotal,
+      globalDiscount: globalDiscountPercent,
+      discountAmount,
+      taxAmount,
+      total
+    };
   }
 
   // ===== UTILITY METHODS =====
 
   /**
-   * Calculate item total (price * quantity - discount)
+   * Calculate subtotal for a cart item
    */
-  private calculateItemTotal(item: any): number {
-    return (item.sellPrice * item.quantity) - (item.discount || 0);
+  private calculateItemSubtotal(item: CartItem): number {
+    const baseAmount = item.product.sellPrice * item.quantity;
+    const discountAmount = baseAmount * (item.discount / 100);
+    return baseAmount - discountAmount;
   }
 
   /**
-   * Format currency for display
+   * Format currency
    */
   formatCurrency(amount: number): string {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
-      minimumFractionDigits: 0
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(amount);
   }
 
   /**
-   * Generate sale number (client-side temporary, server will override)
+   * Handle HTTP errors
    */
-  generateTempSaleNumber(): string {
-    const now = new Date();
-    const timestamp = now.getTime().toString().slice(-6);
-    return `TMP-${timestamp}`;
-  }
-
-  // ===== ERROR HANDLING =====
-
-  private handleError = (error: any): Observable<never> => {
+  private handleError(error: any): Observable<never> {
     console.error('POS Service Error:', error);
     
-    // Handle offline/network errors
-    if (!navigator.onLine) {
-      // Queue for offline sync
-      this.queueForOfflineSync(error.url, error.body);
-    }
+    let errorMessage = 'Terjadi kesalahan pada sistem POS';
     
-    throw error;
-  };
-
-  /**
-   * Queue transaction for offline sync
-   */
-  private queueForOfflineSync(url: string, data: any): void {
-    const offlineQueue = JSON.parse(localStorage.getItem('pos_offline_queue') || '[]');
-    offlineQueue.push({
-      url,
-      data,
-      timestamp: new Date().toISOString(),
-      type: 'sale'
-    });
-    localStorage.setItem('pos_offline_queue', JSON.stringify(offlineQueue));
-  }
-
-  /**
-   * Process offline queue when back online
-   */
-  processOfflineQueue(): Observable<any> {
-    const queue = JSON.parse(localStorage.getItem('pos_offline_queue') || '[]');
-    if (queue.length === 0) {
-      return new Observable(observer => observer.next([]));
+    if (error.error?.message) {
+      errorMessage = error.error.message;
+    } else if (error.message) {
+      errorMessage = error.message;
     }
 
-    const requests = queue.map((item: any) => {
-      return this.http.post(item.url, item.data);
-    });
-
-    return new Observable(observer => {
-      Promise.all(requests).then(results => {
-        localStorage.removeItem('pos_offline_queue');
-        observer.next(results);
-        observer.complete();
-      }).catch(error => {
-        observer.error(error);
-      });
-    });
-  }
-
-  /**
-   * Check if there are offline transactions
-   */
-  hasOfflineTransactions(): boolean {
-    const queue = JSON.parse(localStorage.getItem('pos_offline_queue') || '[]');
-    return queue.length > 0;
-  }
-
-  /**
-   * Get offline transaction count
-   */
-  getOfflineTransactionCount(): number {
-    const queue = JSON.parse(localStorage.getItem('pos_offline_queue') || '[]');
-    return queue.length;
+    return throwError(() => new Error(errorMessage));
   }
 }

@@ -1,4 +1,4 @@
-// src/app/core/services/pos.service.ts - COMPLETE BACKEND INTEGRATION
+// src/app/core/services/pos.service.ts - CORRECTED BACKEND INTEGRATION
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError } from 'rxjs';
@@ -29,10 +29,6 @@ export interface CreateSaleItemRequest {
   quantity: number;
   sellPrice: number;
   discount: number;
-}
-
-export interface ValidateStockRequest {
-  items: CreateSaleItemRequest[];
 }
 
 export interface CalculateTotalRequest {
@@ -108,12 +104,15 @@ export interface ReceiptDataDto {
   footerMessage?: string;
 }
 
-// API Response wrappers
+// API Response wrappers - CORRECTED TO MATCH BACKEND
 export interface ProductListResponseApiResponse {
   success: boolean;
   data: {
-    items: ProductDto[];
-    totalCount: number;
+    products: ProductDto[];    // ✅ Backend uses "products"
+    totalItems: number;        // ✅ Backend uses "totalItems"
+    currentPage: number;
+    totalPages: number;
+    pageSize: number;
   };
   message?: string;
 }
@@ -169,7 +168,7 @@ export interface PaymentData {
   providedIn: 'root'
 })
 export class POSService {
-  private readonly apiUrl = `${environment.apiUrl}/POS`;
+  private readonly apiUrl = environment.apiUrl; // Base API URL
   
   // Real-time cart state
   private cartSubject = new BehaviorSubject<CartItem[]>([]);
@@ -181,37 +180,74 @@ export class POSService {
 
   constructor(private http: HttpClient) {}
 
-  // ===== REQUIRED METHODS FROM PROBLEM STATEMENT =====
+  // ===== PRODUCT METHODS (ProductController endpoints) =====
 
   /**
-   * Get all products
+   * Get products with pagination and search
+   * Endpoint: GET /api/Product
    */
-  getProducts(): Observable<ProductListResponseApiResponse> {
-    return this.http.get<ProductListResponseApiResponse>(`${environment.apiUrl}/Product`, {
-      withCredentials: true
-    }).pipe(catchError(this.handleError.bind(this)));
+  getProducts(page: number = 1, pageSize: number = 20, search?: string): Observable<ProductListResponseApiResponse> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('pageSize', pageSize.toString());
+      
+    if (search) {
+      params = params.set('search', search);
+    }
+
+    return this.http.get<ProductListResponseApiResponse>(`${this.apiUrl}/Product`, { 
+      params,
+      withCredentials: true 
+    }).pipe(
+      tap(response => {
+        console.log('✅ Products loaded:', response?.data?.products?.length || 0);
+      }),
+      catchError(this.handleError.bind(this))
+    );
   }
 
   /**
    * Get product by barcode
+   * Endpoint: GET /api/Product/barcode/{barcode}
    */
   getProductByBarcode(barcode: string): Observable<ProductDtoApiResponse> {
-    return this.http.get<ProductDtoApiResponse>(`${environment.apiUrl}/Product/barcode/${barcode}`, {
-      withCredentials: true
+    return this.http.get<ProductDtoApiResponse>(`${this.apiUrl}/Product/barcode/${barcode}`, {
+      withCredentials: true 
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
   /**
+   * Search products by name or barcode
+   * Endpoint: GET /api/Product?search={query}
+   */
+  searchProducts(query: string): Observable<ProductListResponseApiResponse> {
+    const params = new HttpParams()
+      .set('search', query)
+      .set('page', '1')
+      .set('pageSize', '50')
+      .set('isActive', 'true');
+
+    return this.http.get<ProductListResponseApiResponse>(`${this.apiUrl}/Product`, { 
+      params,
+      withCredentials: true 
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  // ===== POS METHODS (POSController endpoints) =====
+
+  /**
    * Create a new sale transaction
+   * Endpoint: POST /api/POS/sales
    */
   createSale(data: CreateSaleRequest): Observable<SaleDtoApiResponse> {
-    return this.http.post<SaleDtoApiResponse>(`${this.apiUrl}/sales`, data, {
+    return this.http.post<SaleDtoApiResponse>(`${this.apiUrl}/POS/sales`, data, {
       withCredentials: true
     }).pipe(
       tap(response => {
         if (response.success && response.data) {
           this.clearCart();
           this.currentSaleSubject.next(response.data);
+          console.log('✅ Sale created:', response.data.saleNumber);
         }
       }),
       catchError(this.handleError.bind(this))
@@ -220,43 +256,68 @@ export class POSService {
 
   /**
    * Validate stock availability for items
+   * Endpoint: POST /api/POS/validate-stock
+   * ✅ FIXED: Send array directly (not wrapped in object)
    */
-  validateStock(items: ValidateStockRequest): Observable<BooleanApiResponse> {
-    return this.http.post<BooleanApiResponse>(`${this.apiUrl}/validate-stock`, items, {
+  validateStock(items: CreateSaleItemRequest[]): Observable<BooleanApiResponse> {
+    console.log('🔍 Validating stock for items:', items);
+    
+    return this.http.post<BooleanApiResponse>(`${this.apiUrl}/POS/validate-stock`, items, {
       withCredentials: true
-    }).pipe(catchError(this.handleError.bind(this)));
+    }).pipe(
+      tap(response => {
+        console.log('✅ Stock validation response:', response);
+      }),
+      catchError(this.handleError.bind(this))
+    );
   }
 
   /**
-   * Calculate total using backend (replaces manual calculation)
+   * Calculate total using backend
+   * Endpoint: POST /api/POS/calculate-total
+   * ✅ FIXED: Use proper request body structure
    */
-  calculateTotal(data: CalculateTotalRequest): Observable<DecimalApiResponse> {
-    return this.http.post<DecimalApiResponse>(`${this.apiUrl}/calculate-total`, data, {
+  calculateTotal(items: CreateSaleItemRequest[], globalDiscountPercent?: number): Observable<DecimalApiResponse> {
+    const requestBody: CalculateTotalRequest = {
+      items: items,
+      globalDiscountPercent: globalDiscountPercent || 0
+    };
+
+    console.log('🔍 Calculating total for:', requestBody);
+
+    return this.http.post<DecimalApiResponse>(`${this.apiUrl}/POS/calculate-total`, requestBody, {
       withCredentials: true
-    }).pipe(catchError(this.handleError.bind(this)));
+    }).pipe(
+      tap(response => {
+        console.log('✅ Calculate total response:', response);
+      }),
+      catchError(this.handleError.bind(this))
+    );
   }
 
-  // ===== ADDITIONAL TRANSACTION OPERATIONS =====
   /**
    * Get sale by ID
+   * Endpoint: GET /api/POS/sales/{id}
    */
   getSaleById(id: number): Observable<SaleDtoApiResponse> {
-    return this.http.get<SaleDtoApiResponse>(`${this.apiUrl}/sales/${id}`, {
+    return this.http.get<SaleDtoApiResponse>(`${this.apiUrl}/POS/sales/${id}`, {
       withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
   /**
    * Get sale by sale number
+   * Endpoint: GET /api/POS/sales/number/{saleNumber}
    */
   getSaleByNumber(saleNumber: string): Observable<SaleDtoApiResponse> {
-    return this.http.get<SaleDtoApiResponse>(`${this.apiUrl}/sales/number/${saleNumber}`, {
+    return this.http.get<SaleDtoApiResponse>(`${this.apiUrl}/POS/sales/number/${saleNumber}`, {
       withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
   /**
    * Get sales with filters
+   * Endpoint: GET /api/POS/sales
    */
   getSales(filters: {
     startDate?: Date;
@@ -287,9 +348,29 @@ export class POSService {
       params = params.set('pageSize', filters.pageSize.toString());
     }
 
-    return this.http.get<ApiResponse<Sale[]>>(`${this.apiUrl}/sales`, { 
+    return this.http.get<ApiResponse<Sale[]>>(`${this.apiUrl}/POS/sales`, { 
       params,
       withCredentials: true 
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  /**
+   * Get receipt data for printing
+   * Endpoint: GET /api/POS/sales/{id}/receipt
+   */
+  getReceiptData(saleId: number): Observable<ApiResponse<ReceiptDataDto>> {
+    return this.http.get<ApiResponse<ReceiptDataDto>>(`${this.apiUrl}/POS/sales/${saleId}/receipt`, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  /**
+   * Mark receipt as printed
+   * Endpoint: PUT /api/POS/sales/{id}/receipt-printed
+   */
+  markReceiptPrinted(saleId: number): Observable<ApiResponse<boolean>> {
+    return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/POS/sales/${saleId}/receipt-printed`, {}, {
+      withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
@@ -299,45 +380,7 @@ export class POSService {
    * @deprecated Use validateStock instead
    */
   validateStockAvailability(items: CreateSaleItemRequest[]): Observable<BooleanApiResponse> {
-    return this.validateStock({ items });
-  }
-
-  // ===== RECEIPT OPERATIONS =====
-
-  /**
-   * Get receipt data for printing
-   */
-  getReceiptData(saleId: number): Observable<ApiResponse<ReceiptDataDto>> {
-    return this.http.get<ApiResponse<ReceiptDataDto>>(`${this.apiUrl}/sales/${saleId}/receipt`, {
-      withCredentials: true
-    }).pipe(catchError(this.handleError.bind(this)));
-  }
-
-  /**
-   * Mark receipt as printed
-   */
-  markReceiptPrinted(saleId: number): Observable<ApiResponse<boolean>> {
-    return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/sales/${saleId}/receipt-printed`, {}, {
-      withCredentials: true
-    }).pipe(catchError(this.handleError.bind(this)));
-  }
-
-  // ===== PRODUCT SEARCH (Integration with Product Service) =====
-
-  /**
-   * Search products by name or barcode (uses getProducts with search)
-   */
-  searchProducts(query: string): Observable<ProductListResponseApiResponse> {
-    const params = new HttpParams()
-      .set('search', query)
-      .set('page', '1')
-      .set('pageSize', '50')
-      .set('isActive', 'true');
-
-    return this.http.get<ProductListResponseApiResponse>(`${environment.apiUrl}/Product`, { 
-      params,
-      withCredentials: true 
-    }).pipe(catchError(this.handleError.bind(this)));
+    return this.validateStock(items);
   }
 
   // ===== CART MANAGEMENT (CLIENT-SIDE) =====
@@ -431,7 +474,8 @@ export class POSService {
   }
 
   /**
-   * Get cart totals using backend calculation (replaces manual calculation)
+   * Get cart totals using backend calculation
+   * ✅ FIXED: Use corrected calculateTotal method signature
    */
   getCartTotals(globalDiscountPercent: number = 0): Observable<{
     subtotal: number;
@@ -462,12 +506,7 @@ export class POSService {
       discount: item.discount
     }));
 
-    const request: CalculateTotalRequest = {
-      items,
-      globalDiscountPercent
-    };
-
-    return this.calculateTotal(request).pipe(
+    return this.calculateTotal(items, globalDiscountPercent).pipe(
       map(response => {
         if (response.success) {
           // Calculate individual components for UI display
@@ -548,7 +587,13 @@ export class POSService {
     
     let errorMessage = 'Terjadi kesalahan pada sistem POS';
     
-    if (error.error?.message) {
+    if (error.status === 404) {
+      errorMessage = 'Endpoint tidak ditemukan - periksa URL API';
+    } else if (error.status === 401) {
+      errorMessage = 'Unauthorized - silakan login ulang';
+    } else if (error.status === 400) {
+      errorMessage = error.error?.message || 'Data tidak valid';
+    } else if (error.error?.message) {
       errorMessage = error.error.message;
     } else if (error.message) {
       errorMessage = error.message;

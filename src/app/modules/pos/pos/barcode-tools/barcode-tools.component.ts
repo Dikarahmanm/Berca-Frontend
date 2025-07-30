@@ -5,7 +5,11 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
+// ✅ FIX: Proper Quagga import
 declare var Quagga: any;
+
+// ✅ Alternative: Declare if types not working
+// declare var Quagga: any;
 
 @Component({
   selector: 'app-barcode-tools',
@@ -180,7 +184,7 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   // Scanner state
-  currentMode: 'camera' | 'manual' = 'camera';
+  currentMode: 'camera' | 'manual' = 'manual'; // ✅ Default ke manual
   scannerStatus: 'loading' | 'ready' | 'error' = 'loading';
   isScanning = false;
   errorMessage = '';
@@ -200,6 +204,10 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadRecentScans();
+    
+    // ✅ FIX: Check Quagga availability first
+    this.checkQuaggaAvailability();
+    
     if (this.currentMode === 'camera') {
       this.initializeCamera();
     } else {
@@ -213,10 +221,28 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
     this.stopScanner();
   }
 
+  // ===== QUAGGA AVAILABILITY CHECK =====
+
+  private checkQuaggaAvailability() {
+    if (typeof Quagga === 'undefined') {
+      console.warn('⚠️ Quagga library not available. Camera scanner disabled.');
+      this.currentMode = 'manual';
+      this.focusManualInput();
+    } else {
+      console.log('✅ Quagga library available');
+    }
+  }
+
   // ===== MODE SWITCHING =====
 
   switchMode(mode: 'camera' | 'manual') {
     if (this.isScanning) return;
+
+    // ✅ FIX: Check Quagga before switching to camera
+    if (mode === 'camera' && typeof Quagga === 'undefined') {
+      this.errorMessage = 'Camera scanner tidak tersedia. Gunakan input manual.';
+      return;
+    }
 
     this.currentMode = mode;
     
@@ -236,6 +262,11 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
       this.scannerStatus = 'loading';
       this.errorMessage = '';
 
+      // ✅ FIX: Check Quagga availability
+      if (typeof Quagga === 'undefined') {
+        throw new Error('Quagga library tidak tersedia. Pastikan library ter-install dengan benar.');
+      }
+
       // Check if camera is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera tidak tersedia pada browser ini');
@@ -252,11 +283,18 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
       this.scannerStatus = 'error';
       this.errorMessage = this.getCameraErrorMessage(error);
       console.error('Camera initialization error:', error);
+      
+      // ✅ Auto-switch to manual mode on error
+      setTimeout(() => {
+        this.currentMode = 'manual';
+        this.focusManualInput();
+      }, 2000);
     }
   }
 
   private startQuaggaScanner(): Promise<void> {
     return new Promise((resolve, reject) => {
+      // ✅ FIX: Double check Quagga
       if (typeof Quagga === 'undefined') {
         reject(new Error('Quagga library tidak tersedia'));
         return;
@@ -268,8 +306,8 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
           type: "LiveStream",
           target: this.scannerContainer?.nativeElement,
           constraints: {
-            width: 320,
-            height: 240,
+            width: { ideal: 320 },
+            height: { ideal: 240 },
             facingMode: "environment" // Gunakan kamera belakang
           }
         },
@@ -279,8 +317,6 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
             "ean_reader",
             "ean_8_reader",
             "code_39_reader",
-            "code_39_vin_reader",
-            "codabar_reader",
             "upc_reader",
             "upc_e_reader"
           ]
@@ -294,9 +330,12 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
 
       Quagga.init(config, (err: any) => {
         if (err) {
+          console.error('Quagga init error:', err);
           reject(err);
           return;
         }
+
+        console.log('✅ Quagga initialized successfully');
 
         // Setup event listeners
         Quagga.onProcessed(this.onProcessed.bind(this));
@@ -316,10 +355,13 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
 
   private onProcessed(result: any) {
     // Optional: Handle processing feedback
+    // console.log('Processing...', result);
   }
 
   private onDetected(result: any) {
     const code = result.codeResult.code;
+    console.log('✅ Barcode detected:', code);
+    
     if (code && code.length > 0) {
       this.handleBarcodeScanned(code);
     }
@@ -327,7 +369,12 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
 
   stopScanner() {
     if (typeof Quagga !== 'undefined' && this.isScanning) {
-      Quagga.stop();
+      try {
+        Quagga.stop();
+        console.log('✅ Scanner stopped');
+      } catch (error) {
+        console.error('Error stopping scanner:', error);
+      }
       this.isScanning = false;
     }
     this.scannerStatus = 'loading';
@@ -347,7 +394,7 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
   }
 
   async toggleTorch() {
-    if (!this.torchAvailable) return;
+    if (!this.torchAvailable || typeof Quagga === 'undefined') return;
 
     try {
       const track = Quagga.CameraAccess.getActiveTrack();
@@ -383,6 +430,8 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
   // ===== BARCODE HANDLING =====
 
   private handleBarcodeScanned(code: string) {
+    console.log('🔍 Handling scanned barcode:', code);
+    
     // Add to recent scans
     this.addToRecentScans(code);
     
@@ -442,8 +491,8 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
   // ===== UI HELPERS =====
 
   private showScanSuccess(code: string) {
-    // Could add visual feedback here
-    console.log('Barcode scanned successfully:', code);
+    console.log('✅ Barcode scanned successfully:', code);
+    // Could add visual/audio feedback here
   }
 
   formatScanTime(timestamp: Date): string {
@@ -470,6 +519,8 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
       return 'Kamera tidak ditemukan pada perangkat ini.';
     } else if (error.name === 'NotSupportedError') {
       return 'Browser tidak mendukung akses kamera.';
+    } else if (error.message && error.message.includes('Quagga')) {
+      return 'Library scanner tidak tersedia. Gunakan input manual.';
     } else if (error.message) {
       return error.message;
     } else {
@@ -500,7 +551,7 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
         break;
       
       case ' ':
-        if (!event.ctrlKey && !event.altKey) {
+        if (!event.ctrlKey && !event.altKey && typeof Quagga !== 'undefined') {
           event.preventDefault();
           this.switchMode(this.currentMode === 'camera' ? 'manual' : 'camera');
         }

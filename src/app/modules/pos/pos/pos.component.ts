@@ -88,7 +88,35 @@ export class POSComponent implements OnInit, OnDestroy {
       }))
     );
   }
-
+// src/app/modules/pos/pos/pos.component.ts - FIX DATA ACCESS
+loadProducts(): void {
+  this.isLoading = true;
+  
+  this.posService.getProducts(1, 20).subscribe({
+    next: (response) => {
+      console.log('🔍 Full Response:', response);
+      console.log('🔍 Response Success:', response.success);
+      console.log('🔍 Response Data:', response.data);
+      
+      if (response.success && response.data) {
+        // ✅ FIX: Use "products" instead of "items"
+        this.products = response.data.products || [];
+        console.log('✅ Products loaded:', this.products.length);
+        console.log('✅ First product:', this.products[0]);
+      } else {
+        console.warn('⚠️ Response not successful:', response.message);
+        this.products = [];
+      }
+      
+      this.isLoading = false;
+    },
+    error: (error) => {
+      console.error('❌ Load Products Error:', error);
+      this.products = [];
+      this.isLoading = false;
+    }
+  });
+}
   private initializeComponent() {
     // Get current user info using the fixed AuthService
     this.currentUser = this.authService.getCurrentUser();
@@ -167,7 +195,7 @@ export class POSComponent implements OnInit, OnDestroy {
           this.isSearching = false;
           if (response.success && response.data) {
             // Handle both getProducts and searchProducts response format
-            const products = response.data.items || [];
+            const products = response.data.products || [];
             this.filteredProducts = products.filter((p: Product) => p.isActive && p.stock > 0);
           } else {
             this.filteredProducts = [];
@@ -368,7 +396,7 @@ export class POSComponent implements OnInit, OnDestroy {
     }));
 
     this.isLoading = true;
-    this.posService.validateStock({ items: saleItems })
+    this.posService.validateStock(saleItems)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {

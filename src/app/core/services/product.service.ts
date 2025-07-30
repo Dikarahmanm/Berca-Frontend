@@ -22,11 +22,11 @@ export interface Product {
 }
 
 export interface ProductListResponse {
-  items: Product[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
+  products: Product[];       // ✅ Change from "products" to "products"
+  totalproducts: number;        // ✅ Keep as "totalproducts"
+  currentPage: number;       // ✅ Add missing fields
   totalPages: number;
+  pageSize: number;
 }
 
 export interface CreateProductRequest {
@@ -84,7 +84,7 @@ export class ProductService {
       if (filter.sortOrder) params = params.set('sortOrder', filter.sortOrder);
     }
 
-    return this.http.get<ApiResponse<ProductListResponse>>(this.apiUrl, { params })
+    return this.http.get<ApiResponse<ProductListResponse>>(this.apiUrl, { params,withCredentials: true })
       .pipe(catchError(this.handleError.bind(this)));
   }
 
@@ -144,7 +144,7 @@ export class ProductService {
       .pipe(
         map(response => ({
           ...response,
-          data: response.data?.items || []
+          data: response.data?.products || []
         })),
         catchError(this.handleError.bind(this))
       );
@@ -163,7 +163,7 @@ export class ProductService {
       .pipe(
         map(response => ({
           ...response,
-          data: response.data?.items || []
+          data: response.data?.products || []
         })),
         catchError(this.handleError.bind(this))
       );
@@ -182,7 +182,7 @@ export class ProductService {
       .pipe(
         map(response => ({
           ...response,
-          data: response.data?.items || []
+          data: response.data?.products || []
         })),
         catchError(this.handleError.bind(this))
       );
@@ -203,8 +203,8 @@ export class ProductService {
   /**
    * Check stock availability for multiple products
    */
-  checkStockAvailability(items: { productId: number; quantity: number }[]): Observable<ApiResponse<boolean>> {
-    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/check-stock`, { items })
+  checkStockAvailability(products: { productId: number; quantity: number }[]): Observable<ApiResponse<boolean>> {
+    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/check-stock`, { products })
       .pipe(catchError(this.handleError.bind(this)));
   }
 

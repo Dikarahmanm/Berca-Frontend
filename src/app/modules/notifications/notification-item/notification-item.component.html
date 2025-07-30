@@ -1,0 +1,46 @@
+<!-- src/app/modules/notifications/notification-item/notification-item.component.html -->
+<!-- ✅ FIXED: Template dengan proper *ngIf usage -->
+
+<div class="notification-item" [class.unread]="!notification.isRead" [class.expired]="isExpired()"
+    [class]="getPriorityClass()" (click)="onItemClick()">
+
+    <!-- Notification Icon -->
+    <div class="notification-icon" [style.background-color]="getIconColor()">
+        <span class="material-icons">{{ getIcon() }}</span>
+    </div>
+
+    <!-- Notification Content -->
+    <div class="notification-content">
+        <div class="notification-header">
+            <h4 class="notification-title">{{ notification.title }}</h4>
+            <span class="notification-time">{{ formatTime(notification.createdAt) }}</span>
+        </div>
+
+        <p class="notification-message">{{ notification.message }}</p>
+
+        <div class="notification-meta">
+            <span class="notification-type">{{ getTypeLabel() }}</span>
+            <span class="notification-priority" [class]="'priority-' + notification.priority.toLowerCase()">
+                {{ notification.priority }}
+            </span>
+        </div>
+
+        <!-- Action Button (if available) -->
+        <div class="notification-action" *ngIf="notification.actionUrl && notification.actionText">
+            <button class="action-btn" (click)="$event.stopPropagation()">
+                {{ notification.actionText }}
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Actions -->
+    <div class="notification-actions">
+        <!-- Unread Indicator -->
+        <div class="unread-indicator" *ngIf="!notification.isRead"></div>
+
+        <!-- Delete Button -->
+        <button class="delete-btn" (click)="onDeleteClick($event)" title="Hapus notifikasi">
+            <span class="material-icons">delete</span>
+        </button>
+    </div>
+</div>

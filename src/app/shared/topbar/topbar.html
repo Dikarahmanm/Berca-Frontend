@@ -1,206 +1,128 @@
-<!-- src/app/shared/topbar/topbar.component.html -->
+<!-- src/app/shared/topbar/topbar.html - MINIMALIST DESIGN -->
 <nav class="topbar">
     <div class="topbar-container">
 
-        <!-- Left Section -->
+        <!-- Left Section: Brand Only -->
         <div class="topbar-left">
-            <!-- Menu Toggle -->
-            <button mat-icon-button (click)="toggleMenu()" class="menu-toggle" [class.active]="isMenuOpen">
-                <mat-icon>{{isMenuOpen ? 'close' : 'menu'}}</mat-icon>
-            </button>
-
-            <!-- Logo & Brand -->
             <div class="brand" (click)="navigateTo('/dashboard')">
                 <div class="brand-logo">
                     <mat-icon>store</mat-icon>
                 </div>
                 <span class="brand-text">Toko Eniwan</span>
             </div>
-
-            <!-- Page Title -->
-            <div class="page-title-wrapper">
-                <span class="page-title">{{ pageTitle }}</span>
-                <div class="title-particles">
-                    <span class="particle"></span>
-                    <span class="particle"></span>
-                    <span class="particle"></span>
-                </div>
-            </div>
-
-            <!-- Desktop Navigation -->
-            <div class="desktop-nav" [class.show]="isMenuOpen">
-                <ng-container *ngFor="let item of navigationItems">
-                    <a *ngIf="shouldShowNavItem(item)" [routerLink]="item.route"
-                        [class.active]="isRouteActive(item.route)" [class.disabled]="item.disabled"
-                        [class.highlight]="item.highlight" class="nav-item" (click)="isMenuOpen = false">
-                        <mat-icon>{{item.icon}}</mat-icon>
-                        <span>{{item.label}}</span>
-                        <span class="new-badge" *ngIf="item.highlight">BARU</span>
-                    </a>
-                </ng-container>
-            </div>
         </div>
 
-        <!-- Right Section -->
+        <!-- Center Section: Page Title -->
+        <div class="topbar-center">
+            <h1 class="page-title">{{ pageTitle }}</h1>
+        </div>
+
+        <!-- Right Section: Notifications + Profile Only -->
         <div class="topbar-right">
 
-            <!-- Notification Bell -->
-            <div class="notification-wrapper" (click)="onNotificationClick()">
-                <button aria-label="Notifications" class="glass-button bell-button">
-                    <svg aria-hidden="true" focusable="false" class="bell-icon" viewBox="0 0 24 24">
-                        <path
-                            d="M12 2a6 6 0 00-6 6v3.586l-1.707 1.707a1 1 0 00.707 1.707h14a1 1 0 00.707-1.707L18 11.586V8a6 6 0 00-6-6zm1 18a2 2 0 11-2-2 2 2 0 012 2z"
-                            fill="currentColor" />
-                    </svg>
-                    <span *ngIf="getNotificationCount() > 0" class="badge">
-                        {{ getNotificationCount() > 99 ? '99+' : getNotificationCount() }}
-                    </span>
+            <!-- Notification Bell with Dropdown -->
+            <div class="notification-section">
+                <button mat-icon-button [matMenuTriggerFor]="notificationMenu" class="notification-button"
+                    matTooltip="Notifications">
+                    <mat-icon [matBadge]="getNotificationCount()" [matBadgeHidden]="getNotificationCount() === 0"
+                        matBadgeColor="warn" matBadgeSize="small">
+                        notifications
+                    </mat-icon>
                 </button>
+
+                <!-- Notification Dropdown Menu -->
+                <mat-menu #notificationMenu="matMenu" class="notification-dropdown">
+                    <div class="notification-header">
+                        <h3>Notifications</h3>
+                        <button mat-button class="mark-all-read" (click)="markAllNotificationsRead()">
+                            Mark all read
+                        </button>
+                    </div>
+                    <mat-divider></mat-divider>
+
+                    <div class="notification-list">
+                        <button mat-menu-item class="notification-item" *ngFor="let notification of mockNotifications">
+                            <div class="notification-content">
+                                <div class="notification-title">{{ notification.title }}</div>
+                                <div class="notification-message">{{ notification.message }}</div>
+                                <div class="notification-time">{{ notification.time }}</div>
+                            </div>
+                            <div class="notification-badge" *ngIf="!notification.read"></div>
+                        </button>
+                    </div>
+
+                    <mat-divider></mat-divider>
+                    <button mat-menu-item class="view-all-notifications" (click)="navigateTo('/notifications')">
+                        <mat-icon>visibility</mat-icon>
+                        View all notifications
+                    </button>
+                </mat-menu>
             </div>
 
-            <!-- Modern Divider -->
-            <div class="modern-divider"></div>
-
-            <!-- User Profile Menu -->
-            <div class="profile-menu" [class.open]="isProfileMenuOpen">
-                <!-- Profile Trigger -->
-                <button mat-button (click)="toggleProfileMenu()" class="profile-trigger"
-                    [class.active]="isProfileMenuOpen">
+            <!-- User Profile with Dropdown -->
+            <div class="profile-section">
+                <button mat-button [matMenuTriggerFor]="profileMenu" class="profile-button" matTooltip="Profile Menu">
 
                     <!-- User Avatar -->
                     <div class="user-avatar">
                         <img *ngIf="getUserAvatar()" [src]="getUserAvatar()" [alt]="getUserDisplayName()"
-                            class="avatar-image" (error)="onAvatarError($event)">
+                            (error)="onAvatarError($event)" class="avatar-image">
                         <div *ngIf="!getUserAvatar()" class="avatar-initials">
-                            {{getUserInitials()}}
+                            {{ getUserInitials() }}
                         </div>
                     </div>
 
                     <!-- User Info -->
                     <div class="user-info">
-                        <span class="user-name">{{getUserDisplayName()}}</span>
-                        <span class="user-role" *ngIf="getUserRole()"
-                            [style.color]="getRoleColor()">{{roleDisplayName}}</span>
+                        <span class="username">{{ getUserDisplayName() }}</span>
+                        <span class="user-role">{{ roleDisplayName }}</span>
                     </div>
 
                     <!-- Dropdown Arrow -->
-                    <mat-icon class="dropdown-arrow" [class.rotated]="isProfileMenuOpen">
-                        keyboard_arrow_down
-                    </mat-icon>
+                    <mat-icon class="dropdown-arrow">keyboard_arrow_down</mat-icon>
                 </button>
 
-                <!-- Profile Dropdown -->
-                <div class="profile-dropdown" [class.show]="isProfileMenuOpen" (clickOutside)="closeProfileMenu()">
-
-                    <!-- User Header -->
+                <!-- Profile Dropdown Menu -->
+                <mat-menu #profileMenu="matMenu" class="profile-dropdown">
+                    <!-- User Info Header -->
                     <div class="profile-header">
-                        <div class="user-avatar-large">
+                        <div class="profile-avatar">
                             <img *ngIf="getUserAvatar()" [src]="getUserAvatar()" [alt]="getUserDisplayName()"
                                 (error)="onAvatarError($event)">
                             <div *ngIf="!getUserAvatar()" class="avatar-initials-large">
-                                {{getUserInitials()}}
+                                {{ getUserInitials() }}
                             </div>
                         </div>
-                        <div class="user-details">
-                            <h4>{{getUserDisplayName()}}</h4>
-                            <p *ngIf="getUserRole()">{{roleDisplayName}}</p>
-                            <p *ngIf="userProfile?.email" class="user-email">{{userProfile.email}}</p>
+                        <div class="profile-details">
+                            <h4>{{ getUserDisplayName() }}</h4>
+                            <p>{{ roleDisplayName }}</p>
                         </div>
                     </div>
 
-                    <!-- Menu Items -->
-                    <div class="profile-menu-items">
-                        <ng-container *ngFor="let item of profileMenuItems">
+                    <mat-divider></mat-divider>
 
-                            <!-- Divider -->
-                            <mat-divider *ngIf="item.type === 'divider'"></mat-divider>
-
-                            <!-- Menu Item -->
-                            <button *ngIf="item.type !== 'divider'" mat-menu-item (click)="onProfileMenuItemClick(item)"
-                                [class.danger]="item.danger" class="profile-menu-item">
-                                <mat-icon>{{item.icon}}</mat-icon>
-                                <span>{{item.label}}</span>
-                                <div *ngIf="item.label === 'Logout' && isLoading" class="loading-spinner">
-                                    <mat-icon class="spin">sync</mat-icon>
-                                </div>
-                            </button>
-                        </ng-container>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Mobile Navigation Overlay -->
-    <div class="mobile-nav-overlay" [class.show]="isMenuOpen" (click)="isMenuOpen = false">
-
-        <div class="mobile-nav" [class.show]="isMenuOpen" (click)="$event.stopPropagation()">
-
-            <!-- Mobile Header -->
-            <div class="mobile-nav-header">
-                <div class="brand">
-                    <mat-icon>store</mat-icon>
-                    <span>Toko Eniwan</span>
-                </div>
-                <button mat-icon-button (click)="isMenuOpen = false">
-                    <mat-icon>close</mat-icon>
-                </button>
-            </div>
-
-            <!-- Mobile Menu Items -->
-            <div class="mobile-nav-items">
-                <ng-container *ngFor="let item of navigationItems">
-                    <a *ngIf="shouldShowNavItem(item)" [routerLink]="item.route"
-                        [class.active]="isRouteActive(item.route)" [class.disabled]="item.disabled"
-                        [class.highlight]="item.highlight" class="mobile-nav-item" (click)="isMenuOpen = false">
-                        <mat-icon>{{item.icon}}</mat-icon>
-                        <span>{{item.label}}</span>
-                        <span class="new-badge" *ngIf="item.highlight">BARU</span>
-                    </a>
-                </ng-container>
-            </div>
-
-            <!-- Mobile User Section -->
-            <div class="mobile-user-section">
-                <div class="mobile-user-info">
-                    <div class="user-avatar">
-                        <img *ngIf="getUserAvatar()" [src]="getUserAvatar()" [alt]="getUserDisplayName()"
-                            (error)="onAvatarError($event)">
-                        <div *ngIf="!getUserAvatar()" class="avatar-initials">
-                            {{getUserInitials()}}
-                        </div>
-                    </div>
-                    <div class="user-details">
-                        <h4>{{getUserDisplayName()}}</h4>
-                        <p *ngIf="getUserRole()">{{roleDisplayName}}</p>
-                    </div>
-                </div>
-
-                <!-- Mobile Profile Actions -->
-                <div class="mobile-profile-actions">
-                    <button mat-stroked-button (click)="navigateToProfile()" class="profile-btn">
-                        <mat-icon>person</mat-icon>
-                        Profil Saya
+                    <!-- Profile Menu Items -->
+                    <button mat-menu-item (click)="navigateToSettings()">
+                        <mat-icon>settings</mat-icon>
+                        <span>Settings</span>
                     </button>
 
-                    <button mat-stroked-button (click)="logout()" class="logout-btn" [disabled]="isLoading">
+                    <button mat-menu-item (click)="showChangeUserDialog()">
+                        <mat-icon>swap_horiz</mat-icon>
+                        <span>Change User</span>
+                    </button>
+
+                    <mat-divider></mat-divider>
+
+                    <button mat-menu-item (click)="logout()" class="logout-item">
                         <mat-icon>logout</mat-icon>
-                        <span *ngIf="!isLoading">Logout</span>
-                        <span *ngIf="isLoading">Logging out...</span>
+                        <span>Logout</span>
+                        <div *ngIf="isLoading" class="loading-spinner">
+                            <mat-icon class="spin">sync</mat-icon>
+                        </div>
                     </button>
-                </div>
+                </mat-menu>
             </div>
         </div>
-    </div>
-
-    <!-- Backdrop -->
-    <div class="backdrop" *ngIf="isMenuOpen || isProfileMenuOpen" (click)="onOutsideClick()">
-    </div>
-
-    <!-- Floating Background Elements -->
-    <div class="floating-elements">
-        <div class="floating-orb orb-1"></div>
-        <div class="floating-orb orb-2"></div>
-        <div class="floating-orb orb-3"></div>
     </div>
 </nav>

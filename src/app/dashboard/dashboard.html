@@ -1,18 +1,16 @@
-<!-- src/app/dashboard/dashboard.component.html - Updated with Categories -->
-
-<app-topbar [username]="username" [role]="role" [avatarUrl]="avatarUrl" [notificationCount]="notificationCount"
-  (logoutClicked)="logout()">
+<!-- src/app/dashboard/dashboard.html - FIXED Template with Safe Router Access -->
+<app-topbar [pageTitle]="currentPageTitle" [username]="username" [role]="role" [avatarUrl]="avatarUrl"
+  [notificationCount]="notificationCount" (logoutClicked)="logout()">
 </app-topbar>
 
 <div class="dashboard-container">
-  <!-- Modern Sidebar Navigation -->
+
+  <!-- Focused Sidebar Navigation -->
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-brand">
         <div class="brand-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
-          </svg>
+          <mat-icon>store</mat-icon>
         </div>
         <span class="brand-text">Toko Eniwan</span>
       </div>
@@ -20,50 +18,116 @@
 
     <nav class="sidebar-nav">
 
-      <!-- Dashboard Home -->
+      <!-- Main Navigation -->
       <div class="nav-section">
+        <span class="nav-section-title">Main</span>
         <ul class="nav-list">
+
+          <!-- Dashboard -->
           <li class="nav-item">
             <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}"
               class="nav-link">
               <div class="nav-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
-                </svg>
+                <mat-icon>dashboard</mat-icon>
               </div>
               <span class="nav-text">Dashboard</span>
+              <div class="nav-indicator"></div>
+            </a>
+          </li>
+
+          <!-- POS System - PRIMARY ACCESS -->
+          <li class="nav-item">
+            <a routerLink="/pos" routerLinkActive="active" class="nav-link highlight">
+              <div class="nav-icon">
+                <mat-icon>point_of_sale</mat-icon>
+              </div>
+              <span class="nav-text">POS Kasir</span>
+              <span class="nav-badge new">NEW</span>
               <div class="nav-indicator"></div>
             </a>
           </li>
         </ul>
       </div>
 
-      <!-- Management Section -->
+      <!-- Products & Inventory -->
       <div class="nav-section">
-        <span class="nav-section-title">Management</span>
+        <span class="nav-section-title">Products</span>
         <ul class="nav-list">
 
-          <!-- ✅ UPDATED: Categories - Activated -->
+          <!-- Categories -->
           <li class="nav-item">
-            <a routerLink="categories" routerLinkActive="active" class="nav-link">
+            <a routerLink="/categories" routerLinkActive="active" class="nav-link">
               <div class="nav-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z" />
-                </svg>
+                <mat-icon>category</mat-icon>
               </div>
               <span class="nav-text">Categories</span>
               <div class="nav-indicator"></div>
             </a>
           </li>
 
+          <!-- Products (Future) -->
+          <li class="nav-item">
+            <a href="#" class="nav-link disabled" title="Coming Soon">
+              <div class="nav-icon">
+                <mat-icon>inventory_2</mat-icon>
+              </div>
+              <span class="nav-text">Products</span>
+              <span class="nav-badge soon">SOON</span>
+            </a>
+          </li>
+
+          <!-- Inventory (Future) -->
+          <li class="nav-item">
+            <a href="#" class="nav-link disabled" title="Coming Soon">
+              <div class="nav-icon">
+                <mat-icon>warehouse</mat-icon>
+              </div>
+              <span class="nav-text">Inventory</span>
+              <span class="nav-badge soon">SOON</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Reports & Analytics -->
+      <div class="nav-section">
+        <span class="nav-section-title">Analytics</span>
+        <ul class="nav-list">
+
+          <!-- Reports (Future) -->
+          <li class="nav-item">
+            <a href="#" class="nav-link disabled" title="Coming Soon">
+              <div class="nav-icon">
+                <mat-icon>analytics</mat-icon>
+              </div>
+              <span class="nav-text">Reports</span>
+              <span class="nav-badge soon">SOON</span>
+            </a>
+          </li>
+
+          <!-- Sales Analytics (Future) -->
+          <li class="nav-item">
+            <a href="#" class="nav-link disabled" title="Coming Soon">
+              <div class="nav-icon">
+                <mat-icon>trending_up</mat-icon>
+              </div>
+              <span class="nav-text">Sales Analytics</span>
+              <span class="nav-badge soon">SOON</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- System Management -->
+      <div class="nav-section">
+        <span class="nav-section-title">System</span>
+        <ul class="nav-list">
+
           <!-- Users -->
           <li class="nav-item">
-            <a routerLink="users" routerLinkActive="active" class="nav-link">
+            <a routerLink="/users" routerLinkActive="active" class="nav-link">
               <div class="nav-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+                <mat-icon>people</mat-icon>
               </div>
               <span class="nav-text">Users</span>
               <div class="nav-indicator"></div>
@@ -72,12 +136,9 @@
 
           <!-- Activity Logs -->
           <li class="nav-item">
-            <a routerLink="logs" routerLinkActive="active" class="nav-link">
+            <a routerLink="/activity-log" routerLinkActive="active" class="nav-link">
               <div class="nav-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
+                <mat-icon>history</mat-icon>
               </div>
               <span class="nav-text">Activity Logs</span>
               <div class="nav-indicator"></div>
@@ -85,126 +146,178 @@
           </li>
         </ul>
       </div>
-
-      <!-- Inventory Section (Future) -->
-      <div class="nav-section">
-        <span class="nav-section-title">Inventory</span>
-        <ul class="nav-list">
-          <li class="nav-item">
-            <a href="#" class="nav-link disabled" title="Coming Soon">
-              <div class="nav-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M20 7h-3V6a4 4 0 00-4-4h-2a4 4 0 00-4 4v1H4a1 1 0 000 2h1v11a3 3 0 003 3h8a3 3 0 003-3V9h1a1 1 0 000-2zM9 6a2 2 0 012-2h2a2 2 0 012 2v1H9V6zm8 15a1 1 0 01-1 1H8a1 1 0 01-1-1V9h10v12z" />
-                </svg>
-              </div>
-              <span class="nav-text">Products</span>
-              <span class="coming-soon-badge">Soon</span>
-            </a>
-          </li>
-
-          <li class="nav-item">
-            <a href="#" class="nav-link disabled" title="Coming Soon">
-              <div class="nav-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M5 7h14l-1-1V4a2 2 0 00-2-2H8a2 2 0 00-2 2v2l-1 1zm13.6 1H5.4l.9 9.2c.1 1 .9 1.8 2 1.8h7.4c1.1 0 1.9-.8 2-1.8L18.6 8zM10 4h4v2h-4V4z" />
-                </svg>
-              </div>
-              <span class="nav-text">Stock</span>
-              <span class="coming-soon-badge">Soon</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Sales Section (Future) -->
-      <div class="nav-section">
-        <span class="nav-section-title">Sales</span>
-        <ul class="nav-list">
-          <li class="nav-item">
-            <a href="#" class="nav-link disabled" title="Coming Soon">
-              <div class="nav-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h5a1 1 0 010 2h-2v13a3 3 0 01-3 3H7a3 3 0 01-3-3V6H2a1 1 0 010-2h5zM9 3v1h6V3H9zm9 3H6v13a1 1 0 001 1h10a1 1 0 001-1V6z" />
-                </svg>
-              </div>
-              <span class="nav-text">POS System</span>
-              <span class="coming-soon-badge">Soon</span>
-            </a>
-          </li>
-
-          <li class="nav-item">
-            <a href="#" class="nav-link disabled" title="Coming Soon">
-              <div class="nav-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path
-                    d="M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2H4a2 2 0 000 4h1v10a4 4 0 004 4h6a4 4 0 004-4V10h1a2 2 0 000-4h-4zM10 4h4v2h-4V4zm7 16a2 2 0 01-2 2H9a2 2 0 01-2-2V10h10v10z" />
-                </svg>
-              </div>
-              <span class="nav-text">Reports</span>
-              <span class="coming-soon-badge">Soon</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Analytics Section -->
-      <div class="nav-section">
-        <span class="nav-section-title">Analytics</span>
-        <ul class="nav-list">
-          <li class="nav-item">
-            <div class="stat-card">
-              <div class="stat-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
-                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <div class="stat-content">
-                <div class="stat-number">{{ totalUsers || 0 }}</div>
-                <div class="stat-label">Total Users</div>
-                <div class="stat-change positive">
-                  <svg class="stat-trend" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M7 14l5-5 5 5z" />
-                  </svg>
-                  +{{ newUsersThisMonth || 0 }} this month
-                </div>
-              </div>
-            </div>
-          </li>
-
-          <li class="nav-item">
-            <div class="stat-card">
-              <div class="stat-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
-                  <path
-                    d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z" />
-                </svg>
-              </div>
-              <div class="stat-content">
-                <div class="stat-number">{{ totalCategories || 0 }}</div>
-                <div class="stat-label">Categories</div>
-                <div class="stat-change neutral">
-                  Ready for products
-                </div>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </div>
     </nav>
+
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+      <div class="app-version">
+        <mat-icon>info</mat-icon>
+        <span>Version 1.0.0</span>
+      </div>
+    </div>
   </aside>
 
   <!-- Main Content Area -->
   <main class="main-content">
-    <router-outlet></router-outlet>
-  </main>
+    <div class="content-wrapper">
 
-  <!-- Floating Background Elements -->
-  <div class="floating-elements">
-    <div class="floating-orb orb-1"></div>
-    <div class="floating-orb orb-2"></div>
-    <div class="floating-orb orb-3"></div>
-  </div>
+      <!-- ✅ FIXED: Dashboard Overview Cards - Using isDashboardHome getter -->
+      <div class="dashboard-overview" *ngIf="isDashboardHome">
+
+        <!-- Welcome Section -->
+        <div class="welcome-section">
+          <div class="welcome-content">
+            <h1 class="welcome-title">{{ getGreeting() }}, {{ username }}!</h1>
+            <p class="welcome-subtitle">{{ getCurrentDate() }}</p>
+            <div class="role-badge" [style.background-color]="getRoleColor()">
+              {{ role }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="stats-grid">
+          <div class="stat-card primary">
+            <div class="stat-icon">
+              <mat-icon>point_of_sale</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>POS System</h3>
+              <p>Start selling now</p>
+              <button mat-raised-button color="primary" (click)="navigateTo('/pos')">
+                Open POS
+              </button>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <mat-icon>category</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>{{ totalCategories }}</h3>
+              <p>Product Categories</p>
+              <button mat-button (click)="navigateTo('/categories')">
+                Manage
+              </button>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <mat-icon>people</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>{{ userStats.total }}</h3>
+              <p>Total Users</p>
+              <button mat-button (click)="navigateTo('/users')">
+                View All
+              </button>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <mat-icon>notifications</mat-icon>
+            </div>
+            <div class="stat-content">
+              <h3>{{ notificationCount }}</h3>
+              <p>Notifications</p>
+              <button mat-button (click)="openNotifications()">
+                View
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+          <h2>Quick Actions</h2>
+          <div class="action-grid">
+
+            <button mat-raised-button color="primary" class="action-button" (click)="navigateTo('/pos')">
+              <mat-icon>point_of_sale</mat-icon>
+              <span>Start Selling</span>
+            </button>
+
+            <button mat-raised-button class="action-button" (click)="navigateTo('/categories')">
+              <mat-icon>category</mat-icon>
+              <span>Manage Categories</span>
+            </button>
+
+            <button mat-raised-button class="action-button" (click)="navigateTo('/users')">
+              <mat-icon>person_add</mat-icon>
+              <span>Add User</span>
+            </button>
+
+            <button mat-raised-button class="action-button" (click)="navigateTo('/activity-log')">
+              <mat-icon>history</mat-icon>
+              <span>View Logs</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="system-status">
+          <h2>System Status</h2>
+          <div class="status-grid">
+
+            <div class="status-item">
+              <div class="status-indicator online"></div>
+              <div class="status-content">
+                <h4>POS System</h4>
+                <p>Online & Ready</p>
+              </div>
+            </div>
+
+            <div class="status-item">
+              <div class="status-indicator online"></div>
+              <div class="status-content">
+                <h4>Database</h4>
+                <p>Connected</p>
+              </div>
+            </div>
+
+            <div class="status-item">
+              <div class="status-indicator pending"></div>
+              <div class="status-content">
+                <h4>Inventory System</h4>
+                <p>In Development</p>
+              </div>
+            </div>
+
+            <div class="status-item">
+              <div class="status-indicator pending"></div>
+              <div class="status-content">
+                <h4>Reports</h4>
+                <p>Coming Soon</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Statistics (if Admin/Manager) -->
+        <div class="user-statistics" *ngIf="hasRole('Admin') || hasRole('Manager')">
+          <h2>User Statistics</h2>
+          <div class="user-stats-grid">
+            <div class="user-stat-item">
+              <span class="stat-number">{{ userStats.active }}</span>
+              <span class="stat-label">Active Users</span>
+            </div>
+            <div class="user-stat-item">
+              <span class="stat-number">{{ userStats.inactive }}</span>
+              <span class="stat-label">Inactive Users</span>
+            </div>
+            <div class="user-stat-item">
+              <span class="stat-number">{{ userStats.deleted }}</span>
+              <span class="stat-label">Deleted Users</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ✅ FIXED: Router Outlet for other pages - Using isNotDashboardHome getter -->
+      <router-outlet *ngIf="isNotDashboardHome"></router-outlet>
+    </div>
+  </main>
 </div>

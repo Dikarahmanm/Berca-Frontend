@@ -1,7 +1,7 @@
 // src/app/core/services/receipt.service.ts - FIXED BACKEND INTEGRATION
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { POSService, Sale, ReceiptData } from './pos.service';
+import { POSService, SaleDto, ReceiptDataDto } from './pos.service';
 import jsPDF from 'jspdf';
 
 export interface ReceiptTemplate {
@@ -89,7 +89,7 @@ export class ReceiptService {
   /**
    * Build receipt HTML content
    */
-  private buildReceiptHTML(data: ReceiptData): string {
+  private buildReceiptHTML(data: ReceiptDataDto): string {
     const { sale, storeName, storeAddress, storePhone, storeEmail, footerMessage } = data;
     
     return `
@@ -209,7 +209,7 @@ export class ReceiptService {
   /**
    * Build receipt PDF
    */
-  private buildReceiptPDF(data: ReceiptData, template: ReceiptTemplate): Blob {
+  private buildReceiptPDF(data: ReceiptDataDto, template: ReceiptTemplate): Blob {
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',

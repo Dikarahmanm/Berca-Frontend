@@ -3,7 +3,7 @@ export const environment = {
   development: true,
   
   // ✅ REAL: Backend API URLs sesuai .NET 9 API
-  apiUrl: 'https://localhost:5171/api', // Sesuaikan dengan port backend Anda
+  apiUrl: 'http://localhost:5171/api', // HTTP as required, not HTTPS due to SSL cert issues
   apiVersion: 'v1',
   
   // App Configuration
@@ -65,7 +65,7 @@ export const environment = {
   // ✅ REAL: Notification Configuration sesuai backend capabilities
   notifications: {
     enableRealTime: true,
-    signalRUrl: 'https://localhost:5171/hubs/notification', // SignalR hub
+    signalRUrl: 'http://localhost:5171/hubs/notification', // SignalR hub - HTTP not HTTPS
     fallbackPollingInterval: 30000, // 30 seconds untuk polling
     maxNotifications: 50,
     types: {

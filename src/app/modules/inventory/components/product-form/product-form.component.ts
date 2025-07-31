@@ -57,12 +57,16 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   categories: Category[] = [];
   
   // Component state
-  isEditMode = false;
+  isEdit = false;
   productId: number | null = null;
   loading = false;
   saving = false;
   duplicateData: any = null;
   
+  // Computed properties
+  get isEditMode(): boolean {
+    return this.isEdit;
+  }
   // Barcode scanner
   scannerActive = false;
   barcodeError = '';
@@ -83,12 +87,22 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   ) {
     this.initializeForm();
     this.checkForDuplicateData();
+
+    // Check if editing existing product
+
   }
 
   ngOnInit(): void {
     this.setupSubscriptions();
     this.loadCategories();
     this.checkEditMode();
+
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.isEdit = true;
+      this.productId = +id;
+      this.loadProduct(this.productId);
+    }
   }
 
   ngOnDestroy(): void {
@@ -98,22 +112,31 @@ export class ProductFormComponent implements OnInit, OnDestroy {
 
   // ===== INITIALIZATION =====
 
-  private initializeForm(): void {
+   private initializeForm(): void {
     this.productForm = this.fb.group({
-      name: ['', [Validators.required, Validators.maxLength(100)]],
-      barcode: ['', [Validators.required, Validators.pattern(/^[0-9A-Za-z\-_]+$/)]],
-      description: ['', [Validators.maxLength(500)]],
-      categoryId: ['', Validators.required],
-      unit: ['pcs', Validators.required],
-      stock: [0, [Validators.required, Validators.min(0)]],
-      minimumStock: [10, [Validators.required, Validators.min(0)]],
+      name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(200)]],
+      barcode: ['', [Validators.required, Validators.maxLength(50)]],
+      description: ['', [Validators.maxLength(1000)]],
+      categoryId: [null, [Validators.required]],
       buyPrice: [0, [Validators.required, Validators.min(0)]],
       sellPrice: [0, [Validators.required, Validators.min(0)]],
+      stock: [0, [Validators.required, Validators.min(0)]],
+      minimumStock: [5, [Validators.required, Validators.min(0)]], // ✅ FIXED: Add minimumStock
+      unit: ['pcs', [Validators.required, Validators.maxLength(20)]],
       isActive: [true]
     });
 
-    // Add custom validator for sell price > buy price
-    this.productForm.addValidators(this.priceValidator as ValidatorFn);
+    // Add price validation
+    this.productForm.get('sellPrice')?.addValidators(this.sellPriceValidator.bind(this));
+  }
+  private sellPriceValidator(control: any) {
+    const buyPrice = this.productForm?.get('buyPrice')?.value || 0;
+    const sellPrice = control.value || 0;
+    
+    if (sellPrice < buyPrice) {
+      return { sellPriceTooLow: true };
+    }
+    return null;
   }
 
   private setupSubscriptions(): void {
@@ -144,9 +167,9 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   private checkEditMode(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
-      this.isEditMode = true;
+      this.isEdit = true;
       this.productId = parseInt(id, 10);
-      this.loadProduct();
+      this.loadProduct(this.productId);
     } else if (this.duplicateData) {
       this.populateFormWithDuplicate();
     }
@@ -156,7 +179,12 @@ export class ProductFormComponent implements OnInit, OnDestroy {
 
   private loadCategories(): void {
     this.subscriptions.add(
-      this.categoryService.getCategories({ page: 1, pageSize: 100, sortBy: 'name', sortOrder: 'asc' }).subscribe({
+      this.categoryService.getCategories({
+        page: 1,
+        pageSize: 100,
+        sortBy: 'name',
+        sortOrder: 'asc'
+      }).subscribe({
         next: (response) => {
           this.categories = response.categories;
         },
@@ -167,20 +195,33 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     );
   }
 
-  private loadProduct(): void {
-    if (!this.productId) return;
-    
+  private loadProduct(id: number): void {
     this.loading = true;
     this.subscriptions.add(
-      this.inventoryService.getProductById(this.productId).subscribe({
+      this.inventoryService.getProduct(id).subscribe({
         next: (product) => {
-          this.populateForm(product);
+          console.log('📦 Loaded Product:', product);
+          
+          // ✅ FIXED: Properly populate form including minimumStock
+          this.productForm.patchValue({
+            name: product.name,
+            barcode: product.barcode,
+            description: product.description || '',
+            categoryId: product.categoryId,
+            buyPrice: product.buyPrice,
+            sellPrice: product.sellPrice,
+            stock: product.stock,
+            minimumStock: product.minimumStock || 5, // ✅ Set minimum stock
+            unit: product.unit || 'pcs',
+            isActive: product.isActive
+          });
+          
           this.loading = false;
         },
         error: (error) => {
+          console.error('❌ Failed to load product:', error);
           this.showError('Failed to load product: ' + error.message);
           this.loading = false;
-          this.goBack();
         }
       })
     );
@@ -322,21 +363,50 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   onSubmit(): void {
     if (this.productForm.invalid) {
       this.markFormGroupTouched();
-      this.validateForm();
-      this.showError('Please fix the form errors before submitting');
       return;
     }
 
     this.saving = true;
     const formData = this.productForm.value;
 
-    if (this.isEditMode) {
-      this.updateProduct(formData);
-    } else {
-      this.createProduct(formData);
-    }
-  }
+    // ✅ FIXED: Include minimumStock in request
+    const request: CreateProductRequest | UpdateProductRequest = {
+      name: formData.name.trim(),
+      barcode: formData.barcode.trim(),
+      description: formData.description?.trim() || '',
+      categoryId: formData.categoryId,
+      buyPrice: parseFloat(formData.buyPrice),
+      sellPrice: parseFloat(formData.sellPrice),
+      stock: parseInt(formData.stock),
+      minimumStock: formData.minimumStock !== null && formData.minimumStock !== undefined ? parseInt(formData.minimumStock) : 5, // Allow 0 as valid value
+      unit: formData.unit?.trim() || 'pcs',
+      isActive: formData.isActive
+    };
 
+    console.log('💾 Saving Product:', request);
+
+    const operation = this.isEdit 
+      ? this.inventoryService.updateProduct(this.productId!, request as UpdateProductRequest)
+      : this.inventoryService.createProduct(request as CreateProductRequest);
+
+    this.subscriptions.add(
+      operation.subscribe({
+        next: () => {
+          const message = this.isEdit ? 'Product updated successfully' : 'Product created successfully';
+          this.showSuccess(message);
+          this.router.navigate(['/dashboard/inventory']);
+        },
+        error: (error) => {
+          const action = this.isEdit ? 'update' : 'create';
+          this.showError(`Failed to ${action} product: ${error.message}`);
+          this.saving = false;
+        }
+      })
+    );
+  }
+onCancel(): void {
+    this.router.navigate(['/dashboard/inventory']);
+  }
   private createProduct(formData: any): void {
     const createRequest: CreateProductRequest = {
       name: formData.name,
@@ -446,32 +516,37 @@ export class ProductFormComponent implements OnInit, OnDestroy {
 
   // ===== FIELD VALIDATION HELPERS =====
 
-  isFieldInvalid(fieldName: string): boolean {
-    const field = this.productForm.get(fieldName);
-    return !!(field && field.invalid && (field.dirty || field.touched));
+isFieldInvalid(fieldName: string): boolean {
+    const control = this.productForm.get(fieldName);
+    return !!(control?.errors && control.touched);
   }
 
-  getFieldError(fieldName: string): string {
-    return this.formErrors[fieldName] || '';
+getFieldError(fieldName: string): string {
+    const control = this.productForm.get(fieldName);
+    if (control?.errors && control.touched) {
+      const errors = control.errors;
+      
+      if (errors['required']) return `${fieldName} is required`;
+      if (errors['minlength']) return `${fieldName} is too short`;
+      if (errors['maxlength']) return `${fieldName} is too long`;
+      if (errors['min']) return `${fieldName} must be greater than or equal to ${errors['min'].min}`;
+      if (errors['sellPriceTooLow']) return 'Sell price must be greater than or equal to buy price';
+    }
+    return '';
   }
-
   // ===== NOTIFICATION METHODS =====
 
-  private showSuccess(message: string): void {
+private showSuccess(message: string): void {
     this.snackBar.open(message, 'Close', {
       duration: 3000,
-      panelClass: ['success-snackbar'],
-      horizontalPosition: 'end',
-      verticalPosition: 'top'
+      panelClass: ['success-snackbar']
     });
   }
 
-  private showError(message: string): void {
+private showError(message: string): void {
     this.snackBar.open(message, 'Close', {
       duration: 5000,
-      panelClass: ['error-snackbar'],
-      horizontalPosition: 'end',
-      verticalPosition: 'top'
+      panelClass: ['error-snackbar']
     });
   }
 
@@ -488,16 +563,16 @@ export class ProductFormComponent implements OnInit, OnDestroy {
 
   get pageTitle(): string {
     if (this.duplicateData) return 'Duplicate Product';
-    return this.isEditMode ? 'Edit Product' : 'Add New Product';
+    return this.isEdit ? 'Edit Product' : 'Add New Product';
   }
 
   get pageSubtitle(): string {
     if (this.duplicateData) return 'Create a copy of existing product';
-    return this.isEditMode ? 'Update product information' : 'Add a new product to inventory';
+    return this.isEdit ? 'Update product information' : 'Add a new product to inventory';
   }
 
   get submitButtonText(): string {
-    return this.isEditMode ? 'Update Product' : 'Create Product';
+    return this.isEdit ? 'Update Product' : 'Create Product';
   }
 
   get canSubmit(): boolean {

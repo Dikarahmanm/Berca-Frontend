@@ -45,33 +45,27 @@ export class InventoryService {
    * Backend: GET /api/Product
    */
   getProducts(filter?: ProductFilter): Observable<ProductListResponse> {
-    this.loadingSubject.next(true);
-    this.errorSubject.next(null);
-
     let params = new HttpParams();
     
-    if (filter) {
-      if (filter.search) params = params.set('search', filter.search);
-      if (filter.categoryId) params = params.set('categoryId', filter.categoryId.toString());
-      if (filter.isActive !== undefined) params = params.set('isActive', filter.isActive.toString());
-      if (filter.page) params = params.set('page', filter.page.toString());
-      if (filter.pageSize) params = params.set('pageSize', filter.pageSize.toString());
-    }
+    if (filter?.search) params = params.set('search', filter.search);
+    if (filter?.categoryId) params = params.set('categoryId', filter.categoryId.toString());
+    if (filter?.isActive !== undefined) params = params.set('isActive', filter.isActive.toString());
+    if (filter?.lowStock) params = params.set('lowStock', filter.lowStock.toString());
+    if (filter?.page) params = params.set('page', filter.page.toString());
+    if (filter?.pageSize) params = params.set('pageSize', filter.pageSize.toString());
+    if (filter?.sortBy) params = params.set('sortBy', filter.sortBy);
+    if (filter?.sortOrder) params = params.set('sortOrder', filter.sortOrder);
 
-    return this.http.get<ApiResponse<ProductListResponse>>(`${this.apiUrl}`, { params })
+    return this.http.get<ApiResponse<ProductListResponse>>(this.apiUrl, { params })
       .pipe(
         map(response => {
           if (response.success) {
             this.productsSubject.next(response.data.products);
             return response.data;
           }
-          throw new Error(response.message);
+          throw new Error(response.message || 'Failed to fetch products');
         }),
-        tap(() => this.loadingSubject.next(false)),
-        catchError(error => {
-          this.loadingSubject.next(false);
-          return this.handleError(error);
-        })
+        catchError(error => this.handleError(error))
       );
   }
 
@@ -79,14 +73,14 @@ export class InventoryService {
    * ✅ FIXED: Get product by ID
    * Backend: GET /api/Product/{id}
    */
-  getProductById(id: number): Observable<Product> {
+  getProduct(id: number): Observable<Product> {
     return this.http.get<ApiResponse<Product>>(`${this.apiUrl}/${id}`)
       .pipe(
         map(response => {
           if (response.success) {
             return response.data;
           }
-          throw new Error(response.message);
+          throw new Error(response.message || 'Product not found');
         }),
         catchError(error => this.handleError(error))
       );
@@ -103,7 +97,7 @@ export class InventoryService {
           if (response.success) {
             return response.data;
           }
-          throw new Error(response.message);
+          throw new Error(response.message || 'Product not found');
         }),
         catchError(error => this.handleError(error))
       );
@@ -113,18 +107,27 @@ export class InventoryService {
    * ✅ FIXED: Create new product
    * Backend: POST /api/Product
    */
-  createProduct(product: CreateProductRequest): Observable<Product> {
-    return this.http.post<ApiResponse<Product>>(`${this.apiUrl}`, product)
+  createProduct(request: CreateProductRequest): Observable<Product> {
+    console.log('🆕 Creating Product:', request);
+    
+    return this.http.post<ApiResponse<Product>>(this.apiUrl, request)
       .pipe(
         map(response => {
+          console.log('✅ Product Created:', response);
           if (response.success) {
-            // Refresh products list
             this.refreshProducts();
             return response.data;
           }
-          throw new Error(response.message);
+          throw new Error(response.message || 'Failed to create product');
         }),
-        catchError(error => this.handleError(error))
+        catchError(error => {
+          console.error('❌ Create Product Error:', error);
+          if (error.status === 400) {
+            const message = error.error?.message || error.error?.errors || 'Invalid product data';
+            throw new Error(message);
+          }
+          return this.handleError(error);
+        })
       );
   }
 
@@ -132,71 +135,101 @@ export class InventoryService {
    * ✅ FIXED: Update existing product
    * Backend: PUT /api/Product/{id}
    */
-  updateProduct(id: number, product: UpdateProductRequest): Observable<Product> {
-    return this.http.put<ApiResponse<Product>>(`${this.apiUrl}/${id}`, product)
-      .pipe(
-        map(response => {
-          if (response.success) {
-            // Refresh products list
-            this.refreshProducts();
-            return response.data;
-          }
-          throw new Error(response.message);
-        }),
-        catchError(error => this.handleError(error))
-      );
-  }
-
   /**
-   * ✅ FIXED: Delete product (soft delete)
-   * Backend: DELETE /api/Product/{id}
+   * ✅ FIXED: Update existing product
    */
-  deleteProduct(id: number): Observable<boolean> {
-    console.log('🗑️ Delete Product Request:', { id, url: `${this.apiUrl}/${id}` });
+  updateProduct(id: number, request: UpdateProductRequest): Observable<Product> {
+    console.log('📝 Updating Product:', { id, request });
     
-    return this.http.delete<ApiResponse<boolean>>(`${this.apiUrl}/${id}`)
+    return this.http.put<ApiResponse<Product>>(`${this.apiUrl}/${id}`, request)
       .pipe(
         map(response => {
-          console.log('✅ Delete Product Response:', response);
+          console.log('✅ Product Updated:', response);
           if (response.success) {
-            // Refresh products list
             this.refreshProducts();
             return response.data;
           }
-          throw new Error(response.message);
+          throw new Error(response.message || 'Failed to update product');
         }),
         catchError(error => {
-          console.error('❌ Delete Product Error:', error);
+          console.error('❌ Update Product Error:', error);
+          if (error.status === 400) {
+            const message = error.error?.message || error.error?.errors || 'Invalid product data';
+            throw new Error(message);
+          }
+          if (error.status === 404) {
+            throw new Error('Product not found');
+          }
           return this.handleError(error);
         })
       );
   }
 
-  // ===== STOCK OPERATIONS =====
+
+  /**
+   * ✅ FIXED: Delete product (soft delete)
+   */
+  deleteProduct(id: number): Observable<boolean> {
+    console.log('🗑️ Deleting Product:', id);
+    
+    return this.http.delete<ApiResponse<boolean>>(`${this.apiUrl}/${id}`)
+      .pipe(
+        map(response => {
+          console.log('✅ Product Deleted:', response);
+          if (response.success) {
+            this.refreshProducts();
+            return response.data;
+          }
+          throw new Error(response.message || 'Failed to delete product');
+        }),
+        catchError(error => {
+          console.error('❌ Delete Product Error:', error);
+          if (error.status === 403) {
+            throw new Error('You do not have permission to delete this product');
+          }
+          if (error.status === 400) {
+            throw new Error('Cannot delete product - it may have active transactions or sales');
+          }
+          if (error.status === 404) {
+            throw new Error('Product not found');
+          }
+          return this.handleError(error);
+        })
+      );
+  }
+// ===== UTILITY METHODS =====
+
+/* Duplicate implementations of refreshProducts and handleError removed */
+
+// ===== STOCK OPERATIONS =====
 
   /**
    * ✅ FIXED: Update product stock
    * Backend: POST /api/Product/{id}/stock
    */
+  // ✅ FIXED: Stock update endpoint 
   updateStock(productId: number, request: StockUpdateRequest): Observable<boolean> {
     const url = `${this.apiUrl}/${productId}/stock`;
-    console.log('🔄 Stock Update Request:', { productId, request, url });
-    
-    return this.http.post<ApiResponse<boolean>>(url, request)
+    // Pastikan payload dikirim langsung sebagai objek, tidak dibungkus field 'request'
+    // Juga pastikan mutationType dikirim sebagai string
+    const plainRequest = {
+      mutationType: request.mutationType,
+      quantity: request.quantity,
+      notes: request.notes,
+      referenceNumber: request.referenceNumber,
+      unitCost: request.unitCost
+    };
+    console.log('🔄 Stock Update Request:', { productId, plainRequest, url });
+    return this.http.put<ApiResponse<boolean>>(url, plainRequest)
       .pipe(
         map(response => {
           console.log('✅ Stock Update Response:', response);
           if (response.success) {
-            // Refresh products list
             this.refreshProducts();
-            return response.data;
           }
-          throw new Error(response.message);
+          return response.success;
         }),
-        catchError(error => {
-          console.error('❌ Stock Update Error:', error);
-          return this.handleError(error);
-        })
+        catchError(this.handleError.bind(this))
       );
   }
 
@@ -213,7 +246,7 @@ export class InventoryService {
           if (response.success) {
             return response.data;
           }
-          throw new Error(response.message);
+          throw new Error(response.message || 'Failed to fetch low stock products');
         }),
         catchError(error => this.handleError(error))
       );
@@ -230,37 +263,29 @@ export class InventoryService {
           if (response.success) {
             return response.data;
           }
-          throw new Error(response.message);
+          throw new Error(response.message || 'Failed to fetch out of stock products');
         }),
         catchError(error => this.handleError(error))
       );
   }
 
   /**
-   * ✅ FIXED: Get inventory mutations for a product
-   * Backend: GET /api/Product/{id}/history
+   * ✅ FIXED: Get inventory history for a product
    */
   getInventoryHistory(productId: number, startDate?: Date, endDate?: Date): Observable<InventoryMutation[]> {
     let params = new HttpParams();
     if (startDate) params = params.set('startDate', startDate.toISOString());
     if (endDate) params = params.set('endDate', endDate.toISOString());
 
-    const url = `${this.apiUrl}/${productId}/history`;
-    console.log('📋 Get History Request:', { productId, startDate, endDate, url, params: params.toString() });
-
-    return this.http.get<ApiResponse<InventoryMutation[]>>(url, { params })
+    return this.http.get<ApiResponse<InventoryMutation[]>>(`${this.apiUrl}/${productId}/history`, { params })
       .pipe(
         map(response => {
-          console.log('✅ Get History Response:', response);
           if (response.success) {
             return response.data;
           }
-          throw new Error(response.message);
+          throw new Error(response.message || 'Failed to fetch inventory history');
         }),
-        catchError(error => {
-          console.error('❌ Get History Error:', error);
-          return this.handleError(error);
-        })
+        catchError(error => this.handleError(error))
       );
   }
 
@@ -308,7 +333,7 @@ export class InventoryService {
   /**
    * Refresh products list
    */
-  private refreshProducts(): void {
+  refreshProducts(): void {
     this.getProducts().subscribe();
   }
 
@@ -330,38 +355,37 @@ export class InventoryService {
    * ✅ ENHANCED: Handle HTTP errors with proper status codes
    */
   private handleError(error: any): Observable<never> {
-    let errorMessage = 'An error occurred';
+    console.error('❌ Inventory Service Error:', error);
+    
+    let message = 'An unexpected error occurred';
     
     if (error.error?.message) {
-      errorMessage = error.error.message;
+      message = error.error.message;
     } else if (error.message) {
-      errorMessage = error.message;
+      message = error.message;
     } else if (error.status) {
       switch (error.status) {
+        case 400:
+          message = 'Invalid request data';
+          break;
         case 401:
-          errorMessage = 'Unauthorized access';
+          message = 'Unauthorized access';
           break;
         case 403:
-          errorMessage = 'Access forbidden';
+          message = 'Access forbidden';
           break;
         case 404:
-          errorMessage = 'Resource not found';
-          break;
-        case 409:  // ✅ ADDED: Handle barcode conflicts
-          errorMessage = 'Conflict - Barcode already exists';
+          message = 'Resource not found';
           break;
         case 500:
-          errorMessage = 'Server error';
+          message = 'Server error occurred';
           break;
         default:
-          errorMessage = `Error ${error.status}: ${error.statusText}`;
+          message = `HTTP Error ${error.status}`;
       }
     }
     
-    this.errorSubject.next(errorMessage);
-    console.error('Inventory Service Error:', error);
-    
-    return throwError(() => new Error(errorMessage));
+    return throwError(() => new Error(message));
   }
 }
 

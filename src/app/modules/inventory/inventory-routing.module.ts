@@ -4,14 +4,11 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { RoleGuard } from '../../core/guard/role.guard';
-import { InventoryListComponent } from './components/inventory-list/inventory-list.component';
-import { ProductFormComponent } from './components/product-form/product-form.component';
-import { StockMutationComponent } from './components/stock-mutation/stock-mutation.component';
 
 const routes: Routes = [
   {
     path: '',
-    component: InventoryListComponent,
+    loadComponent: () => import('./components/inventory-list/inventory-list.component').then(c => c.InventoryListComponent),
     canActivate: [RoleGuard],
     data: {
       title: 'Inventory Management',
@@ -21,7 +18,7 @@ const routes: Routes = [
   },
   {
     path: 'add',
-    component: ProductFormComponent,
+    loadComponent: () => import('./components/product-form/product-form.component').then(c => c.ProductFormComponent),
     canActivate: [RoleGuard],
     data: {
       title: 'Add Product',
@@ -31,7 +28,7 @@ const routes: Routes = [
   },
   {
     path: 'edit/:id',
-    component: ProductFormComponent,
+    loadComponent: () => import('./components/product-form/product-form.component').then(c => c.ProductFormComponent),
     canActivate: [RoleGuard],
     data: {
       title: 'Edit Product',
@@ -41,7 +38,7 @@ const routes: Routes = [
   },
   {
     path: 'stock/:id',
-    component: StockMutationComponent,
+    loadComponent: () => import('./components/stock-mutation/stock-mutation.component').then(c => c.StockMutationComponent),
     canActivate: [RoleGuard],
     data: {
       title: 'Stock Management',

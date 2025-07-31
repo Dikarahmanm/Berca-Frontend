@@ -1,13 +1,14 @@
-// ===== INVENTORY LIST COMPONENT =====
+// ===== 5. FRONTEND FIX: Inventory List Component =====
 // src/app/modules/inventory/components/inventory-list/inventory-list.component.ts
 
 import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { MatTableModule, MatTableDataSource } from '@angular/material/table';
-import { MatPaginatorModule, MatPaginator } from '@angular/material/paginator';
-import { MatSortModule, MatSort } from '@angular/material/sort';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTableDataSource, MatTableModule } from '@angular/material/table';
+import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
+import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -15,29 +16,23 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatBadgeModule } from '@angular/material/badge';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatTabsModule } from '@angular/material/tabs';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatDividerModule } from '@angular/material/divider';
 import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
-// Services & Interfaces
 import { InventoryService } from '../../services/inventory.service';
+import { MatDividerModule } from '@angular/material/divider';
 import { CategoryService } from '../../../category-management/services/category.service';
-import { Product, ProductFilter, MutationType } from '../../interfaces/inventory.interfaces';
-import { Category, CategoryListResponse } from '../../../category-management/models/category.models';
+import { Product, ProductFilter } from '../../interfaces/inventory.interfaces';
+import { Category, CategoryFilter } from '../../../category-management/models/category.models';
 
 @Component({
   selector: 'app-inventory-list',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     ReactiveFormsModule,
     RouterModule,
     MatTableModule,
@@ -50,14 +45,11 @@ import { Category, CategoryListResponse } from '../../../category-management/mod
     MatIconModule,
     MatCardModule,
     MatChipsModule,
-    MatBadgeModule,
-    MatDialogModule,
-    MatSnackBarModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
     MatSlideToggleModule,
-    MatTabsModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
     MatMenuModule,
+    MatSnackBarModule,
     MatDividerModule
   ],
   templateUrl: './inventory-list.component.html',
@@ -67,129 +59,139 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
 
-  // Table configuration
-  displayedColumns: string[] = [
-    'image',
-    'name',
-    'barcode', 
-    'category',
-    'stock',
-    'buyPrice',
-    'sellPrice',
-    'margin',
-    'status',
-    'actions'
-  ];
-
   // Data sources
-  dataSource = new MatTableDataSource<Product>([]);
+  products = new MatTableDataSource<Product>([]);
   categories: Category[] = [];
   lowStockProducts: Product[] = [];
-
-  // Filter form
+  
+  // Table configuration
+  displayedColumns = [
+    'image', 'name', 'barcode', 'category', 'stock', 'minimumStock', // ✅ Added minimumStock column
+    'buyPrice', 'sellPrice', 'margin', 'status', 'actions'
+  ];
+  
+  // Forms and filters
   filterForm!: FormGroup;
   
-  // State management
+  // UI state
   loading = false;
-  error: string | null = null;
-  totalProducts = 0;
+  totalItems = 0;
+  pageSize = 25;
   currentPage = 1;
-  pageSize = 20;
   
-  // Current filter
-  currentFilter: ProductFilter = {
-    page: 1,
-    pageSize: 20,
-    sortBy: 'name',
-    sortOrder: 'asc'
-  };
-
-  // Tabs
-  selectedTabIndex = 0;
-  lowStockCount = 0;
-  outOfStockCount = 0;
-
-  // Subscriptions
+  // Stock filter options
+  stockFilterOptions = [
+    { value: 'all', label: 'All Products' },
+    { value: 'inStock', label: 'In Stock' },
+    { value: 'lowStock', label: 'Low Stock' },
+    { value: 'outOfStock', label: 'Out of Stock' }
+  ];
+  
   private subscriptions = new Subscription();
 
   constructor(
+    private fb: FormBuilder,
+    private router: Router,
     private inventoryService: InventoryService,
     private categoryService: CategoryService,
-    private router: Router,
-    private dialog: MatDialog,
-    private snackBar: MatSnackBar,
-    private fb: FormBuilder
-  ) {
-    this.initializeFilterForm();
-  }
+    private snackBar: MatSnackBar
+  ) {}
 
   ngOnInit(): void {
-    console.log('[Inventory] InventoryListComponent ngOnInit dipanggil!');
-    this.setupSubscriptions();
+    this.initializeFilterForm();
     this.loadCategories();
     this.loadProducts();
     this.loadLowStockAlerts();
+    this.setupFilterWatchers();
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
   }
 
-  // ===== INITIALIZATION =====
-
   private initializeFilterForm(): void {
     this.filterForm = this.fb.group({
       search: [''],
       categoryId: [''],
       isActive: [true],
-      stockFilter: ['all'], // all, lowStock, outOfStock
+      stockFilter: ['all'],
       sortBy: ['name'],
       sortOrder: ['asc']
     });
   }
 
-  private setupSubscriptions(): void {
-    // Subscribe to inventory service states
+  private setupFilterWatchers(): void {
+    // Watch search input with debounce
     this.subscriptions.add(
-      this.inventoryService.loading$.subscribe(loading => {
-        this.loading = loading;
-      })
-    );
-
-    this.subscriptions.add(
-      this.inventoryService.error$.subscribe(error => {
-        this.error = error;
-        if (error) {
-          this.showError(error);
-        }
-      })
-    );
-
-    // Subscribe to filter form changes
-    this.subscriptions.add(
-      this.filterForm.valueChanges
+      this.filterForm.get('search')?.valueChanges
         .pipe(
-          debounceTime(500),
+          debounceTime(300),
           distinctUntilChanged()
         )
-        .subscribe(values => {
-          this.applyFilters(values);
+        .subscribe(() => {
+          this.currentPage = 1;
+          this.loadProducts();
         })
+    );
+
+    // Watch other filters
+    this.subscriptions.add(
+      this.filterForm.valueChanges.subscribe((value) => {
+        // Skip if only search changed (handled above)
+        if (this.filterForm.get('search')?.value === value.search) {
+          this.currentPage = 1;
+          this.loadProducts();
+        }
+      })
     );
   }
 
   // ===== DATA LOADING =====
 
-  private loadProducts(): void {
+  loadProducts(): void {
     this.loading = true;
+    const filterValues = this.filterForm.value;
     
+    const filter: ProductFilter = {
+      search: filterValues.search || undefined,
+      categoryId: filterValues.categoryId || undefined,
+      isActive: filterValues.isActive,
+      page: this.currentPage,
+      pageSize: this.pageSize,
+      sortBy: filterValues.sortBy,
+      sortOrder: filterValues.sortOrder
+    };
+
+    // Handle stock filter
+    switch (filterValues.stockFilter) {
+      case 'lowStock':
+        filter.lowStock = true;
+        break;
+      case 'outOfStock':
+        filter.maxStock = 0;
+        break;
+      case 'inStock':
+        filter.minStock = 1;
+        break;
+    }
+
     this.subscriptions.add(
-      this.inventoryService.getProducts(this.currentFilter).subscribe({
+      this.inventoryService.getProducts(filter).subscribe({
         next: (response) => {
-          this.dataSource.data = response.products;
-          this.totalProducts = response.totalItems;
-          this.currentPage = response.currentPage;
+          this.products.data = response.products.map(product => ({
+            ...product,
+            // ✅ FIXED: Allow minimumStock = 0, only default to 5 if undefined/null
+            minimumStock: typeof product.minimumStock === 'number' ? product.minimumStock : 5,
+            // Computed properties
+            profitMargin: this.getMarginPercentage(product),
+            isLowStock: product.stock <= (typeof product.minimumStock === 'number' ? product.minimumStock : 5),
+            isOutOfStock: product.stock === 0
+          }));
+          
+          this.totalItems = response.totalItems;
           this.loading = false;
+          
+          console.log('📦 Loaded Products:', response);
         },
         error: (error) => {
           this.showError('Failed to load products: ' + error.message);
@@ -200,14 +202,16 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   }
 
   private loadCategories(): void {
+    const filter: CategoryFilter = {
+      page: 1,
+      pageSize: 100,
+      sortBy: 'name',
+      sortOrder: 'asc'
+    };
+
     this.subscriptions.add(
-      this.categoryService.getCategories({ 
-        page: 1, 
-        pageSize: 100, 
-        sortBy: 'name', 
-        sortOrder: 'asc' 
-      }).subscribe({
-        next: (response: CategoryListResponse) => {
+      this.categoryService.getCategories(filter).subscribe({
+        next: (response) => {
           this.categories = response.categories;
         },
         error: (error) => {
@@ -222,114 +226,12 @@ export class InventoryListComponent implements OnInit, OnDestroy {
       this.inventoryService.getLowStockProducts(10).subscribe({
         next: (products) => {
           this.lowStockProducts = products;
-          this.lowStockCount = products.length;
         },
         error: (error) => {
           console.error('Failed to load low stock alerts:', error);
         }
       })
     );
-
-    this.subscriptions.add(
-      this.inventoryService.getOutOfStockProducts().subscribe({
-        next: (products) => {
-          this.outOfStockCount = products.length;
-        },
-        error: (error) => {
-          console.error('Failed to load out of stock count:', error);
-        }
-      })
-    );
-  }
-
-  // ===== FILTERING & SORTING =====
-
-  private applyFilters(formValues: any): void {
-    this.currentFilter = {
-      search: formValues.search || undefined,
-      categoryId: formValues.categoryId || undefined,
-      isActive: formValues.isActive,
-      page: 1, // Reset to first page when filtering
-      pageSize: this.pageSize,
-      sortBy: formValues.sortBy,
-      sortOrder: formValues.sortOrder
-    };
-
-    // Handle special stock filters
-    if (formValues.stockFilter === 'lowStock') {
-      this.loadLowStockOnly();
-      return;
-    } else if (formValues.stockFilter === 'outOfStock') {
-      this.loadOutOfStockOnly();
-      return;
-    }
-
-    this.loadProducts();
-  }
-
-  private loadLowStockOnly(): void {
-    this.loading = true;
-    this.subscriptions.add(
-      this.inventoryService.getLowStockProducts().subscribe({
-        next: (products) => {
-          this.dataSource.data = products;
-          this.totalProducts = products.length;
-          this.loading = false;
-        },
-        error: (error) => {
-          this.showError('Failed to load low stock products: ' + error.message);
-          this.loading = false;
-        }
-      })
-    );
-  }
-
-  private loadOutOfStockOnly(): void {
-    this.loading = true;
-    this.subscriptions.add(
-      this.inventoryService.getOutOfStockProducts().subscribe({
-        next: (products) => {
-          this.dataSource.data = products;
-          this.totalProducts = products.length;
-          this.loading = false;
-        },
-        error: (error) => {
-          this.showError('Failed to load out of stock products: ' + error.message);
-          this.loading = false;
-        }
-      })
-    );
-  }
-
-  onPageChange(event: any): void {
-    this.currentFilter.page = event.pageIndex + 1;
-    this.currentFilter.pageSize = event.pageSize;
-    this.pageSize = event.pageSize;
-    this.loadProducts();
-  }
-
-  onSortChange(event: any): void {
-    this.currentFilter.sortBy = event.active;
-    this.currentFilter.sortOrder = event.direction || 'asc';
-    this.loadProducts();
-  }
-
-  // ===== TAB MANAGEMENT =====
-
-  onTabChange(event: any): void {
-    this.selectedTabIndex = event.index;
-    
-    switch (event.index) {
-      case 0: // All Products
-        this.filterForm.patchValue({ stockFilter: 'all' });
-        break;
-      case 1: // Low Stock
-        this.filterForm.patchValue({ stockFilter: 'lowStock' });
-        break;
-      case 2: // Out of Stock
-        this.filterForm.patchValue({ stockFilter: 'outOfStock' });
-        break;
-    }
   }
 
   // ===== PRODUCT ACTIONS =====
@@ -346,34 +248,17 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     this.router.navigate(['/dashboard/inventory/stock', product.id]);
   }
 
-  viewHistory(product: Product): void {
-    // TODO: Implement product history modal
-    console.log('View history for product:', product.name);
-  }
-
-  duplicateProduct(product: Product): void {
-    const duplicateData = {
-      ...product,
-      name: `${product.name} (Copy)`,
-      barcode: '', // Clear barcode for manual entry
-      id: 0 // Reset ID for new product
-    };
-    
-    this.router.navigate(['/dashboard/inventory/add'], {
-      state: { duplicateData }
-    });
-  }
-
   toggleProductStatus(product: Product): void {
-    const updatedProduct = {
-      ...product,
-      isActive: !product.isActive
-    };
-
+    const newStatus = !product.isActive;
+    
     this.subscriptions.add(
-      this.inventoryService.updateProduct(product.id, updatedProduct).subscribe({
+      this.inventoryService.updateProduct(product.id, {
+        ...product,
+        isActive: newStatus
+      }).subscribe({
         next: () => {
-          this.showSuccess(`Product ${product.isActive ? 'deactivated' : 'activated'} successfully`);
+          product.isActive = newStatus;
+          this.showSuccess(`Product ${newStatus ? 'activated' : 'deactivated'} successfully`);
           this.loadProducts();
         },
         error: (error) => {
@@ -384,7 +269,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   }
 
   deleteProduct(product: Product): void {
-    if (confirm(`Are you sure you want to delete "${product.name}"?`)) {
+    if (confirm(`Are you sure you want to delete "${product.name}"?\n\nThis action cannot be undone.`)) {
       this.subscriptions.add(
         this.inventoryService.deleteProduct(product.id).subscribe({
           next: () => {
@@ -429,9 +314,24 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     }
   }
 
+  getStockStatusLabel(product: Product): string {
+    const status = this.getStockStatus(product);
+    switch (status) {
+      case 'high': return 'Good Stock';
+      case 'medium': return 'Medium Stock';
+      case 'low': return 'Low Stock';
+      case 'out': return 'Out of Stock';
+      default: return 'Unknown';
+    }
+  }
+
   getMarginPercentage(product: Product): number {
     if (product.buyPrice === 0) return 0;
     return ((product.sellPrice - product.buyPrice) / product.buyPrice) * 100;
+  }
+
+  getMarginAmount(product: Product): number {
+    return product.sellPrice - product.buyPrice;
   }
 
   formatCurrency(amount: number): string {
@@ -444,6 +344,29 @@ export class InventoryListComponent implements OnInit, OnDestroy {
 
   formatNumber(value: number): string {
     return new Intl.NumberFormat('id-ID').format(value);
+  }
+
+  formatPercentage(value: number): string {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'percent',
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    }).format(value / 100);
+  }
+
+  // ===== PAGINATION & SORTING =====
+
+  onPageChange(event: any): void {
+    this.currentPage = event.pageIndex + 1;
+    this.pageSize = event.pageSize;
+    this.loadProducts();
+  }
+
+  onSortChange(event: any): void {
+    this.filterForm.patchValue({
+      sortBy: event.active,
+      sortOrder: event.direction || 'asc'
+    });
   }
 
   // ===== QUICK ACTIONS =====
@@ -481,62 +404,26 @@ export class InventoryListComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ===== NOTIFICATION METHODS =====
+  // ===== NOTIFICATIONS =====
 
   private showSuccess(message: string): void {
     this.snackBar.open(message, 'Close', {
       duration: 3000,
-      panelClass: ['success-snackbar'],
-      horizontalPosition: 'end',
-      verticalPosition: 'top'
+      panelClass: ['success-snackbar']
     });
   }
 
   private showError(message: string): void {
     this.snackBar.open(message, 'Close', {
       duration: 5000,
-      panelClass: ['error-snackbar'],
-      horizontalPosition: 'end',
-      verticalPosition: 'top'
+      panelClass: ['error-snackbar']
     });
   }
 
   private showInfo(message: string): void {
     this.snackBar.open(message, 'Close', {
       duration: 3000,
-      panelClass: ['info-snackbar'],
-      horizontalPosition: 'end',
-      verticalPosition: 'top'
-    });
-  }
-
-  // ===== GETTERS FOR TEMPLATE =====
-
-  get hasLowStock(): boolean {
-    return this.lowStockCount > 0;
-  }
-
-  get hasOutOfStock(): boolean {
-    return this.outOfStockCount > 0;
-  }
-
-  get totalInventoryValue(): number {
-    return this.dataSource.data.reduce((total, product) => {
-      return total + (product.stock * product.buyPrice);
-    }, 0);
-  }
-
-  get activeProductsCount(): number {
-    return this.dataSource.data.filter(p => p.isActive).length;
-  }
-
-  // Utility method to copy text to clipboard
-  copyToClipboard(text: string): void {
-    navigator.clipboard.writeText(text).then(() => {
-      this.snackBar.open('Copied to clipboard!', 'Close', { duration: 2000 });
-    }).catch(err => {
-      console.error('Failed to copy: ', err);
-      this.snackBar.open('Failed to copy to clipboard', 'Close', { duration: 2000 });
+      panelClass: ['info-snackbar']
     });
   }
 }

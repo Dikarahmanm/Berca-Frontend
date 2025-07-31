@@ -334,9 +334,10 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
   getCurrentDate(): string {
     return new Date().toLocaleDateString('id-ID', {
       weekday: 'long',
-      year: 'numeric', 
+      year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'Asia/Jakarta'
     });
   }
 

@@ -99,86 +99,40 @@ export class TopbarComponent implements OnInit, OnDestroy {
     // Load theme preference
     this.isDarkMode = localStorage.getItem('darkMode') === 'true';
     
-    // Load initial notifications from API first, then fallback to mock data
-    this.loadNotifications();
+        // Load initial notifications from API only (NO MOCK DATA)
+        this.isLoadingNotifications = true;
+        this.notificationError = null;
+        this.notificationService.getNotificationSummary().subscribe({
+          next: (response: any) => {
+            if (response && response.success && response.data) {
+              this.recentNotifications = response.data.recentNotifications || response.recentNotifications || [];
+              this.notificationCount = response.data.unreadCount || response.unreadCount || 0;
+              console.log('✅ Notifications loaded from API:', this.recentNotifications.length);
+            } else {
+              this.recentNotifications = [];
+              this.notificationCount = 0;
+            }
+            this.isLoadingNotifications = false;
+          },
+          error: (error: any) => {
+            this.notificationError = 'Failed to load notifications';
+            this.recentNotifications = [];
+            this.notificationCount = 0;
+            this.isLoadingNotifications = false;
+          }
+        });
   }
 
   private loadNotifications(): void {
-    try {
-      this.isLoadingNotifications = true;
-      this.notificationError = null;
-      
-      // Try to load from API using existing service method
-      this.notificationService.getNotificationSummary().subscribe({
-        next: (response: any) => {
-          if (response && response.success && response.data) {
-            this.recentNotifications = response.data.recentNotifications || response.recentNotifications || [];
-            this.notificationCount = response.data.unreadCount || response.unreadCount || 0;
-            console.log('✅ Notifications loaded from API:', this.recentNotifications.length);
-          } else {
-            // Fallback to mock data if API response is empty
-            this.initializeMockData();
-          }
-          this.isLoadingNotifications = false;
-        },
-        error: (error: any) => {
-          console.warn('⚠️ API failed, using mock data:', error);
-          this.notificationError = 'Failed to load notifications';
-          // Fallback to mock data
-          this.initializeMockData();
-          this.isLoadingNotifications = false;
-        }
-      });
-      
-    } catch (error) {
-      console.error('Error in loadNotifications:', error);
-      this.initializeMockData();
-      this.isLoadingNotifications = false;
-    }
+    // Deprecated: No longer use mock data. Only API data allowed.
+    // This method is now a no-op to prevent accidental mock usage.
+    return;
   }
 
   private initializeMockData(): void {
-    console.log('📝 Using mock notification data');
-    
-    // Initialize with mock data for testing
-    this.recentNotifications = [
-      {
-        id: 1,
-        title: 'Pesanan Baru #001',
-        message: 'Pesanan baru telah masuk dari customer',
-        type: 'order',
-        isRead: false,
-        priority: 'high',
-        createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-        userId: 1,
-        createdBy: 'System'
-      },
-      {
-        id: 2, 
-        title: 'Stock Alert',
-        message: 'Stok produk ABC hampir habis',
-        type: 'warning',
-        isRead: false,
-        priority: 'medium',
-        createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-        userId: 1,
-        createdBy: 'System'
-      },
-      {
-        id: 3,
-        title: 'Payment Received',
-        message: 'Pembayaran untuk pesanan #999 berhasil',
-        type: 'success', 
-        isRead: true,
-        priority: 'low',
-        createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-        readAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-        userId: 1,
-        createdBy: 'System'
-      }
-    ];
-    
-    this.notificationCount = this.recentNotifications.filter(n => !n.isRead).length;
+    // Deprecated: No longer use mock data. Only API data allowed.
+    this.recentNotifications = [];
+    this.notificationCount = 0;
   }
 
   private subscribeToNotifications(): void {
@@ -416,21 +370,22 @@ export class TopbarComponent implements OnInit, OnDestroy {
   }
 
   getRelativeTime(timestamp: string): string {
-    const now = new Date();
-    const date = new Date(timestamp);
+    // Use Asia/Jakarta timezone for all calculations
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const date = new Date(new Date(timestamp).toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
     const diffMs = now.getTime() - date.getTime();
     const diffMinutes = Math.floor(diffMs / 60000);
-    
+
     if (diffMinutes < 1) return 'Baru saja';
     if (diffMinutes < 60) return `${diffMinutes} menit yang lalu`;
-    
+
     const diffHours = Math.floor(diffMinutes / 60);
     if (diffHours < 24) return `${diffHours} jam yang lalu`;
-    
+
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return `${diffDays} hari yang lalu`;
-    
-    return date.toLocaleDateString('id-ID');
+
+    return date.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' });
   }
 
   private showSuccessMessage(message: string): void {

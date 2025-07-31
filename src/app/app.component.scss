@@ -1,0 +1,32 @@
+// src/app/app.component.scss
+// ✅ Basic app container styling
+
+.app-container {
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+  overflow-x: hidden;
+  
+  // Ensure proper layout for child components
+  display: flex;
+  flex-direction: column;
+  
+  // Background for the entire app
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  
+  // Glass morphism base
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -1;
+  }
+}

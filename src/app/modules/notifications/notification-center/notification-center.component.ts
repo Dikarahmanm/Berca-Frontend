@@ -7,6 +7,7 @@ import { takeUntil, finalize } from 'rxjs/operators';
 
 // Import real service and interfaces
 import { NotificationService, NotificationDto, NotificationSummaryDto } from '../../../core/services/notification.service';
+import { BaseLayoutComponent } from '../../../shared/components/base-layout/base-layout.component';
 
 type FilterType = 'all' | 'unread' | 'low_stock' | 'system' | 'sales';
 
@@ -15,7 +16,7 @@ type FilterType = 'all' | 'unread' | 'low_stock' | 'system' | 'sales';
   templateUrl: './notification-center.component.html',
   styleUrls: ['./notification-center.component.scss'],
   standalone: true,
-  imports: [CommonModule]
+  imports: [CommonModule, BaseLayoutComponent]
 })
 export class NotificationCenterComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();

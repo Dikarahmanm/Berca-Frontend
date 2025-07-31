@@ -1,10 +1,11 @@
 /* You can add global styles to this file, and also import other style files */
 /* Add this to src/styles.scss */
 
-
-/* Commented out for local development due to network restrictions
+/* Material Icons Import - CDN */
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
-*/
+
+/* Alternative approach: Import Material Icons from node_modules */
+/* @import 'material-design-icons-iconfont/dist/material-design-icons.css'; */
 
 .material-icons {
   font-family: 'Material Icons';
@@ -19,6 +20,7 @@
   word-wrap: normal;
   direction: ltr;
   -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
 }
 

@@ -8,8 +8,8 @@ import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-login',
-  templateUrl: './login.html',
-  styleUrls: ['./login.scss'],
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.scss'],
   standalone: true,
   imports: [FormsModule, CommonModule, RouterModule],
 })
@@ -56,20 +56,8 @@ export class LoginComponent {
         this.clearError();
         this.isLoading = false;
 
-        // Store user data in localStorage
-        if (response.user && response.role) {
-          localStorage.setItem('username', response.user);
-          localStorage.setItem('role', response.role);
-          
-          console.log('💾 User data stored:', {
-            username: response.user,
-            role: response.role,
-            isActive: response.isActive
-          });
-        }
-
-        // Navigate to dashboard
-        this.router.navigate(['/dashboard']);
+        // Auth service now handles localStorage storage and navigation
+        console.log('� Login component: Auth service will handle navigation');
       },
       error: (err: any) => {
         console.error('❌ Login error:', err);

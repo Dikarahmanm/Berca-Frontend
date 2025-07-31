@@ -120,7 +120,7 @@ export class AppHttpInterceptor implements HttpInterceptor {
         this.refreshTokenSubject.next(null);
         console.log('❌ Refresh failed, redirecting to login');
         this.authService.logout().subscribe();
-        this.router.navigate(['/auth/login']);
+        // Don't navigate here since auth.service.logout() now handles navigation
         return throwError(() => refreshError);
       })
     );

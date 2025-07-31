@@ -1,59 +1,54 @@
-import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
+// src/app/app.module.ts
+// ✅ FIXED: Bootstrap configuration for standalone AppComponent
+
+import { bootstrapApplication } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { importProvidersFrom } from '@angular/core';
 
-// Application Components
-import { App } from './app';
+import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing-module';
 
-// Shared Module
-import { SharedModule } from './shared/shared.module';
-
-// Core Services
+// Core services
 import { AuthService } from './core/services/auth.service';
-import { UserProfileService } from './core/services/user-profile.service';
-import { POSService } from './core/services/pos.service';
-import { BarcodeService } from './core/services/barcode.service';
-import { ReceiptService } from './core/services/receipt.service';
 import { NotificationService } from './core/services/notification.service';
+import { LayoutService } from './shared/services/layout.service';
+
+// HTTP Interceptors
+import { AuthInterceptor } from './core/interceptors/auth.interceptor';
+//import { ErrorInterceptor } from './core/interceptors/error.interceptor';
 
 // Guards
 import { AuthGuard } from './core/guard/auth.guard';
+import { RoleGuard } from './core/guard/role.guard';
 
-// ✅ UNCOMMENT: Import AuthInterceptor
-import { AuthInterceptor } from './core/interceptors/auth.interceptor';
-
-@NgModule({
-  declarations: [
-    App
-  ],
-  imports: [
-    BrowserModule,
-    BrowserAnimationsModule,
-    HttpClientModule,
-    AppRoutingModule,
-    SharedModule
-  ],
+bootstrapApplication(AppComponent, {
   providers: [
+    importProvidersFrom(
+      BrowserAnimationsModule,
+      HttpClientModule,
+      AppRoutingModule
+    ),
+    
     // Core Services
     AuthService,
-    UserProfileService,
-    POSService,
-    BarcodeService,
-    ReceiptService,
     NotificationService,
+    LayoutService,
     
     // Guards
     AuthGuard,
+    RoleGuard,
     
-    // ✅ UNCOMMENT: Enable AuthInterceptor
+    // HTTP Interceptors
     {
       provide: HTTP_INTERCEPTORS,
       useClass: AuthInterceptor,
       multi: true
-    }
-  ],
-  bootstrap: [App]
-})
-export class AppModule { }
+    },
+    // {
+    //   provide: HTTP_INTERCEPTORS,
+    //   useClass: ErrorInterceptor,
+    //   multi: true
+    // }
+  ]
+});

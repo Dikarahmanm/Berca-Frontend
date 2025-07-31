@@ -38,16 +38,16 @@ const routes: Routes = [
       },
 
       // ===== INVENTORY MANAGEMENT ===== //
-      // {
-      //   path: 'inventory',
-      //   loadChildren: () => import('../modules/inventory/inventory.module').then(m => m.InventoryModule),
-      //   canActivate: [RoleGuard],
-      //   data: {
-      //     title: 'Inventory Management',
-      //     breadcrumb: 'Inventory',
-      //     requiredRoles: ['Admin', 'Manager', 'User']
-      //   }
-      // },
+      {
+        path: 'inventory',
+        loadComponent: () => import('../modules/inventory/components/inventory-list/inventory-list.component').then(c => c.InventoryListComponent),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'Inventory Management',
+          breadcrumb: 'Inventory',
+          requiredRoles: ['Admin', 'Manager', 'User']
+        }
+      },
 
       // ===== MEMBERSHIP MANAGEMENT ===== //
       // {

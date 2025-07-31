@@ -69,9 +69,9 @@ interface QuickAction {
                 <mat-icon>point_of_sale</mat-icon>
                 Mulai Transaksi
               </button>
-              <button class="action-btn secondary-btn" (click)="navigateTo('/dashboard/categories')">
-                <mat-icon>category</mat-icon>
-                Kelola Kategori
+              <button class="action-btn secondary-btn" (click)="navigateTo('/dashboard/inventory')">
+                <mat-icon>inventory_2</mat-icon>
+                Kelola Stok
               </button>
             </div>
           </div>
@@ -96,6 +96,25 @@ interface QuickAction {
               <div class="stat-label">Total Users</div>
               <div class="stat-meta">
                 <span class="stat-detail active">{{ userStats.active }} active</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Products -->
+          <div class="stat-card glass-card clickable" (click)="navigateTo('/dashboard/inventory')">
+            <div class="stat-icon products">
+              <mat-icon>inventory_2</mat-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ formatNumber(dashboardStats.totalProducts) }}</div>
+              <div class="stat-label">Total Products</div>
+              <div class="stat-meta">
+                <span class="stat-detail warning" *ngIf="dashboardStats.lowStockCount > 0">
+                  {{ dashboardStats.lowStockCount }} stok rendah
+                </span>
+                <span class="stat-detail positive" *ngIf="dashboardStats.lowStockCount === 0">
+                  Stok mencukupi
+                </span>
               </div>
             </div>
           </div>
@@ -250,12 +269,12 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         enabled: true
       },
       {
-        id: 'users',
-        title: 'User Management',
-        description: 'Kelola pengguna sistem',
-        icon: 'people',
-        route: '/dashboard/users',
-        color: 'info',
+        id: 'inventory',
+        title: 'Inventory',
+        description: 'Kelola produk dan stok',
+        icon: 'inventory_2',
+        route: '/dashboard/inventory',
+        color: 'success',
         enabled: true
       },
       {
@@ -265,6 +284,15 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         icon: 'category',
         route: '/dashboard/categories',
         color: 'warning',
+        enabled: true
+      },
+      {
+        id: 'users',
+        title: 'User Management',
+        description: 'Kelola pengguna sistem',
+        icon: 'people',
+        route: '/dashboard/users',
+        color: 'info',
         enabled: true
       },
       {

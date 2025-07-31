@@ -1,0 +1,357 @@
+<!-- ✅ UPDATED: Product Form Template with all backend fields -->
+<!-- src/app/modules/inventory/components/product-form/product-form.component.html -->
+
+<div class="product-form-container">
+
+    <!-- Header Section -->
+    <div class="form-header glass-card">
+        <div class="header-content">
+            <div class="title-section">
+                <button mat-icon-button (click)="goBack()" class="back-button">
+                    <mat-icon>arrow_back</mat-icon>
+                </button>
+                <div class="title-content">
+                    <h1 class="page-title">
+                        <mat-icon>{{ isEditMode ? 'edit' : 'add' }}</mat-icon>
+                        {{ pageTitle }}
+                    </h1>
+                    <p class="page-subtitle">{{ pageSubtitle }}</p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <button mat-stroked-button type="button" (click)="goBack()" [disabled]="saving">
+                    Cancel
+                </button>
+
+                <button mat-raised-button color="primary" type="submit" form="productForm" [disabled]="!canSubmit">
+                    <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+                    <mat-icon *ngIf="!saving">{{ isEditMode ? 'save' : 'add' }}</mat-icon>
+                    {{ submitButtonText }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Unsaved Changes Warning -->
+        <div *ngIf="hasUnsavedChanges && !saving" class="unsaved-warning">
+            <mat-icon>info</mat-icon>
+            <span>You have unsaved changes</span>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container glass-card">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Loading product details...</p>
+    </div>
+
+    <!-- Product Form -->
+    <form *ngIf="!loading" id="productForm" [formGroup]="productForm" (ngSubmit)="onSubmit()" class="product-form">
+
+        <!-- Basic Information Card -->
+        <div class="form-card glass-card">
+            <div class="card-header">
+                <h2>
+                    <mat-icon>info</mat-icon>
+                    Basic Information
+                </h2>
+                <p>Enter the main product details</p>
+            </div>
+
+            <div class="form-grid">
+                <!-- Product Name -->
+                <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Product Name *</mat-label>
+                    <input matInput formControlName="name" placeholder="Enter product name" maxlength="100">
+                    <mat-hint align="end">{{productForm.get('name')?.value?.length || 0}}/100</mat-hint>
+                    <mat-error *ngIf="isFieldInvalid('name')">
+                        {{ getFieldError('name') }}
+                    </mat-error>
+                </mat-form-field>
+
+                <!-- ✅ ADDED: Description Field -->
+                <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Description</mat-label>
+                    <textarea matInput formControlName="description" placeholder="Enter product description (optional)"
+                        rows="3" maxlength="500"></textarea>
+                    <mat-hint align="end">{{productForm.get('description')?.value?.length || 0}}/500</mat-hint>
+                    <mat-error *ngIf="isFieldInvalid('description')">
+                        {{ getFieldError('description') }}
+                    </mat-error>
+                </mat-form-field>
+
+                <!-- Category -->
+                <mat-form-field appearance="outline">
+                    <mat-label>Category *</mat-label>
+                    <mat-select formControlName="categoryId" placeholder="Select category">
+                        <mat-option *ngFor="let category of categories" [value]="category.id">
+                            <div class="category-option">
+                                <div class="category-color" [style.background-color]="category.color"></div>
+                                {{ category.name }}
+                            </div>
+                        </mat-option>
+                    </mat-select>
+                    <mat-error *ngIf="isFieldInvalid('categoryId')">
+                        {{ getFieldError('categoryId') }}
+                    </mat-error>
+                </mat-form-field>
+
+                <!-- ✅ ADDED: Unit Field -->
+                <mat-form-field appearance="outline">
+                    <mat-label>Unit *</mat-label>
+                    <mat-select formControlName="unit" placeholder="Select unit">
+                        <mat-option value="pcs">Pieces (pcs)</mat-option>
+                        <mat-option value="kg">Kilogram (kg)</mat-option>
+                        <mat-option value="gram">Gram (g)</mat-option>
+                        <mat-option value="liter">Liter (L)</mat-option>
+                        <mat-option value="ml">Milliliter (mL)</mat-option>
+                        <mat-option value="meter">Meter (m)</mat-option>
+                        <mat-option value="cm">Centimeter (cm)</mat-option>
+                        <mat-option value="box">Box</mat-option>
+                        <mat-option value="pack">Pack</mat-option>
+                        <mat-option value="bottle">Bottle</mat-option>
+                    </mat-select>
+                    <mat-hint>Unit of measurement</mat-hint>
+                    <mat-error *ngIf="isFieldInvalid('unit')">
+                        {{ getFieldError('unit') }}
+                    </mat-error>
+                </mat-form-field>
+
+                <!-- Barcode Section -->
+                <div class="barcode-section full-width">
+                    <mat-form-field appearance="outline" class="barcode-input">
+                        <mat-label>Barcode *</mat-label>
+                        <input matInput formControlName="barcode" placeholder="Enter or scan barcode" maxlength="50">
+                        <mat-error *ngIf="isFieldInvalid('barcode')">
+                            {{ getFieldError('barcode') }}
+                        </mat-error>
+                    </mat-form-field>
+
+                    <div class="barcode-actions">
+                        <button mat-stroked-button type="button" (click)="startBarcodeScanner()"
+                            [disabled]="scannerActive" matTooltip="Scan barcode with camera">
+                            <mat-icon>qr_code_scanner</mat-icon>
+                            {{ scannerActive ? 'Scanning...' : 'Scan' }}
+                        </button>
+
+                        <button mat-stroked-button type="button" (click)="generateBarcode()"
+                            matTooltip="Generate random barcode">
+                            <mat-icon>auto_awesome</mat-icon>
+                            Generate
+                        </button>
+                    </div>
+
+                    <div *ngIf="barcodeError" class="barcode-error">
+                        <mat-icon>error</mat-icon>
+                        {{ barcodeError }}
+                    </div>
+                </div>
+
+                <!-- Product Status -->
+                <div class="status-section">
+                    <mat-slide-toggle formControlName="isActive" color="primary">
+                        <span class="toggle-label">
+                            <mat-icon>{{ productForm.get('isActive')?.value ? 'visibility' : 'visibility_off'
+                                }}</mat-icon>
+                            {{ productForm.get('isActive')?.value ? 'Active' : 'Inactive' }}
+                        </span>
+                    </mat-slide-toggle>
+                    <p class="toggle-hint">
+                        {{ productForm.get('isActive')?.value ? 'Product is available for sale' : 'Product is hidden
+                        from sales' }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock Information Card -->
+        <div class="form-card glass-card">
+            <div class="card-header">
+                <h2>
+                    <mat-icon>inventory</mat-icon>
+                    Stock Information
+                </h2>
+                <p>Configure stock levels and alerts</p>
+            </div>
+
+            <div class="form-grid">
+                <!-- Current Stock -->
+                <mat-form-field appearance="outline">
+                    <mat-label>Current Stock *</mat-label>
+                    <input matInput type="number" formControlName="stock" placeholder="0" min="0">
+                    <span matTextSuffix>{{ productForm.get('unit')?.value || 'pcs' }}</span>
+                    <mat-hint>Available quantity in inventory</mat-hint>
+                    <mat-error *ngIf="isFieldInvalid('stock')">
+                        {{ getFieldError('stock') }}
+                    </mat-error>
+                </mat-form-field>
+
+                <!-- ✅ FIXED: Minimum Stock (renamed from minStock) -->
+                <mat-form-field appearance="outline">
+                    <mat-label>Minimum Stock *</mat-label>
+                    <input matInput type="number" formControlName="minimumStock" placeholder="5" min="0">
+                    <span matTextSuffix>{{ productForm.get('unit')?.value || 'pcs' }}</span>
+                    <mat-hint>Alert when stock reaches this level</mat-hint>
+                    <mat-error *ngIf="isFieldInvalid('minimumStock')">
+                        {{ getFieldError('minimumStock') }}
+                    </mat-error>
+                </mat-form-field>
+
+                <!-- Stock Status Preview -->
+                <div class="stock-preview full-width">
+                    <div class="preview-card">
+                        <div class="preview-header">
+                            <mat-icon
+                                [style.color]="productForm.get('stock')?.value <= productForm.get('minimumStock')?.value ? '#FF914D' : '#4BBF7B'">
+                                {{ productForm.get('stock')?.value <= productForm.get('minimumStock')?.value ? 'warning'
+                                    : 'check_circle' }} </mat-icon>
+                                    <span>Stock Status Preview</span>
+                        </div>
+                        <div class="preview-content">
+                            <div class="stock-info">
+                                <span class="stock-amount">{{ productForm.get('stock')?.value || 0 }}</span>
+                                <span class="stock-label">Available</span>
+                            </div>
+                            <div class="stock-info">
+                                <span class="stock-amount">{{ productForm.get('minimumStock')?.value || 0 }}</span>
+                                <span class="stock-label">Minimum</span>
+                            </div>
+                            <div class="stock-status"
+                                [class.warning]="productForm.get('stock')?.value <= productForm.get('minimumStock')?.value">
+                                {{ productForm.get('stock')?.value <= productForm.get('minimumStock')?.value
+                                    ? 'Low Stock Alert' : 'Stock OK' }} </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pricing Information Card -->
+            <div class="form-card glass-card">
+                <div class="card-header">
+                    <h2>
+                        <mat-icon>payments</mat-icon>
+                        Pricing Information
+                    </h2>
+                    <p>Set buy and sell prices for profit calculation</p>
+                </div>
+
+                <div class="form-grid">
+                    <!-- Buy Price -->
+                    <mat-form-field appearance="outline">
+                        <mat-label>Buy Price *</mat-label>
+                        <input matInput type="number" formControlName="buyPrice" placeholder="0" min="0" step="1000">
+                        <span matTextPrefix>Rp&nbsp;</span>
+                        <mat-hint>Cost price from supplier per {{ productForm.get('unit')?.value || 'unit' }}</mat-hint>
+                        <mat-error *ngIf="isFieldInvalid('buyPrice')">
+                            {{ getFieldError('buyPrice') }}
+                        </mat-error>
+                    </mat-form-field>
+
+                    <!-- Sell Price -->
+                    <mat-form-field appearance="outline">
+                        <mat-label>Sell Price *</mat-label>
+                        <input matInput type="number" formControlName="sellPrice" placeholder="0" min="0" step="1000">
+                        <span matTextPrefix>Rp&nbsp;</span>
+                        <mat-hint>Customer selling price per {{ productForm.get('unit')?.value || 'unit' }}</mat-hint>
+                        <mat-error *ngIf="isFieldInvalid('sellPrice')">
+                            {{ getFieldError('sellPrice') }}
+                        </mat-error>
+                    </mat-form-field>
+
+                    <!-- Profit Calculation Preview -->
+                    <div class="profit-preview full-width">
+                        <div class="preview-card">
+                            <div class="preview-header">
+                                <mat-icon [style.color]="getMarginPercentage() > 0 ? '#4BBF7B' : '#E15A4F'">
+                                    {{ getMarginPercentage() > 0 ? 'trending_up' : 'trending_down' }}
+                                </mat-icon>
+                                <span>Profit Analysis</span>
+                            </div>
+                            <div class="preview-content pricing-grid">
+                                <div class="price-info">
+                                    <span class="price-label">Buy Price</span>
+                                    <span class="price-amount">{{ formatCurrency(productForm.get('buyPrice')?.value ||
+                                        0) }}</span>
+                                </div>
+                                <div class="price-info">
+                                    <span class="price-label">Sell Price</span>
+                                    <span class="price-amount">{{ formatCurrency(productForm.get('sellPrice')?.value ||
+                                        0) }}</span>
+                                </div>
+                                <div class="price-info">
+                                    <span class="price-label">Profit per {{ productForm.get('unit')?.value || 'Unit'
+                                        }}</span>
+                                    <span class="price-amount" [class.positive]="getMarginAmount() > 0"
+                                        [class.negative]="getMarginAmount() <= 0">
+                                        {{ formatCurrency(getMarginAmount()) }}
+                                    </span>
+                                </div>
+                                <div class="price-info">
+                                    <span class="price-label">Margin</span>
+                                    <span class="price-amount" [class.positive]="getMarginPercentage() > 0"
+                                        [class.negative]="getMarginPercentage() <= 0">
+                                        {{ getMarginPercentage().toFixed(1) }}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="form-actions glass-card">
+                <div class="actions-content">
+                    <div class="form-summary">
+                        <mat-icon>info</mat-icon>
+                        <div class="summary-text">
+                            <span class="summary-title">Form Summary</span>
+                            <span class="summary-details">
+                                {{ productForm.valid ? 'All fields are valid' : 'Please complete required fields' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button mat-stroked-button type="button" (click)="goBack()" [disabled]="saving">
+                            <mat-icon>cancel</mat-icon>
+                            Cancel
+                        </button>
+
+                        <button mat-raised-button color="primary" type="submit" [disabled]="!canSubmit">
+                            <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+                            <mat-icon *ngIf="!saving">{{ isEditMode ? 'save' : 'add' }}</mat-icon>
+                            {{ submitButtonText }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+    </form>
+
+    <!-- Barcode Scanner Modal -->
+    <div *ngIf="scannerActive" class="scanner-modal">
+        <div class="scanner-content glass-card">
+            <div class="scanner-header">
+                <h3>Scan Product Barcode</h3>
+                <button mat-icon-button (click)="stopBarcodeScanner()">
+                    <mat-icon>close</mat-icon>
+                </button>
+            </div>
+
+            <div class="scanner-body">
+                <div class="scanner-placeholder">
+                    <mat-icon>qr_code_scanner</mat-icon>
+                    <p>Position barcode within the frame</p>
+                    <mat-spinner diameter="40"></mat-spinner>
+                </div>
+            </div>
+
+            <div class="scanner-actions">
+                <button mat-stroked-button (click)="stopBarcodeScanner()">
+                    Cancel Scanning
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

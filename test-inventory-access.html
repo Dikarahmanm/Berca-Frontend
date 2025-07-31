@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Inventory Access</title>
+</head>
+<body>
+    <h1>Test Inventory Module Access</h1>
+    
+    <script>
+        // Test user role access
+        const userRole = localStorage.getItem('role');
+        const username = localStorage.getItem('username');
+        
+        console.log('Current user role:', userRole);
+        console.log('Current username:', username);
+        
+        // Test which roles have access to inventory
+        const inventoryRoles = ['Admin', 'Manager', 'User'];
+        const hasAccess = inventoryRoles.includes(userRole);
+        
+        document.body.innerHTML += `
+            <p><strong>Username:</strong> ${username || 'Not logged in'}</p>
+            <p><strong>Role:</strong> ${userRole || 'No role'}</p>
+            <p><strong>Inventory Access:</strong> ${hasAccess ? 'YES' : 'NO'}</p>
+            <p><strong>Required Roles:</strong> ${inventoryRoles.join(', ')}</p>
+        `;
+        
+        if (hasAccess) {
+            document.body.innerHTML += `
+                <p style="color: green;">✅ User should have access to inventory module</p>
+                <p><a href="http://localhost:4200/dashboard/inventory" target="_blank">Test Inventory Link</a></p>
+            `;
+        } else {
+            document.body.innerHTML += `
+                <p style="color: red;">❌ User does not have access to inventory module</p>
+                <p>The user needs one of these roles: ${inventoryRoles.join(', ')}</p>
+            `;
+        }
+    </script>
+</body>
+</html>

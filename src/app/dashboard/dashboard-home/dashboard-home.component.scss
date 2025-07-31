@@ -1,3 +1,178 @@
+.dashboard-home {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// Glass Card Base Style
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 145, 77, 0.1);
+  border-radius: 20px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(255, 145, 77, 0.05);
+  transition: all 200ms ease-out;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 145, 77, 0.05) 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      rgba(255, 145, 77, 0.02) 100%
+    );
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 12px 40px rgba(0, 0, 0, 0.12),
+      0 0 0 1px rgba(255, 145, 77, 0.1);
+  }
+}
+
+// Welcome Section
+.welcome-section {
+  .welcome-card {
+    padding: 40px;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 145, 77, 0.1) 0%,
+      rgba(255, 255, 255, 0.95) 50%,
+      rgba(255, 145, 77, 0.05) 100%
+    );
+
+    .welcome-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+
+      .welcome-text {
+        flex: 1;
+
+        h2 {
+          font-size: 2.5rem;
+          font-weight: 800;
+          color: #1e293b;
+          margin: 0 0 8px 0;
+          background: linear-gradient(135deg, #1e293b, #FF914D);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .welcome-date {
+          font-size: 1rem;
+          color: #64748b;
+          margin: 0 0 4px 0;
+          font-weight: 500;
+        }
+
+        .welcome-subtitle {
+          font-size: 1.1rem;
+          color: #64748b;
+          margin: 0;
+          opacity: 0.8;
+        }
+      }
+
+      .welcome-actions {
+        display: flex;
+        gap: 16px;
+      }
+    }
+  }
+}
+
+// Stats and Quick Actions (copy from existing styles)
+.stats-section,
+.quick-actions-section {
+  .section-header {
+    margin-bottom: 24px;
+
+    h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0 0 4px 0;
+    }
+
+    p {
+      color: #64748b;
+      margin: 0;
+    }
+  }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 120ms ease-out;
+
+  &.primary-btn {
+    background: linear-gradient(135deg, #FF914D, #E07A3B);
+    color: white;
+    box-shadow: 0 4px 12px rgba(255, 145, 77, 0.4);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(255, 145, 77, 0.5);
+    }
+  }
+
+  &.secondary-btn {
+    background: rgba(255, 145, 77, 0.1);
+    color: #FF914D;
+    border: 1px solid rgba(255, 145, 77, 0.2);
+
+    &:hover {
+      background: rgba(255, 145, 77, 0.2);
+    }
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 // src/app/dashboard/dashboard.component.scss
 // ✅ REDESIGNED: Dashboard Styles dengan Glass Morphism Orange Modern Theme
 

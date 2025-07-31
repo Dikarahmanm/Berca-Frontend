@@ -1,4 +1,11 @@
 <!-- src/app/modules/pos/pos/pos.component.html - FIXED TEMPLATE -->
+<app-base-layout 
+  pageTitle="Point of Sale" 
+  pageSubtitle="Sistem Kasir Toko Eniwan"
+  [showPageHeader]="false"
+  [isLoading]="isLoading"
+  loadingMessage="Loading POS data...">
+
 <div class="pos-container">
 
     <!-- Header -->
@@ -199,32 +206,56 @@
             <!-- Cart Summary -->
             <div class="cart-summary" *ngIf="cart.length > 0">
                 <!-- Customer Info -->
-                <div class="customer-info">
-                    <div class="input-group">
-                        <label for="customerName">Nama Pelanggan (Opsional)</label>
-                        <input id="customerName" type="text" [(ngModel)]="customerName" class="customer-input"
-                            placeholder="Masukkan nama pelanggan">
-                    </div>
+                <div class="customer-info-section">
+                    <h3 class="section-title">
+                        <mat-icon>person</mat-icon>
+                        Informasi Pelanggan
+                    </h3>
+                    
+                    <div class="customer-fields">
+                        <div class="input-group modern-input">
+                            <mat-icon class="input-icon">person</mat-icon>
+                            <input id="customerName" type="text" [(ngModel)]="customerName" 
+                                   class="modern-input-field" placeholder="Nama Pelanggan (Opsional)">
+                            <label for="customerName" class="floating-label">Nama Pelanggan</label>
+                        </div>
 
-                    <div class="input-group">
-                        <label for="customerPhone">No. Telepon (Opsional)</label>
-                        <input id="customerPhone" type="text" [(ngModel)]="customerPhone" class="customer-input"
-                            placeholder="Masukkan nomor telepon">
+                        <div class="input-group modern-input">
+                            <mat-icon class="input-icon">phone</mat-icon>
+                            <input id="customerPhone" type="tel" [(ngModel)]="customerPhone" 
+                                   class="modern-input-field" placeholder="No. Telepon (Opsional)">
+                            <label for="customerPhone" class="floating-label">No. Telepon</label>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Global Discount -->
-                <div class="global-discount">
-                    <label for="globalDiscount">Diskon Global (%)</label>
-                    <input id="globalDiscount" type="number" [(ngModel)]="globalDiscount"
-                        (input)="onGlobalDiscountChange()" class="discount-input" min="0" max="100">
+                <div class="global-discount-section">
+                    <h4 class="section-title small">
+                        <mat-icon>local_offer</mat-icon>
+                        Diskon Transaksi
+                    </h4>
+                    <div class="discount-input-wrapper">
+                        <input id="globalDiscount" type="number" [(ngModel)]="globalDiscount"
+                               (input)="onGlobalDiscountChange()" class="modern-discount-input" 
+                               min="0" max="100" placeholder="0">
+                        <span class="discount-unit">%</span>
+                        <label for="globalDiscount" class="discount-label">Diskon Global</label>
+                    </div>
                 </div>
 
                 <!-- Notes -->
                 <div class="notes-section">
-                    <label for="notes">Catatan (Opsional)</label>
-                    <textarea id="notes" [(ngModel)]="notes" class="notes-input" placeholder="Catatan tambahan"
-                        rows="2"></textarea>
+                    <h4 class="section-title small">
+                        <mat-icon>note</mat-icon>
+                        Catatan Transaksi
+                    </h4>
+                    <div class="modern-textarea">
+                        <mat-icon class="textarea-icon">edit_note</mat-icon>
+                        <textarea id="notes" [(ngModel)]="notes" class="modern-textarea-field" 
+                                  placeholder="Tambahkan catatan untuk transaksi ini..." rows="3"></textarea>
+                        <label for="notes" class="floating-label">Catatan Tambahan</label>
+                    </div>
                 </div>
 
                 <!-- Summary Lines -->
@@ -305,3 +336,5 @@
         </small>
     </div>
 </div>
+
+</app-base-layout>

@@ -8,7 +8,7 @@ import { RouterModule } from '@angular/router';
 import { MaterialModule } from './material.module';
 
 // Shared Components
-import { TopbarComponent } from './topbar/topbar';
+import { TopbarComponent } from './topbar/topbar.component';
 
 @NgModule({
 

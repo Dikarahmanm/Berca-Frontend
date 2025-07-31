@@ -1,4 +1,11 @@
 <!-- src/app/modules/notifications/notification-center/notification-center.component.html -->
+<app-base-layout 
+  pageTitle="Notifications" 
+  pageSubtitle="Pusat Notifikasi Toko Eniwan"
+  [showPageHeader]="false"
+  [isLoading]="isLoading"
+  loadingMessage="Loading notifications...">
+
 <div class="notification-center">
     <!-- Header -->
     <div class="notification-header">
@@ -229,3 +236,5 @@
         </span>
     </div>
 </div>
+
+</app-base-layout>

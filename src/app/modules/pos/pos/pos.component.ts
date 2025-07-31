@@ -7,6 +7,9 @@ import { Subject, Observable } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged, switchMap, catchError, take } from 'rxjs/operators';
 import { of } from 'rxjs';
 
+// Angular Material
+import { MatIconModule } from '@angular/material/icon';
+
 // Services
 import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData, ProductListResponseApiResponse } from '../../../core/services/pos.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -14,6 +17,7 @@ import { AuthService } from '../../../core/services/auth.service';
 // Import standalone components
 import { BarcodeToolsComponent } from './barcode-tools/barcode-tools.component';
 import { PaymentModalComponent } from './payment-modal/payment-modal.component';
+import { BaseLayoutComponent } from '../../../shared/components/base-layout/base-layout.component';
 
 @Component({
   selector: 'app-pos',
@@ -23,8 +27,10 @@ import { PaymentModalComponent } from './payment-modal/payment-modal.component';
   imports: [
     CommonModule,
     FormsModule,
+    MatIconModule,
     BarcodeToolsComponent,
-    PaymentModalComponent
+    PaymentModalComponent,
+    BaseLayoutComponent
   ]
 })
 export class POSComponent implements OnInit, OnDestroy {
@@ -148,15 +154,20 @@ loadProducts(): void {
   }
 
   private setupCartSubscription() {
-  this.posService.cart$
-    .pipe(
-      takeUntil(this.destroy$),
-      // ✅ Add distinctUntilChanged to prevent unnecessary updates
-      distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr))
-    )
-    .subscribe((cart: CartItem[]) => {
-      this.cart = [...cart]; // Always create new array reference
-      console.log('🛒 Cart subscription updated:', this.cart.length, 'items');
+    this.posService.cart$
+      .pipe(
+        takeUntil(this.destroy$),
+        // ✅ Add distinctUntilChanged to prevent unnecessary updates
+        distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr))
+      )
+      .subscribe((cart: CartItem[]) => {
+        console.log('🛒 Cart subscription triggered:', cart.length, 'items');
+        this.cart = [...cart]; // Always create new array reference
+        
+        // Force change detection
+        setTimeout(() => {
+          console.log('🛒 Cart state after timeout:', this.cart.length, 'items');
+        }, 0);
       });
   }
 
@@ -219,46 +230,43 @@ loadProducts(): void {
   // ===== CART OPERATIONS =====
 
   addToCart(product: Product, quantity: number = 1) {
-  // Check stock availability
-  if (product.stock < quantity) {
-    this.errorMessage = `Stok tidak mencukupi. Tersedia: ${product.stock}`;
-    this.clearMessages();
-    return;
-  }
-
-  // Check if already in cart
-  const existingItem = this.cart.find(item => item.product.id === product.id);
-  const totalQuantity = existingItem ? existingItem.quantity + quantity : quantity;
-
-  if (totalQuantity > product.stock) {
-    this.errorMessage = `Jumlah melebihi stok. Maksimal: ${product.stock}`;
-    this.clearMessages();
-    return;
-  }
-
-  // ✅ FIX: Add to cart dan force refresh UI
-  this.posService.addToCart(product, quantity, 0);
-  
-  // ✅ FIX: Ensure cart updates immediately
-  this.posService.cart$.pipe(take(1)).subscribe(cart => {
-    this.cart = [...cart]; // Force array reference change
-    console.log('✅ Cart updated:', this.cart.length, 'items');
-  });
-  
-  this.successMessage = `${product.name} ditambahkan ke keranjang`;
-  this.clearMessages();
-
-  // Clear search AFTER cart update
-  setTimeout(() => {
-    this.searchQuery = '';
-    this.filteredProducts = [];
+    console.log('🛒 Adding to cart:', product.name, 'quantity:', quantity);
     
-    // Focus back to search
+    // Check stock availability
+    if (product.stock < quantity) {
+      this.errorMessage = `Stok tidak mencukupi. Tersedia: ${product.stock}`;
+      this.clearMessages();
+      return;
+    }
+
+    // Check if already in cart
+    const existingItem = this.cart.find(item => item.product.id === product.id);
+    const totalQuantity = existingItem ? existingItem.quantity + quantity : quantity;
+
+    if (totalQuantity > product.stock) {
+      this.errorMessage = `Jumlah melebihi stok. Maksimal: ${product.stock}`;
+      this.clearMessages();
+      return;
+    }
+
+    // ✅ FIX: Add to cart and ensure immediate UI update
+    this.posService.addToCart(product, quantity, 0);
+    
+    // ✅ FIX: Force immediate cart refresh without subscription delay
+    this.posService.cart$.pipe(take(1)).subscribe(cart => {
+      this.cart = [...cart]; // Force array reference change
+      console.log('✅ Cart immediately updated:', this.cart.length, 'items');
+    });
+    
+    this.successMessage = `${product.name} ditambahkan ke keranjang`;
+    this.clearMessages();
+
+    // Don't clear search - keep products visible for easy multiple selection
+    // Just focus back to search for easier interaction
     if (this.productSearchInput) {
       this.productSearchInput.nativeElement.focus();
     }
-  }, 100);
-}
+  }
 
   // ===== ENHANCED INPUT HANDLERS =====
 

@@ -1,6 +1,7 @@
 // src/app/core/services/auth.service.ts - FIXED for Cookie-Based Auth
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, tap, catchError, throwError, map, of } from 'rxjs';
 
 interface LoginRequest {
@@ -63,7 +64,7 @@ export class AuthService {
   private currentUserSubject = new BehaviorSubject<CurrentUser | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private router: Router) {
     console.log('🔧 AuthService initialized with DIRECT URL:', this.baseUrl);
     this.checkAuthStatus();
   }
@@ -84,27 +85,33 @@ export class AuthService {
         console.log('Status:', response.status);
         console.log('Response body:', response.body);
         
-        // Check cookies after login
+        if (response.body?.success) {
+          // Store user data immediately
+          const userData: CurrentUser = {
+            id: 1, // Will be set properly when we get user profile
+            username: response.body.user,
+            role: response.body.role,
+            isActive: true
+          };
+          
+          localStorage.setItem('username', response.body.user);
+          localStorage.setItem('role', response.body.role);
+          
+          // Update state immediately
+          this.currentUserSubject.next(userData);
+          this.isLoggedInSubject.next(true);
+          console.log('💾 User data stored in localStorage and state');
+          
+          // Navigate to dashboard after state is updated
+          setTimeout(() => {
+            this.router.navigate(['/dashboard']);
+          }, 50);
+        }
+        
+        // Check cookies after login (for debugging)
         setTimeout(() => {
           console.log('🍪 Cookies AFTER login:', document.cookie);
           this.debugCookies();
-          
-          if (response.body?.success) {
-            // Store user data
-            const userData: CurrentUser = {
-              id: 1, // Will be set properly when we get user profile
-              username: response.body.user,
-              role: response.body.role,
-              isActive: true
-            };
-            
-            localStorage.setItem('username', response.body.user);
-            localStorage.setItem('role', response.body.role);
-            
-            this.currentUserSubject.next(userData);
-            this.isLoggedInSubject.next(true);
-            console.log('💾 User data stored in localStorage and state');
-          }
         }, 100);
       }),
       map((response: any) => response.body!),
@@ -140,8 +147,23 @@ export class AuthService {
         this.currentUserSubject.next(null);
         this.isLoggedInSubject.next(false);
         console.log('✅ Logged out and cleared localStorage + state');
+        
+        // Navigate to login page after successful logout
+        this.router.navigate(['/login']);
       }),
-      catchError(this.handleError.bind(this))
+      catchError((error) => {
+        // Even if logout API fails, clear local data and redirect
+        console.error('❌ Logout API failed, but clearing local data anyway:', error);
+        localStorage.removeItem('username');
+        localStorage.removeItem('role');
+        this.currentUserSubject.next(null);
+        this.isLoggedInSubject.next(false);
+        
+        // Still redirect to login
+        this.router.navigate(['/login']);
+        
+        return this.handleError(error);
+      })
     );
   }
 

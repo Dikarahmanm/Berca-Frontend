@@ -33,233 +33,7 @@ import { NotificationDto,NotificationService } from '../../core/services/notific
     MatProgressSpinnerModule,
     MatSnackBarModule
   ],
-  template: `
-    <header class="topbar">
-      <div class="topbar-container glass-surface">
-        
-        <!-- Left Section: Brand & Page Info -->
-        <div class="topbar-left">
-          
-          <!-- Mobile Menu Toggle -->
-          <button 
-            class="menu-toggle-btn" 
-            *ngIf="showMenuToggle"
-            (click)="menuToggleClicked.emit()"
-            matTooltip="Toggle Menu"
-            [matTooltipPosition]="'below'">
-            <mat-icon>menu</mat-icon>
-          </button>
-
-          <!-- Brand Logo & Name -->
-          <div class="brand-section" (click)="navigateHome()">
-            <div class="brand-logo">
-              <mat-icon>store</mat-icon>
-            </div>
-            <span class="brand-text" *ngIf="!isMobile">{{ brandTitle }}</span>
-          </div>
-
-          <!-- Page Title & Breadcrumb -->
-          <div class="page-info" *ngIf="pageTitle">
-            <h1 class="page-title">{{ pageTitle }}</h1>
-            
-            <!-- Breadcrumb Navigation -->
-            <nav class="breadcrumb-nav" *ngIf="showBreadcrumb && breadcrumb.length > 0">
-              <ol class="breadcrumb">
-                <li class="breadcrumb-item" *ngFor="let crumb of breadcrumb; let last = last">
-                  <span [class.active]="last">{{ crumb }}</span>
-                  <mat-icon *ngIf="!last" class="breadcrumb-separator">chevron_right</mat-icon>
-                </li>
-              </ol>
-            </nav>
-          </div>
-        </div>
-
-        <!-- Right Section: Actions & User -->
-        <div class="topbar-right">
-          
-          <!-- Quick Actions (Optional) -->
-          <div class="quick-actions" *ngIf="showQuickActions">
-            <button class="quick-action-btn" matTooltip="Scan Barcode" [matTooltipPosition]="'below'">
-              <mat-icon>qr_code_scanner</mat-icon>
-            </button>
-            
-            <button class="quick-action-btn" matTooltip="Print Receipt" [matTooltipPosition]="'below'">
-              <mat-icon>print</mat-icon>
-            </button>
-          </div>
-
-          <!-- Notifications -->
-          <div class="notification-section">
-            <button 
-              class="notification-btn"
-              [matMenuTriggerFor]="notificationMenu"
-              [matBadge]="notificationCount > 0 ? (notificationCount > 99 ? '99+' : notificationCount) : null"
-              [matBadgeHidden]="notificationCount === 0"
-              matBadgeColor="warn"
-              matBadgeSize="small"
-              matTooltip="Notifications"
-              [matTooltipPosition]="'below'"
-              [class.has-notifications]="notificationCount > 0">
-              <mat-icon>notifications</mat-icon>
-            </button>
-
-            <!-- Notification Dropdown Menu -->
-            <mat-menu #notificationMenu="matMenu" class="notification-dropdown" xPosition="before">
-              
-              <!-- Notification Header -->
-              <div class="notification-header" (click)="$event.stopPropagation()">
-                <div class="header-title">
-                  <h3>Notifications</h3>
-                  <span class="notification-count" *ngIf="notificationCount > 0">
-                    {{ notificationCount }} unread
-                  </span>
-                </div>
-                
-                <div class="header-actions">
-                  <button class="header-action-btn" (click)="refreshNotifications()" matTooltip="Refresh">
-                    <mat-icon [class.spinning]="isLoadingNotifications">refresh</mat-icon>
-                  </button>
-                  
-                  <button 
-                    class="header-action-btn" 
-                    (click)="markAllAsRead()" 
-                    [disabled]="notificationCount === 0"
-                    matTooltip="Mark All Read">
-                    <mat-icon>mark_email_read</mat-icon>
-                  </button>
-                </div>
-              </div>
-
-              <mat-divider></mat-divider>
-
-              <!-- Notification List -->
-              <div class="notification-list" *ngIf="!isLoadingNotifications && !notificationError">
-                
-                <!-- Individual Notifications -->
-                <div 
-                  class="notification-item" 
-                  *ngFor="let notification of recentNotifications.slice(0, 5); trackBy: trackByNotificationId"
-                  [class.unread]="!notification.isRead"
-                  (click)="onNotificationClick(notification)">
-                  
-                  <div class="notification-icon" [ngClass]="getNotificationTypeClass(notification.type)">
-                    <mat-icon>{{ getNotificationIcon(notification.type) }}</mat-icon>
-                  </div>
-                  
-                  <div class="notification-content">
-                    <div class="notification-title">{{ notification.title }}</div>
-                    <div class="notification-message">{{ notification.message }}</div>
-                    <div class="notification-time">{{ getRelativeTime(notification.createdAt) }}</div>
-                  </div>
-
-                  <div class="unread-indicator" *ngIf="!notification.isRead"></div>
-                </div>
-
-                <!-- Empty State -->
-                <div class="notification-empty" *ngIf="recentNotifications.length === 0">
-                  <mat-icon>notifications_none</mat-icon>
-                  <p>No notifications</p>
-                </div>
-              </div>
-
-              <!-- Loading State -->
-              <div class="notification-loading" *ngIf="isLoadingNotifications" (click)="$event.stopPropagation()">
-                <mat-spinner diameter="32"></mat-spinner>
-                <p>Loading notifications...</p>
-              </div>
-
-              <!-- Error State -->
-              <div class="notification-error" *ngIf="notificationError" (click)="$event.stopPropagation()">
-                <mat-icon>error_outline</mat-icon>
-                <p>{{ notificationError }}</p>
-                <button class="retry-btn" (click)="refreshNotifications()">
-                  <mat-icon>refresh</mat-icon>
-                  Retry
-                </button>
-              </div>
-
-              <mat-divider *ngIf="recentNotifications.length > 0"></mat-divider>
-
-              <!-- Footer Actions -->
-              <div class="notification-footer" (click)="$event.stopPropagation()">
-                <button class="footer-action-btn" (click)="navigateToNotifications()">
-                  <mat-icon>visibility</mat-icon>
-                  View All Notifications
-                </button>
-              </div>
-            </mat-menu>
-          </div>
-
-          <!-- User Profile -->
-          <div class="profile-section">
-            <button 
-              class="profile-btn"
-              [matMenuTriggerFor]="profileMenu"
-              matTooltip="Profile Menu"
-              [matTooltipPosition]="'below'">
-              
-              <div class="profile-avatar">
-                <img *ngIf="userPhoto; else avatarInitials" [src]="userPhoto" [alt]="username + ' avatar'">
-                <ng-template #avatarInitials>
-                  <span class="avatar-initials">{{ getInitials(username) }}</span>
-                </ng-template>
-              </div>
-              
-              <span class="profile-name" *ngIf="!isMobile">{{ username }}</span>
-              <mat-icon class="profile-arrow" *ngIf="!isMobile">expand_more</mat-icon>
-            </button>
-
-            <!-- Profile Dropdown Menu -->
-            <mat-menu #profileMenu="matMenu" class="profile-dropdown" xPosition="before">
-              
-              <!-- Profile Header -->
-              <div class="profile-header" (click)="$event.stopPropagation()">
-                <div class="profile-avatar-large">
-                  <img *ngIf="userPhoto; else avatarInitialsLarge" [src]="userPhoto" [alt]="username + ' avatar'">
-                  <ng-template #avatarInitialsLarge>
-                    <span class="avatar-initials-large">{{ getInitials(username) }}</span>
-                  </ng-template>
-                </div>
-                
-                <div class="profile-details">
-                  <h4>{{ username || 'Guest User' }}</h4>
-                  <p>{{ getRoleDisplay(role) }}</p>
-                </div>
-              </div>
-
-              <mat-divider></mat-divider>
-
-              <!-- Profile Menu Items -->
-              <button mat-menu-item (click)="navigateToProfile()">
-                <mat-icon>person</mat-icon>
-                <span>Edit Profile</span>
-              </button>
-
-              <button mat-menu-item (click)="navigateToSettings()">
-                <mat-icon>settings</mat-icon>
-                <span>Settings</span>
-              </button>
-
-              <button mat-menu-item (click)="toggleTheme()">
-                <mat-icon>{{ isDarkMode ? 'light_mode' : 'dark_mode' }}</mat-icon>
-                <span>{{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}</span>
-              </button>
-
-              <mat-divider></mat-divider>
-
-              <!-- Logout -->
-              <button mat-menu-item class="logout-item" (click)="logout()" [disabled]="isLoggingOut">
-                <mat-icon>logout</mat-icon>
-                <span>Logout</span>
-                <mat-spinner *ngIf="isLoggingOut" diameter="16" class="logout-spinner"></mat-spinner>
-              </button>
-            </mat-menu>
-          </div>
-
-        </div>
-      </div>
-    </header>
-  `,
+  templateUrl: './topbar.component.html',
   styleUrls: ['./topbar.component.scss']
 })
 export class TopbarComponent implements OnInit, OnDestroy {
@@ -288,6 +62,8 @@ export class TopbarComponent implements OnInit, OnDestroy {
   notificationError: string | null = null;
   isLoggingOut: boolean = false;
   isDarkMode: boolean = false;
+  showNotificationDropdown: boolean = false;
+  showProfileDropdown: boolean = false;
 
   private roleDisplayMap: { [key: string]: string } = {
     'Admin': 'Administrator',
@@ -308,11 +84,13 @@ export class TopbarComponent implements OnInit, OnDestroy {
     this.initializeTopbar();
     this.subscribeToNotifications();
     this.checkMobileState();
+    this.setupDocumentClickListener();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    document.removeEventListener('click', this.onDocumentClick.bind(this));
   }
 
   private initializeTopbar(): void {
@@ -321,8 +99,86 @@ export class TopbarComponent implements OnInit, OnDestroy {
     // Load theme preference
     this.isDarkMode = localStorage.getItem('darkMode') === 'true';
     
-    // Load initial notifications
+    // Load initial notifications from API first, then fallback to mock data
     this.loadNotifications();
+  }
+
+  private loadNotifications(): void {
+    try {
+      this.isLoadingNotifications = true;
+      this.notificationError = null;
+      
+      // Try to load from API using existing service method
+      this.notificationService.getNotificationSummary().subscribe({
+        next: (response: any) => {
+          if (response && response.success && response.data) {
+            this.recentNotifications = response.data.recentNotifications || response.recentNotifications || [];
+            this.notificationCount = response.data.unreadCount || response.unreadCount || 0;
+            console.log('✅ Notifications loaded from API:', this.recentNotifications.length);
+          } else {
+            // Fallback to mock data if API response is empty
+            this.initializeMockData();
+          }
+          this.isLoadingNotifications = false;
+        },
+        error: (error: any) => {
+          console.warn('⚠️ API failed, using mock data:', error);
+          this.notificationError = 'Failed to load notifications';
+          // Fallback to mock data
+          this.initializeMockData();
+          this.isLoadingNotifications = false;
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error in loadNotifications:', error);
+      this.initializeMockData();
+      this.isLoadingNotifications = false;
+    }
+  }
+
+  private initializeMockData(): void {
+    console.log('📝 Using mock notification data');
+    
+    // Initialize with mock data for testing
+    this.recentNotifications = [
+      {
+        id: 1,
+        title: 'Pesanan Baru #001',
+        message: 'Pesanan baru telah masuk dari customer',
+        type: 'order',
+        isRead: false,
+        priority: 'high',
+        createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+        userId: 1,
+        createdBy: 'System'
+      },
+      {
+        id: 2, 
+        title: 'Stock Alert',
+        message: 'Stok produk ABC hampir habis',
+        type: 'warning',
+        isRead: false,
+        priority: 'medium',
+        createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+        userId: 1,
+        createdBy: 'System'
+      },
+      {
+        id: 3,
+        title: 'Payment Received',
+        message: 'Pembayaran untuk pesanan #999 berhasil',
+        type: 'success', 
+        isRead: true,
+        priority: 'low',
+        createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+        readAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
+        userId: 1,
+        createdBy: 'System'
+      }
+    ];
+    
+    this.notificationCount = this.recentNotifications.filter(n => !n.isRead).length;
   }
 
   private subscribeToNotifications(): void {
@@ -355,13 +211,88 @@ export class TopbarComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadNotifications(): void {
-    this.notificationService.getNotificationSummary().subscribe({
-      next: (summary: any) => {
-        this.recentNotifications = summary.recentNotifications.slice(0, 5);
+  private setupDocumentClickListener(): void {
+    document.addEventListener('click', this.onDocumentClick.bind(this));
+  }
+
+  private onDocumentClick(event: Event): void {
+    const target = event.target as HTMLElement;
+    const notificationWrapper = target.closest('.notification-wrapper');
+    const profileWrapper = target.closest('.profile-wrapper');
+    
+    if (!notificationWrapper) {
+      this.showNotificationDropdown = false;
+    }
+    
+    if (!profileWrapper) {
+      this.showProfileDropdown = false;
+    }
+  }
+
+  // Dropdown toggle methods
+  toggleNotificationDropdown(): void {
+    this.showNotificationDropdown = !this.showNotificationDropdown;
+    this.showProfileDropdown = false; // Close other dropdown
+  }
+
+  toggleProfileDropdown(): void {
+    this.showProfileDropdown = !this.showProfileDropdown;
+    this.showNotificationDropdown = false; // Close other dropdown
+  }
+
+  // Helper methods for templates
+  getTimeAgo(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Baru saja';
+    if (diffInMinutes < 60) return `${diffInMinutes} menit yang lalu`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} jam yang lalu`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} hari yang lalu`;
+  }
+
+  markAsRead(notification: NotificationDto): void {
+    if (!notification.isRead) {
+      notification.isRead = true;
+      notification.readAt = new Date().toISOString();
+      this.notificationCount = this.recentNotifications.filter(n => !n.isRead).length;
+      // TODO: Call API to mark as read
+    }
+  }
+
+  viewAllNotifications(): void {
+    this.showNotificationDropdown = false;
+    this.router.navigate(['/dashboard/notifications']);
+  }
+
+  markAllAsRead(): void {
+    // Update local state first for immediate UI feedback
+    this.recentNotifications.forEach(notification => {
+      if (!notification.isRead) {
+        notification.isRead = true;
+        notification.readAt = new Date().toISOString();
+      }
+    });
+    this.notificationCount = 0;
+    
+    // Then call API
+    this.notificationService.markAllAsRead().subscribe({
+      next: (success: boolean) => {
+        if (success) {
+          console.log('✅ All notifications marked as read');
+          this.showSuccessMessage('All notifications marked as read');
+        }
       },
       error: (error: any) => {
-        console.error('Error loading notifications:', error);
+        console.error('Error marking all as read:', error);
+        this.showErrorMessage('Failed to mark all as read');
+        // Revert local changes on error
+        this.loadNotifications();
       }
     });
   }
@@ -412,21 +343,6 @@ export class TopbarComponent implements OnInit, OnDestroy {
     });
   }
 
-  markAllAsRead(): void {
-    this.notificationService.markAllAsRead().subscribe({
-      next: (success: boolean) => {
-        if (success) {
-          this.recentNotifications.forEach(n => n.isRead = true);
-          this.showSuccessMessage('All notifications marked as read');
-        }
-      },
-      error: (error: any) => {
-        console.error('Error marking all as read:', error);
-        this.showErrorMessage('Failed to mark all as read');
-      }
-    });
-  }
-
   refreshNotifications(): void {
     this.loadNotifications();
   }
@@ -468,6 +384,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
   getNotificationIcon(type: string): string {
     const iconMap: { [key: string]: string } = {
+      'order': 'shopping_cart',
+      'warning': 'warning',
+      'success': 'check_circle',
+      'info': 'info',
+      'error': 'error',
       'LOW_STOCK': 'warning',
       'SALE_COMPLETED': 'point_of_sale',
       'SYSTEM_MAINTENANCE': 'build',

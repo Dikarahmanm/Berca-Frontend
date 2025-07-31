@@ -28,12 +28,6 @@ import { AuthService } from '../../../core/services/auth.service';
       
       <!-- Sidebar Header -->
       <div class="sidebar-header">
-        <div class="sidebar-brand" (click)="navigateHome()">
-          <div class="brand-icon">
-            <mat-icon>store</mat-icon>
-          </div>
-          <span class="brand-text" *ngIf="!collapsed">{{ brandTitle }}</span>
-        </div>
 
         <button 
           class="collapse-btn" 

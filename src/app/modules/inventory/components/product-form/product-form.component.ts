@@ -102,9 +102,11 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     this.productForm = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(100)]],
       barcode: ['', [Validators.required, Validators.pattern(/^[0-9A-Za-z\-_]+$/)]],
+      description: ['', [Validators.maxLength(500)]],
       categoryId: ['', Validators.required],
+      unit: ['pcs', Validators.required],
       stock: [0, [Validators.required, Validators.min(0)]],
-      minStock: [10, [Validators.required, Validators.min(0)]],
+      minimumStock: [10, [Validators.required, Validators.min(0)]],
       buyPrice: [0, [Validators.required, Validators.min(0)]],
       sellPrice: [0, [Validators.required, Validators.min(0)]],
       isActive: [true]
@@ -188,9 +190,11 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     this.productForm.patchValue({
       name: product.name,
       barcode: product.barcode,
+      description: product.description || '',
       categoryId: product.categoryId,
+      unit: product.unit || 'pcs',
       stock: product.stock,
-      minStock: product.minimumStock,
+      minimumStock: product.minimumStock,
       buyPrice: product.buyPrice,
       sellPrice: product.sellPrice,
       isActive: product.isActive
@@ -201,9 +205,11 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     this.productForm.patchValue({
       name: this.duplicateData.name,
       barcode: '', // Clear barcode for manual entry
+      description: this.duplicateData.description || '',
       categoryId: this.duplicateData.categoryId,
+      unit: this.duplicateData.unit || 'pcs',
       stock: 0, // Reset stock
-      minStock: this.duplicateData.minStock,
+      minimumStock: this.duplicateData.minimumStock,
       buyPrice: this.duplicateData.buyPrice,
       sellPrice: this.duplicateData.sellPrice,
       isActive: true
@@ -253,9 +259,11 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     const labels: { [key: string]: string } = {
       name: 'Product name',
       barcode: 'Barcode',
+      description: 'Description',
       categoryId: 'Category',
+      unit: 'Unit',
       stock: 'Stock quantity',
-      minStock: 'Minimum stock',
+      minimumStock: 'Minimum stock',
       buyPrice: 'Buy price',
       sellPrice: 'Sell price'
     };
@@ -333,11 +341,11 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     const createRequest: CreateProductRequest = {
       name: formData.name,
       barcode: formData.barcode,
-      description: formData.description,
+      description: formData.description || '',
       categoryId: formData.categoryId,
       stock: formData.stock,
-      minimumStock: formData.minStock,
-      unit: formData.unit || 'PCS',
+      minimumStock: formData.minimumStock,
+      unit: formData.unit || 'pcs',
       buyPrice: formData.buyPrice,
       sellPrice: formData.sellPrice,
       isActive: formData.isActive
@@ -364,11 +372,11 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     const updateRequest: UpdateProductRequest = {
       name: formData.name,
       barcode: formData.barcode,
-      description: formData.description,
+      description: formData.description || '',
       categoryId: formData.categoryId,
       stock: formData.stock,
-      minimumStock: formData.minStock,
-      unit: formData.unit || 'PCS',
+      minimumStock: formData.minimumStock,
+      unit: formData.unit || 'pcs',
       buyPrice: formData.buyPrice,
       sellPrice: formData.sellPrice,
       isActive: formData.isActive

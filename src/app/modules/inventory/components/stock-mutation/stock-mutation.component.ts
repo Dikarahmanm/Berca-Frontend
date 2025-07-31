@@ -261,6 +261,10 @@ export class StockMutationComponent implements OnInit, OnDestroy {
       unitCost: formData.unitCost > 0 ? formData.unitCost : undefined
     };
 
+    console.log('📋 Form Data:', formData);
+    console.log('📦 Stock Update Request:', request);
+    console.log('🔢 Product ID:', this.productId);
+
     this.subscriptions.add(
       this.inventoryService.updateStock(this.productId, request).subscribe({
         next: () => {
@@ -271,6 +275,7 @@ export class StockMutationComponent implements OnInit, OnDestroy {
           this.saving = false;
         },
         error: (error) => {
+          console.error('❌ Stock Update Component Error:', error);
           this.showError('Failed to update stock: ' + error.message);
           this.saving = false;
         }

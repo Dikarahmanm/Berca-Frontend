@@ -152,9 +152,12 @@ export class InventoryService {
    * Backend: DELETE /api/Product/{id}
    */
   deleteProduct(id: number): Observable<boolean> {
+    console.log('🗑️ Delete Product Request:', { id, url: `${this.apiUrl}/${id}` });
+    
     return this.http.delete<ApiResponse<boolean>>(`${this.apiUrl}/${id}`)
       .pipe(
         map(response => {
+          console.log('✅ Delete Product Response:', response);
           if (response.success) {
             // Refresh products list
             this.refreshProducts();
@@ -162,7 +165,10 @@ export class InventoryService {
           }
           throw new Error(response.message);
         }),
-        catchError(error => this.handleError(error))
+        catchError(error => {
+          console.error('❌ Delete Product Error:', error);
+          return this.handleError(error);
+        })
       );
   }
 
@@ -174,9 +180,12 @@ export class InventoryService {
    */
   updateStock(productId: number, request: StockUpdateRequest): Observable<boolean> {
     const url = `${this.apiUrl}/${productId}/stock`;
+    console.log('🔄 Stock Update Request:', { productId, request, url });
+    
     return this.http.post<ApiResponse<boolean>>(url, request)
       .pipe(
         map(response => {
+          console.log('✅ Stock Update Response:', response);
           if (response.success) {
             // Refresh products list
             this.refreshProducts();
@@ -184,7 +193,10 @@ export class InventoryService {
           }
           throw new Error(response.message);
         }),
-        catchError(error => this.handleError(error))
+        catchError(error => {
+          console.error('❌ Stock Update Error:', error);
+          return this.handleError(error);
+        })
       );
   }
 
@@ -233,15 +245,22 @@ export class InventoryService {
     if (startDate) params = params.set('startDate', startDate.toISOString());
     if (endDate) params = params.set('endDate', endDate.toISOString());
 
-    return this.http.get<ApiResponse<InventoryMutation[]>>(`${this.apiUrl}/${productId}/history`, { params })
+    const url = `${this.apiUrl}/${productId}/history`;
+    console.log('📋 Get History Request:', { productId, startDate, endDate, url, params: params.toString() });
+
+    return this.http.get<ApiResponse<InventoryMutation[]>>(url, { params })
       .pipe(
         map(response => {
+          console.log('✅ Get History Response:', response);
           if (response.success) {
             return response.data;
           }
           throw new Error(response.message);
         }),
-        catchError(error => this.handleError(error))
+        catchError(error => {
+          console.error('❌ Get History Error:', error);
+          return this.handleError(error);
+        })
       );
   }
 

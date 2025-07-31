@@ -124,6 +124,7 @@ export class InventoryListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    console.log('[Inventory] InventoryListComponent ngOnInit dipanggil!');
     this.setupSubscriptions();
     this.loadCategories();
     this.loadProducts();

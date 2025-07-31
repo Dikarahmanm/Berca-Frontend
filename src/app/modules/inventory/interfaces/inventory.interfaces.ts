@@ -2,33 +2,33 @@ export interface Product {
   id: number;
   name: string;
   barcode: string;
-  description?: string;                    // ✅ ADDED: Missing from original
+  description?: string;
   buyPrice: number;
   sellPrice: number;
   stock: number;
-  minimumStock: number;                    // ✅ FIXED: minStock -> minimumStock
-  unit: string;                           // ✅ ADDED: Missing from original
-  imageUrl?: string;                      // ✅ ADDED: Missing from original
+  minimumStock: number; // ✅ FIXED: Ensure this matches backend
+  unit: string;
   isActive: boolean;
   categoryId: number;
   categoryName?: string;
   categoryColor?: string;
   createdAt: Date;
   updatedAt: Date;
-  profitMargin: number;                   // ✅ ADDED: Missing computed property
-  isLowStock: boolean;                    // ✅ ADDED: Missing computed property
-  isOutOfStock: boolean;                  // ✅ ADDED: Missing computed property
+  // Computed properties
+  profitMargin?: number;
+  isLowStock?: boolean;
+  isOutOfStock?: boolean;
 }
 
 export interface CreateProductRequest {
   name: string;
   barcode: string;
-  description?: string;                   // ✅ ADDED
+  description?: string;
   buyPrice: number;
   sellPrice: number;
   stock: number;
-  minimumStock: number;                   // ✅ FIXED: minStock -> minimumStock
-  unit: string;                          // ✅ ADDED
+  minimumStock: number; // ✅ FIXED: Include minimumStock
+  unit: string;
   categoryId: number;
   isActive: boolean;
 }
@@ -36,30 +36,30 @@ export interface CreateProductRequest {
 export interface UpdateProductRequest {
   name: string;
   barcode: string;
-  description?: string;                   // ✅ ADDED
+  description?: string;
   buyPrice: number;
   sellPrice: number;
   stock: number;
-  minimumStock: number;                   // ✅ FIXED: minStock -> minimumStock
-  unit: string;                          // ✅ ADDED
+  minimumStock: number; // ✅ FIXED: Include minimumStock
+  unit: string;
   categoryId: number;
   isActive: boolean;
 }
 
-export interface ProductListResponse {
-  products: Product[];                    // ✅ FIXED: Products -> products (lowercase)
-  totalItems: number;                     // ✅ FIXED: totalProducts -> totalItems
-  totalPages: number;
-  currentPage: number;
-  pageSize: number;
-}
-
 export interface StockUpdateRequest {
+  mutationType: MutationType; // ✅ FIXED: Use correct property name
   quantity: number;
-  type: MutationType;
   notes: string;
   referenceNumber?: string;
   unitCost?: number;
+}
+
+export interface ProductListResponse {
+  products: Product[];
+  totalItems: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
 }
 
 export interface ProductFilter {
@@ -79,7 +79,7 @@ export interface InventoryMutation {
   id: number;
   productId: number;
   productName: string;
-  type: string;                          // Backend returns string, not enum
+  type: string;
   quantity: number;
   stockBefore: number;
   stockAfter: number;
@@ -97,6 +97,7 @@ export enum MutationType {
   Sale = 'Sale',
   Return = 'Return',
   Adjustment = 'Adjustment',
+  Transfer = 'Transfer',
   Damaged = 'Damaged',
   Expired = 'Expired'
 }

@@ -1,30 +1,26 @@
-// ===== STOCK MUTATION COMPONENT =====
-// src/app/modules/inventory/components/stock-mutation/stock-mutation.component.ts
-
 import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { CommonModule, SlicePipe } from '@angular/common';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { MatTableModule, MatTableDataSource } from '@angular/material/table';
-import { MatPaginatorModule, MatPaginator } from '@angular/material/paginator';
-import { MatSortModule, MatSort } from '@angular/material/sort';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTableDataSource, MatTableModule } from '@angular/material/table';
+import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
+import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatTabsModule } from '@angular/material/tabs';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDividerModule } from '@angular/material/divider';
 import { Subscription } from 'rxjs';
 
-// Services & Interfaces
 import { InventoryService } from '../../services/inventory.service';
 import { Product, InventoryMutation, StockUpdateRequest, MutationType } from '../../interfaces/inventory.interfaces';
 
@@ -33,9 +29,9 @@ import { Product, InventoryMutation, StockUpdateRequest, MutationType } from '..
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     ReactiveFormsModule,
     RouterModule,
+    SlicePipe,
     MatTableModule,
     MatPaginatorModule,
     MatSortModule,
@@ -45,13 +41,13 @@ import { Product, InventoryMutation, StockUpdateRequest, MutationType } from '..
     MatButtonModule,
     MatIconModule,
     MatCardModule,
+    MatTabsModule,
     MatChipsModule,
-    MatSnackBarModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatTabsModule,
     MatDatepickerModule,
     MatNativeDateModule,
+    MatSnackBarModule,
     MatDividerModule
   ],
   templateUrl: './stock-mutation.component.html',
@@ -69,42 +65,37 @@ export class StockMutationComponent implements OnInit, OnDestroy {
   stockForm!: FormGroup;
   historyFilterForm!: FormGroup;
   
-  // Data sources
-  historyDataSource = new MatTableDataSource<InventoryMutation>([]);
-  historyColumns: string[] = ['date', 'type', 'quantity', 'stockBefore', 'stockAfter', 'notes', 'reference', 'createdBy'];
+  // Data & UI state
+  mutationHistory = new MatTableDataSource<InventoryMutation>([]);
+  historyColumns = ['date', 'type', 'quantity', 'stockBefore', 'stockAfter', 'notes', 'createdBy'];
   
-  // State management
   loading = false;
   saving = false;
   loadingHistory = false;
   
-  // Mutation types
+  // Mutation types for dropdown
   mutationTypes = [
     { value: MutationType.StockIn, label: 'Stock In', icon: 'add_circle', color: '#4BBF7B' },
     { value: MutationType.StockOut, label: 'Stock Out', icon: 'remove_circle', color: '#E15A4F' },
     { value: MutationType.Adjustment, label: 'Adjustment', icon: 'tune', color: '#FFB84D' },
+    { value: MutationType.Transfer, label: 'Transfer', icon: 'swap_horiz', color: '#FF914D' },
     { value: MutationType.Damaged, label: 'Damaged', icon: 'broken_image', color: '#E15A4F' },
-    { value: MutationType.Expired, label: 'Expired', icon: 'schedule', color: '#FF914D' },
-    { value: MutationType.Return, label: 'Return', icon: 'undo', color: '#4BBF7B' }
+    { value: MutationType.Expired, label: 'Expired', icon: 'schedule', color: '#E15A4F' }
   ];
-  
-  // Tabs
-  selectedTabIndex = 0;
   
   private subscriptions = new Subscription();
 
   constructor(
     private fb: FormBuilder,
-    private inventoryService: InventoryService,
     private router: Router,
     private route: ActivatedRoute,
+    private inventoryService: InventoryService,
     private snackBar: MatSnackBar
-  ) {
-    this.initializeForms();
-  }
+  ) {}
 
   ngOnInit(): void {
     this.getProductId();
+    this.initializeForms();
     this.loadProduct();
     this.loadHistory();
   }
@@ -113,14 +104,79 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     this.subscriptions.unsubscribe();
   }
 
-  // ===== INITIALIZATION =====
+  // ===== COMPUTED PROPERTIES =====
+  
+  get selectedMutationType() {
+    const type = this.stockForm?.get('type')?.value;
+    return this.mutationTypes.find(t => t.value === type) || this.mutationTypes[0];
+  }
+
+  get isStockOutType(): boolean {
+    const type = this.stockForm?.get('type')?.value;
+    return type === MutationType.StockOut || type === MutationType.Damaged || type === MutationType.Expired;
+  }
+
+  get canSubmit(): boolean {
+    return this.stockForm?.valid && !this.saving;
+  }
+
+  get historyDataSource() {
+    return this.mutationHistory;
+  }
+
+  get currentStockStatus(): string {
+    if (!this.product) return '';
+    
+    const stock = this.product.stock;
+    const minStock = this.product.minimumStock;
+    
+    if (stock === 0) return 'Out of Stock';
+    if (stock <= minStock) return 'Low Stock';
+    if (stock <= minStock * 2) return 'Medium Stock';
+    return 'Good Stock';
+  }
+
+  get maxQuantityAllowed(): number {
+    if (!this.product) return 1;
+    return this.product.stock; // Max adalah stock yang tersedia
+  }
+
+  // ===== CUSTOM VALIDATORS =====
+
+  private quantityValidator = (control: AbstractControl): ValidationErrors | null => {
+    if (!control.value && control.value !== 0) {
+      return { required: true };
+    }
+
+    const quantity = Number(control.value);
+    
+    if (isNaN(quantity)) {
+      return { invalidNumber: true };
+    }
+
+    if (quantity === 0) {
+      return { cannotBeZero: true };
+    }
+
+    // Jika quantity negatif, pastikan tidak melebihi stock yang tersedia
+    if (quantity < 0 && this.product) {
+      const absQuantity = Math.abs(quantity);
+      if (absQuantity > this.product.stock) {
+        return { exceedsStock: { max: this.product.stock, actual: absQuantity } };
+      }
+    }
+
+    return null;
+  };
+
+  // ===== FORM INITIALIZATION =====
 
   private initializeForms(): void {
     this.stockForm = this.fb.group({
-      type: [MutationType.StockIn, Validators.required],
-      quantity: [1, [Validators.required, Validators.min(1)]],
+      type: [MutationType.StockIn, [Validators.required]],
+      quantity: [1, [this.quantityValidator]],
       notes: ['', [Validators.required, Validators.maxLength(500)]],
-      referenceNumber: [''],
+      referenceNumber: ['', [Validators.maxLength(50)]],
       unitCost: [0, [Validators.min(0)]]
     });
 
@@ -130,14 +186,12 @@ export class StockMutationComponent implements OnInit, OnDestroy {
       type: ['']
     });
 
-    // Watch type changes to update form validation
     this.subscriptions.add(
       this.stockForm.get('type')?.valueChanges.subscribe(type => {
         this.updateFormValidation(type);
       })
     );
 
-    // Watch history filter changes
     this.subscriptions.add(
       this.historyFilterForm.valueChanges.subscribe(() => {
         this.loadHistory();
@@ -149,22 +203,9 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     const quantityControl = this.stockForm.get('quantity');
     const unitCostControl = this.stockForm.get('unitCost');
     
-    if (type === MutationType.StockOut) {
-      // For stock out, quantity should not exceed current stock
-      const maxStock = this.product?.stock || 0;
-      quantityControl?.setValidators([
-        Validators.required,
-        Validators.min(1),
-        Validators.max(maxStock)
-      ]);
-    } else {
-      quantityControl?.setValidators([
-        Validators.required,
-        Validators.min(1)
-      ]);
-    }
+    // Update quantity validator dengan custom validator
+    quantityControl?.setValidators([this.quantityValidator]);
     
-    // Unit cost is required for stock in
     if (type === MutationType.StockIn) {
       unitCostControl?.setValidators([
         Validators.required,
@@ -196,11 +237,12 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     
     this.loading = true;
     this.subscriptions.add(
-      this.inventoryService.getProductById(this.productId).subscribe({
+      this.inventoryService.getProduct(this.productId).subscribe({
         next: (product) => {
           this.product = product;
-          this.updateFormValidation(this.stockForm.get('type')?.value);
           this.loading = false;
+          // Re-validate quantity after product is loaded
+          this.stockForm.get('quantity')?.updateValueAndValidity();
         },
         error: (error) => {
           this.showError('Failed to load product: ' + error.message);
@@ -219,64 +261,96 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     
     this.subscriptions.add(
       this.inventoryService.getInventoryHistory(
-        this.productId, 
-        filterValues.startDate, 
+        this.productId,
+        filterValues.startDate,
         filterValues.endDate
       ).subscribe({
         next: (history) => {
-          // Filter by type if selected
           let filteredHistory = history;
           if (filterValues.type) {
             filteredHistory = history.filter(h => h.type === filterValues.type);
           }
           
-          this.historyDataSource.data = filteredHistory;
+          this.mutationHistory.data = filteredHistory;
           this.loadingHistory = false;
+          
+          setTimeout(() => {
+            this.mutationHistory.paginator = this.paginator;
+            this.mutationHistory.sort = this.sort;
+          });
         },
         error: (error) => {
-          this.showError('Failed to load history: ' + error.message);
+          this.showError('Failed to load inventory history: ' + error.message);
           this.loadingHistory = false;
         }
       })
     );
   }
 
-  // ===== STOCK OPERATIONS =====
+  // ===== FORM SUBMISSION =====
 
   onSubmitStockUpdate(): void {
-    if (this.stockForm.invalid || !this.productId) {
+    if (this.stockForm.invalid) {
       this.markFormGroupTouched();
-      this.showError('Please fix the form errors before submitting');
+      return;
+    }
+    if (!this.productId) {
+      this.showError('Invalid product ID');
+      return;
+    }
+    
+    this.saving = true;
+    const formData = this.stockForm.value;
+    let quantity = Number(formData.quantity);
+    
+    if (isNaN(quantity)) {
+      this.showError('Quantity must be a number');
+      this.saving = false;
+      return;
+    }
+    
+    if (quantity === 0) {
+      this.showError('Quantity cannot be zero');
+      this.saving = false;
       return;
     }
 
-    this.saving = true;
-    const formData = this.stockForm.value;
+    // Validasi tambahan untuk quantity negatif
+    if (quantity < 0 && this.product) {
+      const absQuantity = Math.abs(quantity);
+      if (absQuantity > this.product.stock) {
+        this.showError(`Cannot reduce stock by ${absQuantity}. Available stock: ${this.product.stock}`);
+        this.saving = false;
+        return;
+      }
+    }
+    
+    // Konversi mutationType ke string
+    let mutationTypeString = formData.type;
+    if (typeof mutationTypeString === 'number' && this.mutationTypes) {
+      const found = this.mutationTypes.find(t => t.value === mutationTypeString);
+      if (found) mutationTypeString = found.label.replace(/ /g, '');
+    }
     
     const request: StockUpdateRequest = {
-      quantity: formData.quantity,
-      type: formData.type,
-      notes: formData.notes,
-      referenceNumber: formData.referenceNumber || undefined,
-      unitCost: formData.unitCost > 0 ? formData.unitCost : undefined
+      mutationType: mutationTypeString,
+      quantity,
+      notes: formData.notes.trim(),
+      referenceNumber: formData.referenceNumber?.trim() || undefined,
+      unitCost: formData.unitCost && formData.unitCost > 0 ? parseFloat(formData.unitCost) : undefined
     };
-
-    console.log('📋 Form Data:', formData);
-    console.log('📦 Stock Update Request:', request);
-    console.log('🔢 Product ID:', this.productId);
-
+    
     this.subscriptions.add(
       this.inventoryService.updateStock(this.productId, request).subscribe({
         next: () => {
           this.showSuccess('Stock updated successfully');
           this.resetForm();
-          this.loadProduct(); // Refresh product data
-          this.loadHistory(); // Refresh history
+          this.loadProduct();
+          this.loadHistory();
           this.saving = false;
         },
-        error: (error) => {
-          console.error('❌ Stock Update Component Error:', error);
-          this.showError('Failed to update stock: ' + error.message);
+        error: (err) => {
+          this.showError('Failed to update stock');
           this.saving = false;
         }
       })
@@ -300,42 +374,15 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ===== QUICK ACTIONS =====
+  // ===== TAB CHANGES =====
 
-  quickStockIn(amount: number): void {
-    this.stockForm.patchValue({
-      type: MutationType.StockIn,
-      quantity: amount,
-      notes: `Quick stock in - ${amount} units`
-    });
-  }
-
-  quickStockOut(amount: number): void {
-    const maxAmount = Math.min(amount, this.product?.stock || 0);
-    this.stockForm.patchValue({
-      type: MutationType.StockOut,
-      quantity: maxAmount,
-      notes: `Quick stock out - ${maxAmount} units`
-    });
-  }
-
-  quickAdjustment(): void {
-    this.stockForm.patchValue({
-      type: MutationType.Adjustment,
-      notes: 'Stock count adjustment'
-    });
+  onTabChange(event: any): void {
+    if (event.index === 1) {
+      this.loadHistory();
+    }
   }
 
   // ===== UTILITY METHODS =====
-
-  getMutationTypeInfo(type: MutationType) {
-    return this.mutationTypes.find(t => t.value === type) || this.mutationTypes[0];
-  }
-
-  getMutationTypeLabel(type: string): string {
-    const typeInfo = this.mutationTypes.find(t => t.value === type);
-    return typeInfo?.label || type;
-  }
 
   getMutationTypeIcon(type: string): string {
     const typeInfo = this.mutationTypes.find(t => t.value === type);
@@ -347,6 +394,23 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     return typeInfo?.color || '#666666';
   }
 
+  getMutationTypeLabel(type: string): string {
+    const typeInfo = this.mutationTypes.find(t => t.value === type);
+    return typeInfo?.label || type;
+  }
+
+  // Helper method untuk menghitung actual quantity change berdasarkan before/after
+  getActualQuantityChange(mutation: InventoryMutation): number {
+    return mutation.stockAfter - mutation.stockBefore;
+  }
+
+  // Helper method untuk format quantity dengan tanda yang benar
+  formatQuantityChange(mutation: InventoryMutation): string {
+    const actualChange = this.getActualQuantityChange(mutation);
+    const sign = actualChange > 0 ? '+' : '';
+    return `${sign}${this.formatNumber(actualChange)}`;
+  }
+
   getStockStatusColor(product: Product): string {
     if (product.stock === 0) return '#E15A4F';
     if (product.stock <= product.minimumStock) return '#FF914D';
@@ -354,32 +418,67 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     return '#4BBF7B';
   }
 
+  getNewStockColor(): string {
+    if (!this.product || !this.stockForm?.valid) return '#666';
+    
+    const newStock = this.getNewStockPreview();
+
+    if (newStock <= 0) return '#E15A4F';
+    if (newStock <= this.product.minimumStock) return '#FFB84D';
+    return '#4BBF7B';
+  }
+
   getNewStockPreview(): number {
     if (!this.product) return 0;
     
     const currentStock = this.product.stock;
-    const quantity = this.stockForm.get('quantity')?.value || 0;
-    const type = this.stockForm.get('type')?.value;
+    const quantity = parseInt(this.stockForm.get('quantity')?.value) || 0;
     
-    if (type === MutationType.StockOut) {
-      return Math.max(0, currentStock - quantity);
-    } else {
-      return currentStock + quantity;
-    }
-  }
-
-  getNewStockColor(): string {
-    if (!this.product) return '#666';
+    // Jika quantity negatif, kurangi dari stock
+    // Jika quantity positif, tambah ke stock
+    const newStock = currentStock + quantity;
     
-    const newStock = this.getNewStockPreview();
-    const tempProduct = { ...this.product, stock: newStock };
-    return this.getStockStatusColor(tempProduct);
+    return Math.max(0, newStock);
   }
 
   getTotalCostPreview(): number {
-    const quantity = this.stockForm.get('quantity')?.value || 0;
-    const unitCost = this.stockForm.get('unitCost')?.value || 0;
+    if (!this.stockForm?.valid) return 0;
+    
+    const quantity = Math.abs(parseInt(this.stockForm.get('quantity')?.value) || 0);
+    const unitCost = parseFloat(this.stockForm.get('unitCost')?.value) || 0;
+    
     return quantity * unitCost;
+  }
+
+  // ===== QUICK ACTIONS =====
+
+  quickStockIn(amount: number): void {
+    this.stockForm.patchValue({
+      type: MutationType.StockIn,
+      quantity: amount,
+      notes: `Quick stock in - ${amount} units`
+    });
+  }
+
+  quickStockOut(amount: number): void {
+    if (!this.product || this.product.stock < amount) {
+      this.showError(`Cannot reduce stock by ${amount}. Available stock: ${this.product?.stock || 0}`);
+      return;
+    }
+    
+    this.stockForm.patchValue({
+      type: MutationType.StockOut,
+      quantity: -amount, // Gunakan nilai negatif
+      notes: `Quick stock out - ${amount} units`
+    });
+    this.onSubmitStockUpdate();
+  }
+
+  quickAdjustment(): void {
+    this.stockForm.patchValue({
+      type: MutationType.Adjustment,
+      notes: 'Stock count adjustment'
+    });
   }
 
   formatCurrency(amount: number): string {
@@ -394,49 +493,41 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     return new Intl.NumberFormat('id-ID').format(value);
   }
 
-  formatDate(date: Date): string {
+  formatDate(date: string | Date): string {
     return new Intl.DateTimeFormat('id-ID', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jakarta'
     }).format(new Date(date));
   }
 
-  // ===== TAB MANAGEMENT =====
-
-  onTabChange(event: any): void {
-    this.selectedTabIndex = event.index;
-  }
-
-  // ===== FORM VALIDATION =====
-
-  isFieldInvalid(fieldName: string): boolean {
-    const field = this.stockForm.get(fieldName);
-    return !!(field && field.invalid && (field.dirty || field.touched));
-  }
+  // ===== FORM VALIDATION HELPERS =====
 
   getFieldError(fieldName: string): string {
-    const field = this.stockForm.get(fieldName);
-    if (field && field.errors && (field.dirty || field.touched)) {
-      if (field.errors['required']) return `${this.getFieldLabel(fieldName)} is required`;
-      if (field.errors['min']) return `${this.getFieldLabel(fieldName)} must be positive`;
-      if (field.errors['max']) return `Quantity cannot exceed current stock (${this.product?.stock})`;
-      if (field.errors['maxlength']) return `${this.getFieldLabel(fieldName)} is too long`;
+    const control = this.stockForm.get(fieldName);
+    if (control?.errors && control.touched) {
+      const errors = control.errors;
+      
+      if (errors['required']) return `${fieldName} is required`;
+      if (errors['invalidNumber']) return `${fieldName} must be a valid number`;
+      if (errors['cannotBeZero']) return `${fieldName} cannot be zero`;
+      if (errors['exceedsStock']) {
+        return `Cannot reduce stock by ${errors['exceedsStock'].actual}. Available stock: ${errors['exceedsStock'].max}`;
+      }
+      if (errors['min']) return `${fieldName} must be greater than ${errors['min'].min}`;
+      if (errors['max']) return `${fieldName} cannot exceed ${errors['max'].max}`;
+      if (errors['maxlength']) return `${fieldName} is too long`;
     }
     return '';
   }
 
-  private getFieldLabel(fieldName: string): string {
-    const labels: { [key: string]: string } = {
-      type: 'Mutation type',
-      quantity: 'Quantity',
-      notes: 'Notes',
-      referenceNumber: 'Reference number',
-      unitCost: 'Unit cost'
-    };
-    return labels[fieldName] || fieldName;
+  isFieldInvalid(fieldName: string): boolean {
+    const control = this.stockForm.get(fieldName);
+    return !!(control?.errors && control.touched);
   }
 
   // ===== NAVIGATION =====
@@ -445,50 +536,23 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     this.router.navigate(['/dashboard/inventory']);
   }
 
-  // ===== NOTIFICATION METHODS =====
+  editProduct(): void {
+    this.router.navigate(['/dashboard/inventory/edit', this.productId]);
+  }
+
+  // ===== NOTIFICATIONS =====
 
   private showSuccess(message: string): void {
     this.snackBar.open(message, 'Close', {
       duration: 3000,
-      panelClass: ['success-snackbar'],
-      horizontalPosition: 'end',
-      verticalPosition: 'top'
+      panelClass: ['success-snackbar']
     });
   }
 
   private showError(message: string): void {
     this.snackBar.open(message, 'Close', {
       duration: 5000,
-      panelClass: ['error-snackbar'],
-      horizontalPosition: 'end',
-      verticalPosition: 'top'
+      panelClass: ['error-snackbar']
     });
-  }
-
-  // ===== GETTERS FOR TEMPLATE =====
-
-  get canSubmit(): boolean {
-    return this.stockForm.valid && !this.saving && !!this.product;
-  }
-
-  get currentStockStatus(): string {
-    if (!this.product) return 'Unknown';
-    if (this.product.stock === 0) return 'Out of Stock';
-    if (this.product.stock <= this.product.minimumStock) return 'Low Stock';
-    if (this.product.stock <= this.product.minimumStock * 2) return 'Medium Stock';
-    return 'Good Stock';
-  }
-
-  get selectedMutationType() {
-    const type = this.stockForm.get('type')?.value;
-    return this.getMutationTypeInfo(type);
-  }
-
-  get isStockOutType(): boolean {
-    return this.stockForm.get('type')?.value === MutationType.StockOut;
-  }
-
-  get maxQuantityAllowed(): number {
-    return this.isStockOutType ? (this.product?.stock || 0) : 999999;
   }
 }

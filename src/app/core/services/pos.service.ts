@@ -1,4 +1,4 @@
-// src/app/core/services/pos.service.ts - CORRECTED BACKEND INTEGRATION
+// ✅ COMPLETE FIX: src/app/core/services/pos.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError } from 'rxjs';
@@ -6,110 +6,44 @@ import { tap, catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environment/environment';
 import { ApiResponse } from './user-profile.service';
 
-// ===== BACKEND DTO INTERFACES - EXACT MATCH =====
+// ✅ IMPORT AND RE-EXPORT FROM CENTRALIZED INTERFACES
+import {
+  CreateSaleRequest,
+  CreateSaleItemRequest,
+  SaleDto,
+  SaleItemDto,
+  ProductDto,
+  ReceiptDataDto,
+  Product,
+  Sale,
+  SaleItem,
+  CartItem,
+  PaymentData,
+  ReceiptData
+} from '../../modules/pos/pos/interfaces/pos.interfaces';
 
-export interface CreateSaleRequest {
-  items: CreateSaleItemRequest[];
-  subTotal: number;
-  discountAmount: number;
-  taxAmount: number;
-  total: number;
-  amountPaid: number;
-  changeAmount: number;
-  paymentMethod: string;
-  paymentReference?: string;
-  memberId?: number;
-  customerName?: string;
-  notes?: string;
-  redeemedPoints?: number;
-}
+// ✅ RE-EXPORT ALL INTERFACES FOR OTHER COMPONENTS
+export type {
+  CreateSaleRequest,
+  CreateSaleItemRequest,
+  SaleDto,
+  SaleItemDto,
+  ProductDto,
+  ReceiptDataDto,
+  Product,
+  Sale,
+  SaleItem,
+  CartItem,
+  PaymentData,
+  ReceiptData
+};
 
-export interface CreateSaleItemRequest {
-  productId: number;
-  quantity: number;
-  sellPrice: number;
-  discount: number;
-}
-
-export interface CalculateTotalRequest {
-  items: CreateSaleItemRequest[];
-  globalDiscountPercent?: number;
-}
-
-export interface SaleDto {
-  id: number;
-  saleNumber: string;
-  saleDate: Date;
-  subtotal: number;
-  discountAmount: number;
-  taxAmount: number;
-  total: number;
-  amountPaid: number;
-  changeAmount: number;
-  paymentMethod: string;
-  paymentReference?: string;
-  memberId?: number;
-  memberName?: string;
-  memberNumber?: string;
-  customerName?: string;
-  cashierId: number;
-  cashierName: string;
-  status: string;
-  notes?: string;
-  receiptPrinted: boolean;
-  receiptPrintedAt?: Date;
-  items: SaleItemDto[];
-  createdAt: Date;
-  totalItems: number;
-  totalProfit: number;
-  discountPercentage: number;
-  redeemedPoints: number;
-}
-
-export interface SaleItemDto {
-  id: number;
-  saleId: number;
-  productId: number;
-  productName: string;
-  productBarcode: string;
-  quantity: number;
-  sellPrice: number;
-  buyPrice: number;
-  discount: number;
-  subtotal: number;
-  totalProfit: number;
-}
-
-export interface ProductDto {
-  id: number;
-  name: string;
-  barcode: string;
-  stock: number;
-  buyPrice: number;
-  sellPrice: number;
-  categoryId: number;
-  categoryName: string;
-  isActive: boolean;
-  minStock: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface ReceiptDataDto {
-  sale: SaleDto;
-  storeName: string;
-  storeAddress: string;
-  storePhone: string;
-  storeEmail?: string;
-  footerMessage?: string;
-}
-
-// API Response wrappers - CORRECTED TO MATCH BACKEND
+// ===== API RESPONSE WRAPPERS =====
 export interface ProductListResponseApiResponse {
   success: boolean;
   data: {
-    products: ProductDto[];    // ✅ Backend uses "products"
-    totalItems: number;        // ✅ Backend uses "totalItems"
+    products: ProductDto[];
+    totalItems: number;
     currentPage: number;
     totalPages: number;
     pageSize: number;
@@ -141,51 +75,26 @@ export interface DecimalApiResponse {
   message?: string;
 }
 
-// Use backend DTOs for consistency
-export interface Sale extends SaleDto {}
-export interface SaleItem extends SaleItemDto {}
-export interface Product extends ProductDto {}
-
-export interface CartItem {
-  product: Product;
-  quantity: number;
-  discount: number;
-  subtotal: number;
-}
-
-// ===== RECEIPT DATA INTERFACE =====
-export interface ReceiptData extends ReceiptDataDto {}
-
-// ===== UI INTERFACES =====
-export interface PaymentData {
-  method: 'cash' | 'card' | 'digital';
-  amountPaid: number;
-  change: number;
-  reference?: string;
+export interface CalculateTotalRequest {
+  items: CreateSaleItemRequest[];
+  globalDiscountPercent?: number;
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class POSService {
-  private readonly apiUrl = environment.apiUrl; // Base API URL
+  private readonly apiUrl = environment.apiUrl;
   
-  // Real-time cart state
   private cartSubject = new BehaviorSubject<CartItem[]>([]);
   public cart$ = this.cartSubject.asObservable();
 
-  // Current sale session
   private currentSaleSubject = new BehaviorSubject<Sale | null>(null);
   public currentSale$ = this.currentSaleSubject.asObservable();
 
   constructor(private http: HttpClient) {}
 
-  // ===== PRODUCT METHODS (ProductController endpoints) =====
-
-  /**
-   * Get products with pagination and search
-   * Endpoint: GET /api/Product
-   */
+  // ===== PRODUCT METHODS =====
   getProducts(page: number = 1, pageSize: number = 20, search?: string): Observable<ProductListResponseApiResponse> {
     let params = new HttpParams()
       .set('page', page.toString())
@@ -206,20 +115,12 @@ export class POSService {
     );
   }
 
-  /**
-   * Get product by barcode
-   * Endpoint: GET /api/Product/barcode/{barcode}
-   */
   getProductByBarcode(barcode: string): Observable<ProductDtoApiResponse> {
     return this.http.get<ProductDtoApiResponse>(`${this.apiUrl}/Product/barcode/${barcode}`, {
       withCredentials: true 
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
-  /**
-   * Search products by name or barcode
-   * Endpoint: GET /api/Product?search={query}
-   */
   searchProducts(query: string): Observable<ProductListResponseApiResponse> {
     const params = new HttpParams()
       .set('search', query)
@@ -233,12 +134,7 @@ export class POSService {
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
-  // ===== POS METHODS (POSController endpoints) =====
-
-  /**
-   * Create a new sale transaction
-   * Endpoint: POST /api/POS/sales
-   */
+  // ===== POS METHODS =====
   createSale(data: CreateSaleRequest): Observable<SaleDtoApiResponse> {
     return this.http.post<SaleDtoApiResponse>(`${this.apiUrl}/POS/sales`, data, {
       withCredentials: true
@@ -254,11 +150,6 @@ export class POSService {
     );
   }
 
-  /**
-   * Validate stock availability for items
-   * Endpoint: POST /api/POS/validate-stock
-   * ✅ FIXED: Send array directly (not wrapped in object)
-   */
   validateStock(items: CreateSaleItemRequest[]): Observable<BooleanApiResponse> {
     console.log('🔍 Validating stock for items:', items);
     
@@ -272,11 +163,6 @@ export class POSService {
     );
   }
 
-  /**
-   * Calculate total using backend
-   * Endpoint: POST /api/POS/calculate-total
-   * ✅ FIXED: Use proper request body structure
-   */
   calculateTotal(items: CreateSaleItemRequest[], globalDiscountPercent?: number): Observable<DecimalApiResponse> {
     const requestBody: CalculateTotalRequest = {
       items: items,
@@ -295,30 +181,18 @@ export class POSService {
     );
   }
 
-  /**
-   * Get sale by ID
-   * Endpoint: GET /api/POS/sales/{id}
-   */
   getSaleById(id: number): Observable<SaleDtoApiResponse> {
     return this.http.get<SaleDtoApiResponse>(`${this.apiUrl}/POS/sales/${id}`, {
       withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
-  /**
-   * Get sale by sale number
-   * Endpoint: GET /api/POS/sales/number/{saleNumber}
-   */
   getSaleByNumber(saleNumber: string): Observable<SaleDtoApiResponse> {
     return this.http.get<SaleDtoApiResponse>(`${this.apiUrl}/POS/sales/number/${saleNumber}`, {
       withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
-  /**
-   * Get sales with filters
-   * Endpoint: GET /api/POS/sales
-   */
   getSales(filters: {
     startDate?: Date;
     endDate?: Date;
@@ -329,24 +203,12 @@ export class POSService {
   } = {}): Observable<ApiResponse<Sale[]>> {
     let params = new HttpParams();
     
-    if (filters.startDate) {
-      params = params.set('startDate', filters.startDate.toISOString());
-    }
-    if (filters.endDate) {
-      params = params.set('endDate', filters.endDate.toISOString());
-    }
-    if (filters.cashierId) {
-      params = params.set('cashierId', filters.cashierId.toString());
-    }
-    if (filters.paymentMethod) {
-      params = params.set('paymentMethod', filters.paymentMethod);
-    }
-    if (filters.page) {
-      params = params.set('page', filters.page.toString());
-    }
-    if (filters.pageSize) {
-      params = params.set('pageSize', filters.pageSize.toString());
-    }
+    if (filters.startDate) params = params.set('startDate', filters.startDate.toISOString());
+    if (filters.endDate) params = params.set('endDate', filters.endDate.toISOString());
+    if (filters.cashierId) params = params.set('cashierId', filters.cashierId.toString());
+    if (filters.paymentMethod) params = params.set('paymentMethod', filters.paymentMethod);
+    if (filters.page) params = params.set('page', filters.page.toString());
+    if (filters.pageSize) params = params.set('pageSize', filters.pageSize.toString());
 
     return this.http.get<ApiResponse<Sale[]>>(`${this.apiUrl}/POS/sales`, { 
       params,
@@ -354,10 +216,6 @@ export class POSService {
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
-  /**
-   * Get receipt data for printing
-   * Endpoint: GET /api/POS/sales/{id}/receipt
-   */
   getReceiptData(saleId: number): Observable<ApiResponse<ReceiptDataDto>> {
     return this.http.get<ApiResponse<ReceiptDataDto>>(`${this.apiUrl}/POS/sales/${saleId}/receipt`, {
       withCredentials: true
@@ -366,41 +224,24 @@ export class POSService {
 
   /**
    * Mark receipt as printed
-   * Endpoint: PUT /api/POS/sales/{id}/receipt-printed
+   * Endpoint: POST /api/POS/sales/{id}/print-receipt
    */
   markReceiptPrinted(saleId: number): Observable<ApiResponse<boolean>> {
-    return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/POS/sales/${saleId}/receipt-printed`, {}, {
+    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/POS/sales/${saleId}/print-receipt`, {}, {
       withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
 
-  // ===== LEGACY METHODS - UPDATED FOR COMPATIBILITY =====
-
-  /**
-   * @deprecated Use validateStock instead
-   */
-  validateStockAvailability(items: CreateSaleItemRequest[]): Observable<BooleanApiResponse> {
-    return this.validateStock(items);
-  }
-
-  // ===== CART MANAGEMENT (CLIENT-SIDE) =====
-
-  /**
-   * Get current cart items
-   */
+  // ===== CART MANAGEMENT =====
   getCart(): CartItem[] {
     return this.cartSubject.value;
   }
 
-  /**
-   * Add item to cart
-   */
   addToCart(product: Product, quantity: number = 1, discount: number = 0): void {
     const currentCart = this.cartSubject.value;
     const existingItemIndex = currentCart.findIndex(item => item.product.id === product.id);
 
     if (existingItemIndex > -1) {
-      // Update existing item
       const updatedCart = [...currentCart];
       updatedCart[existingItemIndex].quantity += quantity;
       updatedCart[existingItemIndex].discount = discount;
@@ -409,7 +250,6 @@ export class POSService {
       );
       this.cartSubject.next(updatedCart);
     } else {
-      // Add new item
       const newItem: CartItem = {
         product,
         quantity,
@@ -420,9 +260,6 @@ export class POSService {
     }
   }
 
-  /**
-   * Update cart item quantity
-   */
   updateCartItemQuantity(productId: number, quantity: number): void {
     const currentCart = this.cartSubject.value;
     const updatedCart = currentCart.map(item => {
@@ -438,9 +275,6 @@ export class POSService {
     this.cartSubject.next(updatedCart);
   }
 
-  /**
-   * Update cart item discount
-   */
   updateCartItemDiscount(productId: number, discount: number): void {
     const currentCart = this.cartSubject.value;
     const updatedCart = currentCart.map(item => {
@@ -456,27 +290,18 @@ export class POSService {
     this.cartSubject.next(updatedCart);
   }
 
-  /**
-   * Remove item from cart
-   */
   removeFromCart(productId: number): void {
     const currentCart = this.cartSubject.value;
     const updatedCart = currentCart.filter(item => item.product.id !== productId);
     this.cartSubject.next(updatedCart);
   }
 
-  /**
-   * Clear cart
-   */
   clearCart(): void {
     this.cartSubject.next([]);
     this.currentSaleSubject.next(null);
   }
 
-  /**
-   * Get cart totals using backend calculation
-   * ✅ FIXED: Use corrected calculateTotal method signature
-   */
+  // ===== CART TOTALS - FIXED MAPPING =====
   getCartTotals(globalDiscountPercent: number = 0): Observable<{
     subtotal: number;
     globalDiscount: number;
@@ -499,21 +324,21 @@ export class POSService {
       });
     }
 
+    // ✅ FIXED: Map to correct CreateSaleItemRequest format
     const items: CreateSaleItemRequest[] = cart.map(item => ({
       productId: item.product.id,
       quantity: item.quantity,
-      sellPrice: item.product.sellPrice,
-      discount: item.discount
+      sellPrice: item.product.sellPrice,  // ✅ Use sellPrice from interface
+      discount: item.discount             // ✅ Use discount percentage
     }));
 
     return this.calculateTotal(items, globalDiscountPercent).pipe(
       map(response => {
         if (response.success) {
-          // Calculate individual components for UI display
           const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
           const discountAmount = subtotal * (globalDiscountPercent / 100);
           const afterDiscount = subtotal - discountAmount;
-          const taxAmount = afterDiscount * 0.11; // This should also come from backend in future
+          const taxAmount = afterDiscount * 0.11;
           
           return {
             subtotal,
@@ -529,10 +354,7 @@ export class POSService {
     );
   }
 
-  /**
-   * Get cart totals synchronously (for compatibility, but prefers async version)
-   * @deprecated Use getCartTotals() Observable version instead
-   */
+  // ===== COMPATIBILITY METHOD =====
   getCartTotalsSync(globalDiscountPercent: number = 0): {
     subtotal: number;
     globalDiscount: number;
@@ -544,7 +366,7 @@ export class POSService {
     const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
     const discountAmount = subtotal * (globalDiscountPercent / 100);
     const afterDiscount = subtotal - discountAmount;
-    const taxAmount = afterDiscount * 0.11; // 11% PPN
+    const taxAmount = afterDiscount * 0.11;
     const total = afterDiscount + taxAmount;
 
     return {
@@ -557,19 +379,12 @@ export class POSService {
   }
 
   // ===== UTILITY METHODS =====
-
-  /**
-   * Calculate subtotal for a cart item
-   */
   private calculateItemSubtotal(item: CartItem): number {
     const baseAmount = item.product.sellPrice * item.quantity;
     const discountAmount = baseAmount * (item.discount / 100);
     return baseAmount - discountAmount;
   }
 
-  /**
-   * Format currency
-   */
   formatCurrency(amount: number): string {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -579,9 +394,6 @@ export class POSService {
     }).format(amount);
   }
 
-  /**
-   * Handle HTTP errors
-   */
   private handleError(error: any): Observable<never> {
     console.error('POS Service Error:', error);
     

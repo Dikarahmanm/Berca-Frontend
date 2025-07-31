@@ -1,5 +1,5 @@
+// ✅ UPDATED: src/app/modules/pos/pos/interfaces/pos.interfaces.ts
 // ===== BACKEND DTO INTERFACES - EXACT MATCH =====
-// These interfaces must match exactly with backend schema
 
 export interface ProductDto {
   id: number;
@@ -20,6 +20,7 @@ export interface CreateSaleRequest {
   items: CreateSaleItemRequest[];
   subTotal: number;
   discountAmount: number;
+  discountPercentage?: number;  // ✅ Added for compatibility
   taxAmount: number;
   total: number;
   amountPaid: number;
@@ -32,11 +33,12 @@ export interface CreateSaleRequest {
   redeemedPoints?: number;
 }
 
+// ✅ ALIGNED WITH BACKEND: Uses sellPrice + discount percentage
 export interface CreateSaleItemRequest {
   productId: number;
   quantity: number;
-  sellPrice: number;
-  discount: number;
+  sellPrice: number;    // ✅ Price per unit (from Product)
+  discount: number;     // ✅ Discount percentage (0-100)
 }
 
 export interface SaleDto {
@@ -76,11 +78,13 @@ export interface SaleItemDto {
   productName: string;
   productBarcode: string;
   quantity: number;
-  sellPrice: number;
-  buyPrice: number;
-  discount: number;
+  unitPrice: number;     // ✅ Backend uses unitPrice in response
+  sellPrice?: number;    // ✅ For compatibility
+  buyPrice?: number;     // ✅ For compatibility  
+  discountAmount: number; // ✅ Backend uses discountAmount in response
+  discount?: number;     // ✅ For compatibility (percentage)
   subtotal: number;
-  totalProfit: number;
+  totalProfit?: number;
 }
 
 export interface ReceiptDataDto {

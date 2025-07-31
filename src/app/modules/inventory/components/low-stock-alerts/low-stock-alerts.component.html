@@ -1,0 +1,77 @@
+<!-- Low Stock Alerts Component -->
+<div class="low-stock-alerts">
+  
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading alerts...</p>
+  </div>
+
+  <!-- Alerts Content -->
+  <div *ngIf="!loading">
+    
+    <!-- Out of Stock Section -->
+    <div *ngIf="outOfStockProducts.length > 0" class="alert-section critical">
+      <div class="section-header">
+        <mat-icon>error</mat-icon>
+        <h3>Out of Stock</h3>
+        <mat-badge [matBadge]="outOfStockProducts.length" matBadgeColor="warn">
+        </mat-badge>
+      </div>
+      
+      <div class="product-list">
+        <div *ngFor="let product of outOfStockProducts" class="product-item critical">
+          <div class="product-info">
+            <span class="product-name">{{ product.name }}</span>
+            <span class="product-category">{{ product.categoryName }}</span>
+          </div>
+          <div class="stock-info">
+            <span class="stock-value">0</span>
+            <span class="stock-unit">{{ product.unit }}</span>
+          </div>
+          <button mat-icon-button 
+                  [routerLink]="['/dashboard/inventory/stock', product.id]"
+                  matTooltip="Add Stock">
+            <mat-icon>add_circle</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Low Stock Section -->
+    <div *ngIf="lowStockProducts.length > 0" class="alert-section warning">
+      <div class="section-header">
+        <mat-icon>warning</mat-icon>
+        <h3>Low Stock</h3>
+        <mat-badge [matBadge]="lowStockProducts.length" matBadgeColor="accent">
+        </mat-badge>
+      </div>
+      
+      <div class="product-list">
+        <div *ngFor="let product of lowStockProducts" class="product-item warning">
+          <div class="product-info">
+            <span class="product-name">{{ product.name }}</span>
+            <span class="product-category">{{ product.categoryName }}</span>
+          </div>
+          <div class="stock-info">
+            <span class="stock-value">{{ product.stock }}</span>
+            <span class="stock-unit">{{ product.unit }}</span>
+          </div>
+          <button mat-icon-button 
+                  [routerLink]="['/dashboard/inventory/stock', product.id]"
+                  matTooltip="Add Stock">
+            <mat-icon>add_circle</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- No Alerts -->
+    <div *ngIf="totalAlerts === 0" class="no-alerts">
+      <mat-icon>check_circle</mat-icon>
+      <h3>All Good!</h3>
+      <p>No stock alerts at this time</p>
+    </div>
+
+  </div>
+</div>

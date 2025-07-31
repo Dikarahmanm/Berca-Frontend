@@ -18,8 +18,11 @@
   backdrop-filter: blur(20px);
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.3);
-  max-width: 600px;
+  max-width: 800px;
   width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 
   // Header
   .scanner-header {
@@ -75,13 +78,16 @@
       background: #000;
       border-radius: 12px;
       overflow: hidden;
-      aspect-ratio: 4/3;
-      max-height: 300px;
+      aspect-ratio: 16/9;
+      max-height: 450px;
+      min-height: 250px;
+      width: 100%;
 
       .camera-video {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        border-radius: 12px;
       }
 
       .camera-canvas {
@@ -106,8 +112,8 @@
 
         .scan-frame {
           position: relative;
-          width: 250px;
-          height: 150px;
+          width: 280px;
+          height: 180px;
           border: 2px solid rgba(255, 255, 255, 0.5);
           border-radius: 8px;
 
@@ -120,8 +126,8 @@
 
             .corner {
               position: absolute;
-              width: 20px;
-              height: 20px;
+              width: 24px;
+              height: 24px;
               border: 3px solid var(--clr-primary);
 
               &.top-left {
@@ -129,6 +135,7 @@
                 left: -3px;
                 border-right: none;
                 border-bottom: none;
+                border-radius: 8px 0 0 0;
               }
 
               &.top-right {
@@ -136,6 +143,7 @@
                 right: -3px;
                 border-left: none;
                 border-bottom: none;
+                border-radius: 0 8px 0 0;
               }
 
               &.bottom-left {
@@ -143,6 +151,7 @@
                 left: -3px;
                 border-right: none;
                 border-top: none;
+                border-radius: 0 0 0 8px;
               }
 
               &.bottom-right {
@@ -150,6 +159,7 @@
                 right: -3px;
                 border-left: none;
                 border-top: none;
+                border-radius: 0 0 8px 0;
               }
             }
           }
@@ -163,10 +173,12 @@
             background: linear-gradient(90deg, 
               transparent, 
               var(--clr-primary), 
+              var(--clr-primary),
               transparent
             );
             transform: translateY(-50%);
             opacity: 0;
+            box-shadow: 0 0 10px var(--clr-primary);
 
             &.active {
               opacity: 1;
@@ -176,12 +188,72 @@
         }
 
         .scan-instruction {
-          margin-top: 1rem;
+          margin-top: 1.5rem;
           color: white;
-          font-weight: 500;
-          font-size: 0.9rem;
+          font-weight: 600;
+          font-size: 1rem;
           text-align: center;
-          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+          background: rgba(0, 0, 0, 0.6);
+          padding: 0.5rem 1rem;
+          border-radius: 8px;
+          backdrop-filter: blur(4px);
+        }
+      }
+    }
+
+    .camera-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 2rem;
+      background: linear-gradient(135deg, rgba(255, 145, 77, 0.05), rgba(255, 145, 77, 0.1));
+      border: 2px dashed rgba(255, 145, 77, 0.3);
+      border-radius: 12px;
+      text-align: center;
+      min-height: 300px;
+
+      .placeholder-icon {
+        width: 4rem;
+        height: 4rem;
+        color: rgba(255, 145, 77, 0.6);
+        margin-bottom: 1.5rem;
+      }
+
+      p {
+        color: rgba(255, 145, 77, 0.8);
+        font-weight: 500;
+        font-size: 1.1rem;
+        margin: 0 0 2rem 0;
+        max-width: 300px;
+        line-height: 1.5;
+      }
+
+      .activate-btn {
+        background: linear-gradient(135deg, var(--clr-primary), var(--clr-primary-dark));
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(255, 145, 77, 0.3);
+
+        &:hover {
+          background: linear-gradient(135deg, var(--clr-primary-dark), #D06A2B);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(255, 145, 77, 0.4);
+        }
+
+        .icon {
+          width: 20px;
+          height: 20px;
         }
       }
     }
@@ -193,46 +265,51 @@
       justify-content: center;
       padding: 3rem 2rem;
       background: rgba(225, 90, 79, 0.05);
-      border: 1px dashed rgba(225, 90, 79, 0.3);
+      border: 2px dashed rgba(225, 90, 79, 0.3);
       border-radius: 12px;
       text-align: center;
+      min-height: 300px;
 
       .error-icon {
-        width: 3rem;
-        height: 3rem;
+        width: 4rem;
+        height: 4rem;
         color: var(--clr-error);
-        margin-bottom: 1rem;
+        margin-bottom: 1.5rem;
       }
 
       p {
         color: var(--clr-error);
         font-weight: 500;
-        margin: 0 0 1.5rem 0;
-        max-width: 300px;
-        line-height: 1.4;
+        font-size: 1.1rem;
+        margin: 0 0 2rem 0;
+        max-width: 350px;
+        line-height: 1.5;
       }
 
       .retry-btn {
         background: var(--clr-error);
         color: white;
         border: none;
-        border-radius: 8px;
-        padding: 8px 16px;
+        border-radius: 12px;
+        padding: 1rem 2rem;
         cursor: pointer;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        font-weight: 500;
+        gap: 0.75rem;
+        font-weight: 600;
+        font-size: 1rem;
         transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(225, 90, 79, 0.3);
 
         &:hover {
           background: #c53030;
-          transform: translateY(-1px);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(225, 90, 79, 0.4);
         }
 
         .icon {
-          width: 16px;
-          height: 16px;
+          width: 20px;
+          height: 20px;
         }
       }
     }
@@ -311,6 +388,8 @@
       padding: 1rem;
 
       .input-group {
+        position: relative;
+
         label {
           display: block;
           font-weight: 600;
@@ -322,6 +401,7 @@
         .input-wrapper {
           display: flex;
           gap: 0.5rem;
+          position: relative;
 
           .manual-input {
             flex: 1;
@@ -351,6 +431,7 @@
             padding: 0.75rem;
             cursor: pointer;
             transition: all 0.3s ease;
+            min-width: 48px;
 
             &:hover:not(:disabled) {
               background: #16a34a;
@@ -366,6 +447,83 @@
               width: 18px;
               height: 18px;
             }
+          }
+        }
+
+        // ===== PRODUCT SUGGESTIONS =====
+        .product-suggestions {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          z-index: 1000;
+          background: white;
+          border: 1px solid rgba(255, 145, 77, 0.2);
+          border-radius: 8px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+          max-height: 250px;
+          overflow-y: auto;
+          margin-top: 0.25rem;
+
+          .suggestion-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid rgba(255, 145, 77, 0.1);
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            &:hover {
+              background: rgba(255, 145, 77, 0.05);
+            }
+
+            &:last-child {
+              border-bottom: none;
+            }
+
+            .suggestion-info {
+              flex: 1;
+
+              .product-name {
+                font-weight: 600;
+                color: var(--clr-primary-dark);
+                font-size: 0.9rem;
+                margin-bottom: 0.25rem;
+              }
+
+              .product-details {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                font-size: 0.8rem;
+                color: rgba(255, 145, 77, 0.7);
+
+                .barcode {
+                  font-family: 'Monaco', monospace;
+                  background: rgba(255, 145, 77, 0.1);
+                  padding: 0.2rem 0.4rem;
+                  border-radius: 4px;
+                }
+
+                .price {
+                  color: var(--clr-accent);
+                  font-weight: 600;
+                }
+              }
+            }
+
+            .suggestion-action {
+              color: var(--clr-primary);
+              font-size: 0.75rem;
+              font-weight: 500;
+            }
+          }
+
+          .no-suggestions {
+            padding: 1rem;
+            text-align: center;
+            color: rgba(255, 145, 77, 0.6);
+            font-size: 0.9rem;
           }
         }
       }
@@ -473,12 +631,64 @@
   }
 }
 
-// Responsive Design
+// Enhanced Responsive Design
+@media (max-width: 1024px) {
+  .barcode-scanner {
+    max-width: 95vw;
+    padding: 1.25rem;
+    margin: 1rem;
+
+    .camera-section {
+      .camera-container {
+        max-height: 350px;
+        aspect-ratio: 16/10;
+
+        .scanning-overlay {
+          .scan-frame {
+            width: 240px;
+            height: 150px;
+          }
+        }
+      }
+
+      .camera-placeholder, .camera-error {
+        min-height: 250px;
+        padding: 2.5rem 1.5rem;
+
+        .placeholder-icon, .error-icon {
+          width: 3rem;
+          height: 3rem;
+        }
+
+        p {
+          font-size: 1rem;
+        }
+      }
+    }
+
+    .scanner-controls {
+      .control-buttons {
+        gap: 0.75rem;
+
+        button {
+          padding: 0.75rem 1.25rem;
+          font-size: 0.9rem;
+        }
+      }
+    }
+  }
+}
+
 @media (max-width: 768px) {
   .barcode-scanner {
     padding: 1rem;
+    margin: 0.5rem;
+    max-width: calc(100vw - 1rem);
+    border-radius: 12px;
 
     .scanner-header {
+      margin-bottom: 1rem;
+
       .scanner-title {
         font-size: 1.1rem;
 
@@ -490,41 +700,205 @@
     }
 
     .camera-section {
+      margin-bottom: 1rem;
+
       .camera-container {
-        max-height: 250px;
+        max-height: 280px;
+        min-height: 200px;
+        aspect-ratio: 4/3;
 
         .scanning-overlay {
           .scan-frame {
             width: 200px;
             height: 120px;
+
+            .scan-corners .corner {
+              width: 20px;
+              height: 20px;
+            }
           }
 
           .scan-instruction {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            padding: 0.4rem 0.8rem;
           }
+        }
+      }
+
+      .camera-placeholder, .camera-error {
+        min-height: 200px;
+        padding: 2rem 1rem;
+
+        .placeholder-icon, .error-icon {
+          width: 2.5rem;
+          height: 2.5rem;
+          margin-bottom: 1rem;
+        }
+
+        p {
+          font-size: 0.9rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .activate-btn, .retry-btn {
+          padding: 0.75rem 1.5rem;
+          font-size: 0.9rem;
         }
       }
     }
 
     .scanner-controls {
+      margin-bottom: 1rem;
+
       .control-buttons {
         flex-direction: column;
+        gap: 0.75rem;
 
         button {
           justify-content: center;
           padding: 0.75rem 1rem;
           font-size: 0.9rem;
+          width: 100%;
         }
       }
 
       .manual-input-section {
+        padding: 0.75rem;
+
         .input-group {
           .input-wrapper {
             flex-direction: column;
+            gap: 0.75rem;
+
+            .manual-input {
+              font-size: 16px; // Prevent zoom on iOS
+            }
 
             .submit-btn {
               align-self: stretch;
               justify-content: center;
+              min-width: auto;
+            }
+          }
+
+          .product-suggestions {
+            position: static;
+            margin-top: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+            .suggestion-item {
+              padding: 0.5rem;
+
+              .suggestion-info {
+                .product-name {
+                  font-size: 0.85rem;
+                }
+
+                .product-details {
+                  font-size: 0.75rem;
+                  gap: 0.5rem;
+                  flex-wrap: wrap;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    .scanner-status {
+      margin-bottom: 1rem;
+
+      .status-indicator {
+        .status-text {
+          font-size: 0.85rem;
+        }
+      }
+    }
+
+    .scanner-instructions {
+      padding: 0.75rem;
+
+      h3 {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+      }
+
+      ul li {
+        font-size: 0.8rem;
+        margin-bottom: 0.4rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .barcode-scanner {
+    padding: 0.75rem;
+    margin: 0.25rem;
+
+    .camera-section {
+      .camera-container {
+        max-height: 220px;
+        min-height: 180px;
+
+        .scanning-overlay {
+          .scan-frame {
+            width: 150px;
+            height: 100px;
+
+            .scan-corners .corner {
+              width: 16px;
+              height: 16px;
+            }
+          }
+
+          .scan-instruction {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.6rem;
+          }
+        }
+      }
+
+      .camera-placeholder, .camera-error {
+        min-height: 180px;
+        padding: 1.5rem 0.75rem;
+
+        .placeholder-icon, .error-icon {
+          width: 2rem;
+          height: 2rem;
+        }
+
+        p {
+          font-size: 0.85rem;
+        }
+
+        .activate-btn, .retry-btn {
+          padding: 0.6rem 1.25rem;
+          font-size: 0.85rem;
+        }
+      }
+    }
+
+    .scanner-controls {
+      .manual-input-section {
+        .input-group {
+          .product-suggestions {
+            max-height: 200px;
+
+            .suggestion-item {
+              padding: 0.4rem;
+
+              .suggestion-info {
+                .product-name {
+                  font-size: 0.8rem;
+                }
+
+                .product-details {
+                  font-size: 0.7rem;
+                }
+              }
             }
           }
         }
@@ -533,28 +907,16 @@
   }
 }
 
-@media (max-width: 480px) {
+// Landscape orientation adjustments
+@media screen and (orientation: landscape) and (max-height: 600px) {
   .barcode-scanner {
+    max-height: 95vh;
+    overflow-y: auto;
+
     .camera-section {
       .camera-container {
-        max-height: 200px;
-
-        .scanning-overlay {
-          .scan-frame {
-            width: 150px;
-            height: 100px;
-          }
-        }
-      }
-    }
-
-    .scanner-instructions {
-      h3 {
-        font-size: 0.9rem;
-      }
-
-      ul li {
-        font-size: 0.8rem;
+        max-height: 250px;
+        aspect-ratio: 16/9;
       }
     }
   }

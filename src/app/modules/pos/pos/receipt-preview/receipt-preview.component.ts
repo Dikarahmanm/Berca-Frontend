@@ -1,4 +1,5 @@
-// src/app/modules/pos/pos/receipt-preview/receipt-preview.component.ts - COMPLETE INTEGRATION
+// ✅ CLEAN VERSION: src/app/modules/pos/pos/receipt-preview/receipt-preview.component.ts
+
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -16,7 +17,6 @@ import { environment } from '../../../../../environment/environment';
   standalone: true,
   imports: [CommonModule, RouterModule]
 })
-
 export class ReceiptPreviewComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
@@ -31,7 +31,13 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
   digitalReceiptUrl = '';
 
   // Store Information
-  storeInfo = environment.pos.receiptSettings;
+  storeInfo = environment.pos?.receiptSettings || {
+    storeName: 'Toko Eniwan',
+    storeAddress: 'Bekasi, West Java',
+    storePhone: '+62 xxx-xxxx-xxxx',
+    storeEmail: 'info@tokoeniwan.com',
+    footerMessage: 'Terima kasih atas kunjungan Anda!'
+  };
 
   constructor(
     private route: ActivatedRoute,
@@ -59,43 +65,23 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ===== DATA LOADING - ENHANCED =====
+  // ===== DATA LOADING =====
 
   loadSale() {
     this.isLoading = true;
     this.errorMessage = '';
 
-    console.log('🔍 Loading sale with ID:', this.saleId);
-
     this.posService.getSaleById(this.saleId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response: any) => {
-          console.log('📊 Sale response:', response);
-          this.isLoading = false;
-          
           if (response.success && response.data) {
             this.sale = response.data;
-            console.log('✅ Sale loaded:', this.sale);
-            console.log('📋 Sale items:', this.sale?.items);
-            
-            // Validate each item's data
-            if (this.sale && this.sale.items) {
-              this.sale.items.forEach((item, index) => {
-                console.log(`📦 Item ${index}:`, {
-                  name: item.productName,
-                  quantity: item.quantity,
-                  sellPrice: item.sellPrice,
-                  subtotal: item.subtotal,
-                  discount: item.discount
-                });
-              });
-            }
-            
             this.generateDigitalReceiptUrl();
           } else {
             this.errorMessage = response.message || 'Transaksi tidak ditemukan';
           }
+          this.isLoading = false;
         },
         error: (error: any) => {
           this.isLoading = false;
@@ -105,60 +91,122 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
       });
   }
 
-  // ===== FORMATTERS - ENHANCED WITH DEBUGGING =====
+  // ===== FIELD MAPPING WITH COMPREHENSIVE FALLBACKS =====
+
+  getItemPrice(item: any): number {
+    if (!item) return 0;
+
+    const priceFields = ['unitPrice', 'sellPrice', 'price', 'salePrice'];
+    
+    for (const field of priceFields) {
+      const value = item[field];
+      if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) > 0) {
+        return this.toNumber(value);
+      }
+    }
+    
+    // Fallback: Calculate from sale total if only one item
+    if (this.sale && this.sale.items && this.sale.items.length === 1) {
+      return this.toNumber(this.sale.total || this.sale.subtotal || 0);
+    }
+    
+    return 0;
+  }
+
+  getItemSubtotal(item: any): number {
+    if (!item) return 0;
+
+    const subtotalFields = ['subtotal', 'subTotal', 'totalPrice', 'total', 'amount'];
+    
+    for (const field of subtotalFields) {
+      const value = item[field];
+      if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) >= 0) {
+        return this.toNumber(value);
+      }
+    }
+    
+    // Manual calculation as fallback
+    const quantity = this.getItemQuantity(item);
+    const price = this.getItemPrice(item);
+    const discount = this.getItemDiscount(item);
+    
+    if (price > 0) {
+      const baseAmount = price * quantity;
+      const discountAmount = baseAmount * (discount / 100);
+      return baseAmount - discountAmount;
+    }
+    
+    // Ultimate fallback: Use sale total if single item
+    if (this.sale && this.sale.items && this.sale.items.length === 1) {
+      return this.toNumber(this.sale.total || this.sale.subtotal || 0);
+    }
+    
+    return 0;
+  }
+
+  getItemQuantity(item: any): number {
+    if (!item) return 1;
+    
+    const quantityFields = ['quantity', 'qty', 'amount', 'count'];
+    
+    for (const field of quantityFields) {
+      const value = item[field];
+      if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) > 0) {
+        return this.toNumber(value);
+      }
+    }
+    
+    return 1;
+  }
+
+  getItemDiscount(item: any): number {
+    if (!item) return 0;
+    
+    const discountFields = ['discount', 'discountPercent', 'discountPercentage'];
+    
+    for (const field of discountFields) {
+      const value = item[field];
+      if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) >= 0) {
+        return this.toNumber(value);
+      }
+    }
+    
+    return 0;
+  }
+
+  // ===== FORMATTERS =====
 
   formatCurrency(amount: number | string | undefined | null): string {
-    console.log('💰 Formatting currency:', amount, typeof amount);
-    
-    // Handle various input types
     let numericAmount: number;
     
     if (amount == null || amount === undefined) {
-      console.warn('⚠️ Currency amount is null/undefined');
       numericAmount = 0;
     } else if (typeof amount === 'string') {
-      numericAmount = parseFloat(amount);
-      if (isNaN(numericAmount)) {
-        console.warn('⚠️ Cannot parse string to number:', amount);
-        numericAmount = 0;
-      }
+      numericAmount = parseFloat(amount) || 0;
     } else if (typeof amount === 'number') {
-      if (isNaN(amount)) {
-        console.warn('⚠️ Amount is NaN');
-        numericAmount = 0;
-      } else {
-        numericAmount = amount;
-      }
+      numericAmount = isNaN(amount) ? 0 : amount;
     } else {
-      console.warn('⚠️ Unknown amount type:', typeof amount);
       numericAmount = 0;
     }
 
-    const formatted = new Intl.NumberFormat('id-ID', {
+    return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(numericAmount);
-
-    console.log('✅ Formatted currency result:', formatted);
-    return formatted;
   }
 
   formatDate(date: Date | string): string {
     if (!date) return '-';
     
     const dateObj = new Date(date);
-    if (isNaN(dateObj.getTime())) {
-      console.warn('⚠️ Invalid date:', date);
-      return '-';
-    }
+    if (isNaN(dateObj.getTime())) return '-';
     
     return dateObj.toLocaleDateString('id-ID', {
       day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      timeZone: 'Asia/Jakarta'
+      month: '2-digit', 
+      year: 'numeric'
     });
   }
 
@@ -166,16 +214,12 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
     if (!date) return '-';
     
     const dateObj = new Date(date);
-    if (isNaN(dateObj.getTime())) {
-      console.warn('⚠️ Invalid date:', date);
-      return '-';
-    }
+    if (isNaN(dateObj.getTime())) return '-';
     
+    // ✅ FIXED: Use simple toLocaleTimeString without timezone
     return dateObj.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
-      timeZone: 'Asia/Jakarta',
       hour12: false
     });
   }
@@ -191,155 +235,35 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
     return methods[method?.toLowerCase()] || method || 'Tidak diketahui';
   }
 
-  // ===== CALCULATIONS - ENHANCED WITH VALIDATION =====
+  // ===== CALCULATIONS =====
 
   getPointsEarned(): number {
     if (!this.sale || !this.sale.memberId || !this.sale.total) return 0;
-    
-    // Calculate points: 1 point per 1000 IDR
-    const points = Math.floor(this.sale.total / 1000);
-    console.log('🎯 Points calculation:', this.sale.total, '/ 1000 =', points);
-    return points;
+    return Math.floor(this.sale.total / 1000);
   }
 
   getTotalItems(): number {
-    if (!this.sale || !this.sale.items || !Array.isArray(this.sale.items)) {
-      console.warn('⚠️ No items in sale');
-      return 0;
-    }
+    if (!this.sale || !this.sale.items || !Array.isArray(this.sale.items)) return 0;
     
-    const total = this.sale.items.reduce((sum, item) => {
-      const quantity = this.toNumber(item.quantity);
-      console.log('📊 Item quantity:', item.productName, quantity);
-      return sum + quantity;
+    return this.sale.items.reduce((sum: number, item: any) => {
+      return sum + this.getItemQuantity(item);
     }, 0);
-    
-    console.log('📦 Total items:', total);
-    return total;
   }
 
-  // ===== HELPER METHODS - NEW =====
+  // ===== HELPER METHODS =====
 
-  /**
-   * Safe number conversion with logging
-   */
-  private toNumber(value: any): number {
-    if (value === null || value === undefined) {
-      console.log('🔢 toNumber: null/undefined -> 0');
-      return 0;
-    }
-    
-    if (typeof value === 'number') {
-      if (isNaN(value)) {
-        console.warn('🔢 toNumber: NaN -> 0');
-        return 0;
-      }
-      return value;
-    }
-    
+  toNumber(value: any): number {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return isNaN(value) ? 0 : value;
     if (typeof value === 'string') {
+      if (value.trim() === '') return 0;
       const parsed = parseFloat(value);
-      if (isNaN(parsed)) {
-        console.warn('🔢 toNumber: unparseable string', value, '-> 0');
-        return 0;
-      }
-      return parsed;
+      return isNaN(parsed) ? 0 : parsed;
     }
-    
-    console.warn('🔢 toNumber: unknown type', typeof value, '-> 0');
     return 0;
   }
 
-  /**
-   * Calculate item subtotal with proper validation
-   */
-  calculateItemSubtotal(item: any): number {
-    if (!item) {
-      console.warn('⚠️ calculateItemSubtotal: no item');
-      return 0;
-    }
-
-    const quantity = this.toNumber(item.quantity);
-    const sellPrice = this.toNumber(item.sellPrice);
-    const discount = this.toNumber(item.discount);
-
-    console.log('🧮 Item calculation:', {
-      product: item.productName,
-      quantity,
-      sellPrice,
-      discount,
-      subtotalFromAPI: item.subtotal
-    });
-
-    // Use API subtotal if available and valid
-    if (item.subtotal && !isNaN(item.subtotal)) {
-      console.log('✅ Using API subtotal:', item.subtotal);
-      return this.toNumber(item.subtotal);
-    }
-
-    // Calculate manually if API subtotal is not available
-    const baseAmount = sellPrice * quantity;
-    const discountAmount = baseAmount * (discount / 100);
-    const calculatedSubtotal = baseAmount - discountAmount;
-
-    console.log('🧮 Manual calculation:', {
-      baseAmount,
-      discountAmount,
-      calculatedSubtotal
-    });
-
-    return calculatedSubtotal;
-  }
-
-  /**
-   * Validate sale data integrity
-   */
-  private validateSaleData(): boolean {
-    if (!this.sale) {
-      console.error('❌ No sale data');
-      return false;
-    }
-
-    console.log('🔍 Validating sale data...');
-
-    // Check basic sale properties
-    const requiredProps = ['id', 'saleNumber', 'total', 'items'];
-    for (const prop of requiredProps) {
-      if (!this.sale[prop as keyof SaleDto]) {
-        console.error(`❌ Missing required property: ${prop}`);
-        return false;
-      }
-    }
-
-    // Check items array
-    if (!Array.isArray(this.sale.items)) {
-      console.error('❌ Items is not an array');
-      return false;
-    }
-
-    if (this.sale.items.length === 0) {
-      console.warn('⚠️ No items in sale');
-      return false;
-    }
-
-    // Validate each item
-    this.sale.items.forEach((item, index) => {
-      const issues = [];
-      
-      if (!item.productName) issues.push('missing productName');
-      if (!item.quantity || item.quantity <= 0) issues.push('invalid quantity');
-      if (!item.sellPrice || item.sellPrice <= 0) issues.push('invalid sellPrice');
-      
-      if (issues.length > 0) {
-        console.warn(`⚠️ Item ${index} issues:`, issues.join(', '));
-      }
-    });
-
-    console.log('✅ Sale data validation passed');
-    return true;
-  }
-
-  // ===== ACTIONS - ENHANCED =====
+  // ===== ACTIONS =====
 
   async printReceipt() {
     if (!this.sale) {
@@ -348,18 +272,12 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.validateSaleData()) {
-      this.errorMessage = 'Data struk tidak valid';
-      this.clearMessages();
-      return;
-    }
-
     try {
-      console.log('🖨️ Printing receipt for sale:', this.sale.id);
+      console.log('🖨️ Starting print process for sale:', this.sale.id);
       await this.receiptService.printReceipt(this.sale.id);
       this.showSuccessMessage('Struk berhasil dicetak');
     } catch (error: any) {
-      console.error('❌ Print error:', error);
+      console.error('❌ Print failed:', error);
       this.errorMessage = error.message || 'Gagal mencetak struk';
       this.clearMessages();
     }
@@ -372,19 +290,29 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.validateSaleData()) {
-      this.errorMessage = 'Data struk tidak valid';
-      this.clearMessages();
-      return;
-    }
-
     try {
-      console.log('📄 Downloading PDF for sale:', this.sale.id);
-      await this.receiptService.downloadReceiptPDF(this.sale.id);
-      this.showSuccessMessage('Struk PDF berhasil diunduh');
+      console.log('📄 Starting PDF download for sale:', this.sale.id);
+      
+      // Show user options
+      const userChoice = confirm(
+        'Pilih cara download PDF:\n\n' +
+        'OK = Download file HTML (kemudian convert ke PDF)\n' + 
+        'Cancel = Buka window print (langsung save as PDF)'
+      );
+      
+      if (userChoice) {
+        // Option 1: Download HTML file
+        await this.receiptService.downloadReceiptPDF(this.sale.id);
+        this.showSuccessMessage('File HTML berhasil didownload. Buka file tersebut dan tekan Ctrl+P untuk save as PDF');
+      } else {
+        // Option 2: Open print window
+        window.print();
+        this.showSuccessMessage('Window print telah dibuka. Pilih "Save as PDF" di dialog print');
+      }
+      
     } catch (error: any) {
-      console.error('❌ PDF download error:', error);
-      this.errorMessage = error.message || 'Gagal mengunduh PDF';
+      console.error('❌ PDF download failed:', error);
+      this.errorMessage = error.message || 'Gagal mendownload PDF';
       this.clearMessages();
     }
   }
@@ -396,24 +324,16 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.validateSaleData()) {
-      this.errorMessage = 'Data struk tidak valid';
-      this.clearMessages();
-      return;
-    }
-
     try {
-      console.log('📤 Sharing receipt for sale:', this.sale.id);
       await this.receiptService.shareReceipt(this.sale.id, 'native');
       this.showSuccessMessage('Struk berhasil dibagikan');
     } catch (error: any) {
-      console.error('❌ Share error:', error);
-      // Fallback to WhatsApp if native sharing fails
+      console.error('❌ Share failed:', error);
+      // If native share fails, try WhatsApp fallback
       try {
         await this.receiptService.shareReceipt(this.sale.id, 'whatsapp');
         this.showSuccessMessage('Struk dibagikan via WhatsApp');
       } catch (fallbackError: any) {
-        console.error('❌ WhatsApp share error:', fallbackError);
         this.errorMessage = fallbackError.message || 'Gagal membagikan struk';
         this.clearMessages();
       }
@@ -428,9 +348,7 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
 
   private generateDigitalReceiptUrl() {
     if (this.sale) {
-      // Generate URL for digital receipt (could be used for QR code)
       this.digitalReceiptUrl = `${window.location.origin}/receipt/digital/${this.sale.saleNumber}`;
-      console.log('🔗 Digital receipt URL:', this.digitalReceiptUrl);
     }
   }
 

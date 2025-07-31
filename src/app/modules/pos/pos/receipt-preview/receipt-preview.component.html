@@ -1,3 +1,5 @@
+<!-- ✅ CLEAN VERSION: src/app/modules/pos/pos/receipt-preview/receipt-preview.component.html -->
+
 <div class="receipt-preview">
     <!-- Header -->
     <div class="receipt-header">
@@ -17,7 +19,7 @@
         </h2>
 
         <div class="receipt-actions">
-            <button class="action-btn" (click)="printReceipt()" [disabled]="isLoading">
+            <button class="action-btn" (click)="printReceipt()" [disabled]="isLoading || !sale">
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path
                         d="M18,3H6V7H18M19,12A1,1 0 0,1 18,11A1,1 0 0,1 19,10A1,1 0 0,1 20,11A1,1 0 0,1 19,12M16,19H8V14H16M19,8H5A3,3 0 0,0 2,11V17H6V21H18V17H22V11A3,3 0 0,0 19,8Z" />
@@ -25,14 +27,14 @@
                 Print
             </button>
 
-            <button class="action-btn" (click)="downloadPDF()" [disabled]="isLoading">
+            <button class="action-btn" (click)="downloadPDF()" [disabled]="isLoading || !sale">
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
                 </svg>
                 Download PDF
             </button>
 
-            <button class="action-btn share-btn" (click)="shareReceipt()" [disabled]="isLoading">
+            <button class="action-btn share-btn" (click)="shareReceipt()" [disabled]="isLoading || !sale">
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path
                         d="M18,16.08C17.24,16.08 16.56,16.38 16.04,16.85L8.91,12.7C8.96,12.47 9,12.24 9,12C9,11.76 8.96,11.53 8.91,11.3L15.96,7.19C16.5,7.69 17.21,8 18,8A3,3 0 0,0 21,5A3,3 0 0,0 18,2A3,3 0 0,0 15,5C15,5.24 15.04,5.47 15.09,5.7L8.04,9.81C7.5,9.31 6.79,9 6,9A3,3 0 0,0 3,12A3,3 0 0,0 6,15C6.79,15 7.5,14.69 8.04,14.19L15.16,18.34C15.11,18.55 15.08,18.77 15.08,19C15.08,20.61 16.39,21.91 18,21.91C19.61,21.91 20.92,20.61 20.92,19A2,2 0 0,0 18.92,17A2,2 0 0,0 16.92,19C16.92,18.77 16.95,18.55 17,18.34L9.88,14.19C9.56,14.69 9,15 8.32,15C7.65,15 7.09,14.69 6.77,14.19L13.91,10.3C13.96,10.53 14,10.76 14,11C14,11.24 13.96,11.47 13.91,11.7L6.96,15.81C6.5,15.31 5.79,15 5,15A3,3 0 0,0 2,18A3,3 0 0,0 5,21C5.79,21 6.5,20.69 7.04,20.19L14.16,16.34C14.11,16.55 14.08,16.77 14.08,17C14.08,18.61 15.39,19.91 17,19.91C18.61,19.91 19.92,18.61 19.92,17A2,2 0 0,0 17.92,15A2,2 0 0,0 15.92,17" />
@@ -89,7 +91,7 @@
             <div class="transaction-info">
                 <div class="info-row">
                     <span class="label">No. Transaksi:</span>
-                    <span class="value">{{sale.saleNumber}}</span>
+                    <span class="value">{{sale.saleNumber || 'N/A'}}</span>
                 </div>
                 <div class="info-row">
                     <span class="label">Tanggal:</span>
@@ -101,7 +103,7 @@
                 </div>
                 <div class="info-row">
                     <span class="label">Kasir:</span>
-                    <span class="value">{{sale.cashierName}}</span>
+                    <span class="value">{{sale.cashierName || 'N/A'}}</span>
                 </div>
                 <div class="info-row" *ngIf="sale.customerName">
                     <span class="label">Pelanggan:</span>
@@ -125,17 +127,26 @@
                     <span class="col-total">Total</span>
                 </div>
 
-                <div class="item-row" *ngFor="let item of sale.items">
+                <!-- Items List -->
+                <div class="item-row" *ngFor="let item of sale.items; let i = index">
                     <div class="item-main">
-                        <span class="item-name">{{item.productName}}</span>
-                        <span class="item-qty">{{item.quantity}}</span>
-                        <span class="item-price">{{formatCurrency(item.sellPrice)}}</span>
-                        <span class="item-total">{{formatCurrency(item.subtotal)}}</span>
+                        <span class="item-name">{{item.productName || 'Unknown Product'}}</span>
+                        <span class="item-qty">{{getItemQuantity(item)}}</span>
+                        <span class="item-price">{{formatCurrency(getItemPrice(item))}}</span>
+                        <span class="item-total">{{formatCurrency(getItemSubtotal(item))}}</span>
                     </div>
 
-                    <div class="item-details" *ngIf="item.discount > 0">
-                        <span class="discount-info">Diskon {{item.discount}}%</span>
+                    <!-- Discount Info -->
+                    <div class="item-details" *ngIf="getItemDiscount(item) > 0">
+                        <span class="discount-info">
+                            Diskon {{getItemDiscount(item)}}%
+                        </span>
                     </div>
+                </div>
+
+                <!-- No Items Found -->
+                <div class="no-items" *ngIf="!sale.items || sale.items.length === 0">
+                    <p>Tidak ada item ditemukan dalam transaksi ini</p>
                 </div>
             </div>
 
@@ -145,16 +156,16 @@
             <!-- Summary -->
             <div class="summary-section">
                 <div class="summary-row">
-                    <span class="label">Subtotal:</span>
+                    <span class="label">Subtotal ({{getTotalItems()}} item):</span>
                     <span class="value">{{formatCurrency(sale.subtotal)}}</span>
                 </div>
 
-                <div class="summary-row" *ngIf="sale.discountAmount > 0">
+                <div class="summary-row" *ngIf="toNumber(sale.discountAmount) > 0">
                     <span class="label">Diskon:</span>
                     <span class="value">-{{formatCurrency(sale.discountAmount)}}</span>
                 </div>
 
-                <div class="summary-row" *ngIf="sale.taxAmount > 0">
+                <div class="summary-row" *ngIf="toNumber(sale.taxAmount) > 0">
                     <span class="label">PPN (11%):</span>
                     <span class="value">{{formatCurrency(sale.taxAmount)}}</span>
                 </div>
@@ -180,7 +191,7 @@
                     <span class="value">{{formatCurrency(sale.amountPaid)}}</span>
                 </div>
 
-                <div class="payment-row" *ngIf="sale.changeAmount > 0">
+                <div class="payment-row" *ngIf="toNumber(sale.changeAmount) > 0">
                     <span class="label">Kembalian:</span>
                     <span class="value">{{formatCurrency(sale.changeAmount)}}</span>
                 </div>
@@ -199,7 +210,7 @@
                         <span class="label">Poin Diperoleh:</span>
                         <span class="value">+{{getPointsEarned()}} poin</span>
                     </div>
-                    <div class="points-redeemed" *ngIf="sale.redeemedPoints > 0">
+                    <div class="points-redeemed" *ngIf="toNumber(sale.redeemedPoints) > 0">
                         <span class="label">Poin Digunakan:</span>
                         <span class="value">-{{sale.redeemedPoints}} poin</span>
                     </div>
@@ -217,7 +228,6 @@
                 <div class="qr-section" *ngIf="digitalReceiptUrl">
                     <p class="qr-label">Scan untuk struk digital:</p>
                     <div class="qr-placeholder">
-                        <!-- QR Code would be generated here -->
                         <span class="qr-text">QR Code</span>
                     </div>
                 </div>
@@ -226,7 +236,7 @@
     </div>
 
     <!-- Success Message -->
-    <div class="success-message" *ngIf="successMessage" [@fadeInOut]>
+    <div class="success-message" *ngIf="successMessage">
         <svg class="success-icon" viewBox="0 0 24 24" fill="currentColor">
             <path
                 d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.08L11,13.67L7.91,10.58L6.5,12L11,16.5Z" />

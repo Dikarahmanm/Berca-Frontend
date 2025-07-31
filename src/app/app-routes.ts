@@ -51,10 +51,10 @@ export const routes: Routes = [
     title: 'Dashboard - Toko Eniwan POS'
   },
 
-  // ===== POS STANDALONE ROUTE ===== //
+  // ===== POS MODULE ROUTE ===== //
   {
     path: 'pos',
-    loadComponent: () => import('./modules/pos/pos/pos.component').then(m => m.POSComponent),
+    loadChildren: () => import('./modules/pos/pos.module').then(m => m.POSModule),
     canActivate: [AuthGuard],
     data: {
       title: 'Point of Sale',

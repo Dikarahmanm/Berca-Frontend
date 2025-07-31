@@ -23,6 +23,14 @@ const routes: Routes = [
       title: 'Receipt Preview',
       requiredPermission: 'POS.Read'
     }
+  },
+  {
+    path: 'receipt/digital/:saleNumber',
+    loadComponent: () => import('./pos/receipt-preview/receipt-preview.component').then(m => m.ReceiptPreviewComponent),
+    data: { 
+      title: 'Digital Receipt',
+      isDigitalReceipt: true
+    }
   }
 ];
 

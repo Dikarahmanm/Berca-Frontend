@@ -470,6 +470,7 @@ loadProducts(): void {
             paymentMethod: paymentData.method,
             paymentReference: paymentData.reference,
             customerName: this.customerName || undefined,
+            customerPhone: this.customerPhone || undefined,
             notes: this.notes || undefined,
             redeemedPoints: 0 // TODO: Implement loyalty points
           };
@@ -480,8 +481,14 @@ loadProducts(): void {
             .subscribe({
               next: (response: any) => {
                 this.isLoading = false;
+                console.log('✅ Sale created successfully:', response);
+                
                 if (response.success && response.data) {
-                  this.successMessage = `Transaksi berhasil! No: ${response.data.saleNumber}`;
+                  const saleId = response.data.id;
+                  const saleNumber = response.data.saleNumber;
+                  
+                  console.log('🧾 Navigating to receipt:', saleId, saleNumber);
+                  this.successMessage = `Transaksi berhasil! No: ${saleNumber}`;
                   
                   // Reset form
                   this.globalDiscount = 0;
@@ -489,8 +496,26 @@ loadProducts(): void {
                   this.customerPhone = '';
                   this.notes = '';
                   
-                  // Navigate to receipt preview
-                  this.router.navigate(['/pos/receipt', response.data.id]);
+                  // Clear cart
+                  this.cart = [];
+                  
+                  // Navigate to receipt preview with proper error handling
+                  try {
+                    this.router.navigate(['/pos/receipt', saleId]).then(success => {
+                      if (success) {
+                        console.log('✅ Navigation to receipt successful');
+                      } else {
+                        console.error('❌ Navigation to receipt failed');
+                        this.errorMessage = 'Transaksi berhasil, tapi gagal membuka struk. ID: ' + saleId;
+                      }
+                    }).catch(error => {
+                      console.error('❌ Navigation error:', error);
+                      this.errorMessage = 'Transaksi berhasil, tapi gagal membuka struk. ID: ' + saleId;
+                    });
+                  } catch (error) {
+                    console.error('❌ Router navigate error:', error);
+                    this.errorMessage = 'Transaksi berhasil, tapi gagal membuka struk. ID: ' + saleId;
+                  }
                 } else {
                   this.errorMessage = response.message || 'Gagal menyimpan transaksi';
                   this.clearMessages();

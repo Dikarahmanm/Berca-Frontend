@@ -29,6 +29,7 @@ export interface CreateSaleRequest {
   paymentReference?: string;
   memberId?: number;
   customerName?: string;
+  customerPhone?: string;
   notes?: string;
   redeemedPoints?: number;
 }

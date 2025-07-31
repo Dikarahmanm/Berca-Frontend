@@ -292,28 +292,19 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
 
     try {
       console.log('📄 Starting PDF download for sale:', this.sale.id);
+      this.isLoading = true;
       
-      // Show user options
-      const userChoice = confirm(
-        'Pilih cara download PDF:\n\n' +
-        'OK = Download file HTML (kemudian convert ke PDF)\n' + 
-        'Cancel = Buka window print (langsung save as PDF)'
-      );
+      // Use the enhanced PDF generation service
+      await this.receiptService.downloadReceiptPDF(this.sale.id);
       
-      if (userChoice) {
-        // Option 1: Download HTML file
-        await this.receiptService.downloadReceiptPDF(this.sale.id);
-        this.showSuccessMessage('File HTML berhasil didownload. Buka file tersebut dan tekan Ctrl+P untuk save as PDF');
-      } else {
-        // Option 2: Open print window
-        window.print();
-        this.showSuccessMessage('Window print telah dibuka. Pilih "Save as PDF" di dialog print');
-      }
+      this.showSuccessMessage('PDF struk berhasil didownload!');
+      this.isLoading = false;
       
     } catch (error: any) {
-      console.error('❌ PDF download failed:', error);
-      this.errorMessage = error.message || 'Gagal mendownload PDF';
+      console.error('❌ Download PDF error:', error);
+      this.errorMessage = error.message || 'Gagal mengunduh PDF';
       this.clearMessages();
+      this.isLoading = false;
     }
   }
 

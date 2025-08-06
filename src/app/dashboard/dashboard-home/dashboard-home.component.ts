@@ -279,6 +279,15 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         enabled: true
       },
       {
+        id: 'analytics',
+        title: 'Analytics',
+        description: 'Lihat laporan dan analisis bisnis',
+        icon: 'analytics',
+        route: '/dashboard/analytics',
+        color: 'accent',
+        enabled: true
+      },
+      {
         id: 'inventory',
         title: 'Inventory',
         description: 'Kelola produk dan stok',

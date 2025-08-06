@@ -52,8 +52,7 @@ export class LayoutService {
           id: 'dashboard',
           label: 'Dashboard',
           icon: 'dashboard',
-          route: '/dashboard',
-          // route: '/dashboard/analytics', // ✅ FIXED: Point to analytics
+          route: '/dashboard', // ✅ FIXED: Point to dashboard home
           roles: ['Admin', 'Manager', 'User', 'Cashier']
         },
         {
@@ -202,10 +201,10 @@ export class LayoutService {
     }
   }
 
-  // ✅ UPDATED: Route mapping with Analytics properly integrated
+  // ✅ UPDATED: Route mapping with proper dashboard home and analytics separation
   private updateCurrentPage(url: string): void {
     const titleMap: { [key: string]: {title: string, breadcrumb: string[]} } = {
-      '/dashboard': { title: 'Dashboard Analytics', breadcrumb: ['Dashboard', 'Analytics'] }, // Default to analytics
+      '/dashboard': { title: 'Dashboard', breadcrumb: ['Dashboard'] }, // Dashboard home
       '/dashboard/analytics': { title: 'Dashboard Analytics', breadcrumb: ['Dashboard', 'Analytics'] },
       '/pos': { title: 'Point of Sale', breadcrumb: ['POS'] },
       '/notifications': { title: 'Notifications', breadcrumb: ['Notifications'] },
@@ -219,7 +218,7 @@ export class LayoutService {
       '/settings': { title: 'Settings', breadcrumb: ['Settings'] }
     };
 
-    const pageInfo = titleMap[url] || { title: 'Dashboard Analytics', breadcrumb: ['Dashboard', 'Analytics'] };
+    const pageInfo = titleMap[url] || { title: 'Dashboard', breadcrumb: ['Dashboard'] };
     this.currentPageSubject.next(pageInfo);
   }
 
@@ -254,8 +253,7 @@ export class LayoutService {
         !item.roles || item.roles.includes(userRole)
       ).map(item => ({
         ...item,
-        isActive: this.router.url === item.route || 
-                  (item.route === '/dashboard/analytics' && this.router.url === '/dashboard')
+        isActive: this.router.url === item.route
       }))
     })).filter(section => section.items.length > 0);
   }
@@ -277,10 +275,10 @@ export class LayoutService {
     }
   }
 
-  // ✅ UPDATED: Page title mapping with Analytics
+  // ✅ UPDATED: Page title mapping with proper dashboard home and analytics
   getPageTitle(route: string): string {
     const titleMap: { [key: string]: string } = {
-      '/dashboard': 'Dashboard Analytics',
+      '/dashboard': 'Dashboard',
       '/dashboard/analytics': 'Dashboard Analytics',
       '/pos': 'Point of Sale',
       '/notifications': 'Notifications',
@@ -294,7 +292,7 @@ export class LayoutService {
       '/settings': 'Settings'
     };
 
-    return titleMap[route] || 'Dashboard Analytics';
+    return titleMap[route] || 'Dashboard';
   }
 
   // Method untuk check apakah user dapat akses route
@@ -308,14 +306,11 @@ export class LayoutService {
     return false;
   }
 
-  // ✅ NEW: Helper method untuk getting current active navigation
+  // ✅ UPDATED: Helper method untuk getting current active navigation
   getCurrentActiveNavigation(): NavigationItem | null {
     const currentUrl = this.router.url;
     for (const section of this.navigationConfig) {
-      const activeItem = section.items.find(item => 
-        item.route === currentUrl || 
-        (item.route === '/dashboard/analytics' && currentUrl === '/dashboard')
-      );
+      const activeItem = section.items.find(item => item.route === currentUrl);
       if (activeItem) {
         return activeItem;
       }
@@ -323,14 +318,18 @@ export class LayoutService {
     return null;
   }
 
-  // ✅ NEW: Method untuk navigate ke analytics (as default dashboard)
+  // ✅ UPDATED: Method untuk navigate ke dashboard home (not analytics)
   navigateToDashboard(): void {
-    this.router.navigate(['/dashboard/analytics']);
+    this.router.navigate(['/dashboard']);
+  }
+
+  // ✅ UPDATED: Method untuk check if current page is dashboard home
+  isDashboardActive(): boolean {
+    return this.router.url === '/dashboard';
   }
 
   // ✅ NEW: Method untuk check if current page is analytics
   isAnalyticsActive(): boolean {
-    const currentUrl = this.router.url;
-    return currentUrl === '/dashboard/analytics' || currentUrl === '/dashboard';
+    return this.router.url === '/dashboard/analytics';
   }
 }

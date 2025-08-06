@@ -23,6 +23,16 @@ export const routes: Routes = [
         pathMatch: 'full'
       },
       {
+        path: 'analytics',
+        loadComponent: () => import('./dashboard/dashboard-analytics/dashboard-analytics.component').then(c => c.DashboardAnalyticsComponent),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'Dashboard Analytics',
+          breadcrumb: 'Analytics',
+          requiredRoles: ['Admin', 'Manager', 'User']
+        }
+      },
+      {
         path: 'users',
         loadChildren: () => import('./modules/user-management/user-management.module').then(m => m.UserManagementModule),
         canActivate: [RoleGuard],

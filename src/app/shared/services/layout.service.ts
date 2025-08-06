@@ -1,5 +1,5 @@
 // src/app/shared/services/layout.service.ts
-// Service untuk managing sidebar state dan layout configuration across all modules
+// ✅ UPDATED: Analytics integration + proper navigation structure
 
 import { Injectable, signal, computed } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
@@ -38,12 +38,12 @@ export class LayoutService {
 
   // Current page info
   private currentPageSubject = new BehaviorSubject<{title: string, breadcrumb: string[]}>({
-    title: 'Dashboard',
-    breadcrumb: ['Dashboard']
+    title: 'Dashboard Analytics',
+    breadcrumb: ['Dashboard', 'Analytics']
   });
   public currentPage$ = this.currentPageSubject.asObservable();
 
-  // Navigation structure yang dapat digunakan semua module
+  // ✅ UPDATED: Navigation structure with Analytics properly integrated
   private navigationConfig: NavigationSection[] = [
     {
       title: 'MAIN',
@@ -53,6 +53,7 @@ export class LayoutService {
           label: 'Dashboard',
           icon: 'dashboard',
           route: '/dashboard',
+          // route: '/dashboard/analytics', // ✅ FIXED: Point to analytics
           roles: ['Admin', 'Manager', 'User', 'Cashier']
         },
         {
@@ -74,11 +75,11 @@ export class LayoutService {
       ]
     },
     {
-      title: 'INVENTORY',
+      title: 'BUSINESS',
       items: [
         {
           id: 'inventory',
-          label: 'Products',
+          label: 'Inventory',
           icon: 'inventory_2',
           route: '/dashboard/inventory',
           roles: ['Admin', 'Manager', 'User']
@@ -88,6 +89,25 @@ export class LayoutService {
           label: 'Categories',
           icon: 'category',
           route: '/dashboard/categories',
+          roles: ['Admin', 'Manager']
+        }
+      ]
+    },
+    {
+      title: 'ANALYTICS', // ✅ NEW: Dedicated analytics section
+      items: [
+        {
+          id: 'analytics',
+          label: 'Analytics',
+          icon: 'analytics',
+          route: '/dashboard/analytics',
+          roles: ['Admin', 'Manager', 'User']
+        },
+        {
+          id: 'reports',
+          label: 'Reports',
+          icon: 'assessment', // ✅ CHANGED: Better icon for reports
+          route: '/dashboard/reports',
           roles: ['Admin', 'Manager']
         }
       ]
@@ -112,15 +132,8 @@ export class LayoutService {
       ]
     },
     {
-      title: 'ANALYTICS',
+      title: 'SYSTEM',
       items: [
-        {
-          id: 'reports',
-          label: 'Reports',
-          icon: 'analytics',
-          route: '/dashboard/reports',
-          roles: ['Admin', 'Manager']
-        },
         {
           id: 'logs',
           label: 'Activity Logs',
@@ -189,22 +202,24 @@ export class LayoutService {
     }
   }
 
+  // ✅ UPDATED: Route mapping with Analytics properly integrated
   private updateCurrentPage(url: string): void {
     const titleMap: { [key: string]: {title: string, breadcrumb: string[]} } = {
-      '/dashboard': { title: 'Dashboard', breadcrumb: ['Dashboard'] },
+      '/dashboard': { title: 'Dashboard Analytics', breadcrumb: ['Dashboard', 'Analytics'] }, // Default to analytics
+      '/dashboard/analytics': { title: 'Dashboard Analytics', breadcrumb: ['Dashboard', 'Analytics'] },
       '/pos': { title: 'Point of Sale', breadcrumb: ['POS'] },
       '/notifications': { title: 'Notifications', breadcrumb: ['Notifications'] },
       '/dashboard/users': { title: 'User Management', breadcrumb: ['Dashboard', 'Users'] },
       '/dashboard/categories': { title: 'Categories', breadcrumb: ['Dashboard', 'Categories'] },
       '/dashboard/inventory': { title: 'Inventory', breadcrumb: ['Dashboard', 'Inventory'] },
-      '/dashboard/reports': { title: 'Reports', breadcrumb: ['Dashboard', 'Reports'] },
+      '/dashboard/reports': { title: 'Reports & Analytics', breadcrumb: ['Dashboard', 'Reports'] },
       '/dashboard/logs': { title: 'Activity Logs', breadcrumb: ['Dashboard', 'Logs'] },
       '/dashboard/membership': { title: 'Membership', breadcrumb: ['Dashboard', 'Membership'] },
       '/profile': { title: 'User Profile', breadcrumb: ['Profile'] },
       '/settings': { title: 'Settings', breadcrumb: ['Settings'] }
     };
 
-    const pageInfo = titleMap[url] || { title: 'Dashboard', breadcrumb: ['Dashboard'] };
+    const pageInfo = titleMap[url] || { title: 'Dashboard Analytics', breadcrumb: ['Dashboard', 'Analytics'] };
     this.currentPageSubject.next(pageInfo);
   }
 
@@ -239,7 +254,8 @@ export class LayoutService {
         !item.roles || item.roles.includes(userRole)
       ).map(item => ({
         ...item,
-        isActive: this.router.url === item.route
+        isActive: this.router.url === item.route || 
+                  (item.route === '/dashboard/analytics' && this.router.url === '/dashboard')
       }))
     })).filter(section => section.items.length > 0);
   }
@@ -261,23 +277,24 @@ export class LayoutService {
     }
   }
 
-  // Method untuk mendapatkan page title berdasarkan route
+  // ✅ UPDATED: Page title mapping with Analytics
   getPageTitle(route: string): string {
     const titleMap: { [key: string]: string } = {
-      '/dashboard': 'Dashboard',
+      '/dashboard': 'Dashboard Analytics',
+      '/dashboard/analytics': 'Dashboard Analytics',
       '/pos': 'Point of Sale',
       '/notifications': 'Notifications',
       '/dashboard/users': 'User Management',
       '/dashboard/categories': 'Categories',
       '/dashboard/inventory': 'Inventory',
-      '/dashboard/reports': 'Reports',
+      '/dashboard/reports': 'Reports & Analytics',
       '/dashboard/logs': 'Activity Logs',
       '/dashboard/membership': 'Membership',
       '/profile': 'User Profile',
       '/settings': 'Settings'
     };
 
-    return titleMap[route] || 'Dashboard';
+    return titleMap[route] || 'Dashboard Analytics';
   }
 
   // Method untuk check apakah user dapat akses route
@@ -289,5 +306,31 @@ export class LayoutService {
       }
     }
     return false;
+  }
+
+  // ✅ NEW: Helper method untuk getting current active navigation
+  getCurrentActiveNavigation(): NavigationItem | null {
+    const currentUrl = this.router.url;
+    for (const section of this.navigationConfig) {
+      const activeItem = section.items.find(item => 
+        item.route === currentUrl || 
+        (item.route === '/dashboard/analytics' && currentUrl === '/dashboard')
+      );
+      if (activeItem) {
+        return activeItem;
+      }
+    }
+    return null;
+  }
+
+  // ✅ NEW: Method untuk navigate ke analytics (as default dashboard)
+  navigateToDashboard(): void {
+    this.router.navigate(['/dashboard/analytics']);
+  }
+
+  // ✅ NEW: Method untuk check if current page is analytics
+  isAnalyticsActive(): boolean {
+    const currentUrl = this.router.url;
+    return currentUrl === '/dashboard/analytics' || currentUrl === '/dashboard';
   }
 }

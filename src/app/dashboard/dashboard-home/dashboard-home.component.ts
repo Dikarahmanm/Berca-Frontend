@@ -1,3 +1,13 @@
+// Utility: Konversi waktu ke jam Jakarta (WIB)
+function toJakartaTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '-';
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const jakarta = new Date(utc + (7 * 60 * 60 * 1000));
+  const hours = jakarta.getHours().toString().padStart(2, '0');
+  const minutes = jakarta.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
 // src/app/dashboard/dashboard-home/dashboard-home.component.ts
 // ✅ NEW: Separate component for dashboard home content
 
@@ -332,13 +342,12 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
   }
 
   getCurrentDate(): string {
-    return new Date().toLocaleDateString('id-ID', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: 'Asia/Jakarta'
-    });
+    const now = new Date();
+    const day = now.getUTCDate().toString().padStart(2, '0');
+    const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
+    const year = now.getUTCFullYear();
+    const time = toJakartaTime(now);
+    return `${day}/${month}/${year} ${time} WIB`;
   }
 
   formatNumber(num: number): string {

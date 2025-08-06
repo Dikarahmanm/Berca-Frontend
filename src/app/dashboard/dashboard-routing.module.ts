@@ -1,7 +1,5 @@
-// ===== UPDATED DASHBOARD ROUTING ===== //
-
 // src/app/dashboard/dashboard-routing.module.ts
-// ✅ UPDATED: Dashboard routing hanya untuk child modules, POS dan Notifications standalone
+// ✅ UPDATED: Added Analytics route and prepared for Membership
 
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
@@ -13,6 +11,18 @@ const routes: Routes = [
     path: '',
     component: DashboardComponent,
     children: [
+      // ===== DASHBOARD ANALYTICS (NEW) ===== //
+      {
+        path: 'analytics',
+        loadComponent: () => import('./dashboard-analytics/dashboard-analytics.component').then(c => c.DashboardAnalyticsComponent),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'Dashboard Analytics',
+          breadcrumb: 'Analytics',
+          requiredRoles: ['Admin', 'Manager', 'User']
+        }
+      },
+
       // ===== USER MANAGEMENT ===== //
       {
         path: 'users',
@@ -49,10 +59,10 @@ const routes: Routes = [
         }
       },
 
-      // ===== MEMBERSHIP MANAGEMENT ===== //
+      // ===== MEMBERSHIP MANAGEMENT (READY FOR NEXT SPRINT) ===== //
       // {
       //   path: 'membership',
-      //   loadChildren: () => import('../modules/membership/membership.module').then(m => m.MembershipModule),
+      //   loadComponent: () => import('../modules/membership/membership-list/membership-list.component').then(c => c.MembershipListComponent),
       //   canActivate: [RoleGuard],
       //   data: {
       //     title: 'Membership Management',
@@ -61,10 +71,10 @@ const routes: Routes = [
       //   }
       // },
 
-      // ===== REPORTS & ANALYTICS ===== //
+      // ===== REPORTS & ANALYTICS (FUTURE) ===== //
       // {
       //   path: 'reports',
-      //   loadChildren: () => import('../modules/reports/reports.module').then(m => m.ReportsModule),
+      //   loadComponent: () => import('../modules/reports/reports-dashboard/reports-dashboard.component').then(c => c.ReportsDashboardComponent),
       //   canActivate: [RoleGuard],
       //   data: {
       //     title: 'Reports & Analytics',
@@ -85,10 +95,10 @@ const routes: Routes = [
         }
       },
 
-      // ===== DEFAULT ROUTE ===== //
+      // ===== DEFAULT ROUTE - REDIRECT TO ANALYTICS ===== //
       {
         path: '',
-        redirectTo: '/dashboard',
+        redirectTo: 'analytics',
         pathMatch: 'full'
       }
     ]

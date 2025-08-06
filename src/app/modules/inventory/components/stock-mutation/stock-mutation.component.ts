@@ -302,20 +302,36 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     this.saving = true;
     const formData = this.stockForm.value;
     let quantity = Number(formData.quantity);
-    
+
     if (isNaN(quantity)) {
       this.showError('Quantity must be a number');
       this.saving = false;
       return;
     }
-    
+
     if (quantity === 0) {
       this.showError('Quantity cannot be zero');
       this.saving = false;
       return;
     }
 
-    // Validasi tambahan untuk quantity negatif
+    // Enforce correct sign for quantity based on mutation type
+    const outTypes = [MutationType.StockOut, MutationType.Sale, MutationType.Damaged, MutationType.Expired];
+    const inTypes = [MutationType.StockIn, MutationType.Return, MutationType.Adjustment, MutationType.Transfer];
+    let mutationType = formData.type;
+    // If mutationType is a number (shouldn't be, but just in case), convert to string
+    if (typeof mutationType === 'number' && this.mutationTypes) {
+      const found = this.mutationTypes.find(t => t.value === mutationType);
+      if (found) mutationType = found.label.replace(/ /g, '');
+    }
+
+    if (outTypes.includes(mutationType)) {
+      quantity = -Math.abs(quantity);
+    } else if (inTypes.includes(mutationType)) {
+      quantity = Math.abs(quantity);
+    }
+
+    // Validasi tambahan untuk quantity negatif (stock out)
     if (quantity < 0 && this.product) {
       const absQuantity = Math.abs(quantity);
       if (absQuantity > this.product.stock) {
@@ -324,22 +340,15 @@ export class StockMutationComponent implements OnInit, OnDestroy {
         return;
       }
     }
-    
-    // Konversi mutationType ke string
-    let mutationTypeString = formData.type;
-    if (typeof mutationTypeString === 'number' && this.mutationTypes) {
-      const found = this.mutationTypes.find(t => t.value === mutationTypeString);
-      if (found) mutationTypeString = found.label.replace(/ /g, '');
-    }
-    
+
     const request: StockUpdateRequest = {
-      mutationType: mutationTypeString,
+      mutationType: mutationType,
       quantity,
       notes: formData.notes.trim(),
       referenceNumber: formData.referenceNumber?.trim() || undefined,
       unitCost: formData.unitCost && formData.unitCost > 0 ? parseFloat(formData.unitCost) : undefined
     };
-    
+
     this.subscriptions.add(
       this.inventoryService.updateStock(this.productId, request).subscribe({
         next: () => {

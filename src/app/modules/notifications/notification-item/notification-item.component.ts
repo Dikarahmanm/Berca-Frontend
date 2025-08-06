@@ -1,3 +1,13 @@
+// Utility: Konversi waktu ke jam Jakarta (WIB)
+function toJakartaTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '-';
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const jakarta = new Date(utc + (7 * 60 * 60 * 1000));
+  const hours = jakarta.getHours().toString().padStart(2, '0');
+  const minutes = jakarta.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
 // src/app/modules/notifications/notification-item/notification-item.component.ts
 // ✅ FIXED: Added CommonModule import for *ngIf directive (NG8103)
 
@@ -127,9 +137,16 @@ export class NotificationItemComponent {
     } else if (diffInMinutes < 1440) { // 24 hours
       const hours = Math.floor(diffInMinutes / 60);
       return `${hours} jam yang lalu`;
-    } else {
+    } else if (diffInMinutes < 10080) { // < 7 hari
       const days = Math.floor(diffInMinutes / 1440);
       return `${days} hari yang lalu`;
+    } else {
+      // Format fallback: dd/MM/yyyy HH:mm WIB
+      const day = date.getUTCDate().toString().padStart(2, '0');
+      const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+      const year = date.getUTCFullYear();
+      const time = toJakartaTime(date);
+      return `${day}/${month}/${year} ${time} WIB`;
     }
   }
 

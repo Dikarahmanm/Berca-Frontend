@@ -4,6 +4,9 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Import real service and interfaces
 import { NotificationService, NotificationDto, NotificationSummaryDto } from '../../../core/services/notification.service';
@@ -16,7 +19,7 @@ type FilterType = 'all' | 'unread' | 'low_stock' | 'system' | 'sales';
   templateUrl: './notification-center.component.html',
   styleUrls: ['./notification-center.component.scss'],
   standalone: true,
-  imports: [CommonModule, BaseLayoutComponent]
+  imports: [CommonModule, BaseLayoutComponent, MatIconModule, MatButtonModule, MatTooltipModule]
 })
 export class NotificationCenterComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
@@ -81,6 +84,7 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
             this.notifications = [...this.notifications, ...notifications];
           }
           this.hasMoreNotifications = notifications.length === this.pageSize;
+          this.updateFilterCounts();
         },
         error: (error) => {
           this.error = 'Gagal memuat notifikasi. Silakan coba lagi.';
@@ -107,266 +111,331 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Setup reactive updates from service
+   * Setup reactive updates for real-time notifications
    */
   private setupReactiveUpdates() {
-    // Subscribe to real-time updates
-    this.notificationService.summary$
+    // Listen for new notifications in real-time if service supports it
+    this.notificationService.notifications$
       .pipe(takeUntil(this.destroy$))
-      .subscribe((summary) => {
-        if (summary) {
-          this.summary = summary;
+      .subscribe({
+        next: (notifications) => {
+          this.notifications = notifications;
           this.updateFilterCounts();
         }
       });
-
-    this.notificationService.notifications$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((notifications) => {
-        this.notifications = notifications;
-      });
-
-    this.notificationService.error$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((error) => {
-        this.error = error;
-      });
   }
 
   /**
-   * Get dynamic count for specific notification types
-   */
-  getLowStockCount(): number {
-    return this.notifications.filter(n => n.type === 'LOW_STOCK').length;
-  }
-
-  getSystemCount(): number {
-    return this.notifications.filter(n => 
-      ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED'].includes(n.type)
-    ).length;
-  }
-
-  getSalesCount(): number {
-    return this.notifications.filter(n => 
-      ['SALE_COMPLETED', 'MONTHLY_REVENUE'].includes(n.type)
-    ).length;
-  }
-
-  /**
-   * Update filter counts based on summary
-   */
-  private updateFilterCounts() {
-    if (!this.summary) return;
-    
-    this.filterOptions[0].count = this.summary.totalCount; // all
-    this.filterOptions[1].count = this.summary.unreadCount; // unread
-    
-    // Calculate type-specific counts from actual notifications
-    const lowStockCount = this.notifications.filter(n => n.type === 'LOW_STOCK').length;
-    const systemCount = this.notifications.filter(n => 
-      ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED'].includes(n.type)
-    ).length;
-    const salesCount = this.notifications.filter(n => 
-      ['SALE_COMPLETED', 'MONTHLY_REVENUE'].includes(n.type)
-    ).length;
-    
-    this.filterOptions[2].count = lowStockCount; // low_stock
-    this.filterOptions[3].count = systemCount; // system
-    this.filterOptions[4].count = salesCount; // sales
-  }
-
-  /**
-   * Change filter and reload notifications
-   */
-  changeFilter(filter: FilterType, index: number) {
-    this.selectedFilter = filter;
-    this.selectedFilterIndex = index;
-    this.page = 1;
-    this.hasMoreNotifications = true;
-    this.loadNotifications();
-  }
-
-  /**
-   * Get filtered notifications for display
+   * Get filtered notifications berdasarkan backend mapping
    */
   getFilteredNotifications(): NotificationDto[] {
-    switch (this.selectedFilter) {
-      case 'unread':
-        return this.notifications.filter(n => !n.isRead);
-      case 'low_stock':
-        return this.notifications.filter(n => n.type === 'LOW_STOCK');
-      case 'system':
-        return this.notifications.filter(n => 
-          ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED'].includes(n.type)
-        );
-      case 'sales':
-        return this.notifications.filter(n => 
-          ['SALE_COMPLETED', 'MONTHLY_REVENUE'].includes(n.type)
-        );
-      default:
-        return this.notifications;
-    }
+    const filtered = this.notifications.filter(notification => {
+      switch (this.selectedFilter) {
+        case 'all':
+          return true;
+        case 'unread':
+          return !notification.isRead;
+        case 'low_stock':
+          return ['LOW_STOCK', 'OUT_OF_STOCK', 'low_stock'].includes(notification.type);
+        case 'system':
+          return ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED', 'USER_LOGIN', 'string'].includes(notification.type);
+        case 'sales':
+          return ['SALE_COMPLETED', 'MONTHLY_REVENUE', 'INVENTORY_AUDIT'].includes(notification.type);
+        default:
+          return true;
+      }
+    });
+    console.log(`Filtered notifications (${this.selectedFilter}):`, filtered.length, 'out of', this.notifications.length);
+    return filtered;
   }
 
   /**
-   * Mark notification as read using real service
+   * Update filter counts berdasarkan data aktual
    */
-  markAsRead(notification: NotificationDto) {
-    if (notification.isRead) return;
+  private updateFilterCounts() {
+    this.filterOptions.forEach(filter => {
+      switch (filter.value) {
+        case 'all':
+          filter.count = this.notifications.length;
+          break;
+        case 'unread':
+          filter.count = this.notifications.filter(n => !n.isRead).length;
+          break;
+        case 'low_stock':
+          filter.count = this.notifications.filter(n => 
+            ['LOW_STOCK', 'OUT_OF_STOCK', 'low_stock'].includes(n.type)
+          ).length;
+          break;
+        case 'system':
+          filter.count = this.notifications.filter(n => 
+            ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED', 'USER_LOGIN', 'string'].includes(n.type)
+          ).length;
+          break;
+        case 'sales':
+          filter.count = this.notifications.filter(n => 
+            ['SALE_COMPLETED', 'MONTHLY_REVENUE', 'INVENTORY_AUDIT'].includes(n.type)
+          ).length;
+          break;
+      }
+    });
+  }
 
-    this.notificationService.markAsRead(notification.id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (success) => {
-          if (success) {
-            notification.isRead = true;
-            notification.readAt = new Date().toISOString();
-            this.loadSummary(); // Refresh summary
-          }
-        },
-        error: (error) => {
-          console.error('Error marking notification as read:', error);
+  /**
+   * Get notification icon berdasarkan tipe backend
+   */
+  getNotificationIcon(notification: NotificationDto): string {
+    const iconMap: { [key: string]: string } = {
+      // Stock Related
+      'LOW_STOCK': 'inventory_2',
+      'OUT_OF_STOCK': 'production_quantity_limits',
+      'low_stock': 'inventory_2',
+      
+      // Sales Related
+      'SALE_COMPLETED': 'point_of_sale',
+      'MONTHLY_REVENUE': 'trending_up',
+      'INVENTORY_AUDIT': 'fact_check',
+      
+      // System Related
+      'SYSTEM_MAINTENANCE': 'build',
+      'BACKUP_COMPLETED': 'backup',
+      'USER_LOGIN': 'login',
+      'string': 'info',
+      
+      // Default
+      'CUSTOM': 'notifications'
+    };
+    return iconMap[notification.type] || 'notifications';
+  }
+
+  /**
+   * Get CSS class untuk styling notification berdasarkan tipe
+   */
+  getNotificationTypeClass(notification: NotificationDto): string {
+    const classMap: { [key: string]: string } = {
+      // Stock Related - Orange/Red theme
+      'LOW_STOCK': 'type-stock-warning',
+      'OUT_OF_STOCK': 'type-stock-critical',
+      'low_stock': 'type-stock-warning',
+      
+      // Sales Related - Green theme
+      'SALE_COMPLETED': 'type-sales-success',
+      'MONTHLY_REVENUE': 'type-sales-info',
+      'INVENTORY_AUDIT': 'type-sales-audit',
+      
+      // System Related - Blue theme
+      'SYSTEM_MAINTENANCE': 'type-system-warning',
+      'BACKUP_COMPLETED': 'type-system-success',
+      'USER_LOGIN': 'type-system-info',
+      'string': 'type-system-general',
+      
+      // Default
+      'CUSTOM': 'type-custom'
+    };
+    return classMap[notification.type] || 'type-default';
+  }
+
+  /**
+   * Get color untuk notification icon
+   */
+  getNotificationColor(notification: NotificationDto): string {
+    const colorMap: { [key: string]: string } = {
+      // Stock Related
+      'LOW_STOCK': '#ff9800',
+      'OUT_OF_STOCK': '#f44336',
+      'low_stock': '#ff9800',
+      
+      // Sales Related
+      'SALE_COMPLETED': '#4caf50',
+      'MONTHLY_REVENUE': '#2196f3',
+      'INVENTORY_AUDIT': '#673ab7',
+      
+      // System Related
+      'SYSTEM_MAINTENANCE': '#ff5722',
+      'BACKUP_COMPLETED': '#4caf50',
+      'USER_LOGIN': '#2196f3',
+      'string': '#607d8b',
+      
+      // Default
+      'CUSTOM': '#9e9e9e'
+    };
+    return colorMap[notification.type] || '#9e9e9e';
+  }
+
+  /**
+   * Get notification type label yang sesuai dengan backend
+   */
+  getNotificationTypeLabel(type: string): string {
+    const labels: { [key: string]: string } = {
+      // Stock Related
+      'LOW_STOCK': 'Stok Menipis',
+      'OUT_OF_STOCK': 'Stok Habis',
+      'low_stock': 'Stok Menipis',
+      
+      // Sales Related
+      'SALE_COMPLETED': 'Penjualan Selesai',
+      'MONTHLY_REVENUE': 'Laporan Bulanan', 
+      'INVENTORY_AUDIT': 'Audit Inventori',
+      
+      // System Related
+      'SYSTEM_MAINTENANCE': 'Pemeliharaan Sistem',
+      'BACKUP_COMPLETED': 'Backup Selesai',
+      'USER_LOGIN': 'Login User',
+      'string': 'Notifikasi Umum',
+      
+      // Default
+      'CUSTOM': 'Kustom'
+    };
+    return labels[type] || type;
+  }
+
+  /**
+   * Get notification badge text berdasarkan tipe
+   */
+  getNotificationBadge(notification: NotificationDto): string {
+    const badges: { [key: string]: string } = {
+      'LOW_STOCK': 'STOK',
+      'OUT_OF_STOCK': 'HABIS',
+      'low_stock': 'STOK',
+      'SALE_COMPLETED': 'JUAL',
+      'MONTHLY_REVENUE': 'LAPORAN',
+      'SYSTEM_MAINTENANCE': 'SISTEM',
+      'BACKUP_COMPLETED': 'BACKUP',
+      'USER_LOGIN': 'USER',
+      'string': 'INFO'
+    };
+    return badges[notification.type] || 'INFO';
+  }
+
+  /**
+   * Get priority display text
+   */
+  getPriorityDisplayText(priority: string): string {
+    const priorityMap: { [key: string]: string } = {
+      'Low': 'Rendah',
+      'Medium': 'Sedang', 
+      'High': 'Tinggi',
+      'Critical': 'Kritis'
+    };
+    return priorityMap[priority] || priority;
+  }
+
+  /**
+   * Mark notification as read
+   */
+  markAsRead(notificationId: number): void {
+    this.notificationService.markAsRead(notificationId).subscribe({
+      next: () => {
+        // Update the local notification state
+        const notification = this.notifications.find(n => n.id === notificationId);
+        if (notification) {
+          notification.isRead = true;
         }
-      });
+        this.updateFilterCounts();
+      },
+      error: (error) => {
+        console.error('Error marking notification as read:', error);
+        this.showError('Gagal menandai notifikasi sebagai sudah dibaca');
+      }
+    });
   }
 
   /**
-   * Mark all notifications as read using real service
+   * Delete notification
    */
-  markAllAsRead() {
-    this.notificationService.markAllAsRead()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (success) => {
-          if (success) {
-            this.notifications.forEach(n => {
-              n.isRead = true;
-              n.readAt = new Date().toISOString();
-            });
-            this.loadSummary(); // Refresh summary
-          }
-        },
-        error: (error) => {
-          console.error('Error marking all notifications as read:', error);
-        }
-      });
-  }
-
-  /**
-   * Delete notification using real service
-   */
-  deleteNotification(notification: NotificationDto, event: Event) {
-    event.stopPropagation();
-
-    if (confirm('Yakin ingin menghapus notifikasi ini?')) {
-      this.notificationService.deleteNotification(notification.id)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: (success) => {
-            if (success) {
-              const index = this.notifications.findIndex(n => n.id === notification.id);
-              if (index > -1) {
-                this.notifications.splice(index, 1);
-                this.loadSummary(); // Refresh summary
-              }
-            }
-          },
-          error: (error) => {
-            console.error('Error deleting notification:', error);
-          }
-        });
+  deleteNotification(notification: NotificationDto, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
     }
-  }
-
-  /**
-   * Refresh notifications from service
-   */
-  refresh() {
-    this.page = 1;
-    this.hasMoreNotifications = true;
-    this.error = null;
-    this.loadNotifications();
-    this.loadSummary();
-  }
-
-  /**
-   * Load more notifications (pagination)
-   */
-  loadMore() {
-    if (!this.hasMoreNotifications || this.isLoading) return;
     
-    this.page++;
-    this.loadNotifications();
+    if (confirm('Apakah Anda yakin ingin menghapus notifikasi ini?')) {
+      this.notificationService.deleteNotification(notification.id).subscribe({
+        next: () => {
+          this.notifications = this.notifications.filter(n => n.id !== notification.id);
+          this.updateFilterCounts();
+        },
+        error: (error) => {
+          console.error('Error deleting notification:', error);
+          this.showError('Gagal menghapus notifikasi');
+        }
+      });
+    }
   }
 
   /**
    * Handle notification click
    */
-  onNotificationClick(notification: NotificationDto) {
-    this.markAsRead(notification);
-    
-    if (notification.actionUrl) {
-      this.router.navigate([notification.actionUrl]);
+  onNotificationClick(notification: NotificationDto): void {
+    if (!notification.isRead) {
+      this.markAsRead(notification.id);
     }
-  }
-
-  /**
-   * Get notification icon
-   */
-  getNotificationIcon(notification: NotificationDto): string {
-    const icons: { [key: string]: string } = {
-      'LOW_STOCK': 'inventory_2',
-      'MONTHLY_REVENUE': 'analytics',
-      'INVENTORY_AUDIT': 'fact_check',
-      'SYSTEM_MAINTENANCE': 'build',
-      'SALE_COMPLETED': 'point_of_sale',
-      'USER_LOGIN': 'person',
-      'BACKUP_COMPLETED': 'backup',
-      'CUSTOM': 'notifications'
-    };
-    return icons[notification.type] || 'notifications';
-  }
-
-  /**
-   * Get notification color
-   */
-  getNotificationColor(notification: NotificationDto): string {
-    const colors: { [key: string]: string } = {
-      'Low': '#4BBF7B',      // Green
-      'Normal': '#FF914D',   // Orange
-      'High': '#FFB84D',     // Warning yellow
-      'Critical': '#E15A4F'  // Red
-    };
-    return colors[notification.priority] || '#FF914D';
-  }
-
-  /**
-   * Format notification time
-   */
-  formatNotificationTime(date: string): string {
-    const now = new Date();
-    const notificationDate = new Date(date);
-    const diffMs = now.getTime() - notificationDate.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return 'Baru saja';
-    if (diffMins < 60) return `${diffMins} menit lalu`;
-    if (diffHours < 24) return `${diffHours} jam lalu`;
-    if (diffDays < 7) return `${diffDays} hari lalu`;
     
-    return notificationDate.toLocaleDateString('id-ID');
+    // Navigate to action URL if available
+    if (notification.actionUrl) {
+      window.open(notification.actionUrl, '_blank');
+    }
   }
 
   /**
    * Check if notification is expired
    */
   isNotificationExpired(notification: NotificationDto): boolean {
-    const now = new Date();
-    const notificationDate = new Date(notification.createdAt);
-    const diffDays = Math.floor((now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDays > 30; // Consider expired after 30 days
+    // Since backend doesn't have expiryDate, return false for now
+    return false;
+  }
+
+  /**
+   * Check if has notifications
+   */
+  hasNotifications(): boolean {
+    return this.notifications.length > 0;
+  }
+
+  /**
+   * Load more notifications
+   */
+  loadMore(): void {
+    if (this.hasMoreNotifications && !this.isLoading) {
+      this.page++;
+      this.loadNotifications();
+    }
+  }
+
+  /**
+   * Show error message
+   */
+  private showError(message: string): void {
+    this.error = message;
+    // Auto-clear error after 5 seconds
+    setTimeout(() => {
+      this.clearError();
+    }, 5000);
+  }
+
+  /**
+   * Clear error message
+   */
+  clearError(): void {
+    this.error = null;
+  }
+
+  /**
+   * Change filter
+   */
+  changeFilter(filterValue: FilterType, index: number) {
+    console.log(`Filter changed to: ${filterValue}, index: ${index}`);
+    this.selectedFilter = filterValue;
+    this.selectedFilterIndex = index;
+    this.page = 1;
+    this.loadNotifications();
+  }
+
+  /**
+   * Refresh notifications
+   */
+  refresh() {
+    this.page = 1;
+    this.loadNotifications();
+    this.loadSummary();
   }
 
   /**
@@ -377,42 +446,27 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Track by function for ngFor performance
+   * Track by function for notifications
    */
   trackByNotificationId(index: number, notification: NotificationDto): number {
     return notification.id;
   }
 
   /**
-   * Clear error
+   * Format notification time
    */
-  clearError() {
-    this.error = null;
-    this.notificationService.clearError();
-  }
-
-  /**
-   * Get notification type label
-   */
-  getNotificationTypeLabel(type: string): string {
-    const labels: { [key: string]: string } = {
-      'LOW_STOCK': 'Stok Menipis',
-      'MONTHLY_REVENUE': 'Laporan Bulanan', 
-      'INVENTORY_AUDIT': 'Audit Inventori',
-      'SYSTEM_MAINTENANCE': 'Pemeliharaan Sistem',
-      'SALE_COMPLETED': 'Penjualan Selesai',
-      'USER_LOGIN': 'Login User',
-      'BACKUP_COMPLETED': 'Backup Selesai',
-      'CUSTOM': 'Kustom'
-    };
-    return labels[type] || type;
-  }
-
-  /**
-   * Check if there are any notifications
-   */
-  hasNotifications(): boolean {
-    return this.getFilteredNotifications().length > 0;
+  formatNotificationTime(date: string): string {
+    const now = new Date();
+    const notificationDate = new Date(date);
+    const diffInHours = Math.floor((now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) {
+      return 'Baru saja';
+    } else if (diffInHours < 24) {
+      return `${diffInHours} jam yang lalu`;
+    } else {
+      return notificationDate.toLocaleDateString('id-ID');
+    }
   }
 
   /**
@@ -431,5 +485,60 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
       default:
         return 'Tidak ada notifikasi';
     }
+  }
+
+  /**
+   * Get filter counts
+   */
+  getTotalCount(): number {
+    return this.notifications.length;
+  }
+
+  getUnreadCount(): number {
+    return this.notifications.filter(n => !n.isRead).length;
+  }
+
+  getLowStockCount(): number {
+    return this.notifications.filter(n => 
+      ['LOW_STOCK', 'OUT_OF_STOCK', 'low_stock'].includes(n.type)
+    ).length;
+  }
+
+  getSystemCount(): number {
+    return this.notifications.filter(n => 
+      ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED', 'USER_LOGIN', 'string'].includes(n.type)
+    ).length;
+  }
+
+  getSalesCount(): number {
+    return this.notifications.filter(n => 
+      ['SALE_COMPLETED', 'MONTHLY_REVENUE', 'INVENTORY_AUDIT'].includes(n.type)
+    ).length;
+  }
+
+  /**
+   * Mark all notifications as read
+   */
+  markAllAsRead(): void {
+    const unreadNotifications = this.notifications.filter(n => !n.isRead);
+    if (unreadNotifications.length === 0) return;
+
+    // Update local state immediately for better UX
+    this.notifications.forEach(n => n.isRead = true);
+    this.updateFilterCounts();
+
+    // Call service to persist changes
+    this.notificationService.markAllAsRead().subscribe({
+      next: () => {
+        console.log('All notifications marked as read successfully');
+      },
+      error: (error) => {
+        console.error('Error marking all as read:', error);
+        // Revert changes on error
+        unreadNotifications.forEach(n => n.isRead = false);
+        this.updateFilterCounts();
+        this.showError('Gagal menandai semua notifikasi sebagai sudah dibaca');
+      }
+    });
   }
 }

@@ -75,6 +75,7 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
   isLoading = true;
   selectedPeriod: 'today' | 'week' | 'month' | 'year' = 'month';
   selectedChartPeriod: 'daily' | 'weekly' | 'monthly' = 'daily';
+  selectedWorstCategory: string = 'all';
   refreshInterval: any;
 
   // Chart colors
@@ -302,5 +303,111 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
     if (growth > 0) return 'growth-positive';
     if (growth < 0) return 'growth-negative';  
     return 'growth-neutral';
+  }
+
+  // ===== PERFORMANCE HELPERS =====
+
+  getPerformanceCategoryColor(category: string): string {
+    switch (category) {
+      case 'Never Sold': return 'error';
+      case 'Very Slow': return 'error'; 
+      case 'Slow Moving': return 'warning';
+      case 'Low Profit': return 'warning';
+      case 'Declining': return 'error';
+      default: return 'info';
+    }
+  }
+
+  getPerformanceCategoryIcon(category: string): string {
+    switch (category) {
+      case 'Never Sold': return 'block';
+      case 'Very Slow': return 'hourglass_empty';
+      case 'Slow Moving': return 'schedule';
+      case 'Low Profit': return 'trending_down';
+      case 'Declining': return 'arrow_downward';
+      default: return 'help_outline';
+    }
+  }
+
+  getPerformanceScoreClass(score: number): string {
+    if (score >= 90) return 'score-critical';    // Never Sold
+    if (score >= 70) return 'score-very-bad';    // Very Slow
+    if (score >= 50) return 'score-warning';     // Slow Moving
+    if (score >= 30) return 'score-moderate';    // Low Profit
+    if (score >= 10) return 'score-declining';   // Declining
+    return 'score-good';
+  }
+
+  // Sort worst products by category priority
+  getSortedWorstProducts(): WorstPerformingProductDto[] {
+    const categoryPriority = {
+      'Never Sold': 1,
+      'Very Slow': 2, 
+      'Slow Moving': 3,
+      'Low Profit': 4,
+      'Declining': 5
+    };
+
+    // Filter out "Good Performance" and apply category filter
+    let filtered = this.worstProducts.filter(product => {
+      const isNotGoodPerformance = product.performanceCategory !== 'Good Performance';
+      const matchesFilter = this.selectedWorstCategory === 'all' || 
+                           product.performanceCategory === this.selectedWorstCategory;
+      return isNotGoodPerformance && matchesFilter;
+    });
+
+    return filtered.sort((a, b) => {
+      const priorityA = categoryPriority[a.performanceCategory as keyof typeof categoryPriority] || 999;
+      const priorityB = categoryPriority[b.performanceCategory as keyof typeof categoryPriority] || 999;
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      // If same category, sort by score descending (worse first)
+      return b.performanceScore - a.performanceScore;
+    });
+  }
+
+  // Get available worst performance categories
+  getWorstCategories(): string[] {
+    const categories = [...new Set(
+      this.worstProducts
+        .filter(p => p.performanceCategory !== 'Good Performance')
+        .map(p => p.performanceCategory)
+    )];
+    return categories.sort((a, b) => {
+      const priority = {
+        'Never Sold': 1,
+        'Very Slow': 2,
+        'Slow Moving': 3,
+        'Low Profit': 4,
+        'Declining': 5
+      };
+      return (priority[a as keyof typeof priority] || 999) - (priority[b as keyof typeof priority] || 999);
+    });
+  }
+
+  // Category filter handler
+  onWorstCategoryChange() {
+    // Category filter will be applied in getSortedWorstProducts()
+  }
+
+  // ===== TOP PRODUCTS HELPERS =====
+
+  getTopProductScoreClass(score: number): string {
+    if (score >= 10) return 'score-excellent';
+    if (score >= 7) return 'score-very-good';
+    if (score >= 5) return 'score-good';
+    if (score >= 2) return 'score-average';
+    return 'score-poor';
+  }
+
+  getProfitMarginClass(margin: number): string {
+    if (margin >= 50) return 'margin-excellent';
+    if (margin >= 30) return 'margin-good';
+    if (margin >= 20) return 'margin-average';
+    if (margin >= 10) return 'margin-low';
+    return 'margin-poor';
   }
 }

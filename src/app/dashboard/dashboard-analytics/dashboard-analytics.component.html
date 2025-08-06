@@ -168,33 +168,53 @@
           </div>
           
           <div class="product-list" *ngIf="topProducts.length > 0; else noTopProducts">
-            <div class="product-item" *ngFor="let product of topProducts; let i = index">
-              <div class="product-rank">{{ i + 1 }}</div>
-              <div class="product-info">
-                <div class="product-name">{{ product.productName }}</div>
-                <div class="product-barcode">{{ product.productBarcode }}</div>
-              </div>
-              <div class="product-stats">
-                <div class="stat">
-                  <span class="label">Terjual:</span>
-                  <span class="value">{{ formatNumber(safeValue(product.totalQuantitySold)) }}</span>
+            <div class="top-product-item" *ngFor="let product of topProducts; let i = index">
+              <!-- Header with rank and weighted score -->
+              <div class="product-header">
+                <div class="rank-badge success">{{ i + 1 }}</div>
+                <div class="product-basic-info">
+                  <div class="product-name">{{ product.productName }}</div>
+                  <div class="product-barcode">{{ product.productBarcode }}</div>
                 </div>
-                <div class="stat">
-                  <span class="label">Pendapatan:</span>
-                  <span class="value">{{ formatCurrency(safeValue(product.totalRevenue)) }}</span>
-                </div>
-                <div class="stat">
-                  <span class="label">Profit:</span>
-                  <span class="value">{{ formatCurrency(safeValue(product.totalProfit)) }}</span>
-                </div>
-                <div class="stat">
-                  <span class="label">Margin:</span>
-                  <span class="value">{{ formatPercentage(calculateProfitMargin(safeValue(product.totalProfit), safeValue(product.totalRevenue))) }}</span>
+                <div class="weighted-score" [ngClass]="getTopProductScoreClass(product.weightedScore)">
+                  {{ formatNumber(safeValue(product.weightedScore)) }}
                 </div>
               </div>
-              <button mat-icon-button (click)="viewProductDetails(product.productId)">
-                <mat-icon>visibility</mat-icon>
-              </button>
+
+              <!-- Performance metrics section -->
+              <div class="performance-section">
+                <div class="profit-margin-chip" [ngClass]="getProfitMarginClass(product.profitMargin)">
+                  <mat-icon>percent</mat-icon>
+                  {{ formatPercentage(safeValue(product.profitMargin)) }} Margin
+                </div>
+              </div>
+
+              <!-- Key metrics in compact format -->
+              <div class="metrics-grid">
+                <div class="metric">
+                  <div class="metric-value">{{ formatNumber(safeValue(product.totalQuantitySold)) }}</div>
+                  <div class="metric-label">Terjual</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-value">{{ formatNumber(safeValue(product.transactionCount)) }}</div>
+                  <div class="metric-label">Transaksi</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-value">{{ formatNumber(safeValue(product.averageQuantityPerTransaction)) }}</div>
+                  <div class="metric-label">Avg/Trx</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-value">{{ formatCurrency(safeValue(product.totalRevenue)) }}</div>
+                  <div class="metric-label">Revenue</div>
+                </div>
+              </div>
+
+              <!-- Action button -->
+              <div class="product-actions">
+                <button mat-icon-button (click)="viewProductDetails(product.productId)" class="action-btn">
+                  <mat-icon>visibility</mat-icon>
+                </button>
+              </div>
             </div>
           </div>
           
@@ -213,39 +233,75 @@
               <mat-icon>trending_down</mat-icon>
               Produk Performa Buruk
             </h3>
-            <button mat-button color="warn" (click)="navigateToProducts()">
-              Lihat Semua
-            </button>
+            <div class="header-actions">
+              <mat-form-field appearance="outline" class="category-filter">
+                <mat-label>Filter Kategori</mat-label>
+                <mat-select [(value)]="selectedWorstCategory" (selectionChange)="onWorstCategoryChange()">
+                  <mat-option value="all">Semua Kategori</mat-option>
+                  <mat-option *ngFor="let category of getWorstCategories()" [value]="category">
+                    {{ category }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+              <button mat-button color="warn" (click)="navigateToProducts()">
+                Lihat Semua
+              </button>
+            </div>
           </div>
           
-          <div class="product-list" *ngIf="worstProducts.length > 0; else noWorstProducts">
-            <div class="product-item worst" *ngFor="let product of worstProducts; let i = index">
-              <div class="product-rank">{{ i + 1 }}</div>
-              <div class="product-info">
-                <div class="product-name">{{ product.productName }}</div>
-                <div class="product-barcode">{{ product.productBarcode }}</div>
-              </div>
-              <div class="product-stats">
-                <div class="stat">
-                  <span class="label">Stok:</span>
-                  <span class="value">{{ formatNumber(safeValue(product.currentStock)) }}</span>
+          <div class="product-list" *ngIf="getSortedWorstProducts().length > 0; else noWorstProducts">
+            <div class="worst-product-item" 
+                 [attr.data-category]="product.performanceCategory"
+                 *ngFor="let product of getSortedWorstProducts(); let i = index">
+              <!-- Header with rank and category -->
+              <div class="product-header">
+                <div class="rank-badge">{{ i + 1 }}</div>
+                <div class="product-basic-info">
+                  <div class="product-name">{{ product.productName }}</div>
+                  <div class="product-barcode">{{ product.productBarcode }}</div>
                 </div>
-                <div class="stat">
-                  <span class="label">Tidak Terjual:</span>
-                  <span class="value">{{ formatNumber(safeValue(product.daysWithoutSale)) }} hari</span>
-                </div>
-                <div class="stat">
-                  <span class="label">Total Terjual:</span>
-                  <span class="value">{{ formatNumber(safeValue(product.totalQuantitySold)) }}</span>
-                </div>
-                <div class="stat">
-                  <span class="label">Pendapatan:</span>
-                  <span class="value">{{ formatCurrency(safeValue(product.totalRevenue)) }}</span>
+                <div class="performance-score" [ngClass]="getPerformanceScoreClass(product.performanceScore)">
+                  {{ product.performanceScore }}
                 </div>
               </div>
-              <button mat-icon-button (click)="viewProductDetails(product.productId)">
-                <mat-icon>visibility</mat-icon>
-              </button>
+
+              <!-- Performance category chip -->
+              <div class="category-section">
+                <mat-chip 
+                  [color]="getPerformanceCategoryColor(product.performanceCategory)" 
+                  class="category-chip"
+                  [attr.data-category]="product.performanceCategory">
+                  <mat-icon>{{ getPerformanceCategoryIcon(product.performanceCategory) }}</mat-icon>
+                  {{ product.performanceCategory }}
+                </mat-chip>
+              </div>
+
+              <!-- Key metrics in compact format -->
+              <div class="metrics-grid">
+                <div class="metric">
+                  <div class="metric-value">{{ formatNumber(safeValue(product.totalQuantitySold)) }}</div>
+                  <div class="metric-label">Terjual</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-value">{{ formatNumber(safeValue(product.currentStock)) }}</div>
+                  <div class="metric-label">Stok</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-value">{{ formatNumber(safeValue(product.daysWithoutSale)) }}</div>
+                  <div class="metric-label">Hari</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-value">{{ formatCurrency(safeValue(product.totalRevenue)) }}</div>
+                  <div class="metric-label">Revenue</div>
+                </div>
+              </div>
+
+              <!-- Action button -->
+              <div class="product-actions">
+                <button mat-icon-button (click)="viewProductDetails(product.productId)" class="action-btn">
+                  <mat-icon>visibility</mat-icon>
+                </button>
+              </div>
             </div>
           </div>
           

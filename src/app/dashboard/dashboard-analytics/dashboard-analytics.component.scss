@@ -1,4 +1,6 @@
 /* src/app/dashboard/dashboard-analytics/dashboard-analytics.component.scss */
+@use 'sass:color';
+@use 'sass:math';
 
 // Variables
 $primary-color: #FF914D;
@@ -207,9 +209,29 @@ $spacing-xl: 48px;
     }
   }
 
-  button {
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    
     @media (max-width: 768px) {
+      flex-direction: column;
       width: 100%;
+      gap: $spacing-sm;
+    }
+
+    .category-filter {
+      min-width: 160px;
+      
+      @media (max-width: 768px) {
+        width: 100%;
+      }
+    }
+
+    button {
+      @media (max-width: 768px) {
+        width: 100%;
+      }
     }
   }
 }
@@ -307,7 +329,7 @@ $spacing-xl: 48px;
         align-items: center;
         gap: 4px;
         font-size: 0.85rem;
-        margin-top: $spacing-xs / 2;
+        margin-top: calc($spacing-xs / 2);
 
         &.positive {
           color: $success-color;
@@ -408,7 +430,7 @@ $spacing-xl: 48px;
       .kpi-label {
         font-size: 1rem;
         color: $text-secondary;
-        margin-bottom: $spacing-xs / 2;
+        margin-bottom: calc($spacing-xs / 2);
         font-weight: 500;
       }
 
@@ -452,18 +474,494 @@ $spacing-xl: 48px;
       display: flex;
       flex-direction: column;
       gap: $spacing-sm;
+
+      // Top Products Styling
+        .top-product-item {
+          background: rgba(255, 255, 255, 0.8);
+          border-radius: calc($border-radius / 2);
+          padding: $spacing-md;
+          border: 1px solid rgba(0, 184, 148, 0.1);
+          transition: all 0.2s ease;
+          max-width: 100%;
+          
+          @media (max-width: 768px) {
+            padding: $spacing-sm;
+          }
+
+          &:hover {
+            background: rgba(255, 255, 255, 0.95);
+            border-color: rgba(0, 184, 148, 0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+          }
+
+          .product-header {
+            display: flex;
+            align-items: center;
+            gap: $spacing-md;
+            margin-bottom: $spacing-sm;
+            
+            @media (max-width: 768px) {
+              gap: $spacing-sm;
+            }
+
+            .rank-badge {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 32px;
+              height: 32px;
+              border-radius: 50%;
+              color: white;
+              font-weight: 700;
+              font-size: 0.9rem;
+              flex-shrink: 0;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+              
+              &.success {
+                background: linear-gradient(135deg, $success-color 0%, color.adjust($success-color, $lightness: -10%) 100%);
+                box-shadow: 0 2px 4px rgba(0, 184, 148, 0.3);
+              }
+              
+              @media (max-width: 768px) {
+                width: 28px;
+                height: 28px;
+                font-size: 0.8rem;
+              }
+            }          .product-basic-info {
+            flex: 1;
+            min-width: 0;
+
+            .product-name {
+              font-weight: 600;
+              color: $text-primary;
+              font-size: 1rem;
+              margin-bottom: 2px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              
+              @media (max-width: 768px) {
+                font-size: 0.9rem;
+                white-space: normal;
+                line-height: 1.3;
+                max-height: 2.6em;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+              }
+            }
+
+            .product-barcode {
+              font-size: 0.75rem;
+              color: $text-muted;
+              font-family: 'Courier New', monospace;
+              
+              @media (max-width: 768px) {
+                font-size: 0.7rem;
+              }
+            }
+          }
+
+          .weighted-score {
+            font-size: 1.5rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+            min-width: 50px;
+            text-align: center;
+            
+            @media (max-width: 768px) {
+              font-size: 1.2rem;
+              min-width: 40px;
+              padding: 2px 6px;
+            }
+          }
+        }
+
+        .performance-section {
+          margin-bottom: $spacing-sm;
+
+          .profit-margin-chip {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.75rem;
+            height: 28px;
+            padding: 0 12px;
+            border-radius: 14px;
+            
+            @media (max-width: 768px) {
+              font-size: 0.7rem;
+              height: 24px;
+              padding: 0 8px;
+            }
+            
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              margin-right: 4px;
+              
+              @media (max-width: 768px) {
+                font-size: 14px;
+                width: 14px;
+                height: 14px;
+              }
+            }
+          }
+        }
+
+        .metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: $spacing-sm;
+          margin-bottom: $spacing-sm;
+          
+          @media (max-width: 768px) {
+            grid-template-columns: repeat(2, 1fr);
+            gap: $spacing-xs;
+          }
+          
+          @media (max-width: 480px) {
+            grid-template-columns: 1fr;
+          }
+
+          .metric {
+            text-align: center;
+            padding: $spacing-xs;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 6px;
+            
+            @media (max-width: 768px) {
+              padding: $spacing-xs / 2;
+            }
+
+            .metric-value {
+              font-weight: 600;
+              color: $text-primary;
+              font-size: 0.9rem;
+              margin-bottom: 2px;
+              
+              @media (max-width: 768px) {
+                font-size: 0.8rem;
+              }
+            }
+
+            .metric-label {
+              font-size: 0.7rem;
+              color: $text-secondary;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              
+              @media (max-width: 768px) {
+                font-size: 0.65rem;
+              }
+            }
+          }
+        }
+
+        .product-actions {
+          display: flex;
+          justify-content: flex-end;
+
+          .action-btn {
+            background: rgba(0, 184, 148, 0.1);
+            border: 1px solid rgba(0, 184, 148, 0.2);
+            
+            @media (max-width: 768px) {
+              width: 36px;
+              height: 36px;
+            }
+            
+            &:hover {
+              background: rgba(0, 184, 148, 0.2);
+            }
+
+            mat-icon {
+              color: $success-color;
+              
+              @media (max-width: 768px) {
+                font-size: 20px;
+                width: 20px;
+                height: 20px;
+              }
+            }
+          }
+        }
+      }
+
+      // Worst Products Styling (existing)
+      .worst-product-item {
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: calc($border-radius / 2);
+        padding: $spacing-md;
+        border: 1px solid rgba(232, 67, 147, 0.1);
+        transition: all 0.2s ease;
+        max-width: 100%;
+        
+        @media (max-width: 768px) {
+          padding: $spacing-sm;
+        }
+
+        // Category-specific styling
+        &[data-category="Never Sold"] {
+          border-left: 4px solid #E84393;
+          background: linear-gradient(135deg, rgba(232, 67, 147, 0.05) 0%, rgba(232, 67, 147, 0.02) 100%);
+        }
+
+        &[data-category="Very Slow"] {
+          border-left: 4px solid #D63384;
+          background: linear-gradient(135deg, rgba(214, 51, 132, 0.05) 0%, rgba(214, 51, 132, 0.02) 100%);
+        }
+
+        &[data-category="Slow Moving"] {
+          border-left: 4px solid #FDCB6E;
+          background: linear-gradient(135deg, rgba(253, 203, 110, 0.05) 0%, rgba(253, 203, 110, 0.02) 100%);
+        }
+
+        &[data-category="Low Profit"] {
+          border-left: 4px solid #00CEC9;
+          background: linear-gradient(135deg, rgba(0, 206, 201, 0.05) 0%, rgba(0, 206, 201, 0.02) 100%);
+        }
+
+        &[data-category="Declining"] {
+          border-left: 4px solid #E17055;
+          background: linear-gradient(135deg, rgba(225, 112, 85, 0.05) 0%, rgba(225, 112, 85, 0.02) 100%);
+        }
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.95);
+          border-color: rgba(232, 67, 147, 0.2);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .product-header {
+          display: flex;
+          align-items: center;
+          gap: $spacing-md;
+          margin-bottom: $spacing-sm;
+          
+          @media (max-width: 768px) {
+            gap: $spacing-sm;
+          }
+
+          .rank-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, $error-color 0%, color.adjust($error-color, $lightness: -10%) 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(232, 67, 147, 0.3);
+            
+            @media (max-width: 768px) {
+              width: 28px;
+              height: 28px;
+              font-size: 0.8rem;
+            }
+          }
+
+          .product-basic-info {
+            flex: 1;
+            min-width: 0;
+
+            .product-name {
+              font-weight: 600;
+              color: $text-primary;
+              font-size: 1rem;
+              margin-bottom: 2px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              
+              @media (max-width: 768px) {
+                font-size: 0.9rem;
+                white-space: normal;
+                line-height: 1.3;
+                max-height: 2.6em;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+              }
+            }
+
+            .product-barcode {
+              font-size: 0.75rem;
+              color: $text-muted;
+              font-family: 'Courier New', monospace;
+              
+              @media (max-width: 768px) {
+                font-size: 0.7rem;
+              }
+            }
+          }
+
+          .performance-score {
+            font-size: 1.5rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+            min-width: 50px;
+            text-align: center;
+            
+            @media (max-width: 768px) {
+              font-size: 1.2rem;
+              min-width: 40px;
+              padding: 2px 6px;
+            }
+          }
+        }
+
+        .category-section {
+          margin-bottom: $spacing-sm;
+
+          .category-chip {
+            font-size: 0.75rem;
+            height: 28px;
+            border-radius: 14px;
+            
+            @media (max-width: 768px) {
+              font-size: 0.7rem;
+              height: 24px;
+            }
+            
+            // Category-specific chip colors
+            &[data-category="Never Sold"] {
+              background-color: rgba(232, 67, 147, 0.2);
+              color: color.adjust(#E84393, $lightness: -20%);
+            }
+
+            &[data-category="Very Slow"] {
+              background-color: rgba(214, 51, 132, 0.2);
+              color: color.adjust(#D63384, $lightness: -20%);
+            }
+
+            &[data-category="Slow Moving"] {
+              background-color: rgba(253, 203, 110, 0.2);
+              color: color.adjust(#FDCB6E, $lightness: -20%);
+            }
+
+            &[data-category="Low Profit"] {
+              background-color: rgba(0, 206, 201, 0.2);
+              color: color.adjust(#00CEC9, $lightness: -20%);
+            }
+
+            &[data-category="Declining"] {
+              background-color: rgba(225, 112, 85, 0.2);
+              color: color.adjust(#E17055, $lightness: -20%);
+            }
+            
+            mat-icon {
+              font-size: 16px;
+              width: 16px;
+              height: 16px;
+              margin-right: 4px;
+              
+              @media (max-width: 768px) {
+                font-size: 14px;
+                width: 14px;
+                height: 14px;
+              }
+            }
+          }
+        }
+
+        .metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: $spacing-sm;
+          margin-bottom: $spacing-sm;
+          
+          @media (max-width: 768px) {
+            grid-template-columns: repeat(2, 1fr);
+            gap: $spacing-xs;
+          }
+          
+          @media (max-width: 480px) {
+            grid-template-columns: 1fr;
+          }
+
+          .metric {
+            text-align: center;
+            padding: $spacing-xs;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 6px;
+            
+            @media (max-width: 768px) {
+              padding: $spacing-xs / 2;
+            }
+
+            .metric-value {
+              font-weight: 600;
+              color: $text-primary;
+              font-size: 0.9rem;
+              margin-bottom: 2px;
+              
+              @media (max-width: 768px) {
+                font-size: 0.8rem;
+              }
+            }
+
+            .metric-label {
+              font-size: 0.7rem;
+              color: $text-secondary;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              
+              @media (max-width: 768px) {
+                font-size: 0.65rem;
+              }
+            }
+          }
+        }
+
+        .product-actions {
+          display: flex;
+          justify-content: flex-end;
+
+          .action-btn {
+            background: rgba(255, 145, 77, 0.1);
+            border: 1px solid rgba(255, 145, 77, 0.2);
+            
+            @media (max-width: 768px) {
+              width: 36px;
+              height: 36px;
+            }
+            
+            &:hover {
+              background: rgba(255, 145, 77, 0.2);
+            }
+
+            mat-icon {
+              color: $primary-color;
+              
+              @media (max-width: 768px) {
+                font-size: 20px;
+                width: 20px;
+                height: 20px;
+              }
+            }
+          }
+        }
+      }
     }
 
-    .product-item {
-      display: flex;
-      align-items: center;
-      gap: $spacing-md;
-      padding: $spacing-md;
-      border-radius: $border-radius / 2;
-      background: rgba(255, 255, 255, 0.5);
-      transition: background 0.2s ease;
-
-      &:hover {
+      .product-item {
+        display: flex;
+        align-items: center;
+        gap: $spacing-md;
+        padding: $spacing-md;
+        border-radius: calc($border-radius / 2);
+        background: rgba(255, 255, 255, 0.5);
+        transition: background 0.2s ease;      &:hover {
         background: rgba(255, 255, 255, 0.8);
       }
 
@@ -507,6 +1005,22 @@ $spacing-xl: 48px;
           font-size: 0.8rem;
           color: $text-muted;
           font-family: 'Courier New', monospace;
+        }
+
+        .performance-indicator {
+          margin-top: 8px;
+
+          .performance-chip {
+            font-size: 0.75rem;
+            height: 24px;
+            
+            mat-icon {
+              font-size: 14px;
+              width: 14px;
+              height: 14px;
+              margin-right: 4px;
+            }
+          }
         }
       }
 
@@ -554,7 +1068,7 @@ $spacing-xl: 48px;
       width: 48px;
       height: 48px;
       margin-bottom: $spacing-md;
-      color: lighten($text-muted, 20%);
+      color: color.adjust($text-muted, $lightness: 20%);
     }
 
     p {
@@ -583,7 +1097,7 @@ $spacing-xl: 48px;
     align-items: center;
     gap: $spacing-md;
     padding: $spacing-md;
-    border-radius: $border-radius / 2;
+    border-radius: calc($border-radius / 2);
     background: rgba(255, 255, 255, 0.5);
     transition: background 0.2s ease;
 
@@ -652,7 +1166,7 @@ $spacing-xl: 48px;
     align-items: center;
     gap: $spacing-md;
     padding: $spacing-md;
-    border-radius: $border-radius / 2;
+    border-radius: calc($border-radius / 2);
     background: rgba(255, 255, 255, 0.5);
     transition: background 0.2s ease;
 
@@ -742,7 +1256,7 @@ $spacing-xl: 48px;
     align-items: center;
     gap: $spacing-md;
     padding: $spacing-md;
-    border-radius: $border-radius / 2;
+    border-radius: calc($border-radius / 2);
     background: rgba(253, 203, 110, 0.1);
     border: 1px solid rgba(253, 203, 110, 0.2);
     transition: background 0.2s ease;
@@ -872,7 +1386,7 @@ $spacing-xl: 48px;
     font-size: 80px;
     width: 80px;
     height: 80px;
-    color: lighten($text-muted, 20%);
+    color: color.adjust($text-muted, $lightness: 20%);
     margin-bottom: $spacing-lg;
   }
 
@@ -911,10 +1425,18 @@ $spacing-xl: 48px;
 
   .section-header {
     margin-bottom: $spacing-sm;
+    
+    h2 {
+      font-size: 1.25rem;
+    }
   }
 
   .card-header {
     margin-bottom: $spacing-sm;
+    
+    h3 {
+      font-size: 1.1rem;
+    }
   }
 
   .quick-stats-grid,
@@ -938,6 +1460,55 @@ $spacing-xl: 48px;
     flex-direction: column;
     align-items: stretch;
     gap: $spacing-sm;
+  }
+
+  // Improve readability on mobile
+  .quick-stat-card,
+  .kpi-card {
+    padding: $spacing-md;
+    
+    .stat-content,
+    .kpi-content {
+      .stat-value,
+      .kpi-value {
+        font-size: 1.4rem;
+      }
+    }
+  }
+
+  // Better mobile layout for transactions
+  .transactions-section {
+    .transaction-item {
+      padding: $spacing-sm;
+      
+      .transaction-info,
+      .transaction-details {
+        text-align: left;
+      }
+    }
+  }
+
+  // Mobile-optimized low stock alerts
+  .low-stock-section {
+    .low-stock-item {
+      padding: $spacing-sm;
+      
+      .item-info {
+        .item-name {
+          font-size: 0.9rem;
+          white-space: normal;
+          line-height: 1.3;
+        }
+      }
+      
+      .stock-info {
+        text-align: left;
+        
+        .current-stock {
+          font-size: 1rem;
+        }
+      }
+    }
   }
 }
 
@@ -986,6 +1557,102 @@ $spacing-xl: 48px;
 
   .mat-mdc-chip.mat-warn {
     background-color: rgba(253, 203, 110, 0.2);
-    color: darken($warning-color, 20%);
+    color: color.adjust($warning-color, $lightness: -20%);
   }
+}
+
+// Performance Score Classes
+.score-critical {
+  background: linear-gradient(135deg, $error-color 0%, color.adjust($error-color, $lightness: -10%) 100%);
+  color: white;
+}
+
+.score-very-bad {
+  background: linear-gradient(135deg, color.adjust($error-color, $lightness: -5%) 0%, color.adjust($error-color, $lightness: -15%) 100%);
+  color: white;
+}
+
+.score-warning {
+  background: linear-gradient(135deg, $warning-color 0%, color.adjust($warning-color, $lightness: -10%) 100%);
+  color: white;
+}
+
+.score-moderate {
+  background: linear-gradient(135deg, $info-color 0%, color.adjust($info-color, $lightness: -10%) 100%);
+  color: white;
+}
+
+.score-declining {
+  background: linear-gradient(135deg, color.adjust($error-color, $lightness: 10%) 0%, $error-color 100%);
+  color: white;
+}
+
+.score-good {
+  background: linear-gradient(135deg, $success-color 0%, color.adjust($success-color, $lightness: -10%) 100%);
+  color: white;
+}
+
+// Top Products Score Classes
+.score-excellent {
+  background: linear-gradient(135deg, $success-color 0%, color.adjust($success-color, $lightness: -10%) 100%);
+  color: white;
+}
+
+.score-very-good {
+  background: linear-gradient(135deg, color.adjust($success-color, $lightness: 10%) 0%, $success-color 100%);
+  color: white;
+}
+
+.score-average {
+  background: linear-gradient(135deg, $info-color 0%, color.adjust($info-color, $lightness: -10%) 100%);
+  color: white;
+}
+
+.score-poor {
+  background: linear-gradient(135deg, $warning-color 0%, color.adjust($warning-color, $lightness: -10%) 100%);
+  color: white;
+}
+
+// Profit Margin Classes
+.margin-excellent {
+  background-color: rgba(0, 184, 148, 0.2);
+  color: color.adjust($success-color, $lightness: -20%);
+  border: 1px solid rgba(0, 184, 148, 0.3);
+}
+
+.margin-good {
+  background-color: rgba(116, 185, 255, 0.2);
+  color: color.adjust($info-color, $lightness: -20%);
+  border: 1px solid rgba(116, 185, 255, 0.3);
+}
+
+.margin-average {
+  background-color: rgba(253, 203, 110, 0.2);
+  color: color.adjust($warning-color, $lightness: -20%);
+  border: 1px solid rgba(253, 203, 110, 0.3);
+}
+
+.margin-low {
+  background-color: rgba(225, 112, 85, 0.2);
+  color: color.adjust(#E17055, $lightness: -20%);
+  border: 1px solid rgba(225, 112, 85, 0.3);
+}
+
+.margin-poor {
+  background-color: rgba(232, 67, 147, 0.2);
+  color: color.adjust($error-color, $lightness: -20%);
+  border: 1px solid rgba(232, 67, 147, 0.3);
+}
+
+// Growth Classes
+.growth-positive {
+  color: $success-color;
+}
+
+.growth-negative {
+  color: $error-color;
+}
+
+.growth-neutral {
+  color: $text-muted;
 }

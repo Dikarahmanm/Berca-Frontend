@@ -45,6 +45,9 @@ export interface TopProductDto {
   totalRevenue: number;
   totalProfit: number;
   transactionCount: number;
+  weightedScore: number;
+  profitMargin: number;
+  averageQuantityPerTransaction: number;
 }
 
 export interface WorstPerformingProductDto {
@@ -57,6 +60,8 @@ export interface WorstPerformingProductDto {
   transactionCount: number;
   daysWithoutSale: number;
   currentStock: number;
+  performanceScore: number;
+  performanceCategory: string;
 }
 
 export interface CategorySalesDto {

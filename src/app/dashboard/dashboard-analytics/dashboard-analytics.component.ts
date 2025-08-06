@@ -17,9 +17,6 @@ import { FormsModule } from '@angular/forms';
 import { Observable, Subject, combineLatest } from 'rxjs';
 import { takeUntil, startWith } from 'rxjs/operators';
 
-// Recharts for data visualization
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-
 import { 
   DashboardService, 
   DashboardKPIDto, 

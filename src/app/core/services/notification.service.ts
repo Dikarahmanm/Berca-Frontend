@@ -163,7 +163,7 @@ export class NotificationService {
         catchError((error: HttpErrorResponse) => {
           this.handleApiError('Failed to load notifications', error);
           // Return empty array as fallback
-          return [[]];
+          return of([]);
         })
       );
   }

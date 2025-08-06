@@ -2,13 +2,22 @@
 <header class="topbar">
   <div class="topbar-container">
     
-    <!-- Left Section - Brand -->
+    <!-- Left Section - Brand and Mobile Menu -->
     <div class="topbar-left">
+      <!-- Mobile Menu Toggle -->
+      <button class="mobile-menu-toggle" 
+              *ngIf="showMenuToggle || isMobile"
+              (click)="menuToggleClicked.emit()"
+              matTooltip="Toggle Menu"
+              matTooltipPosition="below">
+        <mat-icon>menu</mat-icon>
+      </button>
+
       <div class="brand" (click)="navigateHome()">
         <div class="brand-logo">
           <mat-icon>store</mat-icon>
         </div>
-        <span class="brand-text">Toko Eniwan</span>
+        <span class="brand-text" [class.hidden-mobile]="isMobile">Toko Eniwan</span>
       </div>
     </div>
 
@@ -27,69 +36,174 @@
           (click)="toggleNotificationDropdown()"
           [class.active]="showNotificationDropdown">
           <mat-icon>notifications</mat-icon>
-          <span class="notification-badge" *ngIf="notificationCount > 0">{{ notificationCount > 99 ? '99+' : notificationCount }}</span>
+          <span class="notification-badge" *ngIf="notificationCount > 0">
+            {{ notificationCount > 99 ? '99+' : notificationCount }}
+          </span>
         </button>
 
-        <!-- Custom Notification Dropdown -->
-        <div class="custom-dropdown notification-dropdown" *ngIf="showNotificationDropdown" (click)="$event.stopPropagation()">
+        <!-- Enhanced Notification Dropdown -->
+        <div class="notification-dropdown-enhanced" *ngIf="showNotificationDropdown" (click)="$event.stopPropagation()">
           
-          <!-- Header -->
-          <div class="dropdown-header">
-            <div class="header-content">
-              <div class="header-icon">
-                <mat-icon>notifications</mat-icon>
+          <!-- Header with Title and Controls -->
+          <div class="dropdown-header-enhanced">
+            <div class="header-main">
+              <div class="header-icon-wrapper">
+                <mat-icon class="header-icon">notifications_active</mat-icon>
               </div>
-              <div class="header-info">
+              <div class="header-content">
                 <h3 class="header-title">Notifications</h3>
-                <p class="header-subtitle">{{ notificationCount }} new notifications</p>
+                <p class="header-subtitle">{{ getNotificationSummaryText() }}</p>
               </div>
             </div>
             <div class="header-actions">
-              <button class="header-btn" (click)="markAllAsRead()">
+              <button class="action-btn refresh-btn" (click)="refreshNotifications()" 
+                      matTooltip="Refresh notifications" matTooltipPosition="below">
+                <mat-icon [class.spinning]="isLoadingNotifications">refresh</mat-icon>
+              </button>
+              <button class="action-btn mark-all-btn" (click)="markAllAsRead()" 
+                      matTooltip="Mark all as read" matTooltipPosition="below"
+                      [disabled]="notificationCount === 0">
                 <mat-icon>done_all</mat-icon>
               </button>
             </div>
           </div>
 
-          <!-- Content -->
-          <div class="dropdown-body">
-            <div class="notification-list" *ngIf="recentNotifications.length > 0">
+          <!-- Filter/Sort Tabs -->
+          <div class="filter-tabs">
+            <button 
+              class="filter-tab" 
+              [class.active]="selectedFilter === 'all'"
+              (click)="setNotificationFilter('all')">
+              <mat-icon>notifications</mat-icon>
+              <span>All ({{ getFilterCount('all') }})</span>
+            </button>
+            <button 
+              class="filter-tab" 
+              [class.active]="selectedFilter === 'unread'"
+              (click)="setNotificationFilter('unread')">
+              <mat-icon>notifications_active</mat-icon>
+              <span>Unread ({{ getFilterCount('unread') }})</span>
+            </button>
+            <button 
+              class="filter-tab" 
+              [class.active]="selectedFilter === 'read'"
+              (click)="setNotificationFilter('read')">
+              <mat-icon>notifications_none</mat-icon>
+              <span>Read ({{ getFilterCount('read') }})</span>
+            </button>
+          </div>
+
+          <!-- Content Area -->
+          <div class="dropdown-content">
+            <!-- Loading State -->
+            <div class="state-container loading-state" *ngIf="isLoadingNotifications">
+              <div class="state-icon">
+                <mat-icon class="spinning">refresh</mat-icon>
+              </div>
+              <div class="state-content">
+                <h4>Loading notifications...</h4>
+                <p>Please wait while we fetch your latest notifications</p>
+              </div>
+            </div>
+
+            <!-- Error State -->
+            <div class="state-container error-state" *ngIf="notificationError && !isLoadingNotifications">
+              <div class="state-icon error">
+                <mat-icon>error_outline</mat-icon>
+              </div>
+              <div class="state-content">
+                <h4>Unable to load notifications</h4>
+                <p>{{ notificationError }}</p>
+                <button class="retry-btn" (click)="refreshNotifications()">
+                  <mat-icon>refresh</mat-icon>
+                  Try Again
+                </button>
+              </div>
+            </div>
+
+            <!-- Notifications List -->
+            <div class="notification-list-enhanced" *ngIf="getFilteredNotifications().length > 0 && !isLoadingNotifications && !notificationError">
               <div 
-                class="notification-item" 
-                *ngFor="let notification of recentNotifications.slice(0, 5)"
+                class="notification-item-enhanced" 
+                *ngFor="let notification of getFilteredNotifications().slice(0, 6); trackBy: trackByNotificationId"
                 [class.unread]="!notification.isRead"
+                [class.high-priority]="notification.priority === 'high' || notification.priority === 'High'"
                 (click)="onNotificationClick(notification)">
                 
-                <div class="item-icon">
-                  <mat-icon>{{ getNotificationIcon(notification.type) }}</mat-icon>
+                <!-- Priority Indicator -->
+                <div class="priority-indicator" 
+                     [class.high]="notification.priority === 'high' || notification.priority === 'High'"
+                     [class.medium]="notification.priority === 'medium' || notification.priority === 'Medium'"
+                     [class.low]="notification.priority === 'low' || notification.priority === 'Low'">
                 </div>
                 
-                <div class="item-content">
-                  <h4 class="item-title">{{ notification.title }}</h4>
-                  <p class="item-message">{{ notification.message }}</p>
-                  <span class="item-time">{{ getRelativeTime(notification.createdAt) }}</span>
+                <!-- Notification Icon -->
+                <div class="notification-icon-wrapper" [class]="getNotificationTypeClass(notification.type)">
+                  <mat-icon class="notification-icon">{{ getNotificationIcon(notification.type) }}</mat-icon>
                 </div>
                 
-                <div class="item-actions" *ngIf="!notification.isRead">
-                  <button class="mark-read-btn" (click)="markNotificationAsRead(notification.id); $event.stopPropagation()">
+                <!-- Notification Content -->
+                <div class="notification-content">
+                  <div class="notification-header">
+                    <h4 class="notification-title">{{ notification.title }}</h4>
+                    <span class="notification-time">{{ getRelativeTime(notification.createdAt) }}</span>
+                  </div>
+                  <p class="notification-message">{{ notification.message }}</p>
+                  <div class="notification-meta">
+                    <span class="notification-type-badge" [class]="getNotificationTypeClass(notification.type)">
+                      {{ formatNotificationType(notification.type) }}
+                    </span>
+                    <span class="notification-priority" [class]="'priority-' + (notification.priority.toLowerCase() || 'medium')">
+                      {{ notification.priority || 'Medium' }}
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- Notification Actions -->
+                <div class="notification-actions">
+                  <button class="action-btn-small mark-read" 
+                          *ngIf="!notification.isRead"
+                          (click)="markNotificationAsRead(notification.id); $event.stopPropagation()"
+                          matTooltip="Mark as read">
                     <mat-icon>done</mat-icon>
                   </button>
+                  <div class="read-indicator" *ngIf="notification.isRead" matTooltip="Read">
+                    <mat-icon>check_circle</mat-icon>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="empty-state" *ngIf="recentNotifications.length === 0">
-              <mat-icon>notifications_none</mat-icon>
-              <h4>No notifications</h4>
-              <p>You're all caught up!</p>
+            <!-- Empty State -->
+            <div class="state-container empty-state" *ngIf="getFilteredNotifications().length === 0 && !isLoadingNotifications && !notificationError">
+              <div class="state-icon empty">
+                <mat-icon>{{ getEmptyStateIcon() }}</mat-icon>
+              </div>
+              <div class="state-content">
+                <h4>{{ getEmptyStateTitle() }}</h4>
+                <p>{{ getEmptyStateMessage() }}</p>
+              </div>
             </div>
           </div>
 
-          <!-- Footer -->
-          <div class="dropdown-footer" *ngIf="recentNotifications.length > 0">
-            <button class="footer-btn" (click)="navigateToNotifications()">
-              View all notifications
-            </button>
+          <!-- Footer with Action Buttons - Always show -->
+          <div class="dropdown-footer-enhanced">
+            <div class="footer-stats" *ngIf="recentNotifications.length > 0">
+              <span class="stats-text">
+                Showing {{ Math.min(6, getFilteredNotifications().length) }} of {{ getFilteredNotifications().length }} notifications
+              </span>
+            </div>
+            <div class="footer-actions">
+              <button class="footer-btn secondary" (click)="markAllAsRead()" 
+                      [disabled]="notificationCount === 0">
+                <mat-icon>done_all</mat-icon>
+                Mark All Read
+              </button>
+              <button class="footer-btn primary" (click)="viewAllNotifications()">
+                <mat-icon>open_in_new</mat-icon>
+                See All Notifications
+              </button>
+            </div>
           </div>
 
         </div>

@@ -64,6 +64,8 @@ export class TopbarComponent implements OnInit, OnDestroy {
   isDarkMode: boolean = false;
   showNotificationDropdown: boolean = false;
   showProfileDropdown: boolean = false;
+  selectedFilter: 'all' | 'unread' | 'read' = 'all';
+  Math = Math; // Make Math available in template
 
   private roleDisplayMap: { [key: string]: string } = {
     'Admin': 'Administrator',
@@ -91,56 +93,89 @@ export class TopbarComponent implements OnInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     document.removeEventListener('click', this.onDocumentClick.bind(this));
+    
+    // Restore body scroll when component is destroyed
+    document.body.style.overflow = '';
   }
 
   private initializeTopbar(): void {
-    console.log('🔝 Redesigned Topbar initialized');
+    console.log('🔝 Topbar initialized');
     
     // Load theme preference
     this.isDarkMode = localStorage.getItem('darkMode') === 'true';
     
-        // Load initial notifications from API only (NO MOCK DATA)
-        this.isLoadingNotifications = true;
-        this.notificationError = null;
+    // Load initial notifications from API only - same as /notifications page
+    this.loadNotifications();
+  }
+
+  private loadNotifications(): void {
+    console.log('🔄 Loading notifications from API...');
+    this.isLoadingNotifications = true;
+    this.notificationError = null;
+    
+    // First try to get all notifications like the backend test
+    this.notificationService.getUserNotifications(1, 20).subscribe({
+      next: (notifications) => {
+        console.log('📬 Direct API Response (getUserNotifications):', notifications);
+        this.recentNotifications = notifications.slice(0, 5); // Take first 5 for dropdown
+        this.notificationCount = notifications.filter(n => !n.isRead).length;
+        this.isLoadingNotifications = false;
+        
+        console.log('✅ Notifications loaded:', {
+          total: notifications.length,
+          displayed: this.recentNotifications.length,
+          unread: this.notificationCount
+        });
+      },
+      error: (error: any) => {
+        console.error('❌ Error with getUserNotifications, trying getNotificationSummary:', error);
+        
+        // Fallback to summary endpoint
         this.notificationService.getNotificationSummary().subscribe({
-          next: (response: any) => {
-            if (response && response.success && response.data) {
-              this.recentNotifications = response.data.recentNotifications || response.recentNotifications || [];
-              this.notificationCount = response.data.unreadCount || response.unreadCount || 0;
-              console.log('✅ Notifications loaded from API:', this.recentNotifications.length);
+          next: (summary) => {
+            console.log('📬 Notification Summary Response:', summary);
+            
+            if (summary) {
+              this.recentNotifications = summary.recentNotifications || [];
+              this.notificationCount = summary.unreadCount || 0;
+              console.log('✅ Notifications loaded from summary:', {
+                total: this.recentNotifications.length,
+                unread: this.notificationCount
+              });
             } else {
               this.recentNotifications = [];
               this.notificationCount = 0;
             }
             this.isLoadingNotifications = false;
           },
-          error: (error: any) => {
+          error: (summaryError: any) => {
+            console.error('❌ Error loading notifications from both endpoints:', summaryError);
             this.notificationError = 'Failed to load notifications';
             this.recentNotifications = [];
             this.notificationCount = 0;
             this.isLoadingNotifications = false;
           }
         });
-  }
-
-  private loadNotifications(): void {
-    // Deprecated: No longer use mock data. Only API data allowed.
-    // This method is now a no-op to prevent accidental mock usage.
-    return;
-  }
-
-  private initializeMockData(): void {
-    // Deprecated: No longer use mock data. Only API data allowed.
-    this.recentNotifications = [];
-    this.notificationCount = 0;
+      }
+    });
   }
 
   private subscribeToNotifications(): void {
-    // Subscribe to notifications
+    // Subscribe to notifications from service
     this.notificationService.notifications$
       .pipe(takeUntil(this.destroy$))
       .subscribe((notifications: NotificationDto[]) => {
+        console.log('📬 Notifications subscription update:', notifications);
+        // Take only first 5 for dropdown
         this.recentNotifications = notifications.slice(0, 5);
+      });
+
+    // Subscribe to unread count changes
+    this.notificationService.unreadCount$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((count: number) => {
+        console.log('🔢 Unread count update:', count);
+        this.notificationCount = count;
       });
 
     // Subscribe to loading state
@@ -160,8 +195,26 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
   private checkMobileState(): void {
     this.isMobile = window.innerWidth <= 768;
+    
+    // Also check for showMenuToggle on mobile
+    if (this.isMobile && !this.showMenuToggle) {
+      this.showMenuToggle = true;
+    }
+    
     window.addEventListener('resize', () => {
+      const wasMobile = this.isMobile;
       this.isMobile = window.innerWidth <= 768;
+      
+      // Update showMenuToggle based on mobile state
+      if (this.isMobile && !this.showMenuToggle) {
+        this.showMenuToggle = true;
+      }
+      
+      // Close dropdowns when switching between mobile/desktop
+      if (wasMobile !== this.isMobile) {
+        this.showNotificationDropdown = false;
+        this.showProfileDropdown = false;
+      }
     });
   }
 
@@ -187,6 +240,15 @@ export class TopbarComponent implements OnInit, OnDestroy {
   toggleNotificationDropdown(): void {
     this.showNotificationDropdown = !this.showNotificationDropdown;
     this.showProfileDropdown = false; // Close other dropdown
+    
+    // Prevent body scroll on mobile when dropdown is open
+    if (this.isMobile) {
+      if (this.showNotificationDropdown) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+    }
   }
 
   toggleProfileDropdown(): void {
@@ -221,7 +283,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
   viewAllNotifications(): void {
     this.showNotificationDropdown = false;
-    this.router.navigate(['/dashboard/notifications']);
+    // Restore body scroll on mobile
+    if (this.isMobile) {
+      document.body.style.overflow = '';
+    }
+    this.router.navigate(['/notifications']);
   }
 
   markAllAsRead(): void {
@@ -240,13 +306,15 @@ export class TopbarComponent implements OnInit, OnDestroy {
         if (success) {
           console.log('✅ All notifications marked as read');
           this.showSuccessMessage('All notifications marked as read');
+          // Refresh notifications to get latest data
+          this.refreshNotifications();
         }
       },
       error: (error: any) => {
         console.error('Error marking all as read:', error);
         this.showErrorMessage('Failed to mark all as read');
         // Revert local changes on error
-        this.loadNotifications();
+        this.refreshNotifications();
       }
     });
   }
@@ -298,6 +366,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
   }
 
   refreshNotifications(): void {
+    console.log('🔄 Refreshing notifications...');
     this.loadNotifications();
   }
 
@@ -404,5 +473,96 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
   trackByNotificationId(index: number, notification: NotificationDto): number {
     return notification.id;
+  }
+
+  // ===== ENHANCED NOTIFICATION METHODS ===== //
+
+  getNotificationSummaryText(): string {
+    if (this.notificationCount === 0) {
+      return 'You\'re all caught up!';
+    } else if (this.notificationCount === 1) {
+      return '1 new notification';
+    } else {
+      return `${this.notificationCount} new notifications`;
+    }
+  }
+
+  setNotificationFilter(filter: 'all' | 'unread' | 'read'): void {
+    this.selectedFilter = filter;
+  }
+
+  getFilterCount(filter: 'all' | 'unread' | 'read'): number {
+    switch (filter) {
+      case 'all':
+        return this.recentNotifications.length;
+      case 'unread':
+        return this.recentNotifications.filter(n => !n.isRead).length;
+      case 'read':
+        return this.recentNotifications.filter(n => n.isRead).length;
+      default:
+        return 0;
+    }
+  }
+
+  getFilteredNotifications(): NotificationDto[] {
+    switch (this.selectedFilter) {
+      case 'unread':
+        return this.recentNotifications.filter(n => !n.isRead);
+      case 'read':
+        return this.recentNotifications.filter(n => n.isRead);
+      case 'all':
+      default:
+        return this.recentNotifications;
+    }
+  }
+
+  formatNotificationType(type: string): string {
+    const typeMap: { [key: string]: string } = {
+      'LOW_STOCK': 'Low Stock',
+      'OUT_OF_STOCK': 'Out of Stock',
+      'SALE_COMPLETED': 'Sale',
+      'SYSTEM_MAINTENANCE': 'System',
+      'USER_ACTION': 'User',
+      'BACKUP_COMPLETED': 'Backup',
+      'ERROR': 'Error',
+      'INFO': 'Info',
+      'SUCCESS': 'Success',
+      'low_stock': 'Low Stock',
+      'string': 'General'
+    };
+    return typeMap[type] || type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+  }
+
+  getEmptyStateIcon(): string {
+    switch (this.selectedFilter) {
+      case 'unread':
+        return 'notifications_active';
+      case 'read':
+        return 'check_circle';
+      default:
+        return 'notifications_none';
+    }
+  }
+
+  getEmptyStateTitle(): string {
+    switch (this.selectedFilter) {
+      case 'unread':
+        return 'No unread notifications';
+      case 'read':
+        return 'No read notifications';
+      default:
+        return 'No notifications';
+    }
+  }
+
+  getEmptyStateMessage(): string {
+    switch (this.selectedFilter) {
+      case 'unread':
+        return 'All notifications have been read. Great job staying on top of things!';
+      case 'read':
+        return 'No notifications have been read yet.';
+      default:
+        return 'You\'re all caught up! New notifications will appear here.';
+    }
   }
 }

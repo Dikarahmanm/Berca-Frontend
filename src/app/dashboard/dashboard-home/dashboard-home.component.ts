@@ -22,6 +22,7 @@ import { takeUntil } from 'rxjs/operators';
 
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService, NotificationDto } from '../../core/services/notification.service';
+import { DashboardService, DashboardKPIDto, QuickStatsDto } from '../../core/services/dashboard.service';
 
 interface UserStats {
   total: number;
@@ -31,13 +32,12 @@ interface UserStats {
 }
 
 interface DashboardStats {
-  totalUsers: number;
-  activeUsers: number;
-  totalCategories: number;
+  todayRevenue: number;
+  monthlyRevenue: number;
   totalProducts: number;
   lowStockCount: number;
-  dailySales: number;
-  monthlySales: number;
+  totalMembers: number;
+  todayTransactions: number;
   lastUpdated: string;
 }
 
@@ -110,7 +110,7 @@ interface QuickAction {
             </div>
           </div>
 
-          <!-- Products -->
+          <!-- Total Products -->
           <div class="stat-card glass-card clickable" (click)="navigateTo('/dashboard/inventory')">
             <div class="stat-icon products">
               <mat-icon>inventory_2</mat-icon>
@@ -129,30 +129,30 @@ interface QuickAction {
             </div>
           </div>
 
-          <!-- Categories -->
+          <!-- Total Members -->
           <div class="stat-card glass-card">
             <div class="stat-icon categories">
-              <mat-icon>category</mat-icon>
+              <mat-icon>people</mat-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">{{ formatNumber(dashboardStats.totalCategories) }}</div>
-              <div class="stat-label">Categories</div>
+              <div class="stat-value">{{ formatNumber(dashboardStats.totalMembers) }}</div>
+              <div class="stat-label">Total Members</div>
               <div class="stat-meta">
-                <span class="stat-detail">Produk dikategorikan</span>
+                <span class="stat-detail">Member terdaftar</span>
               </div>
             </div>
           </div>
 
-          <!-- Daily Sales -->
+          <!-- Today Revenue -->
           <div class="stat-card glass-card">
             <div class="stat-icon sales">
               <mat-icon>trending_up</mat-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">{{ formatCurrency(dashboardStats.dailySales) }}</div>
-              <div class="stat-label">Penjualan Hari Ini</div>
+              <div class="stat-value">{{ formatCurrency(dashboardStats.todayRevenue) }}</div>
+              <div class="stat-label">Pendapatan Hari Ini</div>
               <div class="stat-meta">
-                <span class="stat-detail positive">Target tercapai</span>
+                <span class="stat-detail positive">{{ dashboardStats.todayTransactions }} transaksi</span>
               </div>
             </div>
           </div>
@@ -213,30 +213,35 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
   role: string = '';
 
   userStats: UserStats = {
-    total: 12,
-    active: 8,
-    inactive: 4,
+    total: 0,
+    active: 0,
+    inactive: 0,
     deleted: 0
   };
 
   dashboardStats: DashboardStats = {
-    totalUsers: 12,
-    activeUsers: 8,
-    totalCategories: 8,
-    totalProducts: 156,
-    lowStockCount: 3,
-    dailySales: 1250000,
-    monthlySales: 35750000,
+    todayRevenue: 0,
+    monthlyRevenue: 0,
+    totalProducts: 0,
+    lowStockCount: 0,
+    totalMembers: 0,
+    todayTransactions: 0,
     lastUpdated: new Date().toISOString()
   };
 
   recentNotifications: NotificationDto[] = [];
   quickActions: QuickAction[] = [];
 
+  // Observables for real-time data
+  dashboardKPIs: DashboardKPIDto | null = null;
+  quickStats: QuickStatsDto | null = null;
+  isLoading = true;
+
   constructor(
     private router: Router,
     private authService: AuthService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private dashboardService: DashboardService
   ) {}
 
   ngOnInit() {
@@ -245,11 +250,66 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
     this.loadUserData();
     this.setupQuickActions();
     this.subscribeToNotifications();
+    this.loadDashboardData();
   }
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private loadDashboardData(): void {
+    this.isLoading = true;
+    
+    // Load KPIs
+    this.dashboardService.getDashboardKPIs()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (kpis) => {
+          if (kpis) {
+            this.dashboardKPIs = kpis;
+            this.updateDashboardStats(kpis);
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Error loading dashboard KPIs:', error);
+          this.isLoading = false;
+        }
+      });
+
+    // Load Quick Stats
+    this.dashboardService.getQuickStats()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (stats) => {
+          if (stats) {
+            this.quickStats = stats;
+            this.updateQuickStats(stats);
+          }
+        },
+        error: (error) => {
+          console.error('Error loading quick stats:', error);
+        }
+      });
+  }
+
+  private updateDashboardStats(kpis: DashboardKPIDto): void {
+    this.dashboardStats = {
+      todayRevenue: kpis.todayRevenue,
+      monthlyRevenue: kpis.monthlyRevenue,
+      totalProducts: kpis.totalProducts,
+      lowStockCount: kpis.lowStockProducts,
+      totalMembers: kpis.totalMembers,
+      todayTransactions: kpis.todayTransactions,
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  private updateQuickStats(stats: QuickStatsDto): void {
+    // Update additional stats from quick stats if needed
+    this.dashboardStats.todayRevenue = stats.todayRevenue;
+    this.dashboardStats.todayTransactions = stats.todayTransactions;
   }
 
   private loadUserData(): void {

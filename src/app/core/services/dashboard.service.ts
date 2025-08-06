@@ -8,10 +8,12 @@ import { environment } from '../../../environment/environment';
 // ===== INTERFACES =====
 
 export interface DashboardKPIDto {
-  todaySales: number;
-  monthlySales: number;
-  totalOrders: number;
-  averageOrderValue: number;
+  todayRevenue: number;
+  monthlyRevenue: number;
+  yearlyRevenue: number;
+  todayTransactions: number;
+  monthlyTransactions: number;
+  averageTransactionValue: number;
   totalProfit: number;
   totalProducts: number;
   lowStockProducts: number;
@@ -27,10 +29,10 @@ export interface ChartDataDto {
 }
 
 export interface QuickStatsDto {
-  todayTransactions: number;
   todayRevenue: number;
-  averageTransactionValue: number;
-  topSellingProduct: string;
+  todayTransactions: number;
+  revenueGrowthPercentage: number;
+  pendingOrders: number;
   lowStockAlerts: number;
   activeMembers: number;
 }
@@ -38,53 +40,97 @@ export interface QuickStatsDto {
 export interface TopProductDto {
   productId: number;
   productName: string;
-  quantitySold: number;
+  productBarcode: string;
+  totalQuantitySold: number;
   totalRevenue: number;
-  category: string;
-  profitMargin: number;
+  totalProfit: number;
+  transactionCount: number;
+}
+
+export interface WorstPerformingProductDto {
+  productId: number;
+  productName: string;
+  productBarcode: string;
+  totalQuantitySold: number;
+  totalRevenue: number;
+  totalProfit: number;
+  transactionCount: number;
+  daysWithoutSale: number;
+  currentStock: number;
 }
 
 export interface CategorySalesDto {
   categoryId: number;
   categoryName: string;
-  totalSales: number;
+  categoryColor: string;
+  totalQuantitySold: number;
   totalRevenue: number;
-  percentage: number;
-  color: string;
+  productCount: number;
+  transactionCount: number;
+}
+
+export interface LowStockProductDto {
+  id: number;
+  name: string;
+  barcode: string;
+  description: string;
+  buyPrice: number;
+  sellPrice: number;
+  stock: number;
+  minimumStock: number;
+  unit: string;
+  imageUrl: string;
+  isActive: boolean;
+  categoryId: number;
+  categoryName: string;
+  categoryColor: string;
+  createdAt: Date;
+  updatedAt: Date;
+  profitMargin: number;
+  isLowStock: boolean;
+  isOutOfStock: boolean;
 }
 
 export interface RecentTransactionDto {
   id: number;
   saleNumber: string;
-  total: number;
-  itemCount: number;
-  customerName?: string;
-  memberName?: string;
   saleDate: Date;
-  status: string;
+  total: number;
+  paymentMethod: string;
+  customerName: string;
+  cashierName: string;
+  itemCount: number;
 }
 
 export interface SalesReportDto {
   startDate: Date;
   endDate: Date;
-  totalSales: number;
   totalRevenue: number;
-  totalProfit: number;
-  transactionCount: number;
+  totalTransactions: number;
+  totalItemsSold: number;
   averageTransactionValue: number;
-  topProducts: TopProductDto[];
-  salesByCategory: CategorySalesDto[];
-  dailySales: ChartDataDto[];
+  paymentMethodBreakdown: {
+    paymentMethod: string;
+    total: number;
+    transactionCount: number;
+    percentage: number;
+  }[];
+  generatedAt: Date;
 }
 
 export interface InventoryReportDto {
   totalProducts: number;
-  totalValue: number;
-  lowStockItems: number;
-  outOfStockItems: number;
-  categoriesCount: number;
-  topValueCategories: CategorySalesDto[];
-  lowStockProducts: any[];
+  totalInventoryValue: number;
+  lowStockProducts: number;
+  outOfStockProducts: number;
+  categoryBreakdown: {
+    categoryName: string;
+    categoryColor: string;
+    productCount: number;
+    totalValue: number;
+    lowStockCount: number;
+  }[];
+  generatedAt: Date;
 }
 
 @Injectable({
@@ -132,7 +178,7 @@ export class DashboardService {
     if (startDate) params = params.set('startDate', startDate.toISOString());
     if (endDate) params = params.set('endDate', endDate.toISOString());
     
-    return this.http.get<any>(`${this.apiUrl}/sales-chart`, { params }).pipe(
+    return this.http.get<any>(`${this.apiUrl}/charts/sales`, { params }).pipe(
       map(response => response.success ? response.data : []),
       shareReplay(1)
     );
@@ -143,7 +189,7 @@ export class DashboardService {
     if (startDate) params = params.set('startDate', startDate.toISOString());
     if (endDate) params = params.set('endDate', endDate.toISOString());
     
-    return this.http.get<any>(`${this.apiUrl}/revenue-chart`, { params }).pipe(
+    return this.http.get<any>(`${this.apiUrl}/charts/revenue`, { params }).pipe(
       map(response => response.success ? response.data : []),
       shareReplay(1)
     );
@@ -156,7 +202,18 @@ export class DashboardService {
     if (startDate) params = params.set('startDate', startDate.toISOString());
     if (endDate) params = params.set('endDate', endDate.toISOString());
     
-    return this.http.get<any>(`${this.apiUrl}/top-products`, { params }).pipe(
+    return this.http.get<any>(`${this.apiUrl}/products/top-selling`, { params }).pipe(
+      map(response => response.success ? response.data : []),
+      shareReplay(1)
+    );
+  }
+
+  getWorstPerformingProducts(count: number = 10, startDate?: Date, endDate?: Date): Observable<WorstPerformingProductDto[]> {
+    let params = new HttpParams().set('count', count.toString());
+    if (startDate) params = params.set('startDate', startDate.toISOString());
+    if (endDate) params = params.set('endDate', endDate.toISOString());
+    
+    return this.http.get<any>(`${this.apiUrl}/products/worst-performing`, { params }).pipe(
       map(response => response.success ? response.data : []),
       shareReplay(1)
     );
@@ -167,14 +224,14 @@ export class DashboardService {
     if (startDate) params = params.set('startDate', startDate.toISOString());
     if (endDate) params = params.set('endDate', endDate.toISOString());
     
-    return this.http.get<any>(`${this.apiUrl}/category-sales`, { params }).pipe(
+    return this.http.get<any>(`${this.apiUrl}/categories/sales`, { params }).pipe(
       map(response => response.success ? response.data : []),
       shareReplay(1)
     );
   }
 
-  getLowStockAlerts(): Observable<any[]> {
-    return this.http.get<any>(`${this.apiUrl}/low-stock-alerts`).pipe(
+  getLowStockAlerts(): Observable<LowStockProductDto[]> {
+    return this.http.get<any>(`${this.apiUrl}/products/low-stock`).pipe(
       map(response => response.success ? response.data : []),
       shareReplay(1)
     );
@@ -185,7 +242,7 @@ export class DashboardService {
   getRecentTransactions(count: number = 10): Observable<RecentTransactionDto[]> {
     const params = new HttpParams().set('count', count.toString());
     
-    return this.http.get<any>(`${this.apiUrl}/recent-transactions`, { params }).pipe(
+    return this.http.get<any>(`${this.apiUrl}/transactions/recent`, { params }).pipe(
       map(response => response.success ? response.data : []),
       shareReplay(1)
     );
@@ -198,13 +255,13 @@ export class DashboardService {
       .set('startDate', startDate.toISOString())
       .set('endDate', endDate.toISOString());
     
-    return this.http.get<any>(`${this.apiUrl}/sales-report`, { params }).pipe(
+    return this.http.get<any>(`${this.apiUrl}/reports/sales`, { params }).pipe(
       map(response => response.success ? response.data : null)
     );
   }
 
   generateInventoryReport(): Observable<InventoryReportDto> {
-    return this.http.get<any>(`${this.apiUrl}/inventory-report`).pipe(
+    return this.http.get<any>(`${this.apiUrl}/reports/inventory`).pipe(
       map(response => response.success ? response.data : null)
     );
   }

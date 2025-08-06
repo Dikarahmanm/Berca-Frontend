@@ -22,9 +22,11 @@ import {
   DashboardKPIDto, 
   ChartDataDto, 
   TopProductDto, 
+  WorstPerformingProductDto,
   CategorySalesDto, 
   RecentTransactionDto,
-  QuickStatsDto 
+  QuickStatsDto,
+  LowStockProductDto
 } from '../../core/services/dashboard.service';
 
 @Component({
@@ -60,9 +62,14 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
   salesChartData: ChartDataDto[] = [];
   revenueChartData: ChartDataDto[] = [];
   topProducts: TopProductDto[] = [];
+  worstProducts: WorstPerformingProductDto[] = [];
   categorySales: CategorySalesDto[] = [];
   recentTransactions: RecentTransactionDto[] = [];
-  lowStockAlerts: any[] = [];
+  lowStockAlerts: LowStockProductDto[] = [];
+
+  // Current data for calculations
+  currentKPIs: DashboardKPIDto | null = null;
+  currentQuickStats: QuickStatsDto | null = null;
 
   // UI state
   isLoading = true;
@@ -90,6 +97,7 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.loadDashboardData();
     this.setupRealTimeUpdates();
+    this.subscribeToData();
   }
 
   ngOnDestroy() {
@@ -112,6 +120,7 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
     const salesChart$ = this.dashboardService.getSalesChartData(this.selectedChartPeriod, startDate, endDate);
     const revenueChart$ = this.dashboardService.getRevenueChartData('monthly', startDate, endDate);
     const topProducts$ = this.dashboardService.getTopSellingProducts(8, startDate, endDate);
+    const worstProducts$ = this.dashboardService.getWorstPerformingProducts(8, startDate, endDate);
     const categorySales$ = this.dashboardService.getCategorySales(startDate, endDate);
     const recentTransactions$ = this.dashboardService.getRecentTransactions(8);
     const lowStockAlerts$ = this.dashboardService.getLowStockAlerts();
@@ -122,16 +131,20 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
       salesChart$,
       revenueChart$,
       topProducts$,
+      worstProducts$,
       categorySales$,
       recentTransactions$,
       lowStockAlerts$
     ]).pipe(
       takeUntil(this.destroy$)
     ).subscribe({
-      next: ([kpis, quickStats, salesChart, revenueChart, topProducts, categorySales, recentTransactions, lowStockAlerts]) => {
+      next: ([kpis, quickStats, salesChart, revenueChart, topProducts, worstProducts, categorySales, recentTransactions, lowStockAlerts]) => {
+        this.currentKPIs = kpis;
+        this.currentQuickStats = quickStats;
         this.salesChartData = salesChart || [];
         this.revenueChartData = revenueChart || [];
         this.topProducts = topProducts || [];
+        this.worstProducts = worstProducts || [];
         this.categorySales = categorySales || [];
         this.recentTransactions = recentTransactions || [];
         this.lowStockAlerts = lowStockAlerts || [];
@@ -141,6 +154,18 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
         console.error('Error loading dashboard data:', error);
         this.isLoading = false;
       }
+    });
+  }
+
+  private subscribeToData() {
+    // Subscribe to real-time KPIs
+    this.kpis$.pipe(takeUntil(this.destroy$)).subscribe(kpis => {
+      this.currentKPIs = kpis;
+    });
+
+    // Subscribe to real-time quick stats
+    this.quickStats$.pipe(takeUntil(this.destroy$)).subscribe(stats => {
+      this.currentQuickStats = stats;
     });
   }
 
@@ -171,16 +196,57 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
 
   // ===== CHART FORMATTERS =====
 
-  formatCurrency = (value: number) => {
+  formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined || isNaN(value)) return 'Rp 0';
     return this.dashboardService.formatCurrency(value);
   }
 
-  formatNumber = (value: number) => {
+  formatNumber = (value: number | null | undefined) => {
+    if (value === null || value === undefined || isNaN(value)) return '0';
     return this.dashboardService.formatNumber(value);
   }
 
-  formatPercentage = (value: number) => {
+  formatPercentage = (value: number | null | undefined) => {
+    if (value === null || value === undefined || isNaN(value)) return '0%';
     return this.dashboardService.formatPercentage(value);
+  }
+
+  // ===== SAFE DATA ACCESS =====
+
+  safeValue(value: any): number {
+    return (value !== null && value !== undefined && !isNaN(value)) ? Number(value) : 0;
+  }
+
+  calculateProfitMargin(profit: number, revenue: number): number {
+    if (!revenue || revenue === 0) return 0;
+    return (profit / revenue) * 100;
+  }
+
+  // ===== NAVIGATION METHODS =====
+
+  navigateToInventory() {
+    // Navigate to inventory management with low stock filter
+    console.log('Navigate to inventory with low stock filter');
+  }
+
+  navigateToReports() {
+    console.log('Navigate to detailed reports');
+  }
+
+  navigateToProducts() {
+    console.log('Navigate to product management');
+  }
+
+  navigateToTransactions() {
+    console.log('Navigate to transactions');
+  }
+
+  viewTransactionDetails(transaction: RecentTransactionDto) {
+    console.log('View transaction details:', transaction.id);
+  }
+
+  viewProductDetails(productId: number) {
+    console.log('View product details:', productId);
   }
 
   // ===== CUSTOM TOOLTIP FORMATTERS =====
@@ -198,7 +264,7 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
     return this.categorySales.map((item, index) => ({
       name: item.categoryName,
       value: item.totalRevenue,
-      color: this.pieColors[index % this.pieColors.length]
+      color: item.categoryColor || this.pieColors[index % this.pieColors.length]
     }));
   }
 
@@ -217,24 +283,6 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
     if (stock === 0) return 'error';
     if (stock <= minStock) return 'warning';
     return 'success';
-  }
-
-  // ===== NAVIGATION =====
-
-  navigateToInventory() {
-    // Navigate to inventory management
-  }
-
-  navigateToReports() {
-    // Navigate to detailed reports
-  }
-
-  navigateToProducts() {
-    // Navigate to product management
-  }
-
-  viewTransactionDetails(transaction: RecentTransactionDto) {
-    // Navigate to transaction details
   }
 
   // ===== KPI CALCULATION HELPERS =====

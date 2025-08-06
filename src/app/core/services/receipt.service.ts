@@ -1,8 +1,7 @@
-// ✅ RECEIPT SERVICE FIX: src/app/core/services/receipt.service.ts
-import { Injectable } from '@angular/core';
+import { Injectable, ElementRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { POSService, SaleDto, ReceiptDataDto } from './pos.service'; // ✅ Now exports from service
+import { POSService, SaleDto, ReceiptDataDto } from './pos.service';
 import { environment } from '../../../environment/environment';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -19,13 +18,12 @@ export class ReceiptService {
   ) {}
 
   /**
-   * Print receipt using browser
+   * Print receipt - MENGGUNAKAN HTML DARI PREVIEW COMPONENT
    */
   async printReceipt(saleId: number): Promise<void> {
     try {
       console.log('🖨️ Printing receipt for sale:', saleId);
       
-      // ✅ FIX: Use sale data directly instead of receipt endpoint
       const saleResponse = await this.posService.getSaleById(saleId).toPromise();
       
       if (!saleResponse?.success || !saleResponse.data) {
@@ -34,42 +32,27 @@ export class ReceiptService {
 
       const sale = saleResponse.data;
       
-      // Create receipt data structure
-      const receiptData = {
-        sale: sale,
-        storeName: 'Toko Eniwan',
-        storeAddress: 'Bekasi, West Java',
-        storePhone: '+62 xxx-xxxx-xxxx',
-        storeEmail: 'info@tokoeniwan.com',
-        footerMessage: 'Terima kasih atas kunjungan Anda!'
-      };
+      // Gunakan HTML yang sama dengan preview component
+      const printContent = this.generateReceiptHTML(sale);
       
-      // Generate print content
-      const printContent = this.generatePrintHTML(receiptData);
-      
-      // Print using browser API
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      const printWindow = window.open('', '_blank', 'width=480,height=650');
       if (printWindow) {
         printWindow.document.write(printContent);
         printWindow.document.close();
         
-        // Wait for load then print
         printWindow.onload = () => {
           setTimeout(() => {
             printWindow.print();
             
-            // Mark as printed after successful print
             this.posService.markReceiptPrinted(saleId).subscribe({
               next: (response) => {
                 console.log('✅ Receipt marked as printed:', response);
               },
               error: (error) => {
                 console.warn('⚠️ Failed to mark receipt as printed:', error);
-                // Don't throw error since printing was successful
               }
             });
             
-            // Close window after printing
             setTimeout(() => {
               printWindow.close();
             }, 1000);
@@ -86,13 +69,12 @@ export class ReceiptService {
   }
 
   /**
-   * Download receipt as PDF - Client side generation
+   * Download PDF - MENGGUNAKAN HTML DARI PREVIEW COMPONENT
    */
   async downloadReceiptPDF(saleId: number): Promise<void> {
     try {
-      console.log('📄 Downloading optimized PDF for sale:', saleId);
+      console.log('📄 Downloading PDF for sale:', saleId);
       
-      // ✅ FIX: Use sale data directly and generate PDF client-side
       const saleResponse = await this.posService.getSaleById(saleId).toPromise();
       
       if (!saleResponse?.success || !saleResponse.data) {
@@ -101,648 +83,795 @@ export class ReceiptService {
 
       const sale = saleResponse.data;
       
-      // Create receipt data structure
-      const receiptData = {
-        sale: sale,
-        storeName: 'Toko Eniwan',
-        storeAddress: 'Bekasi, West Java',
-        storePhone: '+62 xxx-xxxx-xxxx',
-        storeEmail: 'info@tokoeniwan.com',
-        footerMessage: 'Terima kasih atas kunjungan Anda!'
-      };
+      // Generate PDF menggunakan method terpisah
+      const pdfBlob = await this.generateReceiptPDF(sale);
       
-      // Generate optimized PDF using client-side library (target <1MB)
-      const pdfBlob = await this.generateReceiptPDF(receiptData);
+      // Download PDF
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `struk-${sale.saleNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
-      // Create download link
-      const url = window.URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `receipt-${sale.saleNumber || saleId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      console.log('✅ Optimized PDF downloaded successfully');
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Download PDF error:', error);
       throw error;
     }
   }
 
   /**
-   * Generate PDF blob from receipt data - ENHANCED to match visual preview with optimized file size
+   * Share receipt - MENGGUNAKAN PDF YANG SAMA DENGAN DOWNLOAD
    */
-
-  private async generateReceiptPDF(receiptData: any): Promise<Blob> {
+  async shareReceipt(saleId: number, method: 'native' | 'whatsapp' = 'native'): Promise<void> {
     try {
-      // Create a hidden div with the exact same styling as the receipt preview
-      const receiptElement = this.createReceiptElement(receiptData);
-      document.body.appendChild(receiptElement);
-
-      // Wait for fonts and styling to load
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      // Convert to canvas with optimized settings for smaller file size
-      const canvas = await html2canvas(receiptElement, {
-        scale: 2, // Reduced from 3 to 2 for smaller file size while maintaining quality
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        width: receiptElement.scrollWidth,
-        height: receiptElement.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
-        logging: false,
-        removeContainer: false,
-        imageTimeout: 0
-      });
-
-      // Remove the temporary element
-      document.body.removeChild(receiptElement);
-
-      // Create PDF with optimized compression
-      const imgData = canvas.toDataURL('image/jpeg', 0.85); // Use JPEG with 85% quality for smaller file size
+      console.log('📤 Sharing receipt for sale:', saleId);
       
-      // Calculate proper dimensions for A4 or thermal receipt
-      const isSmallReceipt = receiptElement.scrollWidth <= 400;
+      const saleResponse = await this.posService.getSaleById(saleId).toPromise();
       
-      let pdf;
-      if (isSmallReceipt) {
-        // Thermal receipt size (80mm wide, auto height)
-        const pdfWidth = 80;
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: [pdfWidth, Math.max(pdfHeight, 100)] // Minimum 100mm height
-        });
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      } else {
-        // A4 size for full receipts
-        pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4'
-        });
-        
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pageWidth - 20; // 10mm margin on each side
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        let currentHeight = 0;
-        const marginTop = 10;
-        const marginLeft = 10;
-        
-        // If image fits in one page
-        if (imgHeight <= pageHeight - 20) {
-          pdf.addImage(imgData, 'JPEG', marginLeft, marginTop, imgWidth, imgHeight);
-        } else {
-          // Split across multiple pages if needed
-          const pageContentHeight = pageHeight - 20;
-          const numPages = Math.ceil(imgHeight / pageContentHeight);
-          
-          for (let i = 0; i < numPages; i++) {
-            if (i > 0) pdf.addPage();
-            
-            const sourceY = (canvas.height / numPages) * i;
-            const sourceHeight = canvas.height / numPages;
-            
-            // Create a temporary canvas for this page section
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = sourceHeight;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            if (tempCtx) {
-              tempCtx.drawImage(canvas, 0, -sourceY);
-              const tempImgData = tempCanvas.toDataURL('image/jpeg', 0.85);
-              pdf.addImage(tempImgData, 'JPEG', marginLeft, marginTop, imgWidth, pageContentHeight);
-            }
-          }
-        }
+      if (!saleResponse?.success || !saleResponse.data) {
+        throw new Error('Failed to get sale data');
       }
 
-      // Return as blob
-      return new Promise((resolve) => {
-        const pdfBlob = pdf.output('blob');
-        resolve(pdfBlob);
-      });
+      const sale = saleResponse.data;
       
-    } catch (error) {
-      console.error('❌ PDF generation error:', error);
-      // Fallback to text-based PDF
-      return this.generateSimpleTextPDF(receiptData);
+      if (method === 'whatsapp') {
+        // Untuk WhatsApp, buat PDF kecil untuk sharing
+        const pdfBlob = await this.generateReceiptPDF(sale);
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        
+        // Buat text summary + link download PDF
+        const receiptText = this.generateReceiptTextSummary(sale);
+        const whatsappText = `${receiptText}\n\n📎 PDF Struk: ${pdfUrl}`;
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
+        window.open(whatsappUrl, '_blank');
+      } else {
+        // Untuk native share gunakan PDF yang sama dengan download
+        const pdfBlob = await this.generateReceiptPDF(sale);
+        const file = new File([pdfBlob], `struk-${sale.saleNumber}.pdf`, { type: 'application/pdf' });
+        
+        if (navigator.share) {
+          await navigator.share({
+            title: `Struk #${sale.saleNumber}`,
+            text: 'Struk Pembelian',
+            files: [file]
+          });
+        } else {
+          // Fallback: download PDF
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `struk-${sale.saleNumber}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Share receipt error:', error);
+      throw error;
     }
   }
 
   /**
-   * Create receipt element with exact same styling as receipt preview
+   * Generate Receipt PDF - UNTUK DOWNLOAD DAN SHARE
    */
-  private createReceiptElement(receiptData: any): HTMLElement {
-    const div = document.createElement('div');
-    div.style.cssText = `
-      position: absolute;
-      top: -9999px;
-      left: -9999px;
-      width: 400px;
-      min-height: 600px;
-      background: white;
-      padding: 24px;
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-      line-height: 1.6;
-      color: #333;
-      box-sizing: border-box;
-    `;
-
-    const sale = receiptData.sale;
+  private async generateReceiptPDF(sale: any): Promise<Blob> {
+    // Gunakan HTML yang sama dengan preview component
+    const pdfContent = this.generateReceiptHTML(sale);
     
-    div.innerHTML = `
-      <!-- Store Header -->
-      <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #FF914D; padding-bottom: 16px;">
-        <h1 style="margin: 0 0 8px 0; font-size: 20px; font-weight: bold; color: #FF914D;">${receiptData.storeName}</h1>
-        <p style="margin: 4px 0; font-size: 13px; color: #666;">${receiptData.storeAddress}</p>
-        <p style="margin: 4px 0; font-size: 13px; color: #666;">${receiptData.storePhone}</p>
-        ${receiptData.storeEmail ? `<p style="margin: 4px 0; font-size: 13px; color: #666;">${receiptData.storeEmail}</p>` : ''}
-      </div>
-
-      <!-- Divider -->
-      <div style="text-align: center; margin: 16px 0; font-weight: bold; letter-spacing: 1px; font-size: 12px;">================================</div>
-
-      <!-- Transaction Info -->
-      <div style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
-          <span style="font-weight: bold; font-size: 13px;">No Transaksi:</span>
-          <span style="font-size: 13px;">${sale.saleNumber || sale.id}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
-          <span style="font-weight: bold; font-size: 13px;">Tanggal:</span>
-          <span style="font-size: 13px;">${this.formatDate(sale.saleDate)}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
-          <span style="font-weight: bold; font-size: 13px;">Waktu:</span>
-          <span style="font-size: 13px;">${this.formatTime(sale.saleDate)}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
-          <span style="font-weight: bold; font-size: 13px;">Kasir:</span>
-          <span style="font-size: 13px;">${sale.cashierName || 'Admin'}</span>
-        </div>
-        ${sale.customerName ? `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
-          <span style="font-weight: bold; font-size: 13px;">Customer:</span>
-          <span style="font-size: 13px;">${sale.customerName}</span>
-        </div>` : ''}
-        ${sale.customerPhone ? `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
-          <span style="font-weight: bold; font-size: 13px;">Telepon:</span>
-          <span style="font-size: 13px;">${sale.customerPhone}</span>
-        </div>` : ''}
-        ${sale.memberName ? `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center;">
-          <span style="font-weight: bold; font-size: 13px;">Member:</span>
-          <span style="font-size: 13px;">${sale.memberName}</span>
-        </div>` : ''}
-      </div>
-
-      <!-- Divider -->
-      <div style="text-align: center; margin: 16px 0; font-weight: bold; letter-spacing: 1px; font-size: 12px;">================================</div>
-
-      <!-- Items -->
-      <div style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid #ddd; padding-bottom: 6px; font-size: 13px;">
-          <span>ITEM</span>
-          <span>TOTAL</span>
-        </div>
-
-        ${sale.items?.map((item: any) => `
-          <div style="margin-bottom: 16px; border-bottom: 1px dotted #ccc; padding-bottom: 10px;">
-            <div style="font-weight: bold; margin-bottom: 4px; font-size: 14px; color: #333;">${item.productName || item.product?.name || 'Unknown Product'}</div>
-            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 2px;">
-              <span>${this.getItemQuantity(item)} x ${this.formatCurrency(this.getItemPrice(item))}</span>
-              <span style="font-weight: bold; color: #333; font-size: 13px;">${this.formatCurrency(this.getItemSubtotal(item))}</span>
-            </div>
-            ${this.getItemDiscount(item) > 0 ? `
-            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #E15A4F; margin-top: 2px;">
-              <span>Diskon ${this.getItemDiscount(item)}%</span>
-              <span>-${this.formatCurrency(this.getItemPrice(item) * this.getItemQuantity(item) * this.getItemDiscount(item) / 100)}</span>
-            </div>` : ''}
-          </div>
-        `).join('') || '<div style="text-align: center; color: #999; padding: 20px; font-size: 13px;">Tidak ada item</div>'}
-      </div>
-
-      <!-- Divider -->
-      <div style="text-align: center; margin: 16px 0; font-weight: bold; letter-spacing: 1px; font-size: 12px;">================================</div>
-
-      <!-- Summary -->
-      <div style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
-          <span>Subtotal:</span>
-          <span>${this.formatCurrency(sale.subtotal || 0)}</span>
-        </div>
-        ${(sale.discountAmount || 0) > 0 ? `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; color: #E15A4F; font-size: 13px;">
-          <span>Diskon:</span>
-          <span>-${this.formatCurrency(sale.discountAmount)}</span>
-        </div>` : ''}
-        ${(sale.taxAmount || 0) > 0 ? `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
-          <span>Pajak:</span>
-          <span>${this.formatCurrency(sale.taxAmount)}</span>
-        </div>` : ''}
-        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; border-top: 2px solid #333; padding-top: 10px; margin-top: 10px; color: #FF914D;">
-          <span>TOTAL:</span>
-          <span>${this.formatCurrency(sale.total || 0)}</span>
-        </div>
-      </div>
-
-      <!-- Divider -->
-      <div style="text-align: center; margin: 16px 0; font-weight: bold; letter-spacing: 1px; font-size: 12px;">================================</div>
-
-      <!-- Payment Info -->
-      <div style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
-          <span>Metode Bayar:</span>
-          <span>${this.getPaymentMethodLabel(sale.paymentMethod || 'cash')}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
-          <span>Bayar:</span>
-          <span>${this.formatCurrency(sale.amountPaid || 0)}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
-          <span>Kembali:</span>
-          <span>${this.formatCurrency(sale.changeAmount || 0)}</span>
-        </div>
-      </div>
-
-      <!-- Loyalty Points -->
-      ${sale.memberId ? `
-      <div style="margin-bottom: 20px; border-top: 1px dotted #ccc; padding-top: 12px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
-          <span>Poin Didapat:</span>
-          <span style="color: #4BBF7B; font-weight: bold;">+${this.getPointsEarned()} poin</span>
-        </div>
-      </div>` : ''}
-
-      <!-- Notes -->
-      ${sale.notes ? `
-      <div style="margin-bottom: 20px; border-top: 1px dotted #ccc; padding-top: 12px;">
-        <div style="font-weight: bold; margin-bottom: 4px; font-size: 13px;">Catatan:</div>
-        <div style="font-size: 12px; color: #666; word-wrap: break-word;">${sale.notes}</div>
-      </div>` : ''}
-
-      <!-- Footer -->
-      <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #ddd;">
-        <p style="margin: 8px 0; font-size: 13px; color: #666; font-weight: bold;">${receiptData.footerMessage}</p>
-        <p style="margin: 6px 0; font-size: 11px; color: #999;">Barang yang sudah dibeli tidak dapat dikembalikan</p>
-        <p style="margin: 12px 0 0 0; font-size: 10px; color: #999;">Powered by Toko Eniwan POS System</p>
-        <p style="margin: 4px 0 0 0; font-size: 10px; color: #ccc;">${new Date().toLocaleString('id-ID')}</p>
-      </div>
-    `;
-
-    return div;
-  }
-
-  /**
-   * Fallback: Generate simple text-based PDF
-   */
-  private generateSimpleTextPDF(receiptData: any): Blob {
-    const content = this.generateReceiptText(receiptData);
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = pdfContent;
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '-9999px';
+    tempDiv.style.width = '380px'; // Fixed width untuk consistency
+    document.body.appendChild(tempDiv);
     
+    // Wait for fonts and images to load
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    const canvas = await html2canvas(tempDiv, {
+      width: 380,
+      height: tempDiv.scrollHeight,
+      scale: 1.5, // Reduced scale untuk file size lebih kecil
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      allowTaint: false,
+      foreignObjectRendering: false
+    });
+    
+    document.body.removeChild(tempDiv);
+    
+    // Create PDF dengan ukuran yang optimal
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: [80, 200]
+      format: [80, (canvas.height * 80) / canvas.width],
+      compress: true
     });
-
-    // Add text content
-    const lines = content.split('\n');
-    let y = 10;
-    const lineHeight = 4;
-
-    lines.forEach(line => {
-      if (y > 190) { // Add new page if needed
-        pdf.addPage();
-        y = 10;
-      }
-      pdf.text(line, 5, y);
-      y += lineHeight;
-    });
-
+    
+    const imgData = canvas.toDataURL('image/jpeg', 0.85); // JPEG dengan quality 85% untuk size lebih kecil
+    pdf.addImage(imgData, 'JPEG', 0, 0, 80, (canvas.height * 80) / canvas.width);
+    
+    // Return sebagai Blob
     return pdf.output('blob');
   }
 
   /**
-   * Generate receipt text content
+   * Generate Receipt Text Summary - UNTUK SHARE YANG RINGKAS
    */
-  private generateReceiptText(receiptData: any): string {
-    const sale = receiptData.sale;
+  private generateReceiptTextSummary(sale: any): string {
+    const storeInfo = environment.pos?.receiptSettings || {
+      storeName: 'Toko Eniwan',
+      storeAddress: 'Bekasi, West Java',
+      storePhone: '+62 xxx-xxxx-xxxx',
+      footerMessage: 'Terima kasih atas kunjungan Anda!'
+    };
     
-    return `
-=== STRUK PEMBAYARAN ===
-
-${receiptData.storeName}
-${receiptData.storeAddress}
-${receiptData.storePhone}
-
-================================
-
-No: ${sale.saleNumber}
-Tanggal: ${this.formatDateTime(sale.saleDate)}
-Kasir: ${sale.cashierName}
-${sale.memberName ? `Member: ${sale.memberName}` : ''}
-
-================================
-
-ITEM PEMBELIAN:
-${sale.items?.map((item: any) => 
-  `${item.productName}\n${this.getItemQuantity(item)} x ${this.formatCurrency(this.getItemPrice(item))} = ${this.formatCurrency(this.getItemSubtotal(item))}`
-).join('\n\n') || 'No items'}
-
-================================
-
-Subtotal: ${this.formatCurrency(sale.subtotal)}
-${sale.discountAmount > 0 ? `Diskon: -${this.formatCurrency(sale.discountAmount)}\n` : ''}
-${sale.taxAmount > 0 ? `Pajak: ${this.formatCurrency(sale.taxAmount)}\n` : ''}
-TOTAL: ${this.formatCurrency(sale.total)}
-
-Bayar: ${this.formatCurrency(sale.amountPaid)}
-Kembali: ${this.formatCurrency(sale.changeAmount)}
-
-================================
-
-${receiptData.footerMessage}
-Barang yang sudah dibeli tidak dapat dikembalikan
-    `.trim();
+    const formattedDate = this.formatDate(sale.saleDate);
+    const formattedTime = this.formatTime(sale.saleDate);
+    
+    let receiptText = `📄 ${storeInfo.storeName}\n`;
+    receiptText += `${storeInfo.storeAddress}\n`;
+    receiptText += `${storeInfo.storePhone}\n\n`;
+    
+    receiptText += `🧾 STRUK PEMBELIAN\n`;
+    receiptText += `================================\n`;
+    receiptText += `No. Transaksi: ${sale.saleNumber || 'N/A'}\n`;
+    receiptText += `Tanggal: ${formattedDate}\n`;
+    receiptText += `Waktu: ${formattedTime}\n`;
+    receiptText += `Kasir: ${sale.cashierName || 'N/A'}\n`;
+    
+    if (sale.customerName) {
+      receiptText += `Pelanggan: ${sale.customerName}\n`;
+    }
+    
+    receiptText += `================================\n`;
+    
+    // Items
+    if (sale.items && sale.items.length > 0) {
+      sale.items.forEach((item: any) => {
+        const qty = this.getItemQuantity(item);
+        const price = this.getItemPrice(item);
+        const total = this.getItemSubtotal(item);
+        
+        receiptText += `${item.productName || 'Unknown Product'}\n`;
+        receiptText += `  ${qty} x ${this.formatCurrency(price)} = ${this.formatCurrency(total)}\n`;
+        
+        if (this.getItemDiscount(item) > 0) {
+          receiptText += `  (Diskon ${this.getItemDiscount(item)}%)\n`;
+        }
+      });
+    }
+    
+    receiptText += `================================\n`;
+    receiptText += `Subtotal: ${this.formatCurrency(sale.subtotal)}\n`;
+    
+    if (this.toNumber(sale.discountAmount) > 0) {
+      receiptText += `Diskon: -${this.formatCurrency(sale.discountAmount)}\n`;
+    }
+    
+    receiptText += `TOTAL: ${this.formatCurrency(sale.total)}\n`;
+    receiptText += `================================\n`;
+    receiptText += `Metode Bayar: ${this.getPaymentMethodLabel(sale.paymentMethod)}\n`;
+    receiptText += `Jumlah Bayar: ${this.formatCurrency(sale.amountPaid)}\n`;
+    
+    if (this.toNumber(sale.changeAmount) > 0) {
+      receiptText += `Kembalian: ${this.formatCurrency(sale.changeAmount)}\n`;
+    }
+    
+    receiptText += `\n${storeInfo.footerMessage}\n`;
+    receiptText += `Barang yang sudah dibeli tidak dapat dikembalikan`;
+    
+    return receiptText;
   }
 
   /**
-   * Share receipt via native sharing or WhatsApp - now shares PDF file
+   * Generate Receipt HTML - PERSIS SEPERTI PREVIEW COMPONENT
    */
-  async shareReceipt(saleId: number, method: 'native' | 'whatsapp' = 'native'): Promise<void> {
-    try {
-      console.log('📤 Sharing receipt:', saleId, 'via', method);
-      
-      // Get receipt data
-      const receiptResponse = await this.posService.getReceiptData(saleId).toPromise();
-      
-      if (!receiptResponse?.success || !receiptResponse.data) {
-        throw new Error('Failed to get receipt data');
-      }
-
-      const receiptData = receiptResponse.data;
-      
-      if (method === 'native' && navigator.share) {
-        // Generate optimized PDF for sharing
-        const pdfBlob = await this.generateReceiptPDF(receiptData);
-        const fileName = `receipt_${receiptData.sale.saleNumber || receiptData.sale.id}.pdf`;
-        
-        // Create a File object from the blob
-        const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
-        
-        // Share the PDF file directly
-        await navigator.share({
-          title: 'Struk Pembayaran',
-          text: `Struk pembayaran ${receiptData.storeName} - ${receiptData.sale.saleNumber}`,
-          files: [pdfFile]
-        });
-      } else {
-        // Fallback: Generate share text for WhatsApp
-        const shareText = this.generateShareText(receiptData);
-        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-        window.open(whatsappUrl, '_blank');
-      }
-      
-    } catch (error) {
-      console.error('❌ Share receipt error:', error);
-      
-      // Fallback to text sharing if file sharing fails
-      if (method === 'native') {
-        try {
-          const receiptResponse = await this.posService.getReceiptData(saleId).toPromise();
-          if (receiptResponse?.success && receiptResponse.data) {
-            const shareText = this.generateShareText(receiptResponse.data);
-            await navigator.share({
-              title: 'Struk Pembayaran',
-              text: shareText
-            });
-          }
-        } catch (fallbackError) {
-          console.error('❌ Fallback share error:', fallbackError);
-          throw new Error('Gagal membagikan struk');
-        }
-      } else {
-        throw error;
-      }
-    }
-  }
-
-    /**
-     * Generate share text content
-     */
-    private generateShareText(receiptData: any): string {
-      const sale = receiptData.sale;
-      
-      return `
-  🧾 *STRUK PEMBAYARAN*
-  
-  📍 ${receiptData.storeName}
-  ${receiptData.storeAddress}
-  ${receiptData.storePhone}
-  
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  
-  📝 No: ${sale.saleNumber}
-  📅 Tanggal: ${this.formatDateTime(sale.saleDate)}
-  👤 Kasir: ${sale.cashierName}
-  ${sale.memberName ? `🎫 Member: ${sale.memberName}\n` : ''}
-  
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  
-  🛒 *ITEM PEMBELIAN:*
-  ${sale.items?.map((item: any) => 
-    `• ${item.productName}\n  ${this.getItemQuantity(item)} x ${this.formatCurrency(this.getItemPrice(item))} = ${this.formatCurrency(this.getItemSubtotal(item))}`
-  ).join('\n\n') || 'Tidak ada item'}
-  
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  
-  💰 Subtotal: ${this.formatCurrency(sale.subtotal)}
-  ${sale.discountAmount > 0 ? `🎯 Diskon: -${this.formatCurrency(sale.discountAmount)}\n` : ''}
-  ${sale.taxAmount > 0 ? `📋 Pajak: ${this.formatCurrency(sale.taxAmount)}\n` : ''}
-  💳 *TOTAL: ${this.formatCurrency(sale.total)}*
-  
-  💵 Bayar: ${this.formatCurrency(sale.amountPaid)}
-  💰 Kembali: ${this.formatCurrency(sale.changeAmount)}
-  
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  
-  ${receiptData.footerMessage}
-  Barang yang sudah dibeli tidak dapat dikembalikan
-  
-  Powered by Toko Eniwan POS System
-      `.trim();
-    }
-  
-    /**
-     * Generate print HTML content
-     */
-    private generatePrintHTML(receiptData: any): string {
-    const sale = receiptData.sale;
+  private generateReceiptHTML(sale: any): string {
+    const storeInfo = environment.pos?.receiptSettings || {
+      storeName: 'Toko Eniwan',
+      storeAddress: 'Bekasi, West Java',
+      storePhone: '+62 xxx-xxxx-xxxx',
+      storeEmail: 'info@tokoeniwan.com',
+      footerMessage: 'Terima kasih atas kunjungan Anda!'
+    };
     
+    const formattedDate = this.formatDate(sale.saleDate);
+    const formattedTime = this.formatTime(sale.saleDate);
+    const showKembalian = sale.changeAmount && sale.changeAmount > 0;
+
     return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Struk #${sale.saleNumber}</title>
-        <style>
-          @media print {
-            @page { size: 58mm auto; margin: 2mm; }
-            body { margin: 0; font-family: monospace; }
-          }
-          body { 
-            font-family: 'Courier New', monospace; 
-            font-size: 12px; 
-            line-height: 1.4; 
-            max-width: 54mm; 
-            margin: 0 auto; 
-          }
-          .center { text-align: center; }
-          .left { text-align: left; }
-          .right { text-align: right; }
-          .bold { font-weight: bold; }
-          .dashed { border-top: 1px dashed #000; margin: 4px 0; }
-          .item { margin: 2px 0; }
-          .item-line { display: flex; justify-content: space-between; }
-          .no-print { display: none; }
-        </style>
-      </head>
-      <body>
-        <div class="center bold">
-          <div>${receiptData.storeName}</div>
-          <div style="font-size: 10px; font-weight: normal;">
-            ${receiptData.storeAddress}<br>
-            ${receiptData.storePhone}
-          </div>
-        </div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Struk #${sale.saleNumber}</title>
+    <style>
+        :root {
+          --clr-primary: #FF914D;
+          --clr-primary-dark: #E07A3B;
+          --clr-primary-light: #FFD3B3;
+          --clr-accent: #4BBF7B;
+          --clr-warning: #FFB84D;
+          --clr-error: #E15A4F;
+          --clr-surface: rgba(255, 255, 255, 0.25);
+          --clr-bg-base: #FDF9F6;
+          --backdrop-blur: blur(20px);
+          --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.1);
+          --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            line-height: 1.3;
+            margin: 0;
+            padding: 8px;
+            background: white;
+            color: #333;
+        }
         
-        <div class="dashed"></div>
-        
-        <div class="left">
-          <div>No: ${sale.saleNumber}</div>
-          <div>Tanggal: ${this.formatDateTime(sale.saleDate)}</div>
-          <div>Kasir: ${sale.cashierName}</div>
-          ${sale.memberName ? `<div>Member: ${sale.memberName}</div>` : ''}
-        </div>
-        
-        <div class="dashed"></div>
-        
-        <div class="left">
-          ${sale.items?.map((item: any) => `
-            <div class="item">
-              <div class="bold">${item.productName}</div>
-              <div class="item-line">
-                <span>${this.getItemQuantity(item)} x ${this.formatCurrency(this.getItemPrice(item))}</span>
-                <span>${this.formatCurrency(this.getItemSubtotal(item))}</span>
-              </div>
+        .receipt-content {
+            display: flex;
+            justify-content: center;
+            margin-top: 0;
+        }
+
+        .receipt-paper {
+            width: 100%;
+            max-width: 380px;
+            background: white;
+            padding: 1.2rem;
+            border-radius: var(--border-radius);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.3;
+            color: #333;
+            position: relative;
+            margin: 0 auto;
+        }
+
+        /* Receipt styling */
+        .receipt-paper::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 20px;
+            background: repeating-linear-gradient(
+              45deg,
+              #ccc,
+              #ccc 2px,
+              transparent 2px,
+              transparent 8px
+            );
+            border-radius: 50%;
+        }
+
+        /* Store Header */
+        .store-header {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .store-name {
+            margin: 0 0 0.3rem 0;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--clr-primary-dark);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .store-address,
+        .store-contact,
+        .store-email {
+            margin: 0.2rem 0;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        /* Divider */
+        .divider {
+            text-align: center;
+            margin: 0.8rem 0;
+            color: #999;
+            font-size: 0.65rem;
+            letter-spacing: 0.3px;
+        }
+
+        /* Transaction Info */
+        .transaction-info .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.2rem;
+        }
+
+        .transaction-info .info-row .label {
+            font-weight: bold;
+            color: #555;
+            font-size: 0.75rem;
+        }
+
+        .transaction-info .info-row .value {
+            color: #333;
+            font-size: 0.75rem;
+        }
+
+        /* Items Section */
+        .items-section .items-header {
+            display: grid;
+            grid-template-columns: 3fr 0.7fr 1.1fr 1.1fr;
+            gap: 0.25rem;
+            padding: 0.4rem 0;
+            border-bottom: 1px dashed #ccc;
+            margin-bottom: 0.4rem;
+            font-weight: bold;
+            font-size: 0.65rem;
+            color: #555;
+            align-items: center;
+        }
+
+        .items-section .items-header .col-name { text-align: left; }
+        .items-section .items-header .col-qty { text-align: center; }
+        .items-section .items-header .col-price { text-align: right; }
+        .items-section .items-header .col-total { text-align: right; }
+
+        .items-section .item-row {
+            margin-bottom: 0.4rem;
+        }
+
+        .items-section .item-row .item-main {
+            display: grid;
+            grid-template-columns: 3fr 0.7fr 1.1fr 1.1fr;
+            gap: 0.25rem;
+            align-items: center;
+            font-size: 0.7rem;
+            min-height: 1.2rem;
+        }
+
+        .items-section .item-row .item-main .item-name {
+            font-weight: 600;
+            color: #333;
+            word-break: break-word;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .items-section .item-row .item-main .item-qty {
+            text-align: center;
+            font-weight: bold;
+            color: var(--clr-primary);
+            white-space: nowrap;
+        }
+
+        .items-section .item-row .item-main .item-price {
+            text-align: right;
+            color: #666;
+            white-space: nowrap;
+            font-size: 0.65rem;
+        }
+
+        .items-section .item-row .item-main .item-total {
+            text-align: right;
+            font-weight: bold;
+            color: #333;
+            white-space: nowrap;
+            font-size: 0.65rem;
+        }
+
+        .items-section .item-row .item-details {
+            margin-top: 0.1rem;
+            margin-left: 0.1rem;
+        }
+
+        .items-section .item-row .item-details .discount-info {
+            font-size: 0.65rem;
+            color: var(--clr-accent);
+            font-style: italic;
+        }
+
+        /* Summary Section */
+        .summary-section .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.3rem;
+            padding: 0.15rem 0;
+            font-size: 0.75rem;
+        }
+
+        .summary-section .summary-row .label {
+            color: #555;
+        }
+
+        .summary-section .summary-row .value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .summary-section .summary-row.total-row {
+            border-top: 1px solid #ccc;
+            border-bottom: 2px solid #333;
+            padding: 0.4rem 0;
+            margin-top: 0.4rem;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .summary-section .summary-row.total-row .label {
+            color: #333;
+            font-weight: bold;
+        }
+
+        .summary-section .summary-row.total-row .value {
+            color: var(--clr-primary-dark);
+            font-size: 0.9rem;
+        }
+
+        /* Payment Section */
+        .payment-section .payment-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+            font-size: 0.75rem;
+        }
+
+        .payment-section .payment-row .label {
+            color: #555;
+            font-weight: 600;
+        }
+
+        .payment-section .payment-row .value {
+            color: #333;
+            font-weight: bold;
+        }
+
+        /* Footer */
+        .receipt-footer {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .receipt-footer .thank-you {
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .receipt-footer .footer-note {
+            margin: 0.5rem 0;
+            font-size: 0.75rem;
+            color: #666;
+            font-style: italic;
+        }
+
+        .receipt-footer .qr-section {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: rgba(255, 145, 77, 0.05);
+            border-radius: 6px;
+        }
+
+        .receipt-footer .qr-section .qr-label {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .receipt-footer .qr-section .qr-placeholder {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+            background: #f8f9fa;
+            border: 2px dashed #ccc;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .receipt-footer .qr-section .qr-placeholder .qr-text {
+            font-size: 0.7rem;
+            color: #999;
+        }
+
+        .no-items {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        @media print {
+            body { 
+                margin: 0; 
+                padding: 4px;
+                font-size: 0.7rem;
+            }
+            .receipt-content {
+                margin-top: 0;
+            }
+            .receipt-content .receipt-paper {
+                box-shadow: none;
+                border: none;
+                max-width: 380px;
+                width: 100%;
+                padding: 1rem;
+                margin: 0 auto;
+            }
+            .receipt-paper::before {
+                display: none;
+            }
+            .items-section .items-header {
+                font-size: 0.6rem;
+            }
+            .items-section .item-row .item-main {
+                font-size: 0.65rem;
+            }
+            .items-section .item-row .item-main .item-price,
+            .items-section .item-row .item-main .item-total {
+                font-size: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-content">
+        <div class="receipt-paper">
+            <!-- Store Header -->
+            <div class="store-header">
+                <h1 class="store-name">${storeInfo.storeName}</h1>
+                <p class="store-address">${storeInfo.storeAddress}</p>
+                <p class="store-contact">${storeInfo.storePhone}</p>
+                ${storeInfo.storeEmail ? `<p class="store-email">${storeInfo.storeEmail}</p>` : ''}
             </div>
-          `).join('') || '<div>No items</div>'}
-        </div>
-        
-        <div class="dashed"></div>
-        
-        <div class="left">
-          <div class="item-line">
-            <span>Subtotal:</span>
-            <span>${this.formatCurrency(sale.subtotal)}</span>
-          </div>
-          ${sale.discountAmount > 0 ? `
-            <div class="item-line">
-              <span>Diskon:</span>
-              <span>-${this.formatCurrency(sale.discountAmount)}</span>
+
+            <!-- Divider -->
+            <div class="divider">================================</div>
+
+            <!-- Transaction Info -->
+            <div class="transaction-info">
+                <div class="info-row">
+                    <span class="label">No. Transaksi:</span>
+                    <span class="value">${sale.saleNumber || 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Tanggal:</span>
+                    <span class="value">${formattedDate}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Waktu:</span>
+                    <span class="value">${formattedTime}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Kasir:</span>
+                    <span class="value">${sale.cashierName || 'N/A'}</span>
+                </div>
+                ${sale.customerName ? `
+                <div class="info-row">
+                    <span class="label">Pelanggan:</span>
+                    <span class="value">${sale.customerName}</span>
+                </div>` : ''}
+                ${sale.memberName ? `
+                <div class="info-row">
+                    <span class="label">Member:</span>
+                    <span class="value">${sale.memberName} (${sale.memberNumber})</span>
+                </div>` : ''}
             </div>
-          ` : ''}
-          ${sale.taxAmount > 0 ? `
-            <div class="item-line">
-              <span>Pajak:</span>
-              <span>${this.formatCurrency(sale.taxAmount)}</span>
+
+            <!-- Divider -->
+            <div class="divider">================================</div>
+
+            <!-- Items -->
+            <div class="items-section">
+                <div class="items-header">
+                    <span class="col-name">Item</span>
+                    <span class="col-qty">Qty</span>
+                    <span class="col-price">Harga</span>
+                    <span class="col-total">Total</span>
+                </div>
+
+                <!-- Items List -->
+                ${sale.items && sale.items.length > 0 ? sale.items.map((item: any) => `
+                    <div class="item-row">
+                        <div class="item-main">
+                            <span class="item-name">${item.productName || 'Unknown Product'}</span>
+                            <span class="item-qty">${this.getItemQuantity(item)}</span>
+                            <span class="item-price">${this.formatCurrency(this.getItemPrice(item))}</span>
+                            <span class="item-total">${this.formatCurrency(this.getItemSubtotal(item))}</span>
+                        </div>
+
+                        ${this.getItemDiscount(item) > 0 ? `
+                        <div class="item-details">
+                            <span class="discount-info">
+                                Diskon ${this.getItemDiscount(item)}%
+                            </span>
+                        </div>` : ''}
+                    </div>
+                `).join('') : `
+                <div class="no-items">
+                    <p>Tidak ada item ditemukan dalam transaksi ini</p>
+                </div>`}
             </div>
-          ` : ''}
-          <div class="item-line bold">
-            <span>TOTAL:</span>
-            <span>${this.formatCurrency(sale.total)}</span>
-          </div>
-          <div class="item-line">
-            <span>Bayar:</span>
-            <span>${this.formatCurrency(sale.amountPaid)}</span>
-          </div>
-          <div class="item-line">
-            <span>Kembali:</span>
-            <span>${this.formatCurrency(sale.changeAmount)}</span>
-          </div>
+
+            <!-- Divider -->
+            <div class="divider">================================</div>
+
+            <!-- Summary -->
+            <div class="summary-section">
+                <div class="summary-row">
+                    <span class="label">Subtotal (${this.getTotalItems(sale)} item):</span>
+                    <span class="value">${this.formatCurrency(sale.subtotal)}</span>
+                </div>
+
+                ${this.toNumber(sale.discountAmount) > 0 ? `
+                <div class="summary-row">
+                    <span class="label">Diskon:</span>
+                    <span class="value">-${this.formatCurrency(sale.discountAmount)}</span>
+                </div>` : ''}
+
+                <div class="summary-row total-row">
+                    <span class="label">TOTAL:</span>
+                    <span class="value">${this.formatCurrency(sale.total)}</span>
+                </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="divider">================================</div>
+
+            <!-- Payment Info -->
+            <div class="payment-section">
+                <div class="payment-row">
+                    <span class="label">Metode Bayar:</span>
+                    <span class="value">${this.getPaymentMethodLabel(sale.paymentMethod)}</span>
+                </div>
+
+                <div class="payment-row">
+                    <span class="label">Jumlah Bayar:</span>
+                    <span class="value">${this.formatCurrency(sale.amountPaid)}</span>
+                </div>
+
+                ${this.toNumber(sale.changeAmount) > 0 ? `
+                <div class="payment-row">
+                    <span class="label">Kembalian:</span>
+                    <span class="value">${this.formatCurrency(sale.changeAmount)}</span>
+                </div>` : ''}
+
+                ${sale.paymentReference ? `
+                <div class="payment-row">
+                    <span class="label">Ref. Number:</span>
+                    <span class="value">${sale.paymentReference}</span>
+                </div>` : ''}
+            </div>
+
+            <!-- Footer -->
+            <div class="receipt-footer">
+                <div class="divider">================================</div>
+                <p class="thank-you">Terima kasih atas kunjungan Anda!</p>
+                <p class="footer-note">Barang yang sudah dibeli tidak dapat dikembalikan</p>
+
+                <!-- QR Code for digital receipt -->
+                <div class="qr-section">
+                    <p class="qr-label">Scan untuk struk digital:</p>
+                    <div class="qr-placeholder">
+                        <span class="qr-text">QR Code</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div class="dashed"></div>
-        
-        <div class="center">
-          <div style="font-size: 10px;">
-            ${receiptData.footerMessage || 'Terima kasih atas kunjungan Anda!'}
-          </div>
-        </div>
-        
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 100);
-          }
-        </script>
-      </body>
-      </html>
-    `;
+    </div>
+</body>
+</html>`;
   }
 
-  // Helper methods with field mapping
+  // ===== UTILITY METHODS - SAMA SEPERTI PREVIEW COMPONENT =====
+
+  private getItemQuantity(item: any): number {
+    if (!item) return 1;
+    
+    const quantityFields = ['quantity', 'qty', 'amount', 'count'];
+    
+    for (const field of quantityFields) {
+      const value = item[field];
+      if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) > 0) {
+        return this.toNumber(value);
+      }
+    }
+    
+    return 1;
+  }
+
   private getItemPrice(item: any): number {
-    return item.unitPrice || item.sellPrice || item.price || 0;
+    if (!item) return 0;
+
+    const priceFields = ['unitPrice', 'sellPrice', 'price', 'salePrice'];
+    
+    for (const field of priceFields) {
+      const value = item[field];
+      if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) > 0) {
+        return this.toNumber(value);
+      }
+    }
+    
+    return 0;
   }
 
   private getItemSubtotal(item: any): number {
-    return item.subtotal || item.totalPrice || item.total || 0;
-  }
+    if (!item) return 0;
 
-  private getItemQuantity(item: any): number {
-    return item.quantity || 1;
+    const subtotalFields = ['subtotal', 'subTotal', 'totalPrice', 'total', 'amount'];
+    
+    for (const field of subtotalFields) {
+      const value = item[field];
+      if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) >= 0) {
+        return this.toNumber(value);
+      }
+    }
+    
+    // Manual calculation as fallback
+    const quantity = this.getItemQuantity(item);
+    const price = this.getItemPrice(item);
+    const discount = this.getItemDiscount(item);
+    
+    if (price > 0) {
+      const baseAmount = price * quantity;
+      const discountAmount = baseAmount * (discount / 100);
+      return baseAmount - discountAmount;
+    }
+    
+    return 0;
   }
 
   private getItemDiscount(item: any): number {
-    return item.discount || item.discountPercent || item.discountPercentage || 0;
+    if (!item) return 0;
+    
+    const discountFields = ['discount', 'discountPercent', 'discountPercentage'];
+    
+    for (const field of discountFields) {
+      const value = item[field];
+      if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) >= 0) {
+        return this.toNumber(value);
+      }
+    }
+    
+    return 0;
   }
 
-  private formatCurrency(amount: number): string {
+  private formatCurrency(amount: number | string | undefined | null): string {
+    let numericAmount: number;
+    
+    if (amount == null || amount === undefined) {
+      numericAmount = 0;
+    } else if (typeof amount === 'string') {
+      numericAmount = parseFloat(amount) || 0;
+    } else if (typeof amount === 'number') {
+      numericAmount = isNaN(amount) ? 0 : amount;
+    } else {
+      numericAmount = 0;
+    }
+
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
-      minimumFractionDigits: 0
-    }).format(amount);
-  }
-
-  private formatDateTime(date: Date | string): string {
-    const dateObj = new Date(date);
-    return dateObj.toLocaleString('id-ID', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Jakarta'
-    });
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(numericAmount);
   }
 
   private formatDate(date: Date | string): string {
     if (!date) return '-';
+    
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) return '-';
     
@@ -755,6 +884,7 @@ Barang yang sudah dibeli tidak dapat dikembalikan
 
   private formatTime(date: Date | string): string {
     if (!date) return '-';
+    
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) return '-';
     
@@ -768,20 +898,30 @@ Barang yang sudah dibeli tidak dapat dikembalikan
   private getPaymentMethodLabel(method: string): string {
     const methods: { [key: string]: string } = {
       'cash': 'Tunai',
-      'card': 'Kartu',
-      'debit': 'Kartu Debit',
-      'credit': 'Kartu Kredit',
-      'digital': 'Digital',
-      'qris': 'QRIS',
+      'card': 'Kartu Debit/Kredit',
+      'digital': 'Digital/E-wallet',
       'transfer': 'Transfer Bank',
-      'ewallet': 'E-Wallet'
+      'qris': 'QRIS'
     };
-    return methods[method] || 'Tunai';
+    return methods[method?.toLowerCase()] || method || 'Tidak diketahui';
   }
 
-  private getPointsEarned(): number {
-    // Simple calculation: 1 point per 1000 IDR
-    // This should be replaced with actual business logic
-    return 0; // Placeholder for loyalty points calculation
+  private getTotalItems(sale: any): number {
+    if (!sale || !sale.items || !Array.isArray(sale.items)) return 0;
+    
+    return sale.items.reduce((sum: number, item: any) => {
+      return sum + this.getItemQuantity(item);
+    }, 0);
+  }
+
+  private toNumber(value: any): number {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return isNaN(value) ? 0 : value;
+    if (typeof value === 'string') {
+      if (value.trim() === '') return 0;
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
   }
 }

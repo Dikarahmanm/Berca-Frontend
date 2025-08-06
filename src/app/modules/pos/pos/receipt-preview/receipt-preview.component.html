@@ -165,10 +165,11 @@
                     <span class="value">-{{formatCurrency(sale.discountAmount)}}</span>
                 </div>
 
-                <div class="summary-row" *ngIf="toNumber(sale.taxAmount) > 0">
+                <!-- ✅ HIDDEN: Tax row removed as tax calculation is disabled -->
+                <!-- <div class="summary-row" *ngIf="toNumber(sale.taxAmount) > 0">
                     <span class="label">PPN (11%):</span>
                     <span class="value">{{formatCurrency(sale.taxAmount)}}</span>
-                </div>
+                </div> -->
 
                 <div class="summary-row total-row">
                     <span class="label">TOTAL:</span>
@@ -220,7 +221,6 @@
             <!-- Footer -->
             <div class="receipt-footer">
                 <div class="divider">================================</div>
-                <p class="footer-message">{{storeInfo.footerMessage}}</p>
                 <p class="thank-you">Terima kasih atas kunjungan Anda!</p>
                 <p class="footer-note">Barang yang sudah dibeli tidak dapat dikembalikan</p>
 

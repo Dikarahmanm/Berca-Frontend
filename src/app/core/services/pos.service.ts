@@ -338,7 +338,7 @@ export class POSService {
           const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
           const discountAmount = subtotal * (globalDiscountPercent / 100);
           const afterDiscount = subtotal - discountAmount;
-          const taxAmount = afterDiscount * 0.11;
+          const taxAmount = 0; // ✅ DISABLED: Tax calculation disabled as per requirement
           
           return {
             subtotal,
@@ -366,8 +366,8 @@ export class POSService {
     const subtotal = cart.reduce((sum, item) => sum + item.subtotal, 0);
     const discountAmount = subtotal * (globalDiscountPercent / 100);
     const afterDiscount = subtotal - discountAmount;
-    const taxAmount = afterDiscount * 0.11;
-    const total = afterDiscount + taxAmount;
+    const taxAmount = 0; // ✅ DISABLED: Tax calculation disabled as per requirement
+    const total = afterDiscount; // ✅ FIXED: Total without tax
 
     return {
       subtotal,

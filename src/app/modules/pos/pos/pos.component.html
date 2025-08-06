@@ -268,10 +268,11 @@
                         <span>Diskon ({{getCartTotals().globalDiscount}}%)</span>
                         <span class="discount-amount">-{{formatCurrency(getCartTotals().discountAmount)}}</span>
                     </div>
-                    <div class="summary-line">
+                    <!-- ✅ HIDDEN: Tax line removed as tax calculation is disabled -->
+                    <!-- <div class="summary-line">
                         <span>Pajak (11%)</span>
                         <span>{{formatCurrency(getCartTotals().taxAmount)}}</span>
-                    </div>
+                    </div> -->
                     <div class="summary-line total-line">
                         <span>TOTAL</span>
                         <span class="total-amount">{{formatCurrency(getCartTotals().total)}}</span>

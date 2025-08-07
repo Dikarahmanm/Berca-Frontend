@@ -15,7 +15,7 @@ export class ReceiptService {
   constructor(
     private http: HttpClient,
     private posService: POSService
-  ) {}
+  ) { }
 
   /**
    * Print receipt - MENGGUNAKAN HTML DARI PREVIEW COMPONENT
@@ -23,27 +23,27 @@ export class ReceiptService {
   async printReceipt(saleId: number): Promise<void> {
     try {
       console.log('🖨️ Printing receipt for sale:', saleId);
-      
+
       const saleResponse = await this.posService.getSaleById(saleId).toPromise();
-      
+
       if (!saleResponse?.success || !saleResponse.data) {
         throw new Error('Failed to get sale data');
       }
 
       const sale = saleResponse.data;
-      
+
       // Gunakan HTML yang sama dengan preview component
       const printContent = this.generateReceiptHTML(sale);
-      
+
       const printWindow = window.open('', '_blank', 'width=480,height=650');
       if (printWindow) {
         printWindow.document.write(printContent);
         printWindow.document.close();
-        
+
         printWindow.onload = () => {
           setTimeout(() => {
             printWindow.print();
-            
+
             this.posService.markReceiptPrinted(saleId).subscribe({
               next: (response) => {
                 console.log('✅ Receipt marked as printed:', response);
@@ -52,7 +52,7 @@ export class ReceiptService {
                 console.warn('⚠️ Failed to mark receipt as printed:', error);
               }
             });
-            
+
             setTimeout(() => {
               printWindow.close();
             }, 1000);
@@ -61,7 +61,7 @@ export class ReceiptService {
       } else {
         throw new Error('Failed to open print window - popup blocked?');
       }
-      
+
     } catch (error) {
       console.error('❌ Print receipt error:', error);
       throw error;
@@ -74,18 +74,18 @@ export class ReceiptService {
   async downloadReceiptPDF(saleId: number): Promise<void> {
     try {
       console.log('📄 Downloading PDF for sale:', saleId);
-      
+
       const saleResponse = await this.posService.getSaleById(saleId).toPromise();
-      
+
       if (!saleResponse?.success || !saleResponse.data) {
         throw new Error('Failed to get sale data');
       }
 
       const sale = saleResponse.data;
-      
+
       // Generate PDF menggunakan method terpisah
       const pdfBlob = await this.generateReceiptPDF(sale);
-      
+
       // Download PDF
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
@@ -95,7 +95,7 @@ export class ReceiptService {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
     } catch (error: any) {
       console.error('❌ Download PDF error:', error);
       throw error;
@@ -108,20 +108,20 @@ export class ReceiptService {
   async shareReceipt(saleId: number, method: 'native' | 'whatsapp' = 'native'): Promise<void> {
     try {
       console.log('📤 Sharing receipt for sale:', saleId);
-      
+
       const saleResponse = await this.posService.getSaleById(saleId).toPromise();
-      
+
       if (!saleResponse?.success || !saleResponse.data) {
         throw new Error('Failed to get sale data');
       }
 
       const sale = saleResponse.data;
-      
+
       if (method === 'whatsapp') {
         // Untuk WhatsApp, buat PDF kecil untuk sharing
         const pdfBlob = await this.generateReceiptPDF(sale);
         const pdfUrl = URL.createObjectURL(pdfBlob);
-        
+
         // Buat text summary + link download PDF
         const receiptText = this.generateReceiptTextSummary(sale);
         const whatsappText = `${receiptText}\n\n📎 PDF Struk: ${pdfUrl}`;
@@ -131,7 +131,7 @@ export class ReceiptService {
         // Untuk native share gunakan PDF yang sama dengan download
         const pdfBlob = await this.generateReceiptPDF(sale);
         const file = new File([pdfBlob], `struk-${sale.saleNumber}.pdf`, { type: 'application/pdf' });
-        
+
         if (navigator.share) {
           await navigator.share({
             title: `Struk #${sale.saleNumber}`,
@@ -150,7 +150,7 @@ export class ReceiptService {
           URL.revokeObjectURL(url);
         }
       }
-      
+
     } catch (error: any) {
       console.error('❌ Share receipt error:', error);
       throw error;
@@ -163,7 +163,7 @@ export class ReceiptService {
   private async generateReceiptPDF(sale: any): Promise<Blob> {
     // Gunakan HTML yang sama dengan preview component
     const pdfContent = this.generateReceiptHTML(sale);
-    
+
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = pdfContent;
     tempDiv.style.position = 'absolute';
@@ -171,10 +171,10 @@ export class ReceiptService {
     tempDiv.style.top = '-9999px';
     tempDiv.style.width = '380px'; // Fixed width untuk consistency
     document.body.appendChild(tempDiv);
-    
+
     // Wait for fonts and images to load
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     const canvas = await html2canvas(tempDiv, {
       width: 380,
       height: tempDiv.scrollHeight,
@@ -184,9 +184,9 @@ export class ReceiptService {
       allowTaint: false,
       foreignObjectRendering: false
     });
-    
+
     document.body.removeChild(tempDiv);
-    
+
     // Create PDF dengan ukuran yang optimal
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -194,10 +194,10 @@ export class ReceiptService {
       format: [80, (canvas.height * 80) / canvas.width],
       compress: true
     });
-    
+
     const imgData = canvas.toDataURL('image/jpeg', 0.85); // JPEG dengan quality 85% untuk size lebih kecil
     pdf.addImage(imgData, 'JPEG', 0, 0, 80, (canvas.height * 80) / canvas.width);
-    
+
     // Return sebagai Blob
     return pdf.output('blob');
   }
@@ -212,62 +212,62 @@ export class ReceiptService {
       storePhone: '+62 xxx-xxxx-xxxx',
       footerMessage: 'Terima kasih atas kunjungan Anda!'
     };
-    
+
     const formattedDate = this.formatDate(sale.saleDate);
     const formattedTime = this.formatTime(sale.saleDate);
-    
+
     let receiptText = `📄 ${storeInfo.storeName}\n`;
     receiptText += `${storeInfo.storeAddress}\n`;
     receiptText += `${storeInfo.storePhone}\n\n`;
-    
+
     receiptText += `🧾 STRUK PEMBELIAN\n`;
     receiptText += `================================\n`;
     receiptText += `No. Transaksi: ${sale.saleNumber || 'N/A'}\n`;
     receiptText += `Tanggal: ${formattedDate}\n`;
     receiptText += `Waktu: ${formattedTime}\n`;
     receiptText += `Kasir: ${sale.cashierName || 'N/A'}\n`;
-    
+
     if (sale.customerName) {
       receiptText += `Pelanggan: ${sale.customerName}\n`;
     }
-    
+
     receiptText += `================================\n`;
-    
+
     // Items
     if (sale.items && sale.items.length > 0) {
       sale.items.forEach((item: any) => {
         const qty = this.getItemQuantity(item);
         const price = this.getItemPrice(item);
         const total = this.getItemSubtotal(item);
-        
+
         receiptText += `${item.productName || 'Unknown Product'}\n`;
         receiptText += `  ${qty} x ${this.formatCurrency(price)} = ${this.formatCurrency(total)}\n`;
-        
+
         if (this.getItemDiscount(item) > 0) {
           receiptText += `  (Diskon ${this.getItemDiscount(item)}%)\n`;
         }
       });
     }
-    
+
     receiptText += `================================\n`;
     receiptText += `Subtotal: ${this.formatCurrency(sale.subtotal)}\n`;
-    
+
     if (this.toNumber(sale.discountAmount) > 0) {
       receiptText += `Diskon: -${this.formatCurrency(sale.discountAmount)}\n`;
     }
-    
+
     receiptText += `TOTAL: ${this.formatCurrency(sale.total)}\n`;
     receiptText += `================================\n`;
     receiptText += `Metode Bayar: ${this.getPaymentMethodLabel(sale.paymentMethod)}\n`;
     receiptText += `Jumlah Bayar: ${this.formatCurrency(sale.amountPaid)}\n`;
-    
+
     if (this.toNumber(sale.changeAmount) > 0) {
       receiptText += `Kembalian: ${this.formatCurrency(sale.changeAmount)}\n`;
     }
-    
+
     receiptText += `\n${storeInfo.footerMessage}\n`;
     receiptText += `Barang yang sudah dibeli tidak dapat dikembalikan`;
-    
+
     return receiptText;
   }
 
@@ -282,7 +282,7 @@ export class ReceiptService {
       storeEmail: 'info@tokoeniwan.com',
       footerMessage: 'Terima kasih atas kunjungan Anda!'
     };
-    
+
     const formattedDate = this.formatDate(sale.saleDate);
     const formattedTime = this.formatTime(sale.saleDate);
     const showKembalian = sale.changeAmount && sale.changeAmount > 0;
@@ -779,16 +779,16 @@ export class ReceiptService {
 
   private getItemQuantity(item: any): number {
     if (!item) return 1;
-    
+
     const quantityFields = ['quantity', 'qty', 'amount', 'count'];
-    
+
     for (const field of quantityFields) {
       const value = item[field];
       if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) > 0) {
         return this.toNumber(value);
       }
     }
-    
+
     return 1;
   }
 
@@ -796,14 +796,14 @@ export class ReceiptService {
     if (!item) return 0;
 
     const priceFields = ['unitPrice', 'sellPrice', 'price', 'salePrice'];
-    
+
     for (const field of priceFields) {
       const value = item[field];
       if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) > 0) {
         return this.toNumber(value);
       }
     }
-    
+
     return 0;
   }
 
@@ -811,46 +811,46 @@ export class ReceiptService {
     if (!item) return 0;
 
     const subtotalFields = ['subtotal', 'subTotal', 'totalPrice', 'total', 'amount'];
-    
+
     for (const field of subtotalFields) {
       const value = item[field];
       if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) >= 0) {
         return this.toNumber(value);
       }
     }
-    
+
     // Manual calculation as fallback
     const quantity = this.getItemQuantity(item);
     const price = this.getItemPrice(item);
     const discount = this.getItemDiscount(item);
-    
+
     if (price > 0) {
       const baseAmount = price * quantity;
       const discountAmount = baseAmount * (discount / 100);
       return baseAmount - discountAmount;
     }
-    
+
     return 0;
   }
 
   private getItemDiscount(item: any): number {
     if (!item) return 0;
-    
+
     const discountFields = ['discount', 'discountPercent', 'discountPercentage'];
-    
+
     for (const field of discountFields) {
       const value = item[field];
       if (value !== undefined && value !== null && !isNaN(Number(value)) && Number(value) >= 0) {
         return this.toNumber(value);
       }
     }
-    
+
     return 0;
   }
 
   private formatCurrency(amount: number | string | undefined | null): string {
     let numericAmount: number;
-    
+
     if (amount == null || amount === undefined) {
       numericAmount = 0;
     } else if (typeof amount === 'string') {
@@ -871,23 +871,23 @@ export class ReceiptService {
 
   private formatDate(date: Date | string): string {
     if (!date) return '-';
-    
+
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) return '-';
-    
+
     return dateObj.toLocaleDateString('id-ID', {
       day: '2-digit',
-      month: '2-digit', 
+      month: '2-digit',
       year: 'numeric'
     });
   }
 
   private formatTime(date: Date | string): string {
     if (!date) return '-';
-    
+
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) return '-';
-    
+
     return dateObj.toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
@@ -908,7 +908,7 @@ export class ReceiptService {
 
   private getTotalItems(sale: any): number {
     if (!sale || !sale.items || !Array.isArray(sale.items)) return 0;
-    
+
     return sale.items.reduce((sum: number, item: any) => {
       return sum + this.getItemQuantity(item);
     }, 0);

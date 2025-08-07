@@ -1,5 +1,5 @@
 // src/app/dashboard/dashboard-routing.module.ts
-// ✅ UPDATED: Added Analytics route and prepared for Membership
+// ✅ UPDATED: Uncommented Reports Route
 
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
@@ -11,7 +11,7 @@ const routes: Routes = [
     path: '',
     component: DashboardComponent,
     children: [
-      // ===== DASHBOARD ANALYTICS (NEW) ===== //
+      // ===== DASHBOARD ANALYTICS ===== //
       {
         path: 'analytics',
         loadComponent: () => import('./dashboard-analytics/dashboard-analytics.component').then(c => c.DashboardAnalyticsComponent),
@@ -59,27 +59,27 @@ const routes: Routes = [
         }
       },
 
+      // ===== REPORTS & ANALYTICS (✅ NOW ACTIVE) ===== //
+      {
+        path: 'reports',
+        loadChildren: () => import('../modules/reports/reports.module').then(m => m.ReportsModule),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'Reports & Analytics',
+          breadcrumb: 'Reports',
+          requiredRoles: ['Admin', 'Manager']
+        }
+      },
+
       // ===== MEMBERSHIP MANAGEMENT (READY FOR NEXT SPRINT) ===== //
       // {
       //   path: 'membership',
-      //   loadComponent: () => import('../modules/membership/membership-list/membership-list.component').then(c => c.MembershipListComponent),
+      //   loadChildren: () => import('../modules/membership/membership.module').then(m => m.MembershipModule),
       //   canActivate: [RoleGuard],
       //   data: {
       //     title: 'Membership Management',
       //     breadcrumb: 'Membership',
       //     requiredRoles: ['Admin', 'Manager', 'User']
-      //   }
-      // },
-
-      // ===== REPORTS & ANALYTICS (FUTURE) ===== //
-      // {
-      //   path: 'reports',
-      //   loadComponent: () => import('../modules/reports/reports-dashboard/reports-dashboard.component').then(c => c.ReportsDashboardComponent),
-      //   canActivate: [RoleGuard],
-      //   data: {
-      //     title: 'Reports & Analytics',
-      //     breadcrumb: 'Reports',
-      //     requiredRoles: ['Admin', 'Manager']
       //   }
       // },
 

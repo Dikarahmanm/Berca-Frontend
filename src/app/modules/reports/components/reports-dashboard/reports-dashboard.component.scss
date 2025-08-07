@@ -1,0 +1,797 @@
+// src/app/modules/reports/components/reports-dashboard/reports-dashboard.component.scss
+// ✅ UPDATED: Integrated NGX-Charts styling
+
+// Tab placeholder styles
+.tab-placeholder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  padding: 2rem;
+
+  .placeholder-content {
+    text-align: center;
+    
+    mat-icon {
+      font-size: 64px;
+      width: 64px;
+      height: 64px;
+      color: var(--primary-color);
+      margin-bottom: 1rem;
+    }
+
+    h3 {
+      margin: 1rem 0;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    p {
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+    }
+  }
+}
+
+.reports-dashboard {
+  padding: 24px;
+  background: linear-gradient(135deg, #FDF9F6 0%, #F5F1ED 100%);
+  min-height: 100vh;
+  position: relative;
+
+  // ===== HEADER SECTION =====
+  
+  .dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+    gap: 24px;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .header-content {
+      .dashboard-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0;
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--clr-primary);
+        
+        mat-icon {
+          font-size: 32px;
+          width: 32px;
+          height: 32px;
+        }
+      }
+
+      .dashboard-subtitle {
+        margin: 8px 0 0 44px;
+        color: rgba(0, 0, 0, 0.6);
+        font-size: 14px;
+      }
+    }
+
+    .date-controls {
+      min-width: 400px;
+
+      @media (max-width: 768px) {
+        min-width: unset;
+        width: 100%;
+      }
+
+      .date-form {
+        display: flex;
+        gap: 16px;
+        align-items: flex-end;
+
+        @media (max-width: 768px) {
+          flex-wrap: wrap;
+        }
+
+        mat-form-field {
+          flex: 1;
+          min-width: 120px;
+
+          &.preset-field {
+            min-width: 150px;
+          }
+        }
+      }
+    }
+  }
+
+  // ===== LOADING & ERROR STATES =====
+
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 24px;
+    gap: 16px;
+
+    p {
+      margin: 0;
+      color: rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  .error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 48px 24px;
+    text-align: center;
+
+    mat-icon {
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+    }
+
+    p {
+      margin: 0;
+      color: rgba(0, 0, 0, 0.7);
+      max-width: 400px;
+    }
+  }
+
+  // ===== REPORTS TABS =====
+
+  .reports-content {
+    .reports-tabs {
+      // Tab header styling
+      ::ng-deep .mat-mdc-tab-header {
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(20px);
+        border-radius: 12px 12px 0 0;
+        border: 1px solid rgba(255, 145, 77, 0.2);
+        margin-bottom: 0;
+
+        .mat-mdc-tab {
+          &.mdc-tab--active {
+            .mdc-tab__text-label {
+              color: var(--clr-primary);
+              font-weight: 600;
+            }
+          }
+        }
+
+        .mat-mdc-tab-ink-bar {
+          background-color: var(--clr-primary);
+          height: 3px;
+        }
+      }
+
+      // Tab body styling
+      ::ng-deep .mat-mdc-tab-body-wrapper {
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 145, 77, 0.2);
+        border-top: none;
+        border-radius: 0 0 12px 12px;
+      }
+
+      .tab-content {
+        padding: 32px;
+
+        @media (max-width: 768px) {
+          padding: 16px;
+        }
+      }
+    }
+  }
+
+  // ===== SUMMARY CARDS =====
+
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+
+    .summary-card {
+      padding: 24px;
+      position: relative;
+      transition: all 0.12s ease-out;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(255, 145, 77, 0.15);
+      }
+
+      &.warning {
+        border-left: 4px solid var(--clr-warning);
+        
+        .card-header mat-icon {
+          color: var(--clr-warning);
+        }
+      }
+
+      &.error {
+        border-left: 4px solid var(--clr-error);
+        
+        .card-header mat-icon {
+          color: var(--clr-error);
+        }
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+
+        mat-icon {
+          color: var(--clr-primary);
+          font-size: 24px;
+          width: 24px;
+          height: 24px;
+        }
+
+        .export-actions {
+          display: flex;
+          gap: 4px;
+
+          button {
+            width: 32px;
+            height: 32px;
+            line-height: 32px;
+
+            mat-icon {
+              font-size: 18px;
+              width: 18px;
+              height: 18px;
+              color: rgba(0, 0, 0, 0.6);
+            }
+
+            &:hover mat-icon {
+              color: var(--clr-primary);
+            }
+          }
+        }
+      }
+
+      h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: rgba(0, 0, 0, 0.7);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .amount {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--clr-primary);
+        line-height: 1.2;
+      }
+
+      .period {
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.5);
+      }
+    }
+  }
+
+  // ===== CHART SECTIONS =====
+
+  .chart-section {
+    margin-bottom: 32px;
+    padding: 24px;
+
+    .chart-header {
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 145, 77, 0.2);
+
+      h3 {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--clr-primary);
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+    }
+
+    .chart-container {
+      min-height: 300px;
+      position: relative;
+      
+      // ===== NGX-CHARTS STYLING =====
+      
+      ::ng-deep app-reports-chart {
+        width: 100%;
+        display: block;
+
+        .chart-wrapper {
+          width: 100%;
+          height: 100%;
+        }
+
+        // NGX Charts global styling
+        .ngx-charts {
+          fill: var(--clr-primary);
+          font-family: inherit;
+
+          // Legend styling
+          .legend {
+            .legend-labels {
+              font-size: 12px;
+              fill: rgba(0, 0, 0, 0.7);
+              
+              .legend-label-text {
+                font-weight: 500;
+              }
+            }
+
+            .legend-title-text {
+              font-weight: 600;
+              font-size: 13px;
+              fill: var(--clr-primary);
+            }
+          }
+
+          // Tooltip styling
+          .tooltip-anchor {
+            fill: var(--clr-primary);
+            stroke: rgba(255, 255, 255, 0.8);
+            stroke-width: 2px;
+          }
+
+          .ngx-tooltip {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+            .tooltip-caret {
+              fill: rgba(0, 0, 0, 0.8);
+            }
+          }
+
+          // Grid lines
+          .gridline-path {
+            stroke: rgba(255, 145, 77, 0.15);
+            stroke-dasharray: 3, 3;
+          }
+
+          // Axis styling
+          .tick {
+            font-size: 11px;
+            fill: rgba(0, 0, 0, 0.6);
+            font-weight: 500;
+
+            line {
+              stroke: rgba(255, 145, 77, 0.2);
+            }
+          }
+
+          .axis-label {
+            font-size: 12px;
+            font-weight: 600;
+            fill: rgba(0, 0, 0, 0.7);
+          }
+
+          // Bar chart styling
+          .bar {
+            cursor: pointer;
+            transition: all 0.12s ease-out;
+            stroke: rgba(255, 255, 255, 0.5);
+            stroke-width: 1px;
+
+            &:hover {
+              opacity: 0.8;
+              stroke-width: 2px;
+            }
+          }
+
+          // Line chart styling
+          .line-series {
+            .line {
+              stroke-width: 3px;
+              fill: none;
+              transition: all 0.12s ease-out;
+
+              &:hover {
+                stroke-width: 4px;
+              }
+            }
+          }
+
+          // Area chart styling
+          .area-series {
+            .area {
+              opacity: 0.6;
+              transition: all 0.12s ease-out;
+
+              &:hover {
+                opacity: 0.8;
+              }
+            }
+          }
+
+          // Pie chart styling
+          .pie-chart {
+            .arc {
+              cursor: pointer;
+              stroke: rgba(255, 255, 255, 0.8);
+              stroke-width: 2px;
+              transition: all 0.12s ease-out;
+
+              &:hover {
+                transform: scale(1.05);
+                stroke-width: 3px;
+              }
+            }
+
+            .pie-label {
+              font-size: 11px;
+              font-weight: 600;
+              fill: white;
+              text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            }
+          }
+
+          // Doughnut chart styling
+          .doughnut-chart {
+            .arc {
+              cursor: pointer;
+              stroke: rgba(255, 255, 255, 0.8);
+              stroke-width: 2px;
+              transition: all 0.12s ease-out;
+
+              &:hover {
+                stroke-width: 3px;
+                filter: brightness(1.1);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ===== TABLE SECTIONS =====
+
+  .table-section {
+    margin-bottom: 32px;
+    padding: 24px;
+
+    .table-header {
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 145, 77, 0.2);
+
+      h3 {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--clr-primary);
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+      }
+    }
+
+    // Table styling
+    table {
+      width: 100%;
+      background: transparent;
+
+      th {
+        background: rgba(255, 145, 77, 0.1);
+        color: var(--clr-primary);
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid rgba(255, 145, 77, 0.3);
+      }
+
+      td {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        font-size: 14px;
+        color: rgba(0, 0, 0, 0.8);
+      }
+
+      tr:hover td {
+        background: rgba(255, 145, 77, 0.04);
+      }
+    }
+
+    // Category cell with color indicator
+    .category-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .category-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        flex-shrink: 0;
+      }
+    }
+
+    // Chip styling for status indicators
+    mat-chip-listbox {
+      mat-chip {
+        &.success {
+          background-color: rgba(75, 191, 123, 0.2);
+          color: var(--clr-accent);
+          border: 1px solid rgba(75, 191, 123, 0.3);
+        }
+
+        &.warning {
+          background-color: rgba(255, 184, 77, 0.2);
+          color: var(--clr-warning);
+          border: 1px solid rgba(255, 184, 77, 0.3);
+        }
+
+        &.error {
+          background-color: rgba(225, 90, 79, 0.2);
+          color: var(--clr-error);
+          border: 1px solid rgba(225, 90, 79, 0.3);
+        }
+      }
+    }
+  }
+
+  // ===== FLOATING ACTION BUTTON =====
+
+  .fab-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1000;
+
+    @media (max-width: 768px) {
+      bottom: 16px;
+      right: 16px;
+    }
+
+    .main-fab {
+      background-color: var(--clr-primary);
+      box-shadow: 0 4px 20px rgba(255, 145, 77, 0.4);
+      transition: all 0.12s ease-out;
+
+      &:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 24px rgba(255, 145, 77, 0.5);
+      }
+
+      mat-icon {
+        color: white;
+      }
+    }
+  }
+}
+
+// ===== GLASS CARD COMPONENT =====
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 145, 77, 0.2);
+  border-radius: 16px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: all 0.12s ease-out;
+
+  &:hover {
+    border-color: rgba(255, 145, 77, 0.3);
+    box-shadow: 
+      0 12px 40px rgba(0, 0, 0, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+}
+
+// ===== RESPONSIVE DESIGN =====
+
+@media (max-width: 1024px) {
+  .reports-dashboard {
+    padding: 16px;
+
+    .summary-cards {
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .chart-section {
+      .chart-container {
+        ::ng-deep app-reports-chart {
+          .ngx-charts {
+            .legend {
+              .legend-labels {
+                font-size: 10px;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .reports-dashboard {
+    .summary-cards {
+      grid-template-columns: 1fr;
+    }
+
+    .chart-section,
+    .table-section {
+      padding: 16px;
+    }
+
+    .table-section {
+      overflow-x: auto;
+
+      table {
+        min-width: 600px;
+      }
+    }
+
+    .chart-section {
+      .chart-container {
+        ::ng-deep app-reports-chart {
+          .ngx-charts {
+            .legend {
+              .legend-labels {
+                font-size: 9px;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// ===== ANGULAR MATERIAL OVERRIDES =====
+
+// Tab group
+::ng-deep .mat-mdc-tab-group {
+  .mdc-tab-indicator__content--underline {
+    border-color: var(--clr-primary);
+    border-width: 3px;
+  }
+
+  .mat-mdc-tab.mdc-tab--active .mdc-tab__text-label {
+    color: var(--clr-primary);
+  }
+}
+
+// Form fields
+::ng-deep .mat-mdc-form-field {
+  &.mat-form-field-appearance-outline {
+    .mat-mdc-form-field-outline {
+      border-radius: 12px;
+    }
+
+    &.mat-focused {
+      .mat-mdc-form-field-outline-thick {
+        border-color: var(--clr-primary);
+      }
+
+      .mat-mdc-form-field-label {
+        color: var(--clr-primary);
+      }
+    }
+  }
+}
+
+// Buttons
+::ng-deep .mat-mdc-raised-button {
+  &.mat-primary {
+    background-color: var(--clr-primary);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(255, 145, 77, 0.3);
+    transition: all 0.12s ease-out;
+
+    &:hover {
+      background-color: var(--clr-primary-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(255, 145, 77, 0.4);
+    }
+  }
+}
+
+// FAB button
+::ng-deep .mat-mdc-fab {
+  &.mat-primary {
+    background-color: var(--clr-primary);
+    
+    &:hover {
+      background-color: var(--clr-primary-dark);
+    }
+  }
+}
+
+// Icon buttons
+::ng-deep .mat-mdc-icon-button {
+  border-radius: 8px;
+  transition: all 0.12s ease-out;
+
+  &:hover {
+    background-color: rgba(255, 145, 77, 0.1);
+  }
+}
+
+// Date picker
+::ng-deep .mat-datepicker-popup {
+  .mat-calendar {
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  }
+
+  .mat-calendar-body-selected {
+    background-color: var(--clr-primary);
+  }
+
+  .mat-calendar-body-cell:hover .mat-calendar-body-cell-content {
+    background-color: rgba(255, 145, 77, 0.2);
+  }
+}
+
+// Snackbar
+::ng-deep .success-snackbar {
+  background-color: var(--clr-accent);
+  color: white;
+
+  .mat-mdc-snack-bar-action {
+    color: white;
+  }
+}
+
+::ng-deep .error-snackbar {
+  background-color: var(--clr-error);
+  color: white;
+
+  .mat-mdc-snack-bar-action {
+    color: white;
+  }
+}
+
+// Progress spinner
+::ng-deep .mat-mdc-progress-spinner {
+  circle {
+    stroke: var(--clr-primary);
+  }
+}
+
+// Tooltip
+::ng-deep .mat-mdc-tooltip {
+  background-color: var(--clr-primary);
+  color: white;
+  font-size: 12px;
+}

@@ -63,6 +63,17 @@ export const routes: Routes = [
           requiredRoles: ['Admin', 'Manager', 'User']
         }
       },
+      // ✅ TAMBAHKAN ROUTE REPORTS
+      {
+        path: 'reports',
+        loadChildren: () => import('./modules/reports/reports.module').then(m => m.ReportsModule),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'Reports & Analytics',
+          breadcrumb: 'Reports',
+          requiredRoles: ['Admin', 'Manager']
+        }
+      },
       {
         path: 'logs',
         loadChildren: () => import('./modules/activity-log/activity-log.module').then(m => m.ActivityLogModule),

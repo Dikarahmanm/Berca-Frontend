@@ -1,0 +1,569 @@
+<!-- src/app/modules/reports/components/reports-dashboard/reports-dashboard.component.html -->
+<div class="reports-dashboard">
+                            <p class="stat-amount">{{ salesReport ? formatCurrency(salesReport.averageOrderValue) : 'Rp 0' }}</p>
+    <!-- Header Section -->
+    <div class="dashboard-header">
+        <div class="header-content">
+            <h1 class="dashboard-title">
+                <mat-icon>assessment</mat-icon>
+                Laporan & Analisis
+            </h1>
+            <p class="dashboard-subtitle">
+                Analisis mendalam dan ekspor laporan bisnis
+            </p>
+        </div>
+
+        <!-- Date Range Controls -->
+        <div class="date-controls glass-card">
+            <form [formGroup]="dateRangeForm" class="date-form">
+                <mat-form-field appearance="outline" class="preset-field">
+                    <mat-label>Periode</mat-label>
+                    <mat-select formControlName="preset" (selectionChange)="onPresetChange($event.value)">
+                        <mat-option value="last7Days">7 Hari Terakhir</mat-option>
+                        <mat-option value="last30Days">30 Hari Terakhir</mat-option>
+                        <mat-option value="thisMonth">Bulan Ini</mat-option>
+                        <mat-option value="thisYear">Tahun Ini</mat-option>
+                        <mat-option value="custom">Custom</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                    <mat-label>Tanggal Mulai</mat-label>
+                    <input matInput [matDatepicker]="startPicker" formControlName="startDate"
+                        (dateChange)="onDateRangeChange()">
+                    <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+                    <mat-datepicker #startPicker></mat-datepicker>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                    <mat-label>Tanggal Selesai</mat-label>
+                    <input matInput [matDatepicker]="endPicker" formControlName="endDate"
+                        (dateChange)="onDateRangeChange()">
+                    <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+                    <mat-datepicker #endPicker></mat-datepicker>
+                </mat-form-field>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading$ | async" class="loading-container">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Memuat laporan...</p>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error$ | async as error" class="error-container glass-card">
+        <mat-icon color="warn">error</mat-icon>
+        <p>{{ error }}</p>
+        <button mat-raised-button color="primary" (click)="loadFirstTab()">
+            <mat-icon>refresh</mat-icon>
+            Coba Lagi
+        </button>
+    </div>
+
+    <!-- Reports Tabs -->
+    <div class="reports-content" *ngIf="!(loading$ | async) && !(error$ | async)">
+        <mat-tab-group [(selectedIndex)]="activeTab" (selectedTabChange)="onTabChange($event)" class="reports-tabs" (animationDone)="activeTab === 0 && loadFirstTab()">
+
+            <!-- Sales Report Tab -->
+            <mat-tab label="Laporan Penjualan">
+                
+                <!-- Loading Placeholder -->
+                <div class="tab-placeholder" *ngIf="!isTabLoaded(0) || !salesReport">
+                    <div class="placeholder-content">
+                        <mat-icon>assessment</mat-icon>
+                        <h3>Laporan Penjualan</h3>
+                        <p>Klik untuk memuat data laporan penjualan</p>
+                        <button mat-raised-button color="primary" (click)="loadTabData(0); loadedTabs.add(0)">
+                            <mat-icon>refresh</mat-icon>
+                            Muat Data
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Sales Data -->
+                <div class="tab-content" *ngIf="isTabLoaded(0) && salesReport">
+                    <!-- Sales Summary Cards -->
+                    <div class="summary-cards">
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>attach_money</mat-icon>
+                                <div class="export-actions">
+                                    <button mat-icon-button (click)="exportReport('sales', 'PDF')">
+                                        <mat-icon>picture_as_pdf</mat-icon>
+                                    </button>
+                                    <button mat-icon-button (click)="exportReport('sales', 'EXCEL')">
+                                        <mat-icon>table_chart</mat-icon>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3>Total Pendapatan</h3>
+                            <p class="amount">{{ formatCurrency(salesReport.totalRevenue) }}</p>
+                            <span class="period">{{ formatDate(salesReport.startDate) }} - {{
+                                formatDate(salesReport.endDate) }}</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>receipt</mat-icon>
+                            </div>
+                            <h3>Total Transaksi</h3>
+                            <p class="amount">{{ formatNumber(salesReport.totalTransactions) }}</p>
+                            <span class="period">transaksi</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>shopping_cart</mat-icon>
+                            </div>
+                            <h3>Total Item Terjual</h3>
+                            <p class="amount">{{ formatNumber(salesReport.totalItemsSold) }}</p>
+                            <span class="period">item</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>analytics</mat-icon>
+                            </div>
+                            <h3>Rata-rata Transaksi</h3>
+                            <p class="amount">{{ salesReport ? formatCurrency(salesReport.averageOrderValue) : 'Rp 0' }}</p>
+                            <span class="period">per transaksi</span>
+                        </div>
+                    </div>
+
+                    <!-- Payment Methods Chart -->
+                    <div class="chart-section glass-card">
+                        <div class="chart-header">
+                            <h3>
+                                <mat-icon>payment</mat-icon>
+                                Metode Pembayaran
+                            </h3>
+                        </div>
+                        <div class="chart-container">
+                            <app-chart-js
+                                *ngIf="salesReport && getSalesChartData().length > 0"
+                                [data]="getSalesChartData()"
+                                [chartType]="'doughnut'"
+                                [title]="'Metode Pembayaran'">
+                            </app-chart-js>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method Table -->
+                    <div class="table-section glass-card">
+                        <div class="table-header">
+                            <h3>
+                                <mat-icon>table_chart</mat-icon>
+                                Detail Metode Pembayaran
+                            </h3>
+                        </div>
+                        <table mat-table [dataSource]="salesReport.paymentMethodBreakdown" class="sales-table">
+                            <ng-container matColumnDef="methodName">
+                                <th mat-header-cell *matHeaderCellDef>Metode</th>
+                                <td mat-cell *matCellDef="let element">{{ element.methodName }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="totalAmount">
+                                <th mat-header-cell *matHeaderCellDef>Total</th>
+                                <td mat-cell *matCellDef="let element">{{ formatCurrency(element.totalAmount) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="transactionCount">
+                                <th mat-header-cell *matHeaderCellDef>Transaksi</th>
+                                <td mat-cell *matCellDef="let element">{{ formatNumber(element.transactionCount) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="percentage">
+                                <th mat-header-cell *matHeaderCellDef>Persentase</th>
+                                <td mat-cell *matCellDef="let element">
+                                    <mat-chip-listbox>
+                                        <mat-chip [style.background-color]="primaryColor">
+                                            {{ formatPercentage(element.percentage) }}
+                                        </mat-chip>
+                                    </mat-chip-listbox>
+                                </td>
+                            </ng-container>
+
+                            <tr mat-header-row *matHeaderRowDef="getPaymentMethodColumns()"></tr>
+                            <tr mat-row *matRowDef="let row; columns: getPaymentMethodColumns();"></tr>
+                        </table>
+                    </div>
+
+                    <!-- Category Performance Chart -->
+                    <div class="chart-section glass-card">
+                        <div class="chart-header">
+                            <h3>
+                                <mat-icon>category</mat-icon>
+                                Performa Kategori
+                            </h3>
+                        </div>
+                        <div class="chart-container">
+                            <app-chart-js
+                                *ngIf="salesReport && getCategoryPerformanceChartData().length > 0"
+                                [data]="getCategoryPerformanceChartData()"
+                                [chartType]="'pie'"
+                                [title]="'Performa Kategori'">
+                            </app-chart-js>
+                        </div>
+                    </div>
+
+                    <!-- Category Performance Table -->
+                    <div class="table-section glass-card">
+                        <div class="table-header">
+                            <h3>
+                                <mat-icon>table_chart</mat-icon>
+                                Detail Performa Kategori
+                            </h3>
+                        </div>
+                        <table mat-table [dataSource]="salesReport.categoryPerformance" class="sales-table">
+                            <ng-container matColumnDef="categoryName">
+                                <th mat-header-cell *matHeaderCellDef>Kategori</th>
+                                <td mat-cell *matCellDef="let element">
+                                    <div class="category-cell">
+                                        <div class="category-color" [style.background-color]="element.categoryColor"></div>
+                                        {{ element.categoryName }}
+                                    </div>
+                                </td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="totalRevenue">
+                                <th mat-header-cell *matHeaderCellDef>Pendapatan</th>
+                                <td mat-cell *matCellDef="let element">{{ formatCurrency(element.totalRevenue) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="totalItemsSold">
+                                <th mat-header-cell *matHeaderCellDef>Item Terjual</th>
+                                <td mat-cell *matCellDef="let element">{{ formatNumber(element.totalItemsSold) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="productCount">
+                                <th mat-header-cell *matHeaderCellDef>Jenis Produk</th>
+                                <td mat-cell *matCellDef="let element">{{ formatNumber(element.productCount) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="averagePrice">
+                                <th mat-header-cell *matHeaderCellDef>Harga Rata-rata</th>
+                                <td mat-cell *matCellDef="let element">{{ formatCurrency(element.averagePrice) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="growthPercentage">
+                                <th mat-header-cell *matHeaderCellDef>Pertumbuhan</th>
+                                <td mat-cell *matCellDef="let element">
+                                    <mat-chip-listbox>
+                                        <mat-chip [style.background-color]="element.growthPercentage >= 0 ? '#4CAF50' : '#F44336'">
+                                            {{ element.growthPercentage >= 0 ? '+' : '' }}{{ formatPercentage(element.growthPercentage) }}
+                                        </mat-chip>
+                                    </mat-chip-listbox>
+                                </td>
+                            </ng-container>
+
+                            <tr mat-header-row *matHeaderRowDef="getCategoryPerformanceColumns()"></tr>
+                            <tr mat-row *matRowDef="let row; columns: getCategoryPerformanceColumns();"></tr>
+                        </table>
+                    </div>
+                </div>
+            </mat-tab>
+
+            <!-- Financial Report Tab -->
+            <mat-tab label="Laporan Keuangan">
+                <div class="tab-content" *ngIf="financialReport">
+
+                    <!-- Financial Summary Cards -->
+                    <div class="summary-cards">
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>trending_up</mat-icon>
+                                <div class="export-actions">
+                                    <button mat-icon-button (click)="exportReport('financial', 'PDF')">
+                                        <mat-icon>picture_as_pdf</mat-icon>
+                                    </button>
+                                    <button mat-icon-button (click)="exportReport('financial', 'EXCEL')">
+                                        <mat-icon>table_chart</mat-icon>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3>Keuntungan Kotor</h3>
+                            <p class="amount">{{ formatCurrency(financialReport.grossProfit) }}</p>
+                            <span class="period">{{ formatPercentage(financialReport.grossProfitMargin) }} margin</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>account_balance</mat-icon>
+                            </div>
+                            <h3>Keuntungan Bersih</h3>
+                            <p class="amount">{{ formatCurrency(financialReport.netProfit) }}</p>
+                            <span class="period">setelah pajak</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>receipt_long</mat-icon>
+                            </div>
+                            <h3>Total Pajak</h3>
+                            <p class="amount">{{ formatCurrency(financialReport.totalTax) }}</p>
+                            <span class="period">PPN 11%</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>account_balance_wallet</mat-icon>
+                            </div>
+                            <h3>Total Biaya</h3>
+                            <p class="amount">{{ formatCurrency(financialReport.totalCost) }}</p>
+                            <span class="period">operasional</span>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Profit Chart -->
+                    <div class="chart-section glass-card">
+                        <div class="chart-header">
+                            <h3>
+                                <mat-icon>show_chart</mat-icon>
+                                Keuntungan Bulanan
+                            </h3>
+                        </div>
+                        <div class="chart-container">
+                            <app-chart-js
+                                *ngIf="financialReport && getFinancialChartData().length > 0"
+                                [data]="getFinancialChartData()"
+                                [chartType]="'bar'"
+                                [title]="'Keuntungan Bulanan'">
+                            </app-chart-js>
+                        </div>
+                    </div>
+                </div>
+            </mat-tab>
+
+            <!-- Inventory Report Tab -->
+            <mat-tab label="Laporan Inventori">
+                <div class="tab-content" *ngIf="inventoryReport">
+
+                    <!-- Inventory Summary Cards -->
+                    <div class="summary-cards">
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>inventory_2</mat-icon>
+                                <div class="export-actions">
+                                    <button mat-icon-button (click)="exportReport('inventory', 'PDF')">
+                                        <mat-icon>picture_as_pdf</mat-icon>
+                                    </button>
+                                    <button mat-icon-button (click)="exportReport('inventory', 'EXCEL')">
+                                        <mat-icon>table_chart</mat-icon>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3>Total Produk</h3>
+                            <p class="amount">{{ formatNumber(inventoryReport.totalProducts) }}</p>
+                            <span class="period">item aktif</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>account_balance_wallet</mat-icon>
+                            </div>
+                            <h3>Nilai Inventori</h3>
+                            <p class="amount">{{ formatCurrency(inventoryReport.totalInventoryValue) }}</p>
+                            <span class="period">total nilai</span>
+                        </div>
+
+                        <div class="summary-card glass-card warning">
+                            <div class="card-header">
+                                <mat-icon>warning</mat-icon>
+                            </div>
+                            <h3>Stok Rendah</h3>
+                            <p class="amount">{{ formatNumber(inventoryReport.lowStockProducts) }}</p>
+                            <span class="period">perlu restock</span>
+                        </div>
+
+                        <div class="summary-card glass-card error">
+                            <div class="card-header">
+                                <mat-icon>remove_shopping_cart</mat-icon>
+                            </div>
+                            <h3>Stok Habis</h3>
+                            <p class="amount">{{ formatNumber(inventoryReport.outOfStockProducts) }}</p>
+                            <span class="period">segera isi</span>
+                        </div>
+                    </div>
+
+                    <!-- Category Inventory Chart -->
+                    <div class="chart-section glass-card">
+                        <div class="chart-header">
+                            <h3>
+                                <mat-icon>donut_large</mat-icon>
+                                Nilai Inventori per Kategori
+                            </h3>
+                        </div>
+                        <div class="chart-container">
+                            <app-chart-js
+                                *ngIf="inventoryReport && getInventoryChartData().length > 0"
+                                [data]="getInventoryChartData()"
+                                [chartType]="'doughnut'"
+                                [title]="'Distribusi Kategori'">
+                            </app-chart-js>
+                        </div>
+                    </div>
+
+                    <!-- Category Breakdown Table -->
+                    <div class="table-section glass-card">
+                        <div class="table-header">
+                            <h3>
+                                <mat-icon>category</mat-icon>
+                                Breakdown per Kategori
+                            </h3>
+                        </div>
+                        <table mat-table [dataSource]="inventoryReport.categoryBreakdown" class="inventory-table">
+                            <ng-container matColumnDef="categoryName">
+                                <th mat-header-cell *matHeaderCellDef>Kategori</th>
+                                <td mat-cell *matCellDef="let element">
+                                    <div class="category-cell">
+                                        <div class="color-indicator" [style.background-color]="element.categoryColor">
+                                        </div>
+                                        {{ element.categoryName }}
+                                    </div>
+                                </td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="productCount">
+                                <th mat-header-cell *matHeaderCellDef>Jumlah Produk</th>
+                                <td mat-cell *matCellDef="let element">{{ formatNumber(element.productCount) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="totalValue">
+                                <th mat-header-cell *matHeaderCellDef>Nilai Total</th>
+                                <td mat-cell *matCellDef="let element">{{ formatCurrency(element.totalValue) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="lowStockCount">
+                                <th mat-header-cell *matHeaderCellDef>Stok Rendah</th>
+                                <td mat-cell *matCellDef="let element">
+                                    <mat-chip-listbox>
+                                        <mat-chip [class]="element.lowStockCount > 0 ? 'warning' : 'success'">
+                                            {{ formatNumber(element.lowStockCount) }}
+                                        </mat-chip>
+                                    </mat-chip-listbox>
+                                </td>
+                            </ng-container>
+
+                            <tr mat-header-row *matHeaderRowDef="getCategoryBreakdownColumns()"></tr>
+                            <tr mat-row *matRowDef="let row; columns: getCategoryBreakdownColumns();"></tr>
+                        </table>
+                    </div>
+                </div>
+            </mat-tab>
+
+            <!-- Customer Report Tab -->
+            <mat-tab label="Laporan Pelanggan">
+                <div class="tab-content" *ngIf="customerReport">
+
+                    <!-- Customer Summary Cards -->
+                    <div class="summary-cards">
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>people</mat-icon>
+                                <div class="export-actions">
+                                    <button mat-icon-button (click)="exportReport('customer', 'PDF')">
+                                        <mat-icon>picture_as_pdf</mat-icon>
+                                    </button>
+                                    <button mat-icon-button (click)="exportReport('customer', 'EXCEL')">
+                                        <mat-icon>table_chart</mat-icon>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3>Total Member Aktif</h3>
+                            <p class="amount">{{ formatNumber(customerReport.totalActiveMembers) }}</p>
+                            <span class="period">member terdaftar</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>person_add</mat-icon>
+                            </div>
+                            <h3>Member Baru</h3>
+                            <p class="amount">{{ formatNumber(customerReport.newMembersThisPeriod) }}</p>
+                            <span class="period">periode ini</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>shopping_cart</mat-icon>
+                            </div>
+                            <h3>Rata-rata Order</h3>
+                            <p class="amount">{{ formatCurrency(customerReport.averageOrderValue) }}</p>
+                            <span class="period">per transaksi</span>
+                        </div>
+
+                        <div class="summary-card glass-card">
+                            <div class="card-header">
+                                <mat-icon>card_membership</mat-icon>
+                            </div>
+                            <h3>Pendapatan Member</h3>
+                            <p class="amount">{{ formatCurrency(customerReport.totalMemberRevenue) }}</p>
+                            <span class="period">vs {{ formatCurrency(customerReport.guestRevenue) }} guest</span>
+                        </div>
+                    </div>
+
+                    <!-- Customer Loyalty Chart -->
+                    <div class="chart-section glass-card">
+                        <div class="chart-header">
+                            <h3>
+                                <mat-icon>loyalty</mat-icon>
+                                Analisis Loyalitas Member
+                            </h3>
+                        </div>
+                        <div class="chart-container">
+                            <app-chart-js
+                                *ngIf="getCustomerLoyaltyData().length > 0"
+                                [data]="getCustomerLoyaltyData()"
+                                [chartType]="'bar'"
+                                [title]="'Distribusi Level Member'">
+                            </app-chart-js>
+                        </div>
+                    </div>
+
+                    <!-- Top Customers Table -->
+                    <div class="table-section glass-card">
+                        <div class="table-header">
+                            <h3>
+                                <mat-icon>star</mat-icon>
+                                Top Pelanggan
+                            </h3>
+                        </div>
+                        <table mat-table [dataSource]="customerReport.topCustomers" class="customer-table">
+                            <ng-container matColumnDef="memberName">
+                                <th mat-header-cell *matHeaderCellDef>Nama</th>
+                                <td mat-cell *matCellDef="let element">{{ element.memberName }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="totalOrders">
+                                <th mat-header-cell *matHeaderCellDef>Total Order</th>
+                                <td mat-cell *matCellDef="let element">{{ formatNumber(element.totalOrders) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="totalSpent">
+                                <th mat-header-cell *matHeaderCellDef>Total Belanja</th>
+                                <td mat-cell *matCellDef="let element">{{ formatCurrency(element.totalSpent) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="averageOrderValue">
+                                <th mat-header-cell *matHeaderCellDef>Rata-rata Order</th>
+                                <td mat-cell *matCellDef="let element">{{ formatCurrency(element.averageOrderValue) }}
+                                </td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="lastOrderDate">
+                                <th mat-header-cell *matHeaderCellDef>Terakhir Order</th>
+                                <td mat-cell *matCellDef="let element">{{ formatDate(element.lastOrderDate) }}</td>
+                            </ng-container>
+
+                            <tr mat-header-row *matHeaderRowDef="getTopCustomersColumns()"></tr>
+                            <tr mat-row *matRowDef="let row; columns: getTopCustomersColumns();"></tr>
+                        </table>
+                    </div>
+                </div>
+            </mat-tab>
+
+        </mat-tab-group>
+    </div>
+</div>

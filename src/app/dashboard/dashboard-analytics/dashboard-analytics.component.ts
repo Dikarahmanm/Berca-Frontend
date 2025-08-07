@@ -16,6 +16,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { FormsModule } from '@angular/forms';
 import { Observable, Subject, combineLatest } from 'rxjs';
 import { takeUntil, startWith } from 'rxjs/operators';
+import { DateRangeUtil } from '../../shared/utils/date-range.util';
 
 import { 
   DashboardService, 
@@ -113,9 +114,19 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
 
   loadDashboardData() {
     this.isLoading = true;
-    const { startDate, endDate } = this.dashboardService.getDateRange(this.selectedPeriod);
+    
+    // ✅ SYNCHRONIZED: Use same date range as Reports (current month)
+    const { startDate, endDate } = DateRangeUtil.getCurrentMonthRange();
+    
+    console.log('📅 Analytics using synchronized date range:', { startDate, endDate });
+    console.log('📅 Analytics sending to backend:', {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      localStart: startDate.toString(),
+      localEnd: endDate.toString()
+    });
 
-    // Load all dashboard data
+    // Load all dashboard data with synchronized date range
     const kpis$ = this.dashboardService.getDashboardKPIs(startDate, endDate);
     const quickStats$ = this.dashboardService.getQuickStats();
     const salesChart$ = this.dashboardService.getSalesChartData(this.selectedChartPeriod, startDate, endDate);
@@ -140,6 +151,16 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$)
     ).subscribe({
       next: ([kpis, quickStats, salesChart, revenueChart, topProducts, worstProducts, categorySales, recentTransactions, lowStockAlerts]) => {
+        console.log('📊 Analytics KPI Data:', kpis);
+        if (kpis) {
+          console.log('📊 Analytics Monthly Revenue:', kpis.monthlyRevenue);
+          console.log('📊 Analytics Monthly Transactions:', kpis.monthlyTransactions);
+          console.log('📊 Analytics Total Profit:', kpis.totalProfit);
+          console.log('📊 Analytics Today Revenue:', kpis.todayRevenue);
+          console.log('📊 Analytics Yearly Revenue:', kpis.yearlyRevenue);
+          console.log('✅ Backend Fix Applied - KPI now includes SaleItems and uses correct date parameters');
+        }
+        
         this.currentKPIs = kpis;
         this.currentQuickStats = quickStats;
         this.salesChartData = salesChart || [];

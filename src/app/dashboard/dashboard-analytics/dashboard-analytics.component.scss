@@ -288,7 +288,7 @@ $spacing-xl: 48px;
       width: 60px;
       height: 60px;
       border-radius: 50%;
-      background: linear-gradient(135deg, $primary-color 0%, lighten($primary-color, 10%) 100%);
+      background: linear-gradient(135deg, $primary-color 0%, color.adjust($primary-color, $lightness: 10%) 100%);
       color: white;
       flex-shrink: 0;
 
@@ -306,7 +306,7 @@ $spacing-xl: 48px;
         font-size: 1.8rem;
         font-weight: 700;
         color: $text-primary;
-        margin-bottom: $spacing-xs / 2;
+        margin-bottom: calc($spacing-xs / 2);
         
         @media (max-width: 768px) {
           font-size: 1.5rem;
@@ -316,7 +316,7 @@ $spacing-xl: 48px;
       .stat-label {
         font-size: 0.9rem;
         color: $text-secondary;
-        margin-bottom: $spacing-xs / 2;
+        margin-bottom: calc($spacing-xs / 2);
       }
 
       .stat-meta {
@@ -401,7 +401,7 @@ $spacing-xl: 48px;
       width: 70px;
       height: 70px;
       border-radius: 50%;
-      background: linear-gradient(135deg, $primary-color 0%, lighten($primary-color, 15%) 100%);
+      background: linear-gradient(135deg, $primary-color 0%, color.adjust($primary-color, $lightness: 15%) 100%);
       color: white;
       flex-shrink: 0;
       box-shadow: $shadow-sm;
@@ -634,7 +634,7 @@ $spacing-xl: 48px;
             border-radius: 6px;
             
             @media (max-width: 768px) {
-              padding: $spacing-xs / 2;
+              padding: calc(\$spacing-xs / 2);
             }
 
             .metric-value {
@@ -896,7 +896,7 @@ $spacing-xl: 48px;
             border-radius: 6px;
             
             @media (max-width: 768px) {
-              padding: $spacing-xs / 2;
+              padding: calc(\$spacing-xs / 2);
             }
 
             .metric-value {

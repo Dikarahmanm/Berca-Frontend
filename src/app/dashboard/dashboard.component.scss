@@ -1,53 +1,334 @@
-// src/app/dashboard/dashboard.component.scss
-// ✅ REDESIGNED: Dashboard Styles dengan Glass Morphism Orange Modern Theme
+// ===== TOKO ENIWAN DASHBOARD LAYOUT =====
+// Senior Accessible UI using Design System
+// Optimized for users aged 40-65 years
 
-// Orange Modern Color Palette
 :host {
-  --clr-primary: #FF914D;
-  --clr-primary-dark: #E07A3B;
-  --clr-primary-light: rgba(255, 145, 77, 0.3);
-  --clr-accent: #4BBF7B;
-  --clr-warning: #FFB84D;
-  --clr-error: #E15A4F;
-  --clr-surface: rgba(255, 255, 255, 0.25);
-  --clr-bg-base: #FDF9F6;
-  --clr-text-primary: #1e293b;
-  --clr-text-secondary: #64748b;
-  --clr-text-muted: #94a3b8;
-  
-  // Animation timing
-  --transition-fast: 120ms ease-out;
-  --transition-normal: 200ms ease-out;
-  --transition-slow: 300ms ease-out;
+  display: block;
+  min-height: 100vh;
+  background-color: var(--clr-bg-primary);
+  font-family: var(--font-family-primary);
 }
 
-// Dashboard Home Content
-.dashboard-home {
+// ===== MAIN DASHBOARD LAYOUT =====
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas: 
+    "sidebar topbar"
+    "sidebar content";
+  min-height: 100vh;
+  background-color: var(--clr-bg-primary);
+  
+  // Mobile responsive
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+    grid-template-areas: 
+      "topbar"
+      "content";
+    
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: -280px;
+      height: 100vh;
+      z-index: 1000;
+      transition: left var(--duration-normal) var(--ease-out);
+      
+      &.mobile-open {
+        left: 0;
+        box-shadow: var(--shadow-xl);
+      }
+    }
+  }
+  
+  @media (max-width: 640px) {
+    .sidebar {
+      left: -100vw;
+      width: 100vw;
+    }
+  }
+}
+
+// ===== SIDEBAR AREA =====
+.sidebar {
+  grid-area: sidebar;
+  background-color: var(--clr-surface);
+  border-right: 2px solid var(--clr-border-light);
+  overflow-y: auto;
+  
+  // High contrast sidebar for senior users
+  background: linear-gradient(180deg, 
+    var(--clr-surface) 0%, 
+    var(--clr-bg-secondary) 100%);
+  
+  // Better scrollbar for seniors
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background-color: var(--clr-bg-secondary);
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--clr-border-medium);
+    border-radius: var(--radius-md);
+    
+    &:hover {
+      background-color: var(--clr-border-dark);
+    }
+  }
+}
+
+// ===== TOPBAR AREA =====
+.topbar {
+  grid-area: topbar;
+  background-color: var(--clr-surface);
+  border-bottom: 2px solid var(--clr-border-light);
+  box-shadow: var(--shadow-sm);
+  z-index: 100;
+}
+
+// ===== CONTENT AREA =====
+.dashboard-content {
+  grid-area: content;
+  padding: var(--space-8);
+  overflow-y: auto;
+  background-color: var(--clr-bg-primary);
+  
+  // Mobile padding adjustment
+  @media (max-width: 1024px) {
+    padding: var(--space-6);
+  }
+  
+  @media (max-width: 640px) {
+    padding: var(--mobile-padding);
+  }
+}
+
+// ===== PAGE HEADER =====
+.page-header {
+  margin-bottom: var(--space-8);
+  
+  .page-title {
+    font-size: var(--font-size-h1);
+    font-weight: var(--font-weight-bold);
+    color: var(--clr-text-primary);
+    margin: 0 0 var(--space-2) 0;
+    line-height: var(--line-height-tight);
+    
+    @media (max-width: 640px) {
+      font-size: var(--font-size-mobile-2xl);
+    }
+  }
+  
+  .page-subtitle {
+    font-size: var(--font-size-base);
+    color: var(--clr-text-secondary);
+    margin: 0;
+    line-height: var(--line-height-normal);
+    
+    @media (max-width: 640px) {
+      font-size: var(--font-size-mobile-base);
+    }
+  }
+  
+  .page-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+    font-size: var(--font-size-sm);
+    color: var(--clr-text-muted);
+    
+    .breadcrumb-item {
+      &:not(:last-child)::after {
+        content: '/';
+        margin-left: var(--space-2);
+        color: var(--clr-border-dark);
+      }
+      
+      &:hover {
+        color: var(--clr-primary);
+        text-decoration: underline;
+      }
+    }
+  }
+}
+
+// ===== LOADING STATES =====
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  background-color: var(--clr-surface);
+  border: 2px solid var(--clr-border-light);
+  border-radius: var(--radius-lg);
+  
+  .loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--clr-border-light);
+    border-top-color: var(--clr-primary);
+    border-radius: var(--radius-full);
+    animation: spin 1s linear infinite;
+  }
+  
+  .loading-text {
+    font-size: var(--font-size-lg);
+    color: var(--clr-text-secondary);
+    margin-top: var(--space-4);
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// ===== MOBILE OVERLAY =====
+.mobile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--duration-normal) var(--ease-out);
+  
+  &.active {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  @media (min-width: 1025px) {
+    display: none;
+  }
+}
+
+// ===== ERROR STATES =====
+.error-container {
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  background-color: var(--clr-error-light);
+  border: 2px solid var(--clr-error);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  text-align: center;
+  
+  .error-icon {
+    width: 64px;
+    height: 64px;
+    color: var(--clr-error);
+    margin-bottom: var(--space-4);
+  }
+  
+  .error-title {
+    font-size: var(--font-size-h3);
+    font-weight: var(--font-weight-semibold);
+    color: var(--clr-error-dark);
+    margin: 0 0 var(--space-2) 0;
+  }
+  
+  .error-message {
+    font-size: var(--font-size-base);
+    color: var(--clr-text-secondary);
+    margin: 0 0 var(--space-6) 0;
+    max-width: 400px;
+  }
+  
+  .error-actions {
+    display: flex;
+    gap: var(--space-4);
+    
+    .retry-btn {
+      background-color: var(--clr-primary);
+      color: var(--clr-surface);
+      border: 2px solid var(--clr-primary);
+      border-radius: var(--radius-md);
+      padding: var(--btn-padding-y) var(--btn-padding-x);
+      font-size: var(--font-size-button);
+      font-weight: var(--font-weight-medium);
+      min-height: var(--touch-target-min);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-out);
+      
+      &:hover {
+        background-color: var(--clr-primary-dark);
+        border-color: var(--clr-primary-dark);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+      
+      &:focus {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+      }
+    }
+  }
 }
 
-// Glass Card Base Style
-.glass-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 145, 77, 0.1);
-  border-radius: 20px;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 0 0 1px rgba(255, 145, 77, 0.05);
-  transition: all var(--transition-normal);
-  position: relative;
+// ===== ANIMATIONS =====
+.fade-in-up {
+  animation: fadeInUp 0.5s var(--ease-out) forwards;
+}
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ===== ACCESSIBILITY ENHANCEMENTS =====
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  .dashboard-layout {
+    --clr-border-light: #000000;
+    --clr-border-medium: #000000;
+    --clr-text-primary: #000000;
+    --clr-surface: #FFFFFF;
+  }
+}
+
+// ===== PRINT STYLES =====
+@media print {
+  .sidebar,
+  .topbar {
+    display: none !important;
+  }
+  
+  .dashboard-layout {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: "content" !important;
+  }
+  
+  .dashboard-content {
+    padding: 0 !important;
+  }
+}
     bottom: 0;
     background: linear-gradient(
       135deg,

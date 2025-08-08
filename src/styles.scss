@@ -1,8 +1,11 @@
 /* You can add global styles to this file, and also import other style files */
-/* Add this to src/styles.scss */
+
+/* ===== TOKO ENIWAN DESIGN SYSTEM ===== */
+@import './styles/design-system.scss';
 
 /* Material Icons Import - CDN */
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* Alternative approach: Import Material Icons from node_modules */
 /* @import 'material-design-icons-iconfont/dist/material-design-icons.css'; */

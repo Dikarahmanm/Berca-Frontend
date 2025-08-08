@@ -1,7 +1,562 @@
-// src/app/shared/components/sidebar/sidebar.component.scss
-// Enhanced Sidebar Styles dengan Glass Morphism Orange Modern Theme
+// ===== TOKO ENIWAN SIDEBAR COMPONENT =====
+// Senior Accessible UI using Design System
+// Optimized for users aged 40-65 years
 
-// Orange Modern Color Palette
+:host {
+  display: block;
+  height: 100%;
+}
+
+// ===== MAIN SIDEBAR CONTAINER =====
+.sidebar {
+  width: 280px;
+  height: 100vh;
+  background-color: var(--clr-surface);
+  border-right: 2px solid var(--clr-border-light);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  
+  // High contrast gradient for better visibility
+  background: linear-gradient(180deg, 
+    var(--clr-surface) 0%, 
+    var(--clr-bg-secondary) 100%);
+  
+  // Enhanced shadow for depth
+  box-shadow: var(--shadow-md);
+  
+  // Mobile collapsed state
+  &.collapsed {
+    width: 80px;
+    
+    .nav-text,
+    .nav-section-title,
+    .user-details,
+    .nav-badge {
+      display: none;
+    }
+    
+    .nav-icon {
+      margin: 0 auto;
+    }
+    
+    .nav-link {
+      justify-content: center;
+      padding: var(--space-4);
+    }
+    
+    .collapse-btn {
+      transform: rotate(180deg);
+    }
+  }
+  
+  // Mobile overlay
+  &.mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    box-shadow: var(--shadow-xl);
+  }
+}
+
+// ===== SIDEBAR HEADER =====
+.sidebar-header {
+  padding: var(--space-6);
+  border-bottom: 2px solid var(--clr-border-light);
+  background-color: var(--clr-primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80px;
+  
+  .collapse-btn {
+    background: none;
+    border: 2px solid var(--clr-border-medium);
+    border-radius: var(--radius-md);
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+    color: var(--clr-text-primary);
+    
+    &:hover {
+      background-color: var(--clr-primary-light);
+      border-color: var(--clr-primary);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    &:focus {
+      outline: none;
+      box-shadow: var(--shadow-focus);
+    }
+    
+    mat-icon {
+      font-size: 24px;
+      transition: transform var(--duration-normal) var(--ease-out);
+    }
+  }
+  
+  .mobile-close-btn {
+    background: var(--clr-error);
+    color: var(--clr-surface);
+    border: 2px solid var(--clr-error);
+    border-radius: var(--radius-md);
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+    
+    &:hover {
+      background-color: var(--clr-error-dark);
+      border-color: var(--clr-error-dark);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    
+    &:focus {
+      outline: none;
+      box-shadow: var(--shadow-focus-error);
+    }
+  }
+}
+
+// ===== SIDEBAR NAVIGATION =====
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) 0;
+  
+  // Custom scrollbar for seniors
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background-color: var(--clr-bg-secondary);
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--clr-border-medium);
+    border-radius: var(--radius-md);
+    
+    &:hover {
+      background-color: var(--clr-border-dark);
+    }
+  }
+}
+
+// ===== NAVIGATION SECTIONS =====
+.nav-section {
+  margin-bottom: var(--space-8);
+  
+  .nav-section-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--clr-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0 var(--space-6) var(--space-3) var(--space-6);
+    margin: 0;
+    line-height: var(--line-height-tight);
+  }
+}
+
+// ===== NAVIGATION LIST =====
+.nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+// ===== NAVIGATION ITEMS =====
+.nav-item {
+  margin-bottom: var(--space-1);
+  
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-6);
+    text-decoration: none;
+    color: var(--clr-text-secondary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    line-height: var(--line-height-normal);
+    min-height: var(--touch-target-min);
+    border-radius: 0;
+    border-left: 4px solid transparent;
+    transition: all var(--duration-fast) var(--ease-out);
+    position: relative;
+    
+    // Senior-friendly hover state
+    &:hover {
+      background-color: var(--clr-primary-light);
+      color: var(--clr-text-primary);
+      border-left-color: var(--clr-primary);
+      transform: translateX(4px);
+    }
+    
+    // Active state
+    &.active {
+      background-color: var(--clr-primary);
+      color: var(--clr-surface);
+      border-left-color: var(--clr-primary-dark);
+      font-weight: var(--font-weight-semibold);
+      box-shadow: var(--shadow-md);
+      
+      .nav-icon {
+        color: var(--clr-surface);
+      }
+      
+      .nav-badge {
+        background-color: var(--clr-surface);
+        color: var(--clr-primary);
+      }
+    }
+    
+    // Focus state for accessibility
+    &:focus {
+      outline: none;
+      box-shadow: var(--shadow-focus);
+      background-color: var(--clr-primary-light);
+    }
+  }
+}
+
+// ===== NAVIGATION ICONS =====
+.nav-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+  color: var(--clr-text-secondary);
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+// ===== NAVIGATION TEXT =====
+.nav-text {
+  flex: 1;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  transition: opacity var(--duration-normal) var(--ease-out);
+  
+  // Mobile text size
+  @media (max-width: 640px) {
+    font-size: var(--font-size-mobile-base);
+  }
+}
+
+// ===== NAVIGATION BADGES =====
+.nav-badge {
+  background-color: var(--clr-accent);
+  color: var(--clr-surface);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all var(--duration-fast) var(--ease-out);
+  
+  // Badge variations
+  &.badge-primary {
+    background-color: var(--clr-primary);
+  }
+  
+  &.badge-success {
+    background-color: var(--clr-success);
+  }
+  
+  &.badge-warning {
+    background-color: var(--clr-warning);
+  }
+  
+  &.badge-error {
+    background-color: var(--clr-error);
+  }
+}
+
+// ===== COLLAPSED STATE BADGE DOT =====
+.nav-badge-dot {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background-color: var(--clr-accent);
+  font-size: 10px;
+  color: var(--clr-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-bold);
+  
+  &.badge-primary {
+    background-color: var(--clr-primary);
+  }
+  
+  &.badge-success {
+    background-color: var(--clr-success);
+  }
+  
+  &.badge-warning {
+    background-color: var(--clr-warning);
+  }
+  
+  &.badge-error {
+    background-color: var(--clr-error);
+  }
+}
+
+// ===== SIDEBAR FOOTER =====
+.sidebar-footer {
+  border-top: 2px solid var(--clr-border-light);
+  background-color: var(--clr-bg-secondary);
+  padding: var(--space-6);
+  
+  .footer-content {
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-out);
+      
+      &:hover {
+        background-color: var(--clr-primary-light);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+      }
+      
+      &:focus {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+      }
+    }
+    
+    .user-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-full);
+      background-color: var(--clr-primary);
+      color: var(--clr-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: var(--font-weight-semibold);
+      font-size: var(--font-size-lg);
+      border: 2px solid var(--clr-border-light);
+      overflow: hidden;
+      
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      span {
+        line-height: 1;
+      }
+    }
+    
+    .user-details {
+      flex: 1;
+      min-width: 0;
+      
+      .user-name {
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-semibold);
+        color: var(--clr-text-primary);
+        margin: 0 0 var(--space-1) 0;
+        line-height: var(--line-height-tight);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .user-role {
+        font-size: var(--font-size-sm);
+        color: var(--clr-text-muted);
+        margin: 0;
+        line-height: var(--line-height-tight);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+    
+    .logout-section {
+      margin-top: var(--space-4);
+      
+      .logout-btn {
+        width: 100%;
+        background-color: var(--clr-error);
+        color: var(--clr-surface);
+        border: 2px solid var(--clr-error);
+        border-radius: var(--radius-md);
+        padding: var(--space-3) var(--space-4);
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-medium);
+        min-height: var(--touch-target-min);
+        cursor: pointer;
+        transition: all var(--duration-fast) var(--ease-out);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        
+        &:hover {
+          background-color: var(--clr-error-dark);
+          border-color: var(--clr-error-dark);
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-md);
+        }
+        
+        &:focus {
+          outline: none;
+          box-shadow: var(--shadow-focus-error);
+        }
+        
+        &:disabled {
+          background-color: var(--clr-text-disabled);
+          border-color: var(--clr-text-disabled);
+          color: var(--clr-text-muted);
+          cursor: not-allowed;
+          transform: none;
+          
+          .logout-spinner {
+            animation: spin 1s linear infinite;
+          }
+        }
+        
+        .logout-text {
+          font-weight: inherit;
+        }
+      }
+    }
+  }
+}
+
+// ===== LOADING SPINNER =====
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.logout-spinner {
+  animation: spin 1s linear infinite;
+}
+
+// ===== MOBILE RESPONSIVE =====
+@media (max-width: 1024px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    z-index: 1000;
+    height: 100vh;
+    transition: left var(--duration-normal) var(--ease-out);
+    
+    &.mobile-open {
+      left: 0;
+      box-shadow: var(--shadow-xl);
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    left: -100vw;
+    width: 100vw;
+    
+    &.mobile-open {
+      left: 0;
+    }
+    
+    .nav-text,
+    .user-name,
+    .user-role {
+      font-size: var(--font-size-mobile-base);
+    }
+    
+    .nav-section-title {
+      font-size: var(--font-size-mobile-sm);
+    }
+    
+    .nav-link {
+      padding: var(--space-5) var(--space-6);
+      min-height: var(--mobile-btn-height);
+    }
+    
+    .nav-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+    }
+  }
+}
+
+// ===== ACCESSIBILITY ENHANCEMENTS =====
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .nav-link,
+  .collapse-btn,
+  .mobile-close-btn,
+  .logout-btn,
+  .nav-icon,
+  .nav-text {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  .sidebar {
+    background-color: #FFFFFF;
+    border-right-color: #000000;
+    
+    .nav-link {
+      border-left-width: 6px;
+      
+      &:hover,
+      &:focus {
+        background-color: #000000;
+        color: #FFFFFF;
+      }
+      
+      &.active {
+        background-color: #000000;
+        color: #FFFFFF;
+        border-left-color: #000000;
+      }
+    }
+  }
+}
+
+// ===== PRINT STYLES =====
+@media print {
+  .sidebar {
+    display: none !important;
+  }
+}
 :host {
   --clr-primary: #FF914D;
   --clr-primary-dark: #E07A3B;

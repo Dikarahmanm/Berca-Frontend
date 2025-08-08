@@ -16,6 +16,15 @@ const routes: Routes = [
     }
   },
   {
+    path: 'transaction/:id',
+    loadComponent: () => import('./transaction-detail/transaction-detail.component').then(m => m.TransactionDetailComponent),
+    canActivate: [AuthGuard],
+    data: { 
+      title: 'Detail Transaksi',
+      requiredPermission: 'POS.Read'
+    }
+  },
+  {
     path: 'receipt/:transactionId',
     loadComponent: () => import('./pos/receipt-preview/receipt-preview.component').then(m => m.ReceiptPreviewComponent),
     canActivate: [AuthGuard],

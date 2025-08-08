@@ -1,0 +1,547 @@
+.transaction-detail-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: calc(100vh - 100px);
+}
+
+// ===== LOADING & ERROR STATES =====
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  gap: 16px;
+
+  p {
+    margin: 0;
+    color: #666;
+    font-size: 16px;
+  }
+}
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  gap: 16px;
+  text-align: center;
+
+  mat-icon {
+    font-size: 48px;
+    height: 48px;
+    width: 48px;
+  }
+
+  h3 {
+    margin: 0;
+    color: #d32f2f;
+  }
+
+  p {
+    margin: 0;
+    color: #666;
+    max-width: 400px;
+  }
+}
+
+// ===== HEADER SECTION =====
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e0e0e0;
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    .back-button {
+      background: #f5f5f5;
+      
+      &:hover {
+        background: #e0e0e0;
+      }
+    }
+
+    .header-info {
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 600;
+        color: #1976d2;
+      }
+
+      .transaction-number {
+        margin: 4px 0 0 0;
+        font-size: 16px;
+        color: #666;
+        font-family: 'Courier New', monospace;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .header-actions {
+    .print-button {
+      min-width: 160px;
+      height: 48px;
+      font-size: 16px;
+      font-weight: 500;
+
+      mat-icon {
+        margin-right: 8px;
+      }
+    }
+  }
+}
+
+// ===== STATUS SECTION =====
+.status-section {
+  margin-bottom: 24px;
+
+  mat-chip-set {
+    display: flex;
+    gap: 12px;
+  }
+
+  mat-chip {
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+
+    mat-icon {
+      margin-right: 8px;
+      font-size: 18px;
+      height: 18px;
+      width: 18px;
+    }
+
+    &.status-completed {
+      background-color: #e8f5e8;
+      color: #2e7d32;
+
+      mat-icon {
+        color: #4caf50;
+      }
+    }
+
+    &.status-pending {
+      background-color: #fff3e0;
+      color: #ef6c00;
+
+      mat-icon {
+        color: #ff9800;
+      }
+    }
+
+    &.printed-chip {
+      background-color: #e3f2fd;
+      color: #1976d2;
+
+      mat-icon {
+        color: #2196f3;
+      }
+    }
+  }
+}
+
+// ===== INFO CARDS =====
+.info-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+
+  .info-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+
+    &:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    mat-card-header {
+      background: #f8f9fa;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e0e0e0;
+
+      mat-card-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1976d2;
+        margin: 0;
+      }
+    }
+
+    mat-card-content {
+      padding: 20px;
+    }
+  }
+}
+
+// ===== INFO GRIDS =====
+.info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .label {
+      font-weight: 500;
+      color: #666;
+      min-width: 140px;
+    }
+
+    .value {
+      font-weight: 600;
+      color: #333;
+      text-align: right;
+    }
+  }
+}
+
+.financial-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .financial-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &.total {
+      border-top: 2px solid #1976d2;
+      padding-top: 16px;
+      margin-top: 8px;
+      font-size: 18px;
+      font-weight: 700;
+
+      .label {
+        color: #1976d2;
+      }
+
+      .value {
+        color: #1976d2;
+      }
+    }
+
+    .label {
+      font-weight: 500;
+      color: #666;
+      min-width: 120px;
+    }
+
+    .value {
+      font-weight: 600;
+      color: #333;
+      text-align: right;
+
+      &.discount {
+        color: #d32f2f;
+      }
+    }
+  }
+}
+
+.profit-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .profit-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #4caf50;
+
+    .label {
+      font-weight: 500;
+      color: #666;
+    }
+
+    .value {
+      font-weight: 700;
+      font-size: 16px;
+
+      &.profit {
+        color: #4caf50;
+      }
+    }
+  }
+}
+
+// ===== ITEMS TABLE =====
+.items-card {
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+
+  mat-card-header {
+    background: #f8f9fa;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+
+    mat-card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1976d2;
+      margin: 0;
+    }
+  }
+
+  mat-card-content {
+    padding: 0;
+  }
+}
+
+.table-container {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    background: #fafafa;
+    font-weight: 600;
+    color: #333;
+    padding: 16px;
+    border-bottom: 2px solid #e0e0e0;
+    text-align: left;
+  }
+
+  td {
+    padding: 16px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: top;
+  }
+
+  tr:hover {
+    background: #f8f9fa;
+  }
+
+  .product-info {
+    .product-name {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .product-barcode {
+      font-size: 12px;
+      color: #666;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 4px;
+    }
+
+    .product-notes {
+      font-size: 12px;
+      color: #ff9800;
+      font-style: italic;
+    }
+  }
+
+  .quantity-info {
+    text-align: center;
+
+    .qty {
+      font-weight: 600;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .unit {
+      font-size: 12px;
+      color: #666;
+      margin-left: 4px;
+    }
+  }
+
+  .price-info {
+    text-align: right;
+
+    .selling-price {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .cost-price {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .discount-info {
+      font-size: 12px;
+      color: #d32f2f;
+    }
+  }
+
+  .subtotal-info {
+    text-align: right;
+
+    .subtotal {
+      font-weight: 700;
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .profit {
+      font-size: 12px;
+      color: #4caf50;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .discount {
+      font-size: 12px;
+      color: #d32f2f;
+    }
+  }
+}
+
+// ===== NOTES SECTION =====
+.notes-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+
+  mat-card-header {
+    background: #fff3e0;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+
+    mat-card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ef6c00;
+      margin: 0;
+    }
+  }
+
+  mat-card-content {
+    padding: 20px;
+
+    p {
+      margin: 0;
+      color: #333;
+      line-height: 1.6;
+      font-style: italic;
+    }
+  }
+}
+
+// ===== RESPONSIVE DESIGN =====
+@media (max-width: 768px) {
+  .transaction-detail-container {
+    padding: 16px;
+  }
+
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+
+    .header-left {
+      width: 100%;
+
+      .header-info h1 {
+        font-size: 24px;
+      }
+    }
+
+    .header-actions {
+      width: 100%;
+
+      .print-button {
+        width: 100%;
+      }
+    }
+  }
+
+  .info-cards {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .table-container {
+    font-size: 14px;
+  }
+
+  .items-table {
+    th, td {
+      padding: 12px 8px;
+    }
+
+    .product-info .product-name {
+      font-size: 14px;
+    }
+
+    .subtotal-info .subtotal {
+      font-size: 14px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .detail-header .header-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+
+    .header-info h1 {
+      font-size: 20px;
+    }
+
+    .transaction-number {
+      font-size: 14px;
+    }
+  }
+
+  .status-section mat-chip {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .table-container {
+    font-size: 12px;
+  }
+
+  .financial-item.total {
+    font-size: 16px;
+  }
+}

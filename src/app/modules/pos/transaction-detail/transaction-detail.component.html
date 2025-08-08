@@ -1,0 +1,230 @@
+<div class="transaction-detail-container">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-spinner diameter="50"></mat-spinner>
+    <p>Memuat detail transaksi...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <mat-icon color="warn">error</mat-icon>
+    <h3>Error</h3>
+    <p>{{ error }}</p>
+    <button mat-raised-button color="primary" (click)="goBack()">
+      <mat-icon>arrow_back</mat-icon>
+      Kembali
+    </button>
+  </div>
+
+  <!-- Transaction Detail Content -->
+  <div *ngIf="transaction && !loading && !error" class="detail-content">
+    <!-- Header -->
+    <div class="detail-header">
+      <div class="header-left">
+        <button mat-icon-button (click)="goBack()" class="back-button">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <div class="header-info">
+          <h1>Detail Transaksi</h1>
+          <p class="transaction-number">{{ transaction.saleNumber }}</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button 
+          mat-raised-button 
+          color="primary" 
+          (click)="onPrintReceipt()"
+          class="print-button">
+          <mat-icon>receipt</mat-icon>
+          Lihat Receipt
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Badge -->
+    <div class="status-section">
+      <mat-chip-set>
+        <mat-chip [ngClass]="'status-' + transaction.status.toLowerCase()">
+          <mat-icon>{{ transaction.status === 'Completed' ? 'check_circle' : 'pending' }}</mat-icon>
+          {{ transaction.status }}
+        </mat-chip>
+        <mat-chip *ngIf="transaction.receiptPrinted" class="printed-chip">
+          <mat-icon>print</mat-icon>
+          Receipt Dicetak
+        </mat-chip>
+      </mat-chip-set>
+    </div>
+
+    <!-- Transaction Info Cards -->
+    <div class="info-cards">
+      <!-- Basic Info -->
+      <mat-card class="info-card">
+        <mat-card-header>
+          <mat-card-title>Informasi Transaksi</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="label">Tanggal & Waktu:</span>
+              <span class="value">{{ formatDate(transaction.saleDate) }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Kasir:</span>
+              <span class="value">{{ transaction.cashierName }}</span>
+            </div>
+            <div class="info-item" *ngIf="transaction.customerName">
+              <span class="label">Customer:</span>
+              <span class="value">{{ transaction.customerName }}</span>
+            </div>
+            <div class="info-item" *ngIf="transaction.memberName">
+              <span class="label">Member:</span>
+              <span class="value">{{ transaction.memberName }} ({{ transaction.memberNumber }})</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Metode Pembayaran:</span>
+              <span class="value">{{ transaction.paymentMethod }}</span>
+            </div>
+            <div class="info-item" *ngIf="transaction.paymentReference">
+              <span class="label">Referensi Pembayaran:</span>
+              <span class="value">{{ transaction.paymentReference }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Financial Summary -->
+      <mat-card class="info-card">
+        <mat-card-header>
+          <mat-card-title>Ringkasan Keuangan</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="financial-grid">
+            <div class="financial-item">
+              <span class="label">Total Items:</span>
+              <span class="value">{{ transaction.totalItems }} items</span>
+            </div>
+            <div class="financial-item">
+              <span class="label">Subtotal:</span>
+              <span class="value">{{ formatCurrency(transaction.subtotal) }}</span>
+            </div>
+            <div class="financial-item" *ngIf="transaction.discountAmount > 0">
+              <span class="label">Diskon:</span>
+              <span class="value discount">-{{ formatCurrency(transaction.discountAmount) }}</span>
+            </div>
+            <div class="financial-item" *ngIf="transaction.taxAmount > 0">
+              <span class="label">Pajak:</span>
+              <span class="value">{{ formatCurrency(transaction.taxAmount) }}</span>
+            </div>
+            <div class="financial-item total">
+              <span class="label">TOTAL:</span>
+              <span class="value">{{ formatCurrency(transaction.total) }}</span>
+            </div>
+            <div class="financial-item">
+              <span class="label">Dibayar:</span>
+              <span class="value">{{ formatCurrency(transaction.amountPaid) }}</span>
+            </div>
+            <div class="financial-item" *ngIf="transaction.changeAmount > 0">
+              <span class="label">Kembalian:</span>
+              <span class="value">{{ formatCurrency(transaction.changeAmount) }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Profit Analysis -->
+      <mat-card class="info-card">
+        <mat-card-header>
+          <mat-card-title>Analisis Keuntungan</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="profit-grid">
+            <div class="profit-item">
+              <span class="label">Total Keuntungan:</span>
+              <span class="value profit">{{ formatCurrency(totalProfit) }}</span>
+            </div>
+            <div class="profit-item">
+              <span class="label">Margin Keuntungan:</span>
+              <span class="value">{{ profitMargin.toFixed(2) }}%</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Items Table -->
+    <mat-card class="items-card">
+      <mat-card-header>
+        <mat-card-title>Daftar Item ({{ transaction.items.length }} items)</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-container">
+          <table mat-table [dataSource]="transaction.items" class="items-table">
+            <!-- Product Name Column -->
+            <ng-container matColumnDef="productName">
+              <th mat-header-cell *matHeaderCellDef>Produk</th>
+              <td mat-cell *matCellDef="let item">
+                <div class="product-info">
+                  <div class="product-name">{{ item.productName }}</div>
+                  <div class="product-barcode">{{ item.productBarcode }}</div>
+                  <div *ngIf="item.notes" class="product-notes">{{ item.notes }}</div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Quantity Column -->
+            <ng-container matColumnDef="quantity">
+              <th mat-header-cell *matHeaderCellDef>Qty</th>
+              <td mat-cell *matCellDef="let item">
+                <div class="quantity-info">
+                  <span class="qty">{{ item.quantity }}</span>
+                  <span class="unit">{{ item.unit }}</span>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Unit Price Column -->
+            <ng-container matColumnDef="unitPrice">
+              <th mat-header-cell *matHeaderCellDef>Harga Satuan</th>
+              <td mat-cell *matCellDef="let item">
+                <div class="price-info">
+                  <div class="selling-price">{{ formatCurrency(item.unitPrice) }}</div>
+                  <div class="cost-price">(HPP: {{ formatCurrency(item.unitCost) }})</div>
+                  <div *ngIf="item.discountPercentage > 0" class="discount-info">
+                    Diskon: {{ item.discountPercentage }}%
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Subtotal Column -->
+            <ng-container matColumnDef="subtotal">
+              <th mat-header-cell *matHeaderCellDef>Subtotal</th>
+              <td mat-cell *matCellDef="let item">
+                <div class="subtotal-info">
+                  <div class="subtotal">{{ formatCurrency(item.subtotal) }}</div>
+                  <div class="profit">Profit: {{ formatCurrency(item.totalProfit) }}</div>
+                  <div *ngIf="item.discountAmount > 0" class="discount">
+                    -{{ formatCurrency(item.discountAmount) }}
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Notes Section -->
+    <mat-card *ngIf="transaction.notes" class="notes-card">
+      <mat-card-header>
+        <mat-card-title>Catatan</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>{{ transaction.notes }}</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

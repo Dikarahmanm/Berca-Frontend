@@ -9,6 +9,10 @@ import { of } from 'rxjs';
 
 // Angular Material
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog } from '@angular/material/dialog';
+
+// Components
+import { TransactionSuccessModalComponent, TransactionSuccessData } from '../transaction-success-modal/transaction-success-modal.component';
 
 // Services
 import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData, ProductListResponseApiResponse } from '../../../core/services/pos.service';
@@ -17,7 +21,6 @@ import { AuthService } from '../../../core/services/auth.service';
 // Import standalone components
 import { BarcodeToolsComponent } from './barcode-tools/barcode-tools.component';
 import { PaymentModalComponent } from './payment-modal/payment-modal.component';
-import { BaseLayoutComponent } from '../../../shared/components/base-layout/base-layout.component';
 
 @Component({
   selector: 'app-pos',
@@ -29,8 +32,7 @@ import { BaseLayoutComponent } from '../../../shared/components/base-layout/base
     FormsModule,
     MatIconModule,
     BarcodeToolsComponent,
-    PaymentModalComponent,
-    BaseLayoutComponent
+    PaymentModalComponent
   ]
 })
 export class POSComponent implements OnInit, OnDestroy {
@@ -65,7 +67,8 @@ export class POSComponent implements OnInit, OnDestroy {
   constructor(
     private posService: POSService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit() {
@@ -499,23 +502,8 @@ loadProducts(): void {
                   // Clear cart
                   this.cart = [];
                   
-                  // Navigate to receipt preview with proper error handling
-                  try {
-                    this.router.navigate(['/pos/receipt', saleId]).then(success => {
-                      if (success) {
-                        console.log('✅ Navigation to receipt successful');
-                      } else {
-                        console.error('❌ Navigation to receipt failed');
-                        this.errorMessage = 'Transaksi berhasil, tapi gagal membuka struk. ID: ' + saleId;
-                      }
-                    }).catch(error => {
-                      console.error('❌ Navigation error:', error);
-                      this.errorMessage = 'Transaksi berhasil, tapi gagal membuka struk. ID: ' + saleId;
-                    });
-                  } catch (error) {
-                    console.error('❌ Router navigate error:', error);
-                    this.errorMessage = 'Transaksi berhasil, tapi gagal membuka struk. ID: ' + saleId;
-                  }
+                  // Show success modal instead of alert
+                  this.showTransactionSuccessModal(saleId, saleNumber, response.data.total);
                 } else {
                   this.errorMessage = response.message || 'Gagal menyimpan transaksi';
                   this.clearMessages();
@@ -563,11 +551,11 @@ loadProducts(): void {
     return item ? item.quantity : 0;
   }
 
-  private clearMessages() {
+  private clearMessages(timeout: number = 3000) {
     setTimeout(() => {
       this.errorMessage = '';
       this.successMessage = '';
-    }, 3000);
+    }, timeout);
   }
 
   // ===== KEYBOARD SHORTCUTS =====
@@ -695,4 +683,62 @@ onDiscountChange(index: number, newDiscount: number) {
     }
   }
 }
+
+  // ===== TRANSACTION SUCCESS MODAL =====
+  
+  private showTransactionSuccessModal(saleId: number, saleNumber: string, total: number) {
+    console.log('🎉 Showing transaction success modal for:', { saleId, saleNumber, total });
+    
+    const dialogRef = this.dialog.open(TransactionSuccessModalComponent, {
+      width: '480px',
+      maxWidth: '90vw',
+      disableClose: true,
+      panelClass: 'transaction-success-dialog',
+      data: {
+        saleId,
+        saleNumber,
+        total
+      } as TransactionSuccessData
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      console.log('🔔 Modal closed with result:', result);
+      
+      if (result === 'detail') {
+        // Navigate to transaction detail
+        const targetRoute = `/dashboard/pos/transaction/${saleId}`;
+        console.log('🔄 Navigating to:', targetRoute);
+        
+        this.router.navigateByUrl(targetRoute).then(success => {
+          if (success) {
+            console.log('✅ Navigation successful');
+          } else {
+            console.error('❌ Navigation failed - route may not exist');
+            this.errorMessage = `Gagal membuka detail transaksi. ID: ${saleId}`;
+            this.clearMessages();
+          }
+        }).catch(error => {
+          console.error('❌ Navigation error:', error);
+          this.errorMessage = `Error navigasi: ${error.message}`;
+          this.clearMessages();
+        });
+      } else if (result === 'new') {
+        // Stay on POS for new transaction
+        console.log('✅ Starting new transaction');
+        this.clearMessages();
+        this.successMessage = `Transaksi ${saleNumber} berhasil disimpan!`;
+        this.clearMessages(3000); // Clear after 3 seconds
+      }
+    });
+  }
+
+  // ===== NAVIGATION HELPERS =====
+  
+  viewTransactionDetail(saleId: number) {
+    this.router.navigate(['/dashboard/pos/transaction', saleId]);
+  }
+
+  printReceipt(saleId: number) {
+    this.router.navigate(['/dashboard/pos/receipt', saleId]);
+  }
 }

@@ -83,40 +83,46 @@ export const routes: Routes = [
           breadcrumb: 'Logs',
           requiredRoles: ['Admin', 'Manager']
         }
+      },
+      {
+        path: 'pos',
+        loadChildren: () => import('./modules/pos/pos.module').then(m => m.POSModule),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'Point of Sale',
+          breadcrumb: 'POS',
+          requiredRoles: ['Admin', 'Manager', 'User', 'Cashier']
+        }
+      },
+      {
+        path: 'notifications',
+        loadComponent: () => import('./modules/notifications/notification-center/notification-center.component').then(m => m.NotificationCenterComponent),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'Notifications',
+          breadcrumb: 'Notifications',
+          requiredRoles: ['Admin', 'Manager', 'User', 'Cashier']
+        }
+      },
+      {
+        path: 'profile',
+        loadComponent: () => import('./modules/user-profile/user-profile.component').then(m => m.UserProfileComponent),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'User Profile',
+          breadcrumb: 'Profile',
+          requiredRoles: ['Admin', 'Manager', 'User', 'Cashier']
+        }
       }
     ],
     title: 'Dashboard - Toko Eniwan POS'
   },
 
+  // ✅ REDIRECT ROUTE: /sales/:id → /dashboard/pos/transaction/:id
   {
-    path: 'pos',
-    loadChildren: () => import('./modules/pos/pos.module').then(m => m.POSModule),
-    canActivate: [AuthGuard],
-    data: {
-      title: 'Point of Sale',
-      breadcrumb: 'POS',
-      roles: ['Admin', 'Manager', 'User', 'Cashier']
-    },
-    title: 'POS - Toko Eniwan'
-  },
-
-  {
-    path: 'notifications',
-    loadComponent: () => import('./modules/notifications/notification-center/notification-center.component').then(m => m.NotificationCenterComponent),
-    canActivate: [AuthGuard],
-    data: {
-      title: 'Notifications',
-      breadcrumb: 'Notifications',
-      roles: ['Admin', 'Manager', 'User', 'Cashier']
-    },
-    title: 'Notifications - Toko Eniwan'
-  },
-
-  {
-    path: 'profile',
-    loadComponent: () => import('./modules/user-profile/user-profile.component').then(m => m.UserProfileComponent),
-    canActivate: [AuthGuard],
-    title: 'Profile - Toko Eniwan POS'
+    path: 'sales/:id',
+    redirectTo: '/dashboard/pos/transaction/:id',
+    pathMatch: 'full'
   },
 
   {

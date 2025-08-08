@@ -10,7 +10,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Import real service and interfaces
 import { NotificationService, NotificationDto, NotificationSummaryDto } from '../../../core/services/notification.service';
-import { BaseLayoutComponent } from '../../../shared/components/base-layout/base-layout.component';
 
 type FilterType = 'all' | 'unread' | 'low_stock' | 'system' | 'sales';
 
@@ -19,7 +18,7 @@ type FilterType = 'all' | 'unread' | 'low_stock' | 'system' | 'sales';
   templateUrl: './notification-center.component.html',
   styleUrls: ['./notification-center.component.scss'],
   standalone: true,
-  imports: [CommonModule, BaseLayoutComponent, MatIconModule, MatButtonModule, MatTooltipModule]
+  imports: [CommonModule, MatIconModule, MatButtonModule, MatTooltipModule]
 })
 export class NotificationCenterComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
@@ -362,17 +361,13 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle notification click
+   * Handle notification click with smart navigation
    */
   onNotificationClick(notification: NotificationDto): void {
-    if (!notification.isRead) {
-      this.markAsRead(notification.id);
-    }
+    console.log('🔔 Notification clicked in center:', notification);
     
-    // Navigate to action URL if available
-    if (notification.actionUrl) {
-      window.open(notification.actionUrl, '_blank');
-    }
+    // Use the notification service's smart click handler
+    this.notificationService.handleNotificationClick(notification);
   }
 
   /**

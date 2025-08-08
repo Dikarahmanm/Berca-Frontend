@@ -52,6 +52,16 @@ export const routes: Routes = [
           requiredRoles: ['Admin', 'Manager']
         }
       },
+      {
+        path: 'membership',
+        loadChildren: () => import('./modules/membership/membership.module').then(m => m.MembershipModule),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'Membership Management',
+          breadcrumb: 'Membership',
+          requiredRoles: ['Admin', 'Manager', 'User']
+        }
+      },
       // ✅ TAMBAHKAN ROUTE INVENTORY YANG HILANG
       {
         path: 'inventory',

@@ -11,17 +11,8 @@ const routes: Routes = [
     path: '',
     component: DashboardComponent,
     children: [
-      // ===== DASHBOARD ANALYTICS ===== //
-      {
-        path: 'analytics',
-        loadComponent: () => import('./dashboard-analytics/dashboard-analytics.component').then(c => c.DashboardAnalyticsComponent),
-        canActivate: [RoleGuard],
-        data: {
-          title: 'Dashboard Analytics',
-          breadcrumb: 'Analytics',
-          requiredRoles: ['Admin', 'Manager', 'User']
-        }
-      },
+      // ===== DASHBOARD ANALYTICS (MOVED TO app-routes.ts) ===== //
+      // Note: Analytics route is now defined in app-routes.ts since we're using standalone components
 
       // ===== USER MANAGEMENT ===== //
       {
@@ -72,16 +63,16 @@ const routes: Routes = [
       },
 
       // ===== MEMBERSHIP MANAGEMENT (READY FOR NEXT SPRINT) ===== //
-      // {
-      //   path: 'membership',
-      //   loadChildren: () => import('../modules/membership/membership.module').then(m => m.MembershipModule),
-      //   canActivate: [RoleGuard],
-      //   data: {
-      //     title: 'Membership Management',
-      //     breadcrumb: 'Membership',
-      //     requiredRoles: ['Admin', 'Manager', 'User']
-      //   }
-      // },
+      {
+        path: 'membership',
+  loadChildren: () => import('../modules/membership/membership.module').then(m => m.MembershipModule),
+        canActivate: [RoleGuard],
+        data: {
+          title: 'Membership Management',
+          breadcrumb: 'Membership',
+          requiredRoles: ['Admin', 'Manager', 'User']
+        }
+      },
 
       // ===== ACTIVITY LOGS ===== //
       {
@@ -95,10 +86,10 @@ const routes: Routes = [
         }
       },
 
-      // ===== DEFAULT ROUTE - REDIRECT TO ANALYTICS ===== //
+      // ===== DEFAULT ROUTE - REDIRECT TO DASHBOARD HOME ===== //
       {
         path: '',
-        redirectTo: 'analytics',
+        redirectTo: '/dashboard',
         pathMatch: 'full'
       }
     ]

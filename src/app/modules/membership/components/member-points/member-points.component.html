@@ -1,0 +1,405 @@
+<!-- src/app/modules/membership/components/member-points/member-points.component.html -->
+<div class="member-points">
+
+    <!-- Header Section -->
+    <div class="points-header">
+        <div class="header-content">
+            <h1 class="page-title">
+                <mat-icon>stars</mat-icon>
+                Points Management
+            </h1>
+            <p class="page-subtitle" *ngIf="member">
+                {{ member.name }} • {{ member.memberNumber }}
+            </p>
+        </div>
+
+        <div class="header-actions">
+            <button mat-button (click)="navigateBack()">
+                <mat-icon>arrow_back</mat-icon>
+                Back to Members
+            </button>
+
+            <button mat-raised-button color="accent" (click)="viewMember()">
+                <mat-icon>visibility</mat-icon>
+                View Member
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading$ | async" class="loading-container">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Loading member points data...</p>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error$ | async as error" class="error-container glass-card">
+        <mat-icon color="warn">error</mat-icon>
+        <p>{{ error }}</p>
+        <button mat-raised-button color="primary" (click)="navigateBack()">
+            <mat-icon>arrow_back</mat-icon>
+            Go Back
+        </button>
+    </div>
+
+    <!-- Points Content -->
+    <div class="points-content" *ngIf="!(loading$ | async) && !(error$ | async) && member">
+
+        <!-- Member Overview Card -->
+        <div class="member-overview glass-card">
+            <div class="member-info">
+                <div class="member-avatar">
+                    <mat-icon>person</mat-icon>
+                </div>
+
+                <div class="member-details">
+                    <h3>{{ member.name }}</h3>
+                    <div class="member-meta">
+                        <span class="member-number">{{ member.memberNumber }}</span>
+                        <mat-chip [style.background-color]="getTierInfo(member.tier).color">
+                            <mat-icon>{{ getTierInfo(member.tier).icon }}</mat-icon>
+                            {{ member.tier }}
+                        </mat-chip>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Points Summary -->
+            <div class="points-summary">
+                <div class="points-grid">
+                    <div class="points-item current-balance">
+                        <div class="points-icon">
+                            <mat-icon>account_balance_wallet</mat-icon>
+                        </div>
+                        <div class="points-content">
+                            <div class="points-label">Available Points</div>
+                            <div class="points-value">{{ formatNumber(member.availablePoints) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="points-item total-earned">
+                        <div class="points-icon">
+                            <mat-icon>trending_up</mat-icon>
+                        </div>
+                        <div class="points-content">
+                            <div class="points-label">Total Earned</div>
+                            <div class="points-value">{{ formatNumber(member.totalPoints) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="points-item total-used">
+                        <div class="points-icon">
+                            <mat-icon>shopping_cart</mat-icon>
+                        </div>
+                        <div class="points-content">
+                            <div class="points-label">Total Used</div>
+                            <div class="points-value">{{ formatNumber(member.usedPoints) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="points-item total-spent" *ngIf="memberStats">
+                        <div class="points-icon">
+                            <mat-icon>account_balance_wallet</mat-icon>
+                        </div>
+                        <div class="points-content">
+                            <div class="points-label">Total Spent</div>
+                            <div class="points-value">{{ formatCurrency(memberStats.totalSpent) }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tier Progress -->
+                <div class="tier-progress" *ngIf="memberStats">
+                    <div class="progress-header">
+                        <span class="current-tier">{{ memberStats.currentTier }}</span>
+                        <span class="next-tier" *ngIf="getTierProgress().nextTier !== memberStats.currentTier">
+                            Next: {{ getTierProgress().nextTier }}
+                        </span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" [style.width.%]="getTierProgress().progress"></div>
+                    </div>
+                    <div class="progress-info" *ngIf="getTierProgress().required > 0">
+                        <span>{{ formatCurrency(getTierProgress().required) }} more to reach {{
+                            getTierProgress().nextTier }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions glass-card">
+            <h3>
+                <mat-icon>flash_on</mat-icon>
+                Quick Actions
+            </h3>
+
+            <div class="action-buttons">
+                <button mat-raised-button color="primary" (click)="fillQuickAddPoints(100, 'Purchase bonus points')">
+                    <mat-icon>add_circle</mat-icon>
+                    Add 100 Points
+                </button>
+
+                <button mat-raised-button color="primary" (click)="fillQuickAddPoints(500, 'Special promotion points')">
+                    <mat-icon>star</mat-icon>
+                    Add 500 Points
+                </button>
+
+                <button mat-raised-button color="accent"
+                    (click)="fillQuickRedeemPoints(100, 'Product discount redemption')" [disabled]="!canRedeemPoints()">
+                    <mat-icon>redeem</mat-icon>
+                    Redeem 100 Points
+                </button>
+
+                <button mat-raised-button color="accent"
+                    (click)="fillQuickRedeemPoints(member.availablePoints, 'Full points redemption')"
+                    [disabled]="!canRedeemPoints()">
+                    <mat-icon>remove_circle</mat-icon>
+                    Redeem All
+                </button>
+            </div>
+        </div>
+
+        <!-- Points Management Tabs -->
+        <div class="points-tabs glass-card">
+            <mat-tab-group [(selectedIndex)]="selectedTab" class="points-tab-group">
+
+                <!-- Add Points Tab -->
+                <mat-tab label="Add Points">
+                    <div class="tab-content">
+                        <div class="tab-header">
+                            <h3>
+                                <mat-icon>add_circle</mat-icon>
+                                Add Points to Member
+                            </h3>
+                            <p>Award points to member for purchases, promotions, or special events.</p>
+                        </div>
+
+                        <form [formGroup]="addPointsForm" (ngSubmit)="onAddPoints()" class="points-form">
+                            <div class="form-grid">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Points to Add *</mat-label>
+                                    <input matInput formControlName="points" type="number" min="1" max="100000"
+                                        placeholder="Enter points amount">
+                                    <mat-icon matSuffix>stars</mat-icon>
+                                    <mat-error *ngIf="isFieldInvalid(addPointsForm, 'points')">
+                                        {{ getFieldError(addPointsForm, 'points') }}
+                                    </mat-error>
+                                </mat-form-field>
+
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Reference Number *</mat-label>
+                                    <input matInput formControlName="referenceNumber" placeholder="REF-123456">
+                                    <mat-icon matSuffix>confirmation_number</mat-icon>
+                                    <button mat-icon-button matSuffix type="button"
+                                        (click)="addPointsForm.patchValue({referenceNumber: generateReferenceNumber()})"
+                                        matTooltip="Generate reference number">
+                                        <mat-icon>refresh</mat-icon>
+                                    </button>
+                                    <mat-error *ngIf="isFieldInvalid(addPointsForm, 'referenceNumber')">
+                                        {{ getFieldError(addPointsForm, 'referenceNumber') }}
+                                    </mat-error>
+                                </mat-form-field>
+
+                                <mat-form-field appearance="outline" class="full-width">
+                                    <mat-label>Description *</mat-label>
+                                    <textarea matInput formControlName="description" rows="3"
+                                        placeholder="Describe the reason for adding points"></textarea>
+                                    <mat-icon matSuffix>description</mat-icon>
+                                    <mat-error *ngIf="isFieldInvalid(addPointsForm, 'description')">
+                                        {{ getFieldError(addPointsForm, 'description') }}
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-actions">
+                                <button mat-button type="button" (click)="addPointsForm.reset()">
+                                    <mat-icon>clear</mat-icon>
+                                    Clear Form
+                                </button>
+
+                                <button mat-raised-button color="primary" type="submit"
+                                    [disabled]="addPointsForm.invalid || isAddingPoints">
+                                    <mat-spinner diameter="20" *ngIf="isAddingPoints"></mat-spinner>
+                                    <mat-icon *ngIf="!isAddingPoints">add_circle</mat-icon>
+                                    {{ isAddingPoints ? 'Adding Points...' : 'Add Points' }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </mat-tab>
+
+                <!-- Redeem Points Tab -->
+                <mat-tab label="Redeem Points">
+                    <div class="tab-content">
+                        <div class="tab-header">
+                            <h3>
+                                <mat-icon>redeem</mat-icon>
+                                Redeem Points
+                            </h3>
+                            <p>Redeem member points for discounts, products, or special offers.</p>
+                            <div class="available-balance" *ngIf="member.availablePoints > 0">
+                                <mat-chip color="accent">
+                                    <mat-icon>account_balance_wallet</mat-icon>
+                                    {{ formatNumber(member.availablePoints) }} points available
+                                </mat-chip>
+                            </div>
+                            <div class="no-balance" *ngIf="member.availablePoints === 0">
+                                <mat-chip color="warn">
+                                    <mat-icon>warning</mat-icon>
+                                    No points available for redemption
+                                </mat-chip>
+                            </div>
+                        </div>
+
+                        <form [formGroup]="redeemPointsForm" (ngSubmit)="onRedeemPoints()" class="points-form">
+                            <div class="form-grid">
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Points to Redeem *</mat-label>
+                                    <input matInput formControlName="points" type="number" min="1"
+                                        [max]="member.availablePoints" placeholder="Enter points amount">
+                                    <mat-icon matSuffix>remove_circle</mat-icon>
+                                    <mat-error *ngIf="isFieldInvalid(redeemPointsForm, 'points')">
+                                        {{ getFieldError(redeemPointsForm, 'points') }}
+                                    </mat-error>
+                                    <mat-hint>Maximum: {{ formatNumber(member.availablePoints) }} points</mat-hint>
+                                </mat-form-field>
+
+                                <mat-form-field appearance="outline">
+                                    <mat-label>Reference Number *</mat-label>
+                                    <input matInput formControlName="referenceNumber" placeholder="REF-123456">
+                                    <mat-icon matSuffix>confirmation_number</mat-icon>
+                                    <button mat-icon-button matSuffix type="button"
+                                        (click)="redeemPointsForm.patchValue({referenceNumber: generateReferenceNumber()})"
+                                        matTooltip="Generate reference number" [disabled]="!canRedeemPoints()">
+                                        <mat-icon>refresh</mat-icon>
+                                    </button>
+                                    <mat-error *ngIf="isFieldInvalid(redeemPointsForm, 'referenceNumber')">
+                                        {{ getFieldError(redeemPointsForm, 'referenceNumber') }}
+                                    </mat-error>
+                                </mat-form-field>
+
+                                <mat-form-field appearance="outline" class="full-width">
+                                    <mat-label>Description *</mat-label>
+                                    <textarea matInput formControlName="description" rows="3"
+                                        placeholder="Describe what the points are being redeemed for"></textarea>
+                                    <mat-icon matSuffix>description</mat-icon>
+                                    <mat-error *ngIf="isFieldInvalid(redeemPointsForm, 'description')">
+                                        {{ getFieldError(redeemPointsForm, 'description') }}
+                                    </mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <div class="form-actions">
+                                <button mat-button type="button" (click)="redeemPointsForm.reset()"
+                                    [disabled]="!canRedeemPoints()">
+                                    <mat-icon>clear</mat-icon>
+                                    Clear Form
+                                </button>
+
+                                <button mat-raised-button color="accent" type="submit"
+                                    [disabled]="redeemPointsForm.invalid || isRedeemingPoints || !canRedeemPoints()">
+                                    <mat-spinner diameter="20" *ngIf="isRedeemingPoints"></mat-spinner>
+                                    <mat-icon *ngIf="!isRedeemingPoints">redeem</mat-icon>
+                                    {{ isRedeemingPoints ? 'Redeeming Points...' : 'Redeem Points' }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </mat-tab>
+
+                <!-- Points History Tab -->
+                <mat-tab label="Points History">
+                    <div class="tab-content">
+                        <div class="tab-header">
+                            <h3>
+                                <mat-icon>history</mat-icon>
+                                Points Transaction History
+                            </h3>
+                            <p>Complete history of all points transactions for this member.</p>
+                        </div>
+
+                        <!-- History Table -->
+                        <div class="history-table-container">
+                            <table mat-table [dataSource]="historyDataSource" class="history-table">
+
+                                <!-- Date Column -->
+                                <ng-container matColumnDef="date">
+                                    <th mat-header-cell *matHeaderCellDef>Date & Time</th>
+                                    <td mat-cell *matCellDef="let transaction">
+                                        <div class="date-cell">
+                                            <div class="date">{{ formatDate(transaction.createdAt) }}</div>
+                                        </div>
+                                    </td>
+                                </ng-container>
+
+                                <!-- Type Column -->
+                                <ng-container matColumnDef="type">
+                                    <th mat-header-cell *matHeaderCellDef>Type</th>
+                                    <td mat-cell *matCellDef="let transaction">
+                                        <mat-chip [color]="getPointsTypeColor(transaction.type)">
+                                            <mat-icon>{{ getPointsTypeIcon(transaction.type) }}</mat-icon>
+                                            {{ transaction.type }}
+                                        </mat-chip>
+                                    </td>
+                                </ng-container>
+
+                                <!-- Description Column -->
+                                <ng-container matColumnDef="description">
+                                    <th mat-header-cell *matHeaderCellDef>Description</th>
+                                    <td mat-cell *matCellDef="let transaction">
+                                        <div class="description-cell">
+                                            <div class="description">{{ transaction.description }}</div>
+                                        </div>
+                                    </td>
+                                </ng-container>
+
+                                <!-- Points Column -->
+                                <ng-container matColumnDef="points">
+                                    <th mat-header-cell *matHeaderCellDef>Points</th>
+                                    <td mat-cell *matCellDef="let transaction">
+                                        <div class="points-cell">
+                                            <span
+                                                [class]="transaction.isEarning ? 'points-positive' : 'points-negative'">
+                                                {{ getPointsDisplayValue(transaction.points, transaction.isEarning) }}
+                                            </span>
+                                        </div>
+                                    </td>
+                                </ng-container>
+
+                                <!-- Reference Number Column -->
+                                <ng-container matColumnDef="referenceNumber">
+                                    <th mat-header-cell *matHeaderCellDef>Reference</th>
+                                    <td mat-cell *matCellDef="let transaction">
+                                        <div class="reference-cell">
+                                            <code class="reference-number">{{ transaction.referenceNumber }}</code>
+                                        </div>
+                                    </td>
+                                </ng-container>
+
+                                <tr mat-header-row *matHeaderRowDef="historyColumns"></tr>
+                                <tr mat-row *matRowDef="let row; columns: historyColumns;" class="history-row"></tr>
+                            </table>
+
+                            <!-- Empty State -->
+                            <div *ngIf="historyDataSource.data.length === 0" class="empty-history">
+                                <mat-icon class="empty-icon">history</mat-icon>
+                                <h4>No Points History</h4>
+                                <p>This member hasn't had any points transactions yet.</p>
+                            </div>
+
+                            <!-- Pagination -->
+                            <div class="pagination-container" *ngIf="historyDataSource.data.length > 0">
+                                <mat-paginator [length]="totalItems" [pageSize]="pageSize" [pageIndex]="currentPage - 1"
+                                    [pageSizeOptions]="[10, 20, 50]" (page)="onPageChange($event)" showFirstLastButtons>
+                                </mat-paginator>
+                            </div>
+                        </div>
+                    </div>
+                </mat-tab>
+
+            </mat-tab-group>
+        </div>
+    </div>
+
+</div>

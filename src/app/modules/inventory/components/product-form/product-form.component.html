@@ -340,7 +340,11 @@
             </div>
 
             <div class="scanner-body">
-                <div class="scanner-placeholder">
+                <!-- Scanner Target Element - Always present for Quagga2 -->
+                <div id="barcode-scanner" class="scanner-target" 
+                     [style.display]="scannerActive ? 'block' : 'none'"></div>
+                
+                <div class="scanner-placeholder" [style.display]="scannerActive ? 'none' : 'flex'">
                     <mat-icon>qr_code_scanner</mat-icon>
                     <p>Position barcode within the frame</p>
                     <mat-spinner diameter="40"></mat-spinner>

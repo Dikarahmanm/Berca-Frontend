@@ -1,23 +1,37 @@
-// src/app/modules/pos/pos/receipt-preview/receipt-preview.component.scss
-
-// Import variables
-:root {
-  --clr-primary: #FF914D;
-  --clr-primary-dark: #E07A3B;
-  --clr-primary-light: #FFD3B3;
-  --clr-accent: #4BBF7B;
-  --clr-warning: #FFB84D;
-  --clr-error: #E15A4F;
-  --clr-surface: rgba(255, 255, 255, 0.25);
-  --clr-bg-base: #FDF9F6;
-  --backdrop-blur: blur(20px);
-  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --border-radius: 12px;
+// ===== DESIGN SYSTEM VARIABLES =====
+:host {
+  // COLORS: Senior-friendly palette
+  --clr-primary: #1E3A8A;           // Navy blue (primary)
+  --clr-primary-light: #DBEAFE;     // Light blue for backgrounds
+  --clr-primary-dark: #1E40AF;      // Darker blue for hover states
+  
+  // SURFACES: Clean and accessible
+  --clr-surface: #FFFFFF;           // Pure white
+  --clr-surface-elevated: #FFFFFF;  // Elevated surfaces
+  --clr-bg-primary: #F8F6F0;        // Warm cream (main background)
+  --clr-bg-secondary: #F3F4F6;      // Light gray
+  
+  // TEXT: High contrast for accessibility
+  --clr-text-primary: #1F2937;      // Near black (15.3:1)
+  --clr-text-secondary: #4B5563;    // Dark gray (9.5:1)
+  
+  // STATUS COLORS
+  --clr-success: #059669;           // Green
+  --clr-warning: #D97706;           // Amber
+  --clr-error: #DC2626;             // Red
+  
+  // SHADOWS: Subtle and professional
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+  
+  // BORDERS: Clear definition
+  --border-radius: 8px;
+  --border-color: #E5E7EB;
 }
 
 .receipt-preview {
   min-height: 100vh;
-  background: var(--clr-bg-base);
+  background: var(--clr-bg-primary);
   padding: 2rem;
 
   // Header Section
@@ -28,23 +42,23 @@
     margin-bottom: 2rem;
     padding: 1.5rem;
     background: var(--clr-surface);
-    backdrop-filter: var(--backdrop-blur);
-    border: 1px solid rgba(255, 145, 77, 0.1);
+    border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
-    box-shadow: var(--shadow-glass);
+    box-shadow: var(--shadow-sm);
 
     .back-btn {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       padding: 0.75rem 1rem;
-      background: rgba(255, 145, 77, 0.1);
-      border: 1px solid rgba(255, 145, 77, 0.2);
-      border-radius: 8px;
+      background: var(--clr-primary-light);
+      border: 1px solid var(--clr-primary);
+      border-radius: var(--border-radius);
       color: var(--clr-primary);
       font-weight: 600;
       cursor: pointer;
       transition: all 0.3s ease;
+      font-size: 18px;
 
       .icon {
         width: 1.25rem;
@@ -52,8 +66,8 @@
       }
 
       &:hover {
-        background: rgba(255, 145, 77, 0.2);
-        border-color: rgba(255, 145, 77, 0.4);
+        background: var(--clr-primary);
+        color: var(--clr-surface);
         transform: translateY(-1px);
       }
     }
@@ -63,9 +77,9 @@
       align-items: center;
       gap: 0.75rem;
       margin: 0;
-      font-size: 1.5rem;
+      font-size: 24px;
       font-weight: 700;
-      color: var(--clr-primary-dark);
+      color: var(--clr-primary);
 
       .icon {
         width: 2rem;
@@ -85,11 +99,12 @@
         padding: 0.75rem 1rem;
         background: var(--clr-primary);
         border: none;
-        border-radius: 8px;
-        color: white;
+        border-radius: var(--border-radius);
+        color: var(--clr-surface);
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
+        font-size: 18px;
 
         .icon {
           width: 1.25rem;

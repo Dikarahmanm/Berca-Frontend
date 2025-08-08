@@ -16,7 +16,13 @@ import { TransactionSuccessModalComponent, TransactionSuccessData } from '../tra
 
 // Services
 import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData, ProductListResponseApiResponse } from '../../../core/services/pos.service';
+import { InventoryService } from '../../inventory/services/inventory.service';
+import { CreateProductRequest } from '../../inventory/interfaces/inventory.interfaces';
 import { AuthService } from '../../../core/services/auth.service';
+import { MembershipService } from '../../membership/services/membership.service';
+import { MemberDto } from '../../membership/interfaces/membership.interfaces';
+import { CategoryService } from '../../category-management/services/category.service';
+import { Category } from '../../category-management/models/category.models';
 
 // Import standalone components
 import { BarcodeToolsComponent } from './barcode-tools/barcode-tools.component';
@@ -58,15 +64,42 @@ export class POSComponent implements OnInit, OnDestroy {
   isSearching = false;
   showPaymentModal = false;
   showBarcodeScanner = false;
+  showProductRegistrationModal = false;
+  scannedBarcodeForRegistration = '';
   errorMessage = '';
   successMessage = '';
+
+  // New product registration
+  newProduct = {
+    name: '',
+    barcode: '',
+    description: '',
+    sellPrice: 0,
+    buyPrice: 0,
+    stock: 0,
+    minimumStock: 5,
+    categoryId: null as number | null,
+    unit: 'pcs'
+  };
+  
+  // Categories for dropdown
+  categories: any[] = [];
   
   // Current user info
   currentUser: any = null;
+  
+  // Membership integration
+  selectedMember: MemberDto | null = null;
+  memberSearchQuery = '';
+  searchedMembers: MemberDto[] = [];
+  isSearchingMembers = false;
 
   constructor(
     private posService: POSService,
+    private inventoryService: InventoryService,
     private authService: AuthService,
+    private membershipService: MembershipService,
+    private categoryService: CategoryService,
     private router: Router,
     private dialog: MatDialog
   ) {}
@@ -76,6 +109,7 @@ export class POSComponent implements OnInit, OnDestroy {
     this.setupCartSubscription();
     this.setupSearchListener();
     this.initializeCartTotals();
+    this.loadCategories();
   }
 
   ngOnDestroy() {
@@ -343,6 +377,7 @@ loadProducts(): void {
       this.customerName = '';
       this.customerPhone = '';
       this.notes = '';
+      this.clearMember();
       this.successMessage = 'Keranjang dikosongkan';
       this.clearMessages();
     }
@@ -397,9 +432,20 @@ loadProducts(): void {
         },
         error: (error: any) => {
           this.isLoading = false;
-          this.errorMessage = error.message || 'Gagal mencari produk';
-          this.clearMessages();
           console.error('Error searching by barcode:', error);
+          
+          // Check if it's a "product not found" error
+          if (error.message && error.message.includes('tidak ditemukan')) {
+            // Show product registration modal with scanned barcode
+            this.scannedBarcodeForRegistration = barcode;
+            this.showProductRegistrationModal = true;
+            this.successMessage = `Barcode ${barcode} tidak ditemukan. Silakan daftarkan produk baru.`;
+            this.clearMessages();
+          } else {
+            // Other errors
+            this.errorMessage = error.message || 'Gagal mencari produk';
+            this.clearMessages();
+          }
         }
       });
   }
@@ -451,6 +497,179 @@ loadProducts(): void {
     this.showPaymentModal = false;
   }
 
+  // ===== PRODUCT REGISTRATION MODAL =====
+
+  onProductRegistrationComplete(product: any) {
+    this.showProductRegistrationModal = false;
+    this.scannedBarcodeForRegistration = '';
+    this.resetNewProductForm();
+    
+    if (product) {
+      // Product was successfully created, add it to cart
+      this.addToCart(product);
+      this.successMessage = `${product.name} berhasil didaftarkan dan ditambahkan ke keranjang`;
+      this.clearMessages();
+    }
+  }
+
+  onProductRegistrationCancelled() {
+    this.showProductRegistrationModal = false;
+    this.scannedBarcodeForRegistration = '';
+    this.resetNewProductForm();
+    this.errorMessage = 'Pendaftaran produk dibatalkan';
+    this.clearMessages();
+  }
+
+  submitNewProduct(form: any) {
+    if (!form.valid) {
+      this.errorMessage = 'Mohon lengkapi semua field yang wajib diisi';
+      this.clearMessages();
+      return;
+    }
+
+    // Additional validation
+    if (!this.newProduct.name?.trim()) {
+      this.errorMessage = 'Nama produk harus diisi';
+      this.clearMessages();
+      return;
+    }
+
+    if (!this.newProduct.sellPrice || this.newProduct.sellPrice <= 0) {
+      this.errorMessage = 'Harga jual harus lebih dari 0';
+      this.clearMessages();
+      return;
+    }
+
+    if (!this.newProduct.stock || this.newProduct.stock < 0) {
+      this.errorMessage = 'Stok tidak boleh negatif';
+      this.clearMessages();
+      return;
+    }
+
+    if (!this.scannedBarcodeForRegistration?.trim()) {
+      this.errorMessage = 'Barcode tidak valid';
+      this.clearMessages();
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    // Set the barcode from scanned value
+    this.newProduct.barcode = this.scannedBarcodeForRegistration;
+
+    // Create product using inventory service
+    this.createNewProduct(this.newProduct);
+  }
+
+  private createNewProduct(productData: any) {
+    // Create the product request according to Inventory interface
+    const createRequest: CreateProductRequest = {
+      name: productData.name,
+      barcode: productData.barcode,
+      description: productData.description || `Produk baru dari barcode ${productData.barcode}`,
+      buyPrice: productData.buyPrice,
+      sellPrice: productData.sellPrice,
+      stock: productData.stock,
+      minimumStock: productData.minimumStock,
+      unit: productData.unit || 'pcs',
+      categoryId: productData.categoryId || 1,
+      isActive: true
+    };
+
+    console.log('🆕 Creating product via InventoryService:', createRequest);
+
+    // Call real API through InventoryService
+    this.inventoryService.createProduct(createRequest)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (createdProduct) => {
+          console.log('✅ Product created successfully:', createdProduct);
+          this.isLoading = false;
+          
+          // Convert from inventory Product to POS Product format
+          const posProduct: Product = {
+            id: createdProduct.id,
+            name: createdProduct.name,
+            barcode: createdProduct.barcode,
+            sellPrice: createdProduct.sellPrice,
+            buyPrice: createdProduct.buyPrice,
+            stock: createdProduct.stock,
+            minStock: createdProduct.minimumStock,
+            unit: createdProduct.unit,
+            categoryId: createdProduct.categoryId,
+            categoryName: createdProduct.categoryName || 'Umum',
+            isActive: createdProduct.isActive,
+            description: createdProduct.description,
+            createdAt: createdProduct.createdAt,
+            updatedAt: createdProduct.updatedAt
+          };
+
+          // Refresh the product list in POS
+          this.refreshProductLists();
+          
+          // Add to cart and complete registration
+          this.onProductRegistrationComplete(posProduct);
+        },
+        error: (error) => {
+          console.error('❌ Failed to create product:', error);
+          this.isLoading = false;
+          this.errorMessage = `Gagal mendaftarkan produk: ${error.message || error}`;
+          this.clearMessages();
+        }
+      });
+  }
+
+  private resetNewProductForm() {
+    this.newProduct = {
+      name: '',
+      barcode: '',
+      description: '',
+      sellPrice: 0,
+      buyPrice: 0,
+      stock: 0,
+      minimumStock: 5,
+      categoryId: null,
+      unit: 'pcs'
+    };
+  }
+
+  private refreshProductLists() {
+    // Refresh POS product list
+    this.loadProducts();
+    
+    // Also trigger refresh in inventory service
+    this.inventoryService.getProducts().subscribe({
+      next: (response) => {
+        console.log('✅ Inventory products refreshed:', response.products?.length || 0);
+      },
+      error: (error) => {
+        console.warn('⚠️ Failed to refresh inventory products:', error);
+      }
+    });
+  }
+
+  private loadCategories() {
+    this.categoryService.getCategoriesSimple()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (categories) => {
+          this.categories = categories;
+          console.log('✅ Categories loaded for POS:', categories.length);
+        },
+        error: (error) => {
+          console.error('❌ Failed to load categories:', error);
+          // Set default category if loading fails
+          this.categories = [{ id: 1, name: 'Umum', color: '#666666' }];
+        }
+      });
+  }
+
+  getCategoryName(categoryId: number): string {
+    const category = this.categories.find(c => c.id === categoryId);
+    return category?.name || 'Unknown';
+  }
+
   private completeSale(paymentData: PaymentData) {
     // Use backend calculation for totals
     this.posService.getCartTotals(this.globalDiscount)
@@ -472,10 +691,11 @@ loadProducts(): void {
             changeAmount: paymentData.change,
             paymentMethod: paymentData.method,
             paymentReference: paymentData.reference,
+            memberId: this.selectedMember?.id,
             customerName: this.customerName || undefined,
             customerPhone: this.customerPhone || undefined,
             notes: this.notes || undefined,
-            redeemedPoints: 0 // TODO: Implement loyalty points
+            redeemedPoints: 0 // TODO: Implement points redemption in payment modal
           };
 
           this.isLoading = true;
@@ -493,11 +713,15 @@ loadProducts(): void {
                   console.log('🧾 Navigating to receipt:', saleId, saleNumber);
                   this.successMessage = `Transaksi berhasil! No: ${saleNumber}`;
                   
+                  // Process membership benefits (points and tier upgrade)
+                  this.processMembershipBenefits(saleId, response.data.total);
+                  
                   // Reset form
                   this.globalDiscount = 0;
                   this.customerName = '';
                   this.customerPhone = '';
                   this.notes = '';
+                  this.clearMember();
                   
                   // Clear cart
                   this.cart = [];
@@ -613,6 +837,9 @@ onKeyDown(event: KeyboardEvent) {
         this.showBarcodeScanner = false;
       } else if (this.showPaymentModal) {
         this.showPaymentModal = false;
+      } else if (this.showProductRegistrationModal) {
+        this.showProductRegistrationModal = false;
+        this.scannedBarcodeForRegistration = '';
       }
       break;
   }
@@ -730,6 +957,162 @@ onDiscountChange(index: number, newDiscount: number) {
         this.clearMessages(3000); // Clear after 3 seconds
       }
     });
+  }
+
+  // ===== MEMBERSHIP INTEGRATION =====
+
+  searchMembers(query: string): void {
+    if (!query || query.length < 2) {
+      this.searchedMembers = [];
+      return;
+    }
+
+    this.isSearchingMembers = true;
+    
+    const filters = {
+      search: query,
+      isActive: true,
+      page: 1,
+      pageSize: 10
+    };
+
+    this.membershipService.searchMembers(filters)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.searchedMembers = response.members;
+          this.isSearchingMembers = false;
+        },
+        error: (error) => {
+          console.error('Error searching members:', error);
+          this.searchedMembers = [];
+          this.isSearchingMembers = false;
+        }
+      });
+  }
+
+  selectMember(member: MemberDto): void {
+    this.selectedMember = member;
+    this.memberSearchQuery = `${member.name} (${member.memberNumber})`;
+    this.searchedMembers = [];
+  }
+
+  clearMember(): void {
+    this.selectedMember = null;
+    this.memberSearchQuery = '';
+    this.searchedMembers = [];
+  }
+
+  calculateEarnedPoints(total: number): number {
+    if (!this.selectedMember || total <= 0) return 0;
+    
+    // Basic calculation: 1 point per 1000 IDR spent
+    // You can customize this based on member tier
+    const basePointsRate = 0.001; // 1 point per 1000 IDR
+    
+    let pointsRate = basePointsRate;
+    
+    // Tier bonuses
+    switch (this.selectedMember.tier.toLowerCase()) {
+      case 'gold':
+        pointsRate = basePointsRate * 1.5;
+        break;
+      case 'platinum':
+        pointsRate = basePointsRate * 2;
+        break;
+      case 'diamond':
+        pointsRate = basePointsRate * 2.5;
+        break;
+    }
+    
+    return Math.floor(total * pointsRate);
+  }
+
+  // Process member tier upgrade after successful transaction
+  private processMembershipBenefits(saleId: number, saleTotal: number): void {
+    if (!this.selectedMember) return;
+
+    const earnedPoints = this.calculateEarnedPoints(saleTotal);
+    
+    console.log(`🎯 Processing membership benefits for member: ${this.selectedMember.name}`);
+    console.log(`  - Sale ID: ${saleId}`);
+    console.log(`  - Transaction Amount: ${saleTotal}`);
+    console.log(`  - Points to Earn: ${earnedPoints}`);
+    
+    // Use the complete transaction processing method
+    const transactionData = {
+      saleId: saleId,
+      amount: saleTotal,
+      points: earnedPoints,
+      description: `Purchase transaction #${saleId}`
+    };
+
+    // Try the main transaction endpoint, fallback to manual method
+    this.membershipService.processTransaction(this.selectedMember.id, transactionData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (success) => {
+          if (success) {
+            console.log(`✅ Successfully processed transaction for member ${this.selectedMember?.name}`);
+            this.checkTierUpgrade();
+          } else {
+            console.warn('⚠️ Transaction processing returned false, trying manual method');
+            this.processTransactionManually(saleId, saleTotal, earnedPoints);
+          }
+        },
+        error: (error) => {
+          console.warn('⚠️ Main transaction processing failed, trying manual method:', error);
+          this.processTransactionManually(saleId, saleTotal, earnedPoints);
+        }
+      });
+  }
+
+  private processTransactionManually(saleId: number, saleTotal: number, earnedPoints: number): void {
+    if (!this.selectedMember) return;
+
+    const transactionData = {
+      saleId: saleId,
+      amount: saleTotal,
+      points: earnedPoints,
+      description: `Manual transaction processing for sale #${saleId}`
+    };
+
+    this.membershipService.processTransactionManually(this.selectedMember.id, transactionData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (success) => {
+          if (success) {
+            console.log(`✅ Manual transaction processing successful for member ${this.selectedMember?.name}`);
+            console.log(`📝 Note: Total spent might not be updated on backend. Manual update may be required.`);
+            this.checkTierUpgrade();
+          }
+        },
+        error: (error) => {
+          console.error('❌ Manual transaction processing also failed:', error);
+        }
+      });
+  }
+
+  private checkTierUpgrade(): void {
+    if (!this.selectedMember) return;
+
+    // Check for tier upgrade after transaction processing
+    this.membershipService.updateMemberTier(this.selectedMember.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (upgraded) => {
+          if (upgraded && this.selectedMember) {
+            console.log(`🎉 Member ${this.selectedMember.name} tier upgraded!`);
+            // You could show a success message or notification here
+            this.successMessage += ` | Member ${this.selectedMember.name} tier upgraded!`;
+          } else if (this.selectedMember) {
+            console.log(`📊 Member ${this.selectedMember.name} tier checked - no upgrade needed`);
+          }
+        },
+        error: (error) => {
+          console.error('❌ Failed to check tier upgrade:', error);
+        }
+      });
   }
 
   // ===== NAVIGATION HELPERS =====

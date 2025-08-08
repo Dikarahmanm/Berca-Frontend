@@ -20,12 +20,11 @@
 
     <!-- Camera Section -->
     <div class="camera-section">
-        <!-- Camera Preview Container -->
+        <!-- Camera Container -->
         <div class="camera-container" *ngIf="isCameraActive">
-            <!-- Video Element for Camera Preview -->
-            <video #videoElement autoplay playsinline muted class="camera-video"></video>
-            <canvas #canvasElement class="camera-canvas" style="display: none;"></canvas>
-
+            <!-- Scanner Target Element - This is where Quagga2 renders the video -->
+            <div id="barcode-scanner" class="scanner-target"></div>
+            
             <!-- Scanning Overlay -->
             <div class="scanning-overlay">
                 <div class="scan-frame">
@@ -58,7 +57,7 @@
         </div>
 
         <!-- Camera Not Available -->
-        <div class="camera-placeholder" *ngIf="!isCameraActive && !errorMessage">
+        <div class="camera-placeholder" *ngIf="!isCameraActive && !errorMessage && !isRetrying">
             <svg class="placeholder-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M4,4H7L9,2H15L17,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9Z"/>
             </svg>
@@ -69,6 +68,13 @@
                 </svg>
                 Aktifkan Kamera
             </button>
+        </div>
+
+        <!-- Loading/Retry State -->
+        <div class="camera-placeholder" *ngIf="isRetrying">
+            <div class="spinner-ring"></div>
+            <p>Memuat scanner...</p>
+            <small>Menunggu elemen scanner siap</small>
         </div>
     </div>
 
@@ -124,13 +130,22 @@
                             <div class="product-name">{{product.name}}</div>
                             <div class="product-details">
                                 <span class="barcode">{{product.barcode}}</span>
-                                <span class="price">Rp {{formatPrice(product.price)}}</span>
-                                <span class="stock" [class.low-stock]="product.stock < 10">
+                                <span class="price">{{formatPrice(product.sellPrice)}}</span>
+                                <span class="category" *ngIf="product.categoryName">{{product.categoryName}}</span>
+                                <span class="stock" [class.low-stock]="product.stock < product.minStock">
                                     Stock: {{product.stock}}
                                 </span>
                             </div>
                         </div>
                         <div class="suggestion-action">Select</div>
+                    </div>
+                </div>
+
+                <!-- Loading state -->
+                <div class="product-suggestions" *ngIf="isLoading && manualBarcode.length > 2">
+                    <div class="loading-item">
+                        <div class="loading-spinner"></div>
+                        <span>Mencari produk...</span>
                     </div>
                 </div>
 

@@ -1,0 +1,348 @@
+<!-- src/app/modules/membership/components/membership-list/membership-list.component.html -->
+<div class="membership-list">
+
+    <!-- Header Section -->
+    <div class="list-header">
+        <div class="header-content">
+            <h1 class="page-title">
+                <mat-icon>card_membership</mat-icon>
+                Member Management
+            </h1>
+            <p class="page-subtitle">
+                Kelola data member dan sistem loyalty points
+            </p>
+        </div>
+
+        <div class="header-actions">
+            <button mat-raised-button color="primary" (click)="createMember()">
+                <mat-icon>add</mat-icon>
+                Add Member
+            </button>
+
+            <button mat-button [matMenuTriggerFor]="bulkMenu" [disabled]="selectedMembers.length === 0">
+                <mat-icon>more_vert</mat-icon>
+                Bulk Actions
+                <mat-icon>arrow_drop_down</mat-icon>
+            </button>
+
+            <mat-menu #bulkMenu="matMenu">
+                <button mat-menu-item (click)="bulkActivate()">
+                    <mat-icon>check_circle</mat-icon>
+                    Activate Selected
+                </button>
+                <button mat-menu-item (click)="bulkDeactivate()">
+                    <mat-icon>cancel</mat-icon>
+                    Deactivate Selected
+                </button>
+                <mat-divider></mat-divider>
+                <button mat-menu-item (click)="exportMembers()">
+                    <mat-icon>download</mat-icon>
+                    Export Data
+                </button>
+            </mat-menu>
+        </div>
+    </div>
+
+    <!-- Search & Filter Section -->
+    <div class="search-filters glass-card">
+        <form [formGroup]="searchForm" class="search-form">
+            <mat-form-field appearance="outline" class="search-field">
+                <mat-label>Search members...</mat-label>
+                <input matInput formControlName="search" placeholder="Search by name, phone, or member number">
+                <mat-icon matSuffix>search</mat-icon>
+                @if (searchForm.get('search')?.value) {
+                <button matSuffix mat-icon-button (click)="onSearchClear()">
+                    <mat-icon>clear</mat-icon>
+                </button>
+                }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+                <mat-label>Status</mat-label>
+                <mat-select formControlName="isActive">
+                    <mat-option value="all">All Status</mat-option>
+                    <mat-option value="true">Active</mat-option>
+                    <mat-option value="false">Inactive</mat-option>
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+                <mat-label>Tier</mat-label>
+                <mat-select formControlName="tier">
+                    <mat-option value="all">All Tiers</mat-option>
+                    <mat-option value="Bronze">Bronze</mat-option>
+                    <mat-option value="Silver">Silver</mat-option>
+                    <mat-option value="Gold">Gold</mat-option>
+                    <mat-option value="Platinum">Platinum</mat-option>
+                    <mat-option value="VIP">VIP</mat-option>
+                </mat-select>
+            </mat-form-field>
+
+            <button mat-button type="button" (click)="onFilterReset()">
+                <mat-icon>refresh</mat-icon>
+                Reset
+            </button>
+        </form>
+
+        <!-- Selection Summary -->
+        @if (selectedMembers.length > 0) {
+        <div class="selection-summary">
+            <mat-chip-listbox>
+                <mat-chip color="primary">
+                    {{ selectedMembers.length }} member(s) selected
+                </mat-chip>
+            </mat-chip-listbox>
+            <button mat-button (click)="clearSelection()">
+                <mat-icon>clear</mat-icon>
+                Clear Selection
+            </button>
+        </div>
+        }
+    </div>
+
+    <!-- Loading State -->
+    @if (loading$ | async) {
+    <div class="loading-container">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Loading members...</p>
+    </div>
+    }
+
+    <!-- Error State -->
+    @if (error$ | async; as error) {
+    <div class="error-container glass-card">
+        <mat-icon color="warn">error</mat-icon>
+        <p>{{ error }}</p>
+        <button mat-raised-button color="primary" (click)="loadMembers()">
+            <mat-icon>refresh</mat-icon>
+            Retry
+        </button>
+    </div>
+    }
+
+    <!-- Data Table -->
+    @if (!(loading$ | async) && !(error$ | async)) {
+    <div class="table-container glass-card">
+        <div class="table-header">
+            <div class="table-info">
+                <h3>Members List</h3>
+                <span class="member-count">{{ totalItems }} total members</span>
+            </div>
+
+            <div class="table-actions">
+                <button mat-icon-button (click)="selectAll()" matTooltip="Select All">
+                    <mat-icon>select_all</mat-icon>
+                </button>
+                <button mat-icon-button (click)="loadMembers()" matTooltip="Refresh">
+                    <mat-icon>refresh</mat-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table mat-table [dataSource]="dataSource" matSort class="members-table">
+
+                <!-- Selection Column -->
+                <ng-container matColumnDef="select">
+                    <th mat-header-cell *matHeaderCellDef>
+                        <mat-checkbox (change)="$event ? selectAll() : clearSelection()"
+                            [checked]="selectedMembers.length === dataSource.data.length"
+                            [indeterminate]="selectedMembers.length > 0 && selectedMembers.length < dataSource.data.length">
+                        </mat-checkbox>
+                    </th>
+                    <td mat-cell *matCellDef="let member">
+                        <mat-checkbox (click)="$event.stopPropagation()" (change)="toggleSelection(member)"
+                            [checked]="isSelected(member)">
+                        </mat-checkbox>
+                    </td>
+                </ng-container>
+
+                <!-- Member Number Column -->
+                <ng-container matColumnDef="memberNumber">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Member Number</th>
+                    <td mat-cell *matCellDef="let member">
+                        <div class="member-number">
+                            <mat-icon class="member-icon">card_membership</mat-icon>
+                            <span>{{ member.memberNumber }}</span>
+                        </div>
+                    </td>
+                </ng-container>
+
+                <!-- Name Column -->
+                <ng-container matColumnDef="name">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+                    <td mat-cell *matCellDef="let member">
+                        <div class="member-info">
+                            <div class="member-name">{{ member.name }}</div>
+                            <div class="member-email">{{ member.email }}</div>
+                        </div>
+                    </td>
+                </ng-container>
+
+                <!-- Phone Column -->
+                <ng-container matColumnDef="phone">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Phone</th>
+                    <td mat-cell *matCellDef="let member">
+                        <div class="phone-info">
+                            <mat-icon class="phone-icon">phone</mat-icon>
+                            <span>{{ member.phone }}</span>
+                        </div>
+                    </td>
+                </ng-container>
+
+                <!-- Tier Column -->
+                <ng-container matColumnDef="tier">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tier</th>
+                    <td mat-cell *matCellDef="let member">
+                        <mat-chip-listbox>
+                            <mat-chip [style.background-color]="getTierInfo(member.tier).color">
+                                <mat-icon>{{ getTierInfo(member.tier).icon }}</mat-icon>
+                                {{ member.tier }}
+                            </mat-chip>
+                        </mat-chip-listbox>
+                    </td>
+                </ng-container>
+
+                <!-- Total Spent Column -->
+                <ng-container matColumnDef="totalSpent">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Total Spent</th>
+                    <td mat-cell *matCellDef="let member">
+                        <div class="amount">{{ formatCurrency(member.totalSpent) }}</div>
+                        <div class="transactions">{{ member.totalTransactions }} transactions</div>
+                    </td>
+                </ng-container>
+
+                <!-- Points Column -->
+                <ng-container matColumnDef="availablePoints">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Points</th>
+                    <td mat-cell *matCellDef="let member">
+                        <div class="points-info">
+                            <div class="available-points">
+                                <mat-icon class="points-icon">stars</mat-icon>
+                                {{ formatNumber(member.availablePoints) }}
+                            </div>
+                            <div class="total-points">{{ formatNumber(member.totalPoints) }} earned</div>
+                        </div>
+                    </td>
+                </ng-container>
+
+                <!-- Last Transaction Column -->
+                <ng-container matColumnDef="lastTransaction">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Last Transaction</th>
+                    <td mat-cell *matCellDef="let member">
+                        <div class="last-transaction">
+                            <div class="date">{{ formatDate(member.lastTransactionDate) }}</div>
+                            <div class="average" *ngIf="member.averageTransactionValue > 0">
+                                Avg: {{ formatCurrency(member.averageTransactionValue) }}
+                            </div>
+                        </div>
+                    </td>
+                </ng-container>
+
+                <!-- Status Column -->
+                <ng-container matColumnDef="status">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+                    <td mat-cell *matCellDef="let member">
+                        <mat-chip-listbox>
+                            <mat-chip [color]="getStatusColor(member.isActive)">
+                                <mat-icon>{{ member.isActive ? 'check_circle' : 'cancel' }}</mat-icon>
+                                {{ getStatusText(member.isActive) }}
+                            </mat-chip>
+                        </mat-chip-listbox>
+                    </td>
+                </ng-container>
+
+                <!-- Actions Column -->
+                <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef>Actions</th>
+                    <td mat-cell *matCellDef="let member">
+                        <div class="actions-cell">
+                            <button mat-icon-button [matMenuTriggerFor]="actionMenu" matTooltip="More actions">
+                                <mat-icon>more_vert</mat-icon>
+                            </button>
+
+                            <mat-menu #actionMenu="matMenu">
+                                <button mat-menu-item (click)="viewMember(member)">
+                                    <mat-icon>visibility</mat-icon>
+                                    View Details
+                                </button>
+                                <button mat-menu-item (click)="editMember(member)">
+                                    <mat-icon>edit</mat-icon>
+                                    Edit Member
+                                </button>
+                                <button mat-menu-item (click)="managePoints(member)">
+                                    <mat-icon>stars</mat-icon>
+                                    Manage Points
+                                </button>
+                                <mat-divider></mat-divider>
+                                <button mat-menu-item (click)="updateTier(member)">
+                                    <mat-icon>upgrade</mat-icon>
+                                    Update Tier
+                                </button>
+                                <button mat-menu-item (click)="toggleMemberStatus(member)">
+                                    <mat-icon>{{ member.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                                    {{ member.isActive ? 'Deactivate' : 'Activate' }}
+                                </button>
+                                <mat-divider></mat-divider>
+                                <button mat-menu-item (click)="deleteMember(member)" class="danger-action">
+                                    <mat-icon>delete</mat-icon>
+                                    Delete Member
+                                </button>
+                            </mat-menu>
+
+                            <button mat-icon-button color="primary" (click)="viewMember(member)"
+                                matTooltip="View member details">
+                                <mat-icon>visibility</mat-icon>
+                            </button>
+
+                            <button mat-icon-button color="accent" (click)="editMember(member)"
+                                matTooltip="Edit member">
+                                <mat-icon>edit</mat-icon>
+                            </button>
+                        </div>
+                    </td>
+                </ng-container>
+
+                <!-- Table Row Definitions -->
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="member-row"></tr>
+            </table>
+        </div>
+
+        <!-- Empty State -->
+        @if (dataSource.data.length === 0) {
+        <div class="empty-state">
+            <mat-icon class="empty-icon">people_outline</mat-icon>
+            <h3>No Members Found</h3>
+            <p>No members match your current search criteria.</p>
+            <button mat-raised-button color="primary" (click)="createMember()">
+                <mat-icon>add</mat-icon>
+                Add First Member
+            </button>
+        </div>
+        }
+
+        <!-- Pagination -->
+        @if (dataSource.data.length > 0) {
+        <div class="pagination-container">
+            <mat-paginator [length]="totalItems" [pageSize]="pageSize" [pageIndex]="currentPage - 1"
+                [pageSizeOptions]="[10, 20, 50, 100]" (page)="onPageChange($event)" showFirstLastButtons>
+            </mat-paginator>
+
+            <div class="pagination-info">
+                Showing {{ (currentPage - 1) * pageSize + 1 }} -
+                {{ getMinValue(currentPage * pageSize, totalItems) }} of {{ totalItems }} members
+            </div>
+        </div>
+        }
+    </div>
+    }
+
+    <!-- Floating Action Button -->
+    <div class="fab-container">
+        <button mat-fab color="primary" (click)="createMember()" matTooltip="Add new member">
+            <mat-icon>add</mat-icon>
+        </button>
+    </div>
+
+</div>

@@ -32,6 +32,10 @@ const routes: Routes = [
         loadChildren: () => import('./modules/category-management/category-management.module').then(m => m.CategoryManagementModule)
       },
       {
+        path: 'membership',
+        loadChildren: () => import('./modules/membership/membership.module').then(m => m.MembershipModule)
+      },
+      {
         path: 'logs',
         loadChildren: () => import('./modules/activity-log/activity-log.module').then(m => m.ActivityLogModule)
       }

@@ -2,11 +2,12 @@
 // ✅ REAL DATA INTEGRATION: Sinkronisasi penuh dengan backend .NET 9
 // Menggunakan API nyata tanpa mock data sesuai NotificationController
 
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError, timer, of } from 'rxjs';
 import { map, catchError, tap, retry, shareReplay, switchMap } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 import { environment } from '../../../environment/environment';
 import { AuthService } from './auth.service';
 // ===== BACKEND DTO INTERFACES ===== //
@@ -73,7 +74,8 @@ export class NotificationService {
   constructor(
     private http: HttpClient,
     private snackBar: MatSnackBar,
-    private authService: AuthService  // ✅ Add AuthService injection
+    private authService: AuthService,  // ✅ Add AuthService injection
+    private injector: Injector  // ✅ Added injector for router access
   ) {
     console.log('🔔 NotificationService initialized with AuthService');
     this.initializeRealTimeUpdates();
@@ -437,6 +439,187 @@ export class NotificationService {
       verticalPosition: 'top',
       panelClass: ['snackbar-info']
     });
+  }
+
+  // ===== NOTIFICATION INTERACTION METHODS ===== //
+
+  /**
+   * Handle notification click with smart navigation
+   */
+  handleNotificationClick(notification: NotificationDto): void {
+    console.log('🔔 Handling notification click:', notification);
+    
+    // Mark as read first
+    if (!notification.isRead) {
+      this.markAsRead(notification.id).subscribe({
+        next: () => console.log('✅ Notification marked as read'),
+        error: (error) => console.error('❌ Error marking notification as read:', error)
+      });
+    }
+
+    // Handle navigation based on notification type and content
+    this.navigateFromNotification(notification);
+  }
+
+  /**
+   * Smart navigation based on notification content
+   */
+  private navigateFromNotification(notification: NotificationDto): void {
+    const router = this.getRouter();
+    if (!router) {
+      console.warn('Router not available for navigation');
+      return;
+    }
+
+    console.log('🔍 Analyzing notification for navigation:', {
+      title: notification.title,
+      message: notification.message,
+      type: notification.type
+    });
+
+    // Priority 1: Use actionUrl if provided and valid
+    if (notification.actionUrl) {
+      console.log('🔄 Found actionUrl:', notification.actionUrl);
+      
+      // Convert /sales/:id to /dashboard/pos/transaction/:id
+      const salesMatch = notification.actionUrl.match(/^\/sales\/(\d+)$/);
+      if (salesMatch) {
+        const transactionId = salesMatch[1];
+        console.log('🔄 Converting sales URL to transaction detail:', transactionId);
+        router.navigate(['/dashboard/pos/transaction', transactionId]);
+        return;
+      }
+      
+      // Use actionUrl as-is if it's already a valid route
+      console.log('🔄 Navigating to actionUrl:', notification.actionUrl);
+      router.navigateByUrl(notification.actionUrl);
+      return;
+    }
+
+    // Priority 2: Extract transaction ID from message for POS transactions
+    const transactionPattern = /(?:penjualan|transaksi|transaction|TRX-\d{8}-\d{4}|selesai|\b\d{4,5}\b)/i;
+    const isTransactionRelated = notification.type === 'transaction' || 
+                                notification.type === 'sale' || 
+                                notification.type === 'sales' ||
+                                transactionPattern.test(notification.message) ||
+                                transactionPattern.test(notification.title);
+    
+    console.log('🔍 Is transaction related?', isTransactionRelated);
+
+    if (isTransactionRelated) {
+      const transactionId = this.extractTransactionId(notification);
+      if (transactionId) {
+        console.log('🔄 Navigating to transaction detail:', transactionId);
+        router.navigate(['/dashboard/pos/transaction', transactionId]);
+        return;
+      } else {
+        console.warn('🔍 Could not extract transaction ID, trying alternative approaches...');
+        
+        // Alternative: check if message contains any transaction number format
+        const altNumberMatch = notification.message.match(/(\d{4,6})/);
+        if (altNumberMatch) {
+          const altId = parseInt(altNumberMatch[1], 10);
+          console.log('🔄 Found alternative transaction ID:', altId, 'navigating to detail');
+          router.navigate(['/dashboard/pos/transaction', altId]);
+          return;
+        }
+        
+        console.warn('🔍 No transaction ID found, redirecting to POS main page');
+        router.navigate(['/dashboard/pos']);
+        return;
+      }
+    }
+
+    // Priority 3: Navigate based on notification type
+    switch (notification.type?.toLowerCase()) {
+      case 'inventory':
+      case 'stock':
+        router.navigate(['/dashboard/inventory']);
+        break;
+      case 'user':
+      case 'auth':
+        router.navigate(['/dashboard/users']);
+        break;
+      case 'report':
+      case 'financial':
+        router.navigate(['/dashboard/reports']);
+        break;
+      case 'activity':
+        router.navigate(['/dashboard/logs']);
+        break;
+      default:
+        // Fallback: go to notifications center
+        console.log('🔄 Navigating to notifications center (fallback)');
+        router.navigate(['/dashboard/notifications']);
+        break;
+    }
+  }
+
+  /**
+   * Extract transaction ID from notification message
+   */
+  private extractTransactionId(notification: NotificationDto): number | null {
+    console.log('🔍 Extracting transaction ID from:', {
+      title: notification.title,
+      message: notification.message
+    });
+
+    // Try to extract from message content
+    const patterns = [
+      /TRX-\d{8}-(\d{4})/,  // TRX-20250808-0006 format
+      /transaksi\s*(?:#)?(\d+)/i,  // "transaksi #1067" or "transaksi 1067"
+      /penjualan\s*(?:#)?(\d+)/i,  // "penjualan #1067" or "penjualan 1067"
+      /transaction\s*(?:#)?(\d+)/i, // "transaction #1067" or "transaction 1067"
+      /ID[:\s]+(\d+)/i,  // "ID: 1067" or "ID 1067"
+      /\b(\d{4,5})\b/  // any 4-5 digit number (as fallback)
+    ];
+
+    // Check message first
+    for (const pattern of patterns) {
+      const match = notification.message.match(pattern);
+      if (match && match[1]) {
+        const id = parseInt(match[1], 10);
+        if (id && id > 0) {
+          console.log('✅ Extracted transaction ID from message:', id, 'using pattern:', pattern.source);
+          return id;
+        }
+      }
+    }
+
+    // Check title
+    for (const pattern of patterns) {
+      const match = notification.title.match(pattern);
+      if (match && match[1]) {
+        const id = parseInt(match[1], 10);
+        if (id && id > 0) {
+          console.log('✅ Extracted transaction ID from title:', id, 'using pattern:', pattern.source);
+          return id;
+        }
+      }
+    }
+
+    // Special case: if TRX pattern is found but no ID, try to extract the full number
+    const trxMatch = (notification.message + ' ' + notification.title).match(/TRX-\d{8}-(\d{4})/);
+    if (trxMatch) {
+      const id = parseInt(trxMatch[1], 10);
+      console.log('✅ Extracted transaction ID from TRX pattern:', id);
+      return id;
+    }
+
+    console.warn('❌ Could not extract transaction ID from notification:', notification);
+    return null;
+  }
+
+  /**
+   * Get router instance (dependency injection)
+   */
+  private getRouter(): Router | null {
+    try {
+      return this.injector.get(Router);
+    } catch {
+      console.warn('Router not available in notification service');
+      return null;
+    }
   }
 
   // ===== PUBLIC UTILITY METHODS ===== //

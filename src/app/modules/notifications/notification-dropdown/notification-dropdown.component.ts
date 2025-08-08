@@ -129,31 +129,14 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle notification click
+   * Handle notification click with smart navigation
    */
   onNotificationClick(notification: NotificationDto) {
-    // Mark as read using real service
-    if (!notification.isRead) {
-      this.notificationService.markAsRead(notification.id)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: (success) => {
-            if (success) {
-              notification.isRead = true;
-              notification.readAt = new Date().toISOString();
-            }
-          },
-          error: (error) => {
-            console.error('Error marking notification as read:', error);
-          }
-        });
-    }
-
-    // Navigate to action URL
-    if (notification.actionUrl) {
-      this.router.navigate([notification.actionUrl]);
-    }
-
+    console.log('🔔 Notification clicked in dropdown:', notification);
+    
+    // Use the notification service's smart click handler
+    this.notificationService.handleNotificationClick(notification);
+    
     this.closeDropdown();
   }
 

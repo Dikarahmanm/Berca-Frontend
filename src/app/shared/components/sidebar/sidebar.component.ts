@@ -223,7 +223,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   navigateToProfile(): void {
-    this.router.navigate(['/profile']);
+    this.router.navigate(['/dashboard/profile']);
     if (this.isMobile) {
       this.closeMobileSidebar();
     }

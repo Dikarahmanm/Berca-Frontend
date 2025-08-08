@@ -22,6 +22,12 @@ import {
   ReceiptData
 } from '../../modules/pos/pos/interfaces/pos.interfaces';
 
+import { 
+  TransactionDetailResponse, 
+  TransactionDetail,
+  TransactionItem
+} from '../../modules/pos/interfaces/transaction-detail.interface';
+
 // ✅ RE-EXPORT ALL INTERFACES FOR OTHER COMPONENTS
 export type {
   CreateSaleRequest,
@@ -376,6 +382,56 @@ export class POSService {
       taxAmount,
       total
     };
+  }
+
+  // ===== TRANSACTION DETAIL METHODS =====
+  
+  /**
+   * Get transaction detail by ID
+   */
+  getTransactionDetail(id: number): Observable<TransactionDetail> {
+    console.log('🔍 Getting transaction detail for ID:', id);
+    
+    return this.http.get<TransactionDetailResponse>(`${this.apiUrl}/POS/sales/${id}`)
+      .pipe(
+        tap(response => {
+          console.log('✅ Transaction detail response:', response);
+        }),
+        map(response => {
+          if (response.success && response.data) {
+            return response.data;
+          }
+          throw new Error(response.message || 'Failed to get transaction detail');
+        }),
+        catchError(error => {
+          console.error('❌ Error getting transaction detail:', error);
+          return this.handleError(error);
+        })
+      );
+  }
+
+  /**
+   * Print receipt for transaction
+   */
+  printReceipt(transactionId: number): Observable<boolean> {
+    console.log('🖨️ Marking receipt as printed for transaction:', transactionId);
+    
+    return this.http.post<BooleanApiResponse>(`${this.apiUrl}/POS/sales/${transactionId}/print-receipt`, {})
+      .pipe(
+        tap(response => {
+          console.log('✅ Print receipt response:', response);
+        }),
+        map(response => {
+          if (response.success) {
+            return response.data;
+          }
+          throw new Error(response.message || 'Failed to mark receipt as printed');
+        }),
+        catchError(error => {
+          console.error('❌ Error printing receipt:', error);
+          return this.handleError(error);
+        })
+      );
   }
 
   // ===== UTILITY METHODS =====

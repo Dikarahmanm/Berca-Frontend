@@ -59,7 +59,7 @@ export class LayoutService {
           id: 'pos',
           label: 'POS',
           icon: 'point_of_sale',
-          route: '/pos',
+          route: '/dashboard/pos',
           badge: 'HOT',
           badgeColor: 'primary',
           roles: ['Admin', 'Manager', 'User', 'Cashier']
@@ -68,7 +68,7 @@ export class LayoutService {
           id: 'notifications',
           label: 'Notifications',
           icon: 'notifications',
-          route: '/notifications',
+          route: '/dashboard/notifications',
           roles: ['Admin', 'Manager', 'User', 'Cashier']
         }
       ]
@@ -149,7 +149,7 @@ export class LayoutService {
           id: 'profile',
           label: 'Profile',
           icon: 'person',
-          route: '/profile',
+          route: '/dashboard/profile',
           roles: ['Admin', 'Manager', 'User', 'Cashier']
         },
         {

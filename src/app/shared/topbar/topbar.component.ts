@@ -287,7 +287,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
     if (this.isMobile) {
       document.body.style.overflow = '';
     }
-    this.router.navigate(['/notifications']);
+    this.router.navigate(['/dashboard/notifications']);
   }
 
   markAllAsRead(): void {
@@ -325,28 +325,24 @@ export class TopbarComponent implements OnInit, OnDestroy {
   }
 
   navigateToProfile(): void {
-    this.router.navigate(['/profile']);
+    this.router.navigate(['/dashboard/profile']);
   }
 
   navigateToSettings(): void {
-    this.router.navigate(['/settings']);
+    this.router.navigate(['/dashboard/settings']);
   }
 
   navigateToNotifications(): void {
-    this.router.navigate(['/notifications']);
+    this.router.navigate(['/dashboard/notifications']);
   }
 
   // Notification methods
   onNotificationClick(notification: NotificationDto): void {
-    if (!notification.isRead) {
-      this.markNotificationAsRead(notification.id);
-    }
-
-    if (notification.actionUrl) {
-      this.router.navigate([notification.actionUrl]);
-    } else {
-      this.navigateToNotifications();
-    }
+    // Close notification dropdown
+    this.showNotificationDropdown = false;
+    
+    // Use smart navigation from notification service
+    this.notificationService.handleNotificationClick(notification);
   }
 
   markNotificationAsRead(id: number): void {

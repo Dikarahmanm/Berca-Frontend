@@ -1,0 +1,313 @@
+<!-- src/app/modules/membership/components/membership-form/membership-form.component.html -->
+<div class="membership-form">
+
+    <!-- Header Section -->
+    <div class="form-header">
+        <div class="header-content">
+            <h1 class="form-title">
+                <mat-icon>{{ getFormIcon() }}</mat-icon>
+                {{ getFormTitle() }}
+            </h1>
+            <p class="form-subtitle" *ngIf="member">
+                {{ member.memberNumber }} • {{ member.name }}
+            </p>
+        </div>
+
+        <div class="header-actions">
+            <button mat-button (click)="navigateBack()">
+                <mat-icon>arrow_back</mat-icon>
+                Back to List
+            </button>
+
+            <button mat-raised-button color="accent" *ngIf="isReadOnlyMode() && memberId" (click)="editMember()">
+                <mat-icon>edit</mat-icon>
+                Edit Member
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading$ | async" class="loading-container">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Loading member data...</p>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error$ | async as error" class="error-container glass-card">
+        <mat-icon color="warn">error</mat-icon>
+        <p>{{ error }}</p>
+        <button mat-raised-button color="primary" (click)="navigateBack()">
+            <mat-icon>arrow_back</mat-icon>
+            Go Back
+        </button>
+    </div>
+
+    <!-- Form Content -->
+    <div class="form-content" *ngIf="!(loading$ | async) && !(error$ | async)">
+
+        <!-- Member Stats Card (View Mode Only) -->
+        <div class="member-stats glass-card" *ngIf="isReadOnlyMode() && member">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-icon">
+                        <mat-icon>card_membership</mat-icon>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">Member Since</div>
+                        <div class="stat-value">{{ formatDate(member.joinDate) }}</div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <div class="stat-icon tier-icon" [style.color]="getTierInfo(member.tier).color">
+                        <mat-icon>{{ getTierInfo(member.tier).icon }}</mat-icon>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">Current Tier</div>
+                        <div class="stat-value">{{ member.tier }}</div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <div class="stat-icon">
+                        <mat-icon>account_balance_wallet</mat-icon>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">Total Spent</div>
+                        <div class="stat-value">{{ formatCurrency(member.totalSpent) }}</div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <div class="stat-icon">
+                        <mat-icon>stars</mat-icon>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">Available Points</div>
+                        <div class="stat-value">{{ formatNumber(member.availablePoints) }}</div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <div class="stat-icon">
+                        <mat-icon>receipt</mat-icon>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">Total Transactions</div>
+                        <div class="stat-value">{{ formatNumber(member.totalTransactions) }}</div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <div class="stat-icon">
+                        <mat-icon>schedule</mat-icon>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-label">Last Transaction</div>
+                        <div class="stat-value">{{ formatDate(member.lastTransactionDate) }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions" *ngIf="isReadOnlyMode()">
+                <button mat-raised-button color="primary"
+                    (click)="router.navigate(['/dashboard/membership/points', member.id])">
+                    <mat-icon>stars</mat-icon>
+                    Manage Points
+                </button>
+
+                <button mat-button (click)="editMember()">
+                    <mat-icon>edit</mat-icon>
+                    Edit Member
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Form -->
+        <div class="form-container glass-card">
+            <form [formGroup]="memberForm" (ngSubmit)="onSubmit()" class="member-form">
+
+                <!-- Personal Information Section -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <h3>
+                            <mat-icon>person</mat-icon>
+                            Personal Information
+                        </h3>
+                    </div>
+
+                    <div class="form-grid">
+                        <!-- Full Name -->
+                        <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>Full Name *</mat-label>
+                            <input matInput formControlName="name" placeholder="Enter member's full name"
+                                [readonly]="isReadOnlyMode()">
+                            <mat-icon matSuffix>person</mat-icon>
+                            <mat-error *ngIf="isFieldInvalid('name')">
+                                {{ getFieldError('name') }}
+                            </mat-error>
+                        </mat-form-field>
+
+                        <!-- Phone Number -->
+                        <mat-form-field appearance="outline">
+                            <mat-label>Phone Number *</mat-label>
+                            <input matInput formControlName="phone" placeholder="+62 812 3456 7890"
+                                [readonly]="isReadOnlyMode()">
+                            <mat-icon matSuffix>phone</mat-icon>
+                            <mat-error *ngIf="isFieldInvalid('phone')">
+                                {{ getFieldError('phone') }}
+                            </mat-error>
+                            <mat-hint *ngIf="phoneExists" class="phone-exists-hint">
+                                <mat-icon>warning</mat-icon>
+                                This phone number is already registered
+                            </mat-hint>
+                        </mat-form-field>
+
+                        <!-- Email -->
+                        <mat-form-field appearance="outline">
+                            <mat-label>Email Address *</mat-label>
+                            <input matInput formControlName="email" type="email" placeholder="member@example.com"
+                                [readonly]="isReadOnlyMode()">
+                            <mat-icon matSuffix>email</mat-icon>
+                            <mat-error *ngIf="isFieldInvalid('email')">
+                                {{ getFieldError('email') }}
+                            </mat-error>
+                        </mat-form-field>
+
+                        <!-- Gender -->
+                        <mat-form-field appearance="outline">
+                            <mat-label>Gender *</mat-label>
+                            <mat-select formControlName="gender">
+                                <mat-option *ngFor="let option of genderOptions" [value]="option.value">
+                                    <div class="gender-option">
+                                        <mat-icon>{{ option.icon }}</mat-icon>
+                                        {{ option.label }}
+                                    </div>
+                                </mat-option>
+                            </mat-select>
+                            <mat-error *ngIf="isFieldInvalid('gender')">
+                                {{ getFieldError('gender') }}
+                            </mat-error>
+                        </mat-form-field>
+
+                        <!-- Date of Birth -->
+                        <mat-form-field appearance="outline">
+                            <mat-label>Date of Birth *</mat-label>
+                            <input matInput [matDatepicker]="birthDatePicker" formControlName="dateOfBirth"
+                                [min]="minDate" [max]="maxDate" [readonly]="isReadOnlyMode()">
+                            <mat-datepicker-toggle matIconSuffix [for]="birthDatePicker">
+                            </mat-datepicker-toggle>
+                            <mat-datepicker #birthDatePicker></mat-datepicker>
+                            <mat-error *ngIf="isFieldInvalid('dateOfBirth')">
+                                {{ getFieldError('dateOfBirth') }}
+                            </mat-error>
+                            <mat-hint *ngIf="member && isReadOnlyMode()">
+                                {{ getDisplayAge() }}
+                            </mat-hint>
+                        </mat-form-field>
+
+                        <!-- Address -->
+                        <mat-form-field appearance="outline" class="full-width">
+                            <mat-label>Address *</mat-label>
+                            <textarea matInput formControlName="address" rows="3" placeholder="Enter complete address"
+                                [readonly]="isReadOnlyMode()"></textarea>
+                            <mat-icon matSuffix>location_on</mat-icon>
+                            <mat-error *ngIf="isFieldInvalid('address')">
+                                {{ getFieldError('address') }}
+                            </mat-error>
+                        </mat-form-field>
+                    </div>
+                </div>
+
+                <!-- Account Status Section (Edit Mode Only) -->
+                <div class="form-section" *ngIf="canShowActiveToggle()">
+                    <div class="section-header">
+                        <h3>
+                            <mat-icon>settings</mat-icon>
+                            Account Settings
+                        </h3>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="status-toggle">
+                            <mat-slide-toggle formControlName="isActive" color="primary">
+                                <div class="toggle-content">
+                                    <div class="toggle-label">Account Status</div>
+                                    <div class="toggle-description">
+                                        {{ memberForm.get('isActive')?.value ? 'Active' : 'Inactive' }}
+                                    </div>
+                                </div>
+                            </mat-slide-toggle>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Member Information Display (View Mode) -->
+                <div class="form-section" *ngIf="isReadOnlyMode() && member">
+                    <div class="section-header">
+                        <h3>
+                            <mat-icon>info</mat-icon>
+                            Member Information
+                        </h3>
+                    </div>
+
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Member Number</div>
+                            <div class="info-value">
+                                <mat-chip color="primary">{{ member.memberNumber }}</mat-chip>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-label">Member Tier</div>
+                            <div class="info-value">
+                                <mat-chip [style.background-color]="getTierInfo(member.tier).color">
+                                    <mat-icon>{{ getTierInfo(member.tier).icon }}</mat-icon>
+                                    {{ member.tier }}
+                                </mat-chip>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-label">Account Status</div>
+                            <div class="info-value">
+                                <mat-chip [color]="member.isActive ? 'accent' : 'warn'">
+                                    <mat-icon>{{ member.isActive ? 'check_circle' : 'cancel' }}</mat-icon>
+                                    {{ member.isActive ? 'Active' : 'Inactive' }}
+                                </mat-chip>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-label">Created At</div>
+                            <div class="info-value">{{ formatDate(member.createdAt) }}</div>
+                        </div>
+
+                        <div class="info-item">
+                            <div class="info-label">Last Updated</div>
+                            <div class="info-value">{{ formatDate(member.updatedAt) }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions" *ngIf="!isReadOnlyMode()">
+                    <button mat-button type="button" (click)="navigateBack()">
+                        <mat-icon>cancel</mat-icon>
+                        Cancel
+                    </button>
+
+                    <button mat-raised-button color="primary" type="submit"
+                        [disabled]="isSubmitButtonDisabled()">
+                        <mat-spinner diameter="20" *ngIf="isSubmitting"></mat-spinner>
+                        <mat-icon *ngIf="!isSubmitting">save</mat-icon>
+                        {{ getSubmitButtonText() }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>

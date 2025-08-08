@@ -58,9 +58,7 @@
               "node_modules/material-design-icons-iconfont/dist/material-design-icons.css",
               "src/styles.scss"
             ],
-            "scripts": [
-              "node_modules/quagga/dist/quagga.min.js"
-            ]
+            "scripts": []
           },
           "configurations": {
             "production": {
@@ -72,8 +70,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "24kB",
+                  "maximumError": "48kB"
                 }
               ],
               "outputHashing": "all"

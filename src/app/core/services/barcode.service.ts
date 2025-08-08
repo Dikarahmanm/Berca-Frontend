@@ -2,7 +2,8 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
-declare var Quagga: any;
+// Import Quagga2 - Better barcode scanner than original Quagga
+declare const Quagga: any;
 
 @Injectable({
   providedIn: 'root'
@@ -11,6 +12,7 @@ export class BarcodeService {
   private isScanning = false;
   private scannerInitialized = false;
   private currentCallback: ((barcode: string) => void) | null = null;
+  private currentStream: MediaStream | null = null;
   
   // Scanner status
   private scannerStatusSubject = new BehaviorSubject<{
@@ -23,7 +25,7 @@ export class BarcodeService {
   });
 
   constructor() {
-    this.checkQuaggaAvailability();
+    this.initializeScanner();
   }
 
   /**
@@ -41,21 +43,26 @@ export class BarcodeService {
   }
 
   /**
-   * Check if Quagga library is loaded
+   * Initialize Quagga2 scanner
    */
-  private checkQuaggaAvailability(): void {
-    if (typeof Quagga === 'undefined') {
-      console.warn('Quagga library not loaded. Barcode scanning will not work.');
+  private initializeScanner(): void {
+    try {
+      this.updateScannerStatus({
+        isActive: false,
+        isSupported: true
+      });
+    } catch (error) {
+      console.error('Failed to initialize scanner:', error);
       this.updateScannerStatus({
         isActive: false,
         isSupported: false,
-        error: 'Barcode scanner library not loaded'
+        error: 'Scanner initialization failed'
       });
     }
   }
 
   /**
-   * Start barcode scanner
+   * Start barcode scanner using Quagga2
    */
   async startScanner(callback: (barcode: string) => void, targetElementId: string = 'barcode-scanner'): Promise<void> {
     if (this.isScanning) {
@@ -68,13 +75,18 @@ export class BarcodeService {
     }
 
     if (typeof Quagga === 'undefined') {
-      throw new Error('Quagga library not available');
+      // Try to load Quagga2 dynamically
+      try {
+        await this.loadQuagga2();
+      } catch (error) {
+        throw new Error('Quagga2 library not available');
+      }
     }
 
     try {
       this.currentCallback = callback;
       
-      await this.initializeQuagga(targetElementId);
+      await this.initializeQuagga2(targetElementId);
       
       this.isScanning = true;
       this.scannerInitialized = true;
@@ -84,21 +96,21 @@ export class BarcodeService {
         isSupported: true
       });
 
-      console.log('Barcode scanner started successfully');
+      console.log('Quagga2 barcode scanner started successfully');
       
     } catch (rawError) {
-  const errMsg = rawError instanceof Error
-    ? rawError.message
-    : String(rawError);
-  console.error('Failed to start barcode scanner:', rawError);
+      const errMsg = rawError instanceof Error
+        ? rawError.message
+        : String(rawError);
+      console.error('Failed to start barcode scanner:', rawError);
 
-  this.updateScannerStatus({
-    isActive: false,
-    isSupported: true,
-    error: `Failed to start scanner: ${errMsg}`
-  });
-  throw rawError;
-}
+      this.updateScannerStatus({
+        isActive: false,
+        isSupported: true,
+        error: `Failed to start scanner: ${errMsg}`
+      });
+      throw rawError;
+    }
   }
 
   /**
@@ -110,10 +122,17 @@ export class BarcodeService {
     }
 
     try {
+      // Stop Quagga2 scanner
       if (typeof Quagga !== 'undefined' && this.scannerInitialized) {
         Quagga.stop();
         Quagga.offDetected();
         Quagga.offProcessed();
+      }
+
+      // Stop media stream if exists
+      if (this.currentStream) {
+        this.currentStream.getTracks().forEach(track => track.stop());
+        this.currentStream = null;
       }
 
       this.isScanning = false;
@@ -125,7 +144,7 @@ export class BarcodeService {
         isSupported: true
       });
 
-      console.log('Barcode scanner stopped');
+      console.log('Quagga2 barcode scanner stopped');
       
     } catch (error) {
       console.error('Error stopping barcode scanner:', error);
@@ -133,19 +152,48 @@ export class BarcodeService {
   }
 
   /**
-   * Initialize Quagga scanner
+   * Load Quagga2 library dynamically - Use CDN fallback
    */
-  private async initializeQuagga(targetElementId: string): Promise<void> {
+  private async loadQuagga2(): Promise<void> {
+    // Check if Quagga is already available
+    if (typeof (window as any).Quagga !== 'undefined') {
+      return;
+    }
+
+    // Load from CDN as fallback
     return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@ericblade/quagga2@1.8.3/dist/quagga.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load Quagga2 from CDN'));
+      document.head.appendChild(script);
+    });
+  }
+
+  /**
+   * Initialize Quagga2 scanner
+   */
+  private async initializeQuagga2(targetElementId: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const targetEl = document.getElementById(targetElementId);
+      if (!targetEl) {
+        reject(new Error(`Scanner target element '#${targetElementId}' not found in DOM. Make sure the scanner component is rendered.`));
+        return;
+      }
+
+      console.log('Found scanner target element:', targetEl);
+
       const config = {
         inputStream: {
           name: "Live",
           type: "LiveStream",
-          target: `#${targetElementId}`,
+          // Pass real HTMLElement for Quagga2 to attach its video/canvas elements
+          target: targetEl,
           constraints: {
             width: 640,
             height: 480,
-            facingMode: "environment" // Use back camera
+            facingMode: "environment", // Use back camera
+            aspectRatio: 4/3
           }
         },
         locator: {
@@ -160,14 +208,12 @@ export class BarcodeService {
             "ean_reader",
             "ean_8_reader",
             "code_39_reader",
-            "code_39_vin_reader",
-            "codabar_reader",
             "upc_reader",
             "upc_e_reader",
-            "i2of5_reader"
+            "codabar_reader"
           ],
           debug: {
-            showCanvas: true,
+            showCanvas: false,
             showPatches: false,
             showFoundPatches: false,
             showSkeleton: false,
@@ -175,9 +221,9 @@ export class BarcodeService {
             showPatchLabels: false,
             showRemainingPatchLabels: false,
             boxFromPatches: {
-              showTransformed: true,
-              showTransformedBox: true,
-              showBB: true
+              showTransformed: false,
+              showTransformedBox: false,
+              showBB: false
             }
           }
         }
@@ -185,13 +231,13 @@ export class BarcodeService {
 
       Quagga.init(config, (err: any) => {
         if (err) {
-          console.error('Quagga initialization failed:', err);
+          console.error('Quagga2 initialization failed:', err);
           reject(err);
           return;
         }
 
         // Set up event listeners
-        this.setupQuaggaEventListeners();
+        this.setupQuagga2EventListeners();
         
         Quagga.start();
         resolve();
@@ -200,15 +246,15 @@ export class BarcodeService {
   }
 
   /**
-   * Setup Quagga event listeners
+   * Setup Quagga2 event listeners
    */
-  private setupQuaggaEventListeners(): void {
+  private setupQuagga2EventListeners(): void {
     // Barcode detected event
     Quagga.onDetected((result: any) => {
       const code = result.codeResult.code;
       
       if (this.isValidBarcode(code) && this.currentCallback) {
-        console.log('Barcode detected:', code);
+        console.log('Barcode detected with Quagga2:', code);
         this.currentCallback(code);
         
         // Optional: Stop scanner after successful scan
@@ -216,27 +262,11 @@ export class BarcodeService {
       }
     });
 
-    // Processing event for debugging
+    // Processing event (optional - for debugging)
     Quagga.onProcessed((result: any) => {
-      const drawingCtx = Quagga.canvas.ctx.overlay;
-      const drawingCanvas = Quagga.canvas.dom.overlay;
-
+      // You can add visual feedback here if needed
       if (result) {
-        if (result.boxes) {
-          drawingCtx.clearRect(0, 0, parseInt(drawingCanvas.getAttribute("width")), 
-                              parseInt(drawingCanvas.getAttribute("height")));
-          result.boxes.filter((box: any) => box !== result.box).forEach((box: any) => {
-            Quagga.ImageDebug.drawPath(box, {x: 0, y: 1}, drawingCtx, {color: "green", lineWidth: 2});
-          });
-        }
-
-        if (result.box) {
-          Quagga.ImageDebug.drawPath(result.box, {x: 0, y: 1}, drawingCtx, {color: "#00F", lineWidth: 2});
-        }
-
-        if (result.codeResult && result.codeResult.code) {
-          Quagga.ImageDebug.drawPath(result.line, {x: 'x', y: 'y'}, drawingCtx, {color: 'red', lineWidth: 3});
-        }
+        // Handle processing result
       }
     });
   }
@@ -378,52 +408,6 @@ export class BarcodeService {
     return {
       isValid: true,
       format
-    };
-  }
-
-  /**
-   * Get scanner configuration for different barcode types
-   */
-  getScannerConfig(barcodeType: 'all' | 'ean' | 'upc' | 'code128' | 'code39' = 'all'): any {
-    const baseConfig = {
-      inputStream: {
-        name: "Live",
-        type: "LiveStream",
-        constraints: {
-          width: 640,
-          height: 480,
-          facingMode: "environment"
-        }
-      },
-      locator: {
-        patchSize: "medium",
-        halfSample: true
-      },
-      numOfWorkers: 2,
-      frequency: 10
-    };
-
-    const readers: Record<'all' | 'ean' | 'upc' | 'code128' | 'code39', string[]> = {
-      all: [
-        "code_128_reader",
-        "ean_reader",
-        "ean_8_reader", 
-        "code_39_reader",
-        "codabar_reader",
-        "upc_reader",
-        "upc_e_reader"
-      ],
-      ean: ["ean_reader", "ean_8_reader"],
-      upc: ["upc_reader", "upc_e_reader"],
-      code128: ["code_128_reader"],
-      code39: ["code_39_reader"]
-    };
-
-    return {
-      ...baseConfig,
-      decoder: {
-        readers: readers[barcodeType] || readers.all
-      }
     };
   }
 }

@@ -122,9 +122,48 @@ export class POSService {
   }
 
   getProductByBarcode(barcode: string): Observable<ProductDtoApiResponse> {
+    // Try the direct barcode endpoint first
     return this.http.get<ProductDtoApiResponse>(`${this.apiUrl}/Product/barcode/${barcode}`, {
       withCredentials: true 
-    }).pipe(catchError(this.handleError.bind(this)));
+    }).pipe(
+      catchError((error) => {
+        // If barcode endpoint fails (404), try searching with barcode filter
+        if (error.status === 404) {
+          console.log('Direct barcode endpoint not found, trying search fallback...');
+          
+          const params = new HttpParams()
+            .set('search', barcode)
+            .set('page', '1')
+            .set('pageSize', '10')
+            .set('isActive', 'true');
+
+          return this.http.get<ProductListResponseApiResponse>(`${this.apiUrl}/Product`, { 
+            params,
+            withCredentials: true 
+          }).pipe(
+            map(response => {
+              // Find exact barcode match from search results
+              const exactMatch = response.data?.products?.find((product: ProductDto) => 
+                product.barcode === barcode
+              );
+              
+              if (exactMatch) {
+                // Convert ProductListItem to ProductDto format
+                return {
+                  success: true,
+                  data: exactMatch,
+                  message: 'Product found'
+                } as ProductDtoApiResponse;
+              } else {
+                throw new Error('Product dengan barcode tersebut tidak ditemukan');
+              }
+            }),
+            catchError(this.handleError.bind(this))
+          );
+        }
+        return this.handleError(error);
+      })
+    );
   }
 
   searchProducts(query: string): Observable<ProductListResponseApiResponse> {

@@ -332,16 +332,20 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     this.scannerActive = true;
     this.barcodeError = '';
     
-    this.barcodeService.startScanner((barcode: string) => {
-      this.productForm.patchValue({ barcode });
-      this.stopBarcodeScanner();
-      this.showSuccess('Barcode scanned successfully');
-    }, 'barcode-scanner').then(() => {
-      console.log('Scanner started successfully');
-    }).catch((error: any) => {
-      this.barcodeError = 'Failed to scan barcode: ' + error.message;
-      this.stopBarcodeScanner();
-    });
+    // Add a small delay to ensure DOM element is rendered
+    setTimeout(() => {
+      this.barcodeService.startScanner((barcode: string) => {
+        this.productForm.patchValue({ barcode });
+        this.stopBarcodeScanner();
+        this.showSuccess('Barcode scanned successfully: ' + barcode);
+      }, 'barcode-scanner').then(() => {
+        console.log('Scanner started successfully');
+      }).catch((error: any) => {
+        this.barcodeError = 'Failed to start scanner: ' + error.message;
+        this.stopBarcodeScanner();
+        console.error('Scanner error:', error);
+      });
+    }, 100);
   }
 
   stopBarcodeScanner(): void {

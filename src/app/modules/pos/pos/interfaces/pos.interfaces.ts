@@ -5,13 +5,16 @@ export interface ProductDto {
   id: number;
   name: string;
   barcode: string;
+  description?: string;
   stock: number;
   buyPrice: number;
   sellPrice: number;
   categoryId: number;
-  categoryName: string;
+  categoryName?: string;
   isActive: boolean;
   minStock: number;
+  minimumStock?: number; // Compatibility with inventory interface
+  unit: string;
   createdAt: Date;
   updatedAt: Date;
 }

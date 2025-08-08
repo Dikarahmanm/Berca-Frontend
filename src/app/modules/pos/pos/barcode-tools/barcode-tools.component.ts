@@ -1,22 +1,11 @@
 // src/app/modules/pos/pos/barcode-tools/barcode-tools.component.ts
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, Output, EventEmitter, HostListener, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Output, EventEmitter, HostListener, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
-
-// ✅ FIX: Proper Quagga import
-declare var Quagga: any;
-
-// Product interface
-interface Product {
-  id: number;
-  name: string;
-  barcode: string;
-  price: number;
-  stock: number;
-  category?: string;
-}
+import { BarcodeService } from '../../../../core/services/barcode.service';
+import { ProductService, Product } from '../../../../core/services/product.service';
 
 @Component({
   selector: 'app-barcode-tools',
@@ -25,7 +14,7 @@ interface Product {
   standalone: true,
   imports: [CommonModule, FormsModule]
 })
-export class BarcodeToolsComponent implements OnInit, OnDestroy {
+export class BarcodeToolsComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
   @ViewChild('canvasElement') canvasElement!: ElementRef<HTMLCanvasElement>;
   @ViewChild('manualInput') manualInput!: ElementRef<HTMLInputElement>;
@@ -41,30 +30,25 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
   isScanning = false;
   errorMessage = '';
   manualBarcode = '';
+  isRetrying = false;
 
   // Product suggestions
   showSuggestions = false;
   filteredProducts: Product[] = [];
+  isLoading = false;
+  selectedProductIndex = -1;
   
-  // Mock product data (replace with actual service call)
-  private products: Product[] = [
-    { id: 1, name: 'Coca Cola 330ml', barcode: '1234567890123', price: 2500, stock: 50, category: 'Beverages' },
-    { id: 2, name: 'Samsung Galaxy S24', barcode: '1234567890124', price: 12000000, stock: 10, category: 'Electronics' },
-    { id: 3, name: 'Nike Air Max', barcode: '1234567890125', price: 1500000, stock: 25, category: 'Footwear' },
-    { id: 4, name: 'Apple iPhone 15', barcode: '1234567890126', price: 15000000, stock: 8, category: 'Electronics' },
-    { id: 5, name: 'Pepsi 500ml', barcode: '1234567890127', price: 3000, stock: 75, category: 'Beverages' }
-  ];
-
   // Scanner stream
   private destroy$ = new Subject<void>();
   private mediaStream: MediaStream | null = null;
   private barcodeInputSubject = new Subject<string>();
 
-  constructor() {}
+  constructor(
+    private barcodeService: BarcodeService,
+    private productService: ProductService
+  ) {}
 
   ngOnInit() {
-    this.requestCameraPermission();
-    
     // Setup debounced input for product suggestions
     this.barcodeInputSubject.pipe(
       takeUntil(this.destroy$),
@@ -73,6 +57,16 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
     ).subscribe(value => {
       this.filterProducts(value);
     });
+  }
+
+  ngAfterViewInit() {
+    // Initialize camera after view is rendered and DOM elements are available
+    // Use a longer delay to ensure Angular change detection completes
+    if (this.isOpen) {
+      setTimeout(() => {
+        this.requestCameraPermission();
+      }, 300);
+    }
   }
 
   ngOnDestroy() {
@@ -85,36 +79,35 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
   
   async requestCameraPermission() {
     try {
-      // Request camera access
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment', // Use back camera if available
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        }
-      });
-
-      this.isCameraActive = true;
       this.errorMessage = '';
-      this.setupVideoStream();
+      this.isRetrying = true;
+      
+      // Set camera active first so the scanner element becomes visible
+      this.isCameraActive = true;
+      
+      // Wait a brief moment for Angular change detection to update the DOM
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Verify element exists
+      const targetElement = document.getElementById('barcode-scanner');
+      if (!targetElement) {
+        throw new Error('Scanner element not found in DOM');
+      }
+
+      this.isRetrying = false;
+      
+      // Use BarcodeService to start scanner
+      await this.barcodeService.startScanner(
+        (barcode: string) => this.handleBarcodeDetected(barcode),
+        'barcode-scanner'
+      );
+      
+      console.log('Quagga2 scanner started successfully');
       
     } catch (error: any) {
       this.isCameraActive = false;
+      this.isRetrying = false;
       this.handleCameraError(error);
-    }
-  }
-
-  private setupVideoStream() {
-    if (this.videoElement && this.mediaStream) {
-      const video = this.videoElement.nativeElement;
-      video.srcObject = this.mediaStream;
-      
-      video.onloadedmetadata = () => {
-        video.play().catch(error => {
-          console.error('Error playing video:', error);
-          this.errorMessage = 'Gagal memutar video kamera';
-        });
-      };
     }
   }
 
@@ -127,6 +120,8 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
       this.errorMessage = 'Kamera tidak ditemukan. Pastikan perangkat memiliki kamera.';
     } else if (error.name === 'NotSupportedError') {
       this.errorMessage = 'Browser tidak mendukung akses kamera.';
+    } else if (error.message && error.message.includes('Scanner container')) {
+      this.errorMessage = 'Scanner sedang memuat. Silakan tunggu sebentar dan coba lagi.';
     } else {
       this.errorMessage = 'Gagal mengakses kamera. Coba lagi atau gunakan input manual.';
     }
@@ -136,15 +131,16 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
 
   startCamera() {
     if (!this.isCameraActive) {
-      this.requestCameraPermission();
+      // Use longer timeout to ensure DOM is fully updated
+      setTimeout(() => {
+        this.requestCameraPermission();
+      }, 250);
     }
   }
 
   stopCamera() {
-    if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach(track => track.stop());
-      this.mediaStream = null;
-    }
+    // Use BarcodeService to stop scanner
+    this.barcodeService.stopScanner();
     this.isCameraActive = false;
     this.isScanning = false;
   }
@@ -158,46 +154,13 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
     this.isScanning = !this.isScanning;
     
     if (this.isScanning) {
-      this.startBarcodeDetection();
+      console.log('Scanner is already active with Quagga2');
     } else {
-      this.stopBarcodeDetection();
+      this.stopCamera();
     }
   }
 
   // ===== BARCODE DETECTION =====
-
-  private startBarcodeDetection() {
-    if (!this.videoElement || !this.canvasElement) return;
-
-    const video = this.videoElement.nativeElement;
-    const canvas = this.canvasElement.nativeElement;
-    const context = canvas.getContext('2d');
-
-    if (!context) return;
-
-    // Set canvas size to match video
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-
-    // Start detection loop
-    const detectLoop = () => {
-      if (!this.isScanning) return;
-
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Here you could implement barcode detection using QuaggaJS
-      // For now, we'll use a simple mock detection for demonstration
-      
-      requestAnimationFrame(detectLoop);
-    };
-
-    detectLoop();
-  }
-
-  private stopBarcodeDetection() {
-    // Stop the detection loop
-    this.isScanning = false;
-  }
 
   // ===== MANUAL INPUT =====
 
@@ -220,6 +183,7 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
     if (trimmedBarcode) {
       this.handleBarcodeDetected(trimmedBarcode);
       this.manualBarcode = '';
+      this.showSuggestions = false;
     }
   }
 
@@ -262,15 +226,38 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
     if (!searchTerm || searchTerm.length < 2) {
       this.showSuggestions = false;
       this.filteredProducts = [];
+      this.selectedProductIndex = -1;
       return;
     }
     
-    this.filteredProducts = this.products.filter(product => 
-      product.barcode.includes(searchTerm) || 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase())
-    ).slice(0, 5); // Limit to 5 suggestions
+    this.isLoading = true;
+    this.selectedProductIndex = -1;
     
-    this.showSuggestions = this.filteredProducts.length > 0;
+    // Use ProductService to search for products
+    this.productService.getProducts({ 
+      search: searchTerm, 
+      isActive: true,
+      pageSize: 5 // Limit to 5 suggestions
+    }).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (response) => {
+        this.isLoading = false;
+        if (response.success && response.data?.products) {
+          this.filteredProducts = response.data.products;
+          this.showSuggestions = this.filteredProducts.length > 0;
+        } else {
+          this.filteredProducts = [];
+          this.showSuggestions = false;
+        }
+      },
+      error: (error) => {
+        this.isLoading = false;
+        this.filteredProducts = [];
+        this.showSuggestions = false;
+        console.error('Error searching products:', error);
+      }
+    });
   }
   
   selectProduct(product: Product) {
@@ -289,12 +276,12 @@ export class BarcodeToolsComponent implements OnInit, OnDestroy {
     }, 100);
   }
   
-  formatPrice(price: number): string {
+  formatPrice(sellPrice: number): string {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0
-    }).format(price);
+    }).format(sellPrice);
   }
 
   // ===== KEYBOARD SHORTCUTS =====

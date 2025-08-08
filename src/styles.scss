@@ -1,14 +1,76 @@
 /* You can add global styles to this file, and also import other style files */
 
 /* ===== TOKO ENIWAN DESIGN SYSTEM ===== */
-@import './styles/design-system.scss';
+@use './styles/design-system.scss' as *;
 
 /* Material Icons Import - CDN */
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-/* Alternative approach: Import Material Icons from node_modules */
-/* @import 'material-design-icons-iconfont/dist/material-design-icons.css'; */
+/* Global Material Design System Override */
+body, html {
+  font-family: var(--font-family-primary) !important;
+  font-size: var(--font-size-base) !important;
+  line-height: var(--line-height-normal) !important;
+  color: var(--clr-text-primary) !important;
+  background: var(--clr-bg-primary) !important;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Override any orange/old theme colors globally */
+.orange-theme,
+[style*="rgb(255, 145, 77)"],
+[style*="#FF914D"],
+[style*="rgba(255, 145, 77"] {
+  color: var(--clr-primary) !important;
+  background-color: var(--clr-primary-light) !important;
+  border-color: var(--clr-primary) !important;
+}
+
+/* Force Material Design buttons */
+button, .btn {
+  font-family: var(--font-family-primary) !important;
+  font-size: var(--font-size-button) !important;
+  font-weight: var(--font-weight-medium) !important;
+  min-height: var(--touch-target-min) !important;
+  padding: var(--btn-padding-y) var(--btn-padding-x) !important;
+  border-radius: var(--radius-md) !important;
+  transition: all var(--duration-fast) var(--ease-out) !important;
+}
+
+/* Force Material Design inputs */
+input, textarea, select {
+  font-family: var(--font-family-primary) !important;
+  font-size: var(--font-size-input) !important;
+  color: var(--clr-text-primary) !important;
+  background: var(--clr-surface) !important;
+  border: 2px solid var(--clr-border-medium) !important;
+  border-radius: var(--radius-md) !important;
+  padding: var(--input-padding-y) var(--input-padding-x) !important;
+  transition: all var(--duration-fast) var(--ease-out) !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none !important;
+  border-color: var(--clr-primary) !important;
+  box-shadow: var(--shadow-focus) !important;
+}
+
+/* Force Material Design cards */
+.card, .mat-card {
+  background: var(--clr-surface) !important;
+  border: 2px solid var(--clr-border-light) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
+  padding: var(--card-padding) !important;
+}
 
 .material-icons {
   font-family: 'Material Icons';

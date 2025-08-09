@@ -1,7 +1,7 @@
 // src/app/shared/components/topbar/topbar.component.ts
-// ✅ REDESIGNED: Topbar Component dengan Glass Morphism Orange Modern Theme
-
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
+// src/app/shared/components/topbar/topbar.component.ts
+// ✅ Refactor: sinkron dgn StateService (signals) + tetap pertahankan fungsi yang ada
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, Injector, runInInjectionContext } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,9 +14,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 
 import { AuthService } from '../../core/services/auth.service';
-import { NotificationDto,NotificationService } from '../../core/services/notification.service';
+import { NotificationDto, NotificationService } from '../../core/services/notification.service';
+import { StateService } from '../../core/services/state.service';
 
 @Component({
   selector: 'app-topbar',
@@ -39,7 +41,7 @@ import { NotificationDto,NotificationService } from '../../core/services/notific
 export class TopbarComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  // Input properties
+  // Inputs (tetap)
   @Input() pageTitle: string = '';
   @Input() brandTitle: string = 'Toko Eniwan';
   @Input() username: string = '';
@@ -52,11 +54,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
   @Input() breadcrumb: string[] = [];
   @Input() isMobile: boolean = false;
 
-  // Output events
+  // Outputs (tetap)
   @Output() logoutClicked = new EventEmitter<void>();
   @Output() menuToggleClicked = new EventEmitter<void>();
 
-  // Component state
+  // State internal (tetap)
   recentNotifications: NotificationDto[] = [];
   isLoadingNotifications: boolean = false;
   notificationError: string | null = null;
@@ -65,7 +67,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
   showNotificationDropdown: boolean = false;
   showProfileDropdown: boolean = false;
   selectedFilter: 'all' | 'unread' | 'read' = 'all';
-  Math = Math; // Make Math available in template
+  Math = Math;
 
   private roleDisplayMap: { [key: string]: string } = {
     'Admin': 'Administrator',
@@ -79,22 +81,39 @@ export class TopbarComponent implements OnInit, OnDestroy {
     private router: Router,
     private notificationService: NotificationService,
     private authService: AuthService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private state: StateService,         // ⬅️ NEW
+    private injector: Injector           // ⬅️ NEW (toObservable context)
   ) {}
 
   ngOnInit(): void {
     this.initializeTopbar();
-    this.subscribeToNotifications();
+    this.subscribeToNotifications();  // existing
     this.checkMobileState();
     this.setupDocumentClickListener();
+
+    // ===== Signals → Observable (aman NG0203) =====
+    const user$    = runInInjectionContext(this.injector, () => toObservable(this.state.user));
+    const unread$  = runInInjectionContext(this.injector, () => toObservable(this.state.unreadNotificationCount));
+    const mobile$  = runInInjectionContext(this.injector, () => toObservable(this.state.isMobile));
+
+    user$.pipe(takeUntil(this.destroy$)).subscribe(u => {
+      if (u) {
+        this.username = u.username ?? this.username;
+        this.role = u.role ?? this.role;
+      }
+    });
+    unread$.pipe(takeUntil(this.destroy$)).subscribe(c => this.notificationCount = c);
+    mobile$.pipe(takeUntil(this.destroy$)).subscribe(v => {
+      this.isMobile = v;
+      if (this.isMobile && !this.showMenuToggle) this.showMenuToggle = true;
+    });
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
     document.removeEventListener('click', this.onDocumentClick.bind(this));
-    
-    // Restore body scroll when component is destroyed
     document.body.style.overflow = '';
   }
 

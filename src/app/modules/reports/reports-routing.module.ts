@@ -3,13 +3,13 @@
 
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { RoleGuard } from '../../core/guard/role.guard';
+import { roleGuard } from '../../core/guard/role.guard';
 
 const routes: Routes = [
   {
     path: '',
     loadComponent: () => import('./components/reports-dashboard/reports-dashboard.component').then(c => c.ReportsDashboardComponent),
-    canActivate: [RoleGuard],
+    canActivate: [roleGuard],
     data: {
       title: 'Reports & Analytics',
       breadcrumb: 'Reports',

@@ -1,7 +1,6 @@
 // src/app/shared/components/base-layout/base-layout.component.ts
 // Base layout component yang digunakan oleh Dashboard, POS, dan Notifications
-
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ElementRef, Injector, runInInjectionContext } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,12 +9,13 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { TopbarComponent } from '../../topbar/topbar.component';
 import { LayoutService } from '../../services/layout.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { NotificationService } from '../../../core/services/notification.service';
+import { StateService } from '../../../core/services/state.service';
 
 @Component({
   selector: 'app-base-layout',
@@ -134,29 +134,44 @@ export class BaseLayoutComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  // Layout state
+  // Layout state (dibaca dari StateService)
   sidebarCollapsed: boolean = false;
   isMobile: boolean = false;
   breadcrumb: string[] = [];
 
-  // User data
+  // User data (dibaca dari StateService)
   username: string = '';
   role: string = '';
   userPhoto?: string;
+
+  // Notifications (dibaca dari StateService)
   notificationCount: number = 0;
 
   constructor(
-    private layoutService: LayoutService,
-    private authService: AuthService,
-    private notificationService: NotificationService,
-    private snackBar: MatSnackBar
+    private layoutService: LayoutService,   // masih dipakai untuk canAccess() & init page info
+    private authService: AuthService,       // dipakai untuk logout()
+    private snackBar: MatSnackBar,
+    private state: StateService,            // sumber kebenaran tunggal (signals)
+    private injector: Injector              // untuk toObservable dalam injection context
   ) {}
 
   ngOnInit(): void {
     this.initializeLayout();
-    this.subscribeToLayoutChanges();
-    this.subscribeToUserData();
-    this.subscribeToNotifications();
+    this.subscribeToPageInfo(); // breadcrumb & title dari LayoutService sekali ini
+
+    // ====== Signals → Observable (safe injection context) ======
+    const unread$  = runInInjectionContext(this.injector, () => toObservable(this.state.unreadNotificationCount));
+    const sideCol$ = runInInjectionContext(this.injector, () => toObservable(this.state.sidebarCollapsed));
+    const mobile$  = runInInjectionContext(this.injector, () => toObservable(this.state.isMobile));
+    const user$    = runInInjectionContext(this.injector, () => toObservable(this.state.user));
+
+    unread$.pipe(takeUntil(this.destroy$)).subscribe(c => this.notificationCount = c);
+    sideCol$.pipe(takeUntil(this.destroy$)).subscribe(v => this.sidebarCollapsed = v);
+    mobile$.pipe(takeUntil(this.destroy$)).subscribe(v => this.isMobile = v);
+    user$.pipe(takeUntil(this.destroy$)).subscribe(u => {
+      this.username = u?.username ?? this.username;
+      this.role = u?.role ?? this.role;
+    });
   }
 
   ngOnDestroy(): void {
@@ -165,34 +180,23 @@ export class BaseLayoutComponent implements OnInit, OnDestroy {
   }
 
   private initializeLayout(): void {
-    // Initialize user data
-    this.loadUserData();
-    
-    // Set initial layout state
+    // Seed awal dari service lama (sekali di init)
     this.sidebarCollapsed = this.layoutService.getSidebarCollapsed();
     this.isMobile = this.layoutService.getIsMobile();
-    
-    // Set page info
-    const currentPage = this.layoutService.getCurrentPage();
-    this.breadcrumb = currentPage.breadcrumb;
+
+    // Seed user dari AuthService (kalau StateService belum sempat mirror)
+    const currentUser = this.authService.getCurrentUser(); // cookie-based user:contentReference[oaicite:3]{index=3}
+    if (currentUser) {
+      this.username = currentUser.username || '';
+      this.role = currentUser.role || '';
+    } else {
+      this.username = localStorage.getItem('username') || '';
+      this.role = localStorage.getItem('role') || '';
+    }
   }
 
-  private subscribeToLayoutChanges(): void {
-    // Subscribe to sidebar state
-    this.layoutService.sidebarCollapsed$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(collapsed => {
-        this.sidebarCollapsed = collapsed;
-      });
-
-    // Subscribe to mobile state
-    this.layoutService.isMobile$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(isMobile => {
-        this.isMobile = isMobile;
-      });
-
-    // Subscribe to current page changes
+  private subscribeToPageInfo(): void {
+    // Tetap gunakan currentPage$ dari LayoutService untuk breadcrumb/title
     this.layoutService.currentPage$
       .pipe(takeUntil(this.destroy$))
       .subscribe(pageInfo => {
@@ -203,50 +207,11 @@ export class BaseLayoutComponent implements OnInit, OnDestroy {
       });
   }
 
-  private subscribeToUserData(): void {
-    // Get current user data
-    this.authService.currentUser$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(user => {
-        if (user) {
-          this.username = user.username || '';
-          this.role = user.role || '';
-          //this.userPhoto = user.photo;
-        }
-      });
-  }
-
-  private subscribeToNotifications(): void {
-    // Subscribe to notification count
-    this.notificationService.unreadCount$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(count => {
-        this.notificationCount = count;
-      });
-  }
-
-  private loadUserData(): void {
-    try {
-      const currentUser = this.authService.getCurrentUser();
-      
-      if (currentUser) {
-        this.username = currentUser.username || '';
-        this.role = currentUser.role || '';
-        //this.userPhoto = currentUser.userPhoto;
-      } else {
-        // Fallback to localStorage
-        this.username = localStorage.getItem('username') || '';
-        this.role = localStorage.getItem('role') || '';
-      }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    }
-  }
-
   // Layout control methods
   toggleMobileSidebar(): void {
     if (this.isMobile) {
-      this.layoutService.setSidebarCollapsed(!this.sidebarCollapsed);
+      // Toggle via StateService supaya sinkron lintas komponen
+      this.state.toggleSidebar(); // akan memanggil LayoutService.setSidebarCollapsed() di dalamnya:contentReference[oaicite:4]{index=4}
     }
   }
 
@@ -257,7 +222,6 @@ export class BaseLayoutComponent implements OnInit, OnDestroy {
   // Event handlers
   handleLogout(): void {
     this.isLoading = true;
-    
     this.authService.logout().subscribe({
       next: () => {
         this.showSuccessMessage('Logout berhasil!');
@@ -320,16 +284,13 @@ export class BaseLayoutComponent implements OnInit, OnDestroy {
   // Scroll to top of content
   scrollToTop(): void {
     if (this.mainContentRef?.nativeElement) {
-      this.mainContentRef.nativeElement.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
+      this.mainContentRef.nativeElement.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
   // Check if user can access certain features
   canAccess(feature: string): boolean {
-    return this.layoutService.canAccess(`/dashboard/${feature}`, this.role);
+    return this.layoutService.canAccess(`/dashboard/${feature}`, this.role); // rules by LayoutService:contentReference[oaicite:5]{index=5}
   }
 
   // Update notification count (called by parent components)

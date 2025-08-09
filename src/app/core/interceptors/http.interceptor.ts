@@ -1,6 +1,5 @@
 // src/app/core/interceptors/http.interceptor.ts
-
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import {
   HttpInterceptor,
   HttpRequest,
@@ -10,25 +9,42 @@ import {
 } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, throwError, BehaviorSubject } from 'rxjs';
-import { catchError, switchMap, filter, take } from 'rxjs/operators';
+import { catchError, switchMap, filter, take, finalize } from 'rxjs/operators';
 
 import { AuthService } from '../services/auth.service';
 import { environment } from '../../../environment/environment';
+import { StateService } from '../services/state.service';
 
 @Injectable()
 export class AppHttpInterceptor implements HttpInterceptor {
   private isRefreshing = false;
   private refreshTokenSubject = new BehaviorSubject<any>(null);
 
+  // ⬇️ request counter utk global loading
+  private pendingRequests = 0;
+
   constructor(
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private state: StateService, // ⬅️ NEW
   ) {}
 
   intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     const finalRequest = this.addCommonHeaders(request);
+
+    // increment counter + nyalain loading
+    this.pendingRequests++;
+    this.state.setLoading(true);
+
     return next.handle(finalRequest).pipe(
-      catchError((error: HttpErrorResponse) => this.handleError(error, finalRequest, next))
+      catchError((error: HttpErrorResponse) => this.handleError(error, finalRequest, next)),
+      finalize(() => {
+        // decrement & matikan loading kalau counter habis
+        this.pendingRequests = Math.max(0, this.pendingRequests - 1);
+        if (this.pendingRequests === 0) {
+          this.state.setLoading(false);
+        }
+      })
     );
   }
 
@@ -48,11 +64,10 @@ export class AppHttpInterceptor implements HttpInterceptor {
       headers['Content-Type'] = 'application/json';
     }
 
-    const isApiRequest = ['/api/', '/auth/', '/admin/'].some(path => request.url.includes(path));
-
+    // ⬇️ Cookie-based backend → selalu kirim cookie
     return request.clone({
       setHeaders: headers,
-      withCredentials: isApiRequest
+      withCredentials: true,
     });
   }
 
@@ -120,7 +135,6 @@ export class AppHttpInterceptor implements HttpInterceptor {
         this.refreshTokenSubject.next(null);
         console.log('❌ Refresh failed, redirecting to login');
         this.authService.logout().subscribe();
-        // Don't navigate here since auth.service.logout() now handles navigation
         return throwError(() => refreshError);
       })
     );

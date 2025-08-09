@@ -366,6 +366,27 @@ export class TopbarComponent implements OnInit, OnDestroy {
     this.loadNotifications();
   }
 
+  /**
+   * ✅ NEW: Force refresh with instant response
+   */
+  forceRefreshNotifications(): void {
+    console.log('⚡ Force refreshing notifications...');
+    this.isLoadingNotifications = true;
+    
+    this.notificationService.refreshInstantly().subscribe({
+      next: () => {
+        console.log('✅ Force refresh completed');
+        this.isLoadingNotifications = false;
+        this.notificationError = null;
+      },
+      error: (error) => {
+        console.error('❌ Force refresh failed:', error);
+        this.isLoadingNotifications = false;
+        this.notificationError = 'Failed to refresh notifications';
+      }
+    });
+  }
+
   // User actions
   logout(): void {
     this.isLoggingOut = true;

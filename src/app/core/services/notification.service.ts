@@ -10,6 +10,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { environment } from '../../../environment/environment';
 import { AuthService } from './auth.service';
+import { ToastService } from '../../shared/services/toast.service';
 // ===== BACKEND DTO INTERFACES ===== //
 // Sesuai dengan backend NotificationController response
 
@@ -75,9 +76,10 @@ export class NotificationService {
     private http: HttpClient,
     private snackBar: MatSnackBar,
     private authService: AuthService,  // ✅ Add AuthService injection
-    private injector: Injector  // ✅ Added injector for router access
+    private injector: Injector,  // ✅ Added injector for router access
+    private toastService: ToastService  // ✅ Add ToastService for popup notifications
   ) {
-    console.log('🔔 NotificationService initialized with AuthService');
+    console.log('🔔 NotificationService initialized with AuthService and ToastService');
     this.initializeRealTimeUpdates();
   }
 
@@ -289,30 +291,104 @@ export class NotificationService {
   // ===== REAL-TIME UPDATES ===== //
 
   /**
-   * ✅ REAL: Initialize real-time updates via polling
-   * Poll backend setiap 30 detik untuk update terbaru
+   * ✅ ENHANCED: Initialize real-time updates via ultra-fast polling
+   * Poll backend setiap 2 detik untuk real-time updates yang sangat responsif
    */
   private initializeRealTimeUpdates(): void {
-    // Poll every 30 seconds for real-time updates
-    timer(0, 30000)
+    console.log('🚀 Starting REAL-TIME notification polling every 2 seconds...');
+    
+    // Ultra-fast polling every 2 seconds for truly real-time updates
+    timer(0, 2000)
       .pipe(
-        switchMap(() => this.getUnreadCount()),
-        catchError((error) => {
-          console.warn('Polling error, will retry in next cycle:', error);
-          return []; // Continue polling cycle
+        switchMap(() => {
+          // Only poll if user is authenticated
+          if (!this.authService.isAuthenticated()) {
+            return of(0);
+          }
+          
+          // Get both count and latest notifications in one go
+          return this.getNotificationSummary().pipe(
+            map(summary => summary.unreadCount),
+            catchError((error) => {
+              console.warn('⚠️ Polling error, will retry in next cycle:', error);
+              return of(this.unreadCountSubject.value);
+            })
+          );
         })
       )
       .subscribe({
         next: (count: number) => {
-          // Update notification badge
-          if (count > this.unreadCountSubject.value) {
-            this.showNewNotificationAlert(count - this.unreadCountSubject.value);
+          const previousCount = this.unreadCountSubject.value;
+          
+          console.log(`🔔 Polling result: ${count} notifications (was ${previousCount})`);
+          
+          // Show toasts for new notifications - IMMEDIATE
+          if (count > previousCount && previousCount >= 0) {
+            const newNotifications = count - previousCount;
+            console.log(`🆕 ${newNotifications} NEW notifications detected!`);
+            
+            // Force refresh to get notification details and show toasts
+            this.refreshNotificationsInBackground();
+            
+            // Also show general alert
+            this.showNewNotificationAlert(newNotifications);
           }
         },
         error: (error) => {
-          console.error('Real-time polling failed:', error);
+          console.error('❌ Real-time polling failed:', error);
         }
       });
+  }
+
+  /**
+   * ✅ NEW: Background refresh without affecting UI loading states
+   */
+  private refreshNotificationsInBackground(): void {
+    this.getUserNotifications(1, 20).subscribe({
+      next: (notifications) => {
+        const previousNotifications = this.notificationsSubject.value;
+        this.notificationsSubject.next(notifications);
+        
+        // Show toast for new notifications (compare with previous)
+        if (previousNotifications.length > 0) {
+          const newNotifications = notifications.filter(notification => 
+            !previousNotifications.some(prev => prev.id === notification.id)
+          );
+          
+          // Show toast for each new notification
+          newNotifications.forEach(notification => {
+            this.showNotificationToast(notification);
+          });
+        }
+        
+        console.log('🔄 Background refresh completed:', notifications.length, 'notifications');
+      },
+      error: (error) => {
+        console.warn('Background notification refresh failed:', error);
+      }
+    });
+  }
+
+  /**
+   * ✅ NEW: Force immediate refresh from external components
+   */
+  public forceRefresh(): Observable<void> {
+    console.log('🚀 Force refreshing notifications immediately...');
+    
+    // Trigger immediate poll without waiting for next cycle
+    return this.getNotificationSummary().pipe(
+      tap((summary) => {
+        if (summary.recentNotifications) {
+          this.notificationsSubject.next(summary.recentNotifications);
+        }
+        console.log('✅ Force refresh completed');
+      }),
+      map(() => void 0),
+      catchError((error) => {
+        console.error('❌ Force refresh failed:', error);
+        return of(void 0);
+      })
+    );
   }
 
   /**
@@ -331,6 +407,27 @@ export class NotificationService {
         this.isLoadingSubject.next(false);
         this.errorSubject.next('Failed to refresh notifications');
         throw error;
+      })
+    );
+  }
+
+  /**
+   * ✅ NEW: Instant refresh without loading indicator (for background updates)
+   */
+  public refreshInstantly(): Observable<void> {
+    console.log('⚡ Instant notification refresh triggered');
+    return this.getNotificationSummary().pipe(
+      tap((summary) => {
+        if (summary.recentNotifications) {
+          this.notificationsSubject.next(summary.recentNotifications);
+        }
+        this.errorSubject.next(null);
+        console.log('⚡ Instant refresh completed');
+      }),
+      map(() => void 0),
+      catchError((error) => {
+        console.warn('⚡ Instant refresh failed, using silent fallback:', error);
+        return of(void 0); // Silent fail for background refresh
       })
     );
   }
@@ -439,6 +536,164 @@ export class NotificationService {
       verticalPosition: 'top',
       panelClass: ['snackbar-info']
     });
+  }
+
+  /**
+   * ✅ ENHANCED: Show toast popup for individual notifications (REAL TOASTS)
+   */
+  private showNotificationToast(notification: NotificationDto): void {
+    // Only show toast for unread notifications to avoid spam
+    if (notification.isRead) return;
+    
+    console.log('🍞 Showing REAL toast for notification:', notification.title);
+    
+    // Determine action URL for the notification
+    let actionUrl = notification.actionUrl;
+    if (!actionUrl) {
+      // Try to generate action URL based on notification type and content
+      const transactionId = this.extractTransactionId(notification);
+      if (transactionId) {
+        actionUrl = `/dashboard/pos/transaction/${transactionId}`;
+      } else {
+        actionUrl = '/dashboard/notifications';
+      }
+    }
+
+    // Special handling for low stock notifications
+    if (this.isLowStockNotification(notification)) {
+      // Extract product info for low stock toast
+      const productInfo = this.extractLowStockInfo(notification);
+      if (productInfo) {
+        console.log('🍞 Showing low stock toast:', productInfo);
+        this.toastService.showLowStock(
+          productInfo.productName,
+          productInfo.currentStock,
+          productInfo.minStock
+        );
+        return;
+      }
+    }
+    
+    // Map notification type to toast type
+    const toastType = this.mapNotificationTypeToToastType(notification.type);
+    
+    // Show appropriate toast based on type
+    switch (toastType) {
+      case 'success':
+        console.log('🍞 Showing success toast:', notification.title);
+        this.toastService.showSuccess(
+          notification.title,
+          notification.message,
+          'Lihat Detail',
+          actionUrl
+        );
+        break;
+        
+      case 'warning':
+        console.log('🍞 Showing warning toast:', notification.title);
+        this.toastService.showWarning(
+          notification.title,
+          notification.message,
+          'Lihat Detail',
+          actionUrl
+        );
+        break;
+        
+      case 'error':
+        console.log('🍞 Showing error toast:', notification.title);
+        this.toastService.showError(
+          notification.title,
+          notification.message,
+          'Lihat Detail',
+          actionUrl
+        );
+        break;
+        
+      default: // 'info'
+        console.log('🍞 Showing info toast:', notification.title);
+        this.toastService.showInfo(
+          notification.title,
+          notification.message,
+          'Lihat Detail',
+          actionUrl
+        );
+        break;
+    }
+  }
+
+  /**
+   * ✅ NEW: Map notification type to toast type
+   */
+  private mapNotificationTypeToToastType(type: string): 'success' | 'info' | 'warning' | 'error' {
+    const typeLower = type.toLowerCase();
+    
+    if (typeLower.includes('success') || typeLower.includes('complete') || typeLower.includes('berhasil')) {
+      return 'success';
+    } else if (typeLower.includes('error') || typeLower.includes('failed') || typeLower.includes('gagal')) {
+      return 'error';
+    } else if (typeLower.includes('warning') || typeLower.includes('low') || typeLower.includes('stock') || typeLower.includes('peringatan')) {
+      return 'warning';
+    } else {
+      return 'info';
+    }
+  }
+
+  /**
+   * ✅ NEW: Check if notification is about low stock
+   */
+  private isLowStockNotification(notification: NotificationDto): boolean {
+    const lowStockKeywords = ['low stock', 'stok menipis', 'stock rendah', 'minimum stock', 'low_stock'];
+    const content = (notification.title + ' ' + notification.message + ' ' + notification.type).toLowerCase();
+    return lowStockKeywords.some(keyword => content.includes(keyword));
+  }
+
+  /**
+   * ✅ NEW: Extract low stock information from notification
+   */
+  private extractLowStockInfo(notification: NotificationDto): { productName: string, currentStock: number, minStock: number } | null {
+    try {
+      // Try to extract product name and stock info from message
+      // Pattern: "Product ABC stock is 2, minimum is 5"
+      const stockPattern = /(.+?)\s*(?:stock|stok)\s*(?:is|tersisa|ada)?\s*(\d+).*?(?:minimum|min)\s*(?:is|adalah)?\s*(\d+)/i;
+      const match = notification.message.match(stockPattern);
+      
+      if (match) {
+        return {
+          productName: match[1].trim(),
+          currentStock: parseInt(match[2]),
+          minStock: parseInt(match[3])
+        };
+      }
+
+      // Alternative pattern: "ABC: 2/5 units" (current/min)
+      const altPattern = /(.+?):\s*(\d+)\/(\d+)/i;
+      const altMatch = notification.message.match(altPattern);
+      
+      if (altMatch) {
+        return {
+          productName: altMatch[1].trim(),
+          currentStock: parseInt(altMatch[2]),
+          minStock: parseInt(altMatch[3])
+        };
+      }
+
+      // Fallback: extract any product name and use generic numbers
+      const productPattern = /(?:produk|product)\s+(.+?)(?:\s|$)/i;
+      const productMatch = notification.message.match(productPattern);
+      
+      if (productMatch) {
+        return {
+          productName: productMatch[1].trim(),
+          currentStock: 0,
+          minStock: 5
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('Error extracting low stock info:', error);
+      return null;
+    }
   }
 
   // ===== NOTIFICATION INTERACTION METHODS ===== //

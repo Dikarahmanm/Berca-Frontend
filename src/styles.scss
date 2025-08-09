@@ -24,6 +24,38 @@ body, html {
   box-sizing: border-box;
 }
 
+/* ✅ CRITICAL: Global toast notification z-index override */
+app-toast-container,
+app-toast-notification,
+.toast-container,
+.toast-notification {
+  z-index: 999999 !important;
+  position: relative !important;
+}
+
+/* ✅ Ensure toasts appear above Material Dialog overlays */
+.cdk-overlay-container {
+  z-index: 1000 !important;
+}
+
+.cdk-overlay-backdrop {
+  z-index: 1000 !important;
+}
+
+.mat-dialog-container {
+  z-index: 1001 !important;
+}
+
+/* ✅ Force toast container to be absolutely on top */
+app-toast-container {
+  z-index: 999999 !important;
+  pointer-events: none !important;
+}
+
+app-toast-container > * {
+  pointer-events: auto !important;
+}
+
 /* Override any orange/old theme colors globally */
 .orange-theme,
 [style*="rgb(255, 145, 77)"],

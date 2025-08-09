@@ -86,6 +86,16 @@ const routes: Routes = [
         }
       },
 
+      // ===== NOTIFICATIONS CENTER ===== //
+      {
+        path: 'notifications',
+        loadChildren: () => import('../modules/notifications/notifications.module').then(m => m.NotificationsModule),
+        data: {
+          title: 'Notification Center',
+          breadcrumb: 'Notifications'
+        }
+      },
+
       // ===== DEFAULT ROUTE - REDIRECT TO DASHBOARD HOME ===== //
       {
         path: '',

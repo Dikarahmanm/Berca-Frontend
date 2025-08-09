@@ -60,6 +60,10 @@
                       matTooltip="Refresh notifications" matTooltipPosition="below">
                 <mat-icon [class.spinning]="isLoadingNotifications">refresh</mat-icon>
               </button>
+              <button class="action-btn quick-refresh-btn" (click)="forceRefreshNotifications()" 
+                      matTooltip="Force instant refresh" matTooltipPosition="below">
+                <mat-icon>bolt</mat-icon>
+              </button>
               <button class="action-btn mark-all-btn" (click)="markAllAsRead()" 
                       matTooltip="Mark all as read" matTooltipPosition="below"
                       [disabled]="notificationCount === 0">

@@ -3,13 +3,13 @@
 
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { AuthGuard } from '../../core/guard/auth.guard';
+import { authGuard } from '../../core/guard/auth.guard';
 
 const routes: Routes = [
   {
     path: '',
     loadComponent: () => import('./pos/pos.component').then(m => m.POSComponent),
-    canActivate: [AuthGuard],
+    canActivate: [authGuard],
     data: { 
       title: 'Point of Sale',
       requiredPermission: 'POS.Write'
@@ -18,7 +18,7 @@ const routes: Routes = [
   {
     path: 'transaction/:id',
     loadComponent: () => import('./transaction-detail/transaction-detail.component').then(m => m.TransactionDetailComponent),
-    canActivate: [AuthGuard],
+    canActivate: [authGuard],
     data: { 
       title: 'Detail Transaksi',
       requiredPermission: 'POS.Read'
@@ -27,7 +27,7 @@ const routes: Routes = [
   {
     path: 'receipt/:transactionId',
     loadComponent: () => import('./pos/receipt-preview/receipt-preview.component').then(m => m.ReceiptPreviewComponent),
-    canActivate: [AuthGuard],
+    canActivate: [authGuard],
     data: { 
       title: 'Receipt Preview',
       requiredPermission: 'POS.Read'

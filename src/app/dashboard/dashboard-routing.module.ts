@@ -4,7 +4,7 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { DashboardComponent } from './dashboard.component';
-import { RoleGuard } from '../core/guard/role.guard';
+import { roleGuard } from '../core/guard/role.guard';
 
 const routes: Routes = [
   {
@@ -18,7 +18,7 @@ const routes: Routes = [
       {
         path: 'users',
         loadChildren: () => import('../modules/user-management/user-management.module').then(m => m.UserManagementModule),
-        canActivate: [RoleGuard],
+        canActivate: [roleGuard],
         data: {
           title: 'User Management',
           breadcrumb: 'Users',
@@ -30,7 +30,7 @@ const routes: Routes = [
       {
         path: 'categories',
         loadChildren: () => import('../modules/category-management/category-management.module').then(m => m.CategoryManagementModule),
-        canActivate: [RoleGuard],
+        canActivate: [roleGuard],
         data: {
           title: 'Category Management',
           breadcrumb: 'Categories',
@@ -42,7 +42,7 @@ const routes: Routes = [
       {
         path: 'inventory',
         loadComponent: () => import('../modules/inventory/components/inventory-list/inventory-list.component').then(c => c.InventoryListComponent),
-        canActivate: [RoleGuard],
+        canActivate: [roleGuard],
         data: {
           title: 'Inventory Management',
           breadcrumb: 'Inventory',
@@ -54,7 +54,7 @@ const routes: Routes = [
       {
         path: 'reports',
         loadChildren: () => import('../modules/reports/reports.module').then(m => m.ReportsModule),
-        canActivate: [RoleGuard],
+        canActivate: [roleGuard],
         data: {
           title: 'Reports & Analytics',
           breadcrumb: 'Reports',
@@ -66,7 +66,7 @@ const routes: Routes = [
       {
         path: 'membership',
   loadChildren: () => import('../modules/membership/membership.module').then(m => m.MembershipModule),
-        canActivate: [RoleGuard],
+        canActivate: [roleGuard],
         data: {
           title: 'Membership Management',
           breadcrumb: 'Membership',
@@ -78,7 +78,7 @@ const routes: Routes = [
       {
         path: 'logs',
         loadChildren: () => import('../modules/activity-log/activity-log.module').then(m => m.ActivityLogModule),
-        canActivate: [RoleGuard],
+        canActivate: [roleGuard],
         data: {
           title: 'Activity Logs',
           breadcrumb: 'Logs',

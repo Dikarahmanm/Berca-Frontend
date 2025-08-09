@@ -3,13 +3,13 @@
 
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { RoleGuard } from '../../core/guard/role.guard';
+import { roleGuard } from '../../core/guard/role.guard';
 
 const routes: Routes = [
   {
     path: '',
   loadComponent: () => import('./components/membership-list/membership-list.component').then(c => c.MembershipListComponent),
-  canActivate: [RoleGuard],
+  canActivate: [roleGuard],
     data: {
       title: 'Membership Management',
       breadcrumb: 'Members',
@@ -19,7 +19,7 @@ const routes: Routes = [
   {
     path: 'create',
     loadComponent: () => import('./components/membership-form/membership-form.component').then(c => c.MembershipFormComponent),
-    canActivate: [RoleGuard],
+    canActivate: [roleGuard],
     data: {
       title: 'Add New Member',
       breadcrumb: 'Add Member',
@@ -29,7 +29,7 @@ const routes: Routes = [
   {
     path: 'edit/:id',
     loadComponent: () => import('./components/membership-form/membership-form.component').then(c => c.MembershipFormComponent),
-    canActivate: [RoleGuard],
+    canActivate: [roleGuard],
     data: {
       title: 'Edit Member',
       breadcrumb: 'Edit Member',
@@ -39,7 +39,7 @@ const routes: Routes = [
   {
     path: 'view/:id',
     loadComponent: () => import('./components/membership-form/membership-form.component').then(c => c.MembershipFormComponent),
-    canActivate: [RoleGuard],
+    canActivate: [roleGuard],
     data: {
       title: 'Member Details',
       breadcrumb: 'View Member',
@@ -49,7 +49,7 @@ const routes: Routes = [
   {
     path: 'points/:id',
     loadComponent: () => import('./components/member-points/member-points.component').then(c => c.MemberPointsComponent),
-    canActivate: [RoleGuard],
+    canActivate: [roleGuard],
     data: {
       title: 'Manage Points',
       breadcrumb: 'Points Management',
@@ -59,7 +59,7 @@ const routes: Routes = [
   {
     path: 'analytics',
     loadComponent: () => import('./components/membership-analytics/membership-analytics.component').then(c => c.MembershipAnalyticsComponent),
-    canActivate: [RoleGuard],
+    canActivate: [roleGuard],
     data: {
       title: 'Membership Analytics',
       breadcrumb: 'Analytics',

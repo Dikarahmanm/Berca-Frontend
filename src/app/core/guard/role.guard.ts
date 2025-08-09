@@ -1,51 +1,24 @@
-// src/app/core/guards/role.guard.ts
-// ✅ NEW: Role guard untuk protecting routes berdasarkan user role
-
-import { Injectable } from '@angular/core';
-import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
-
+// src/app/core/guard/role.guard.ts
+import { inject } from '@angular/core';
+import { CanActivateFn, ActivatedRouteSnapshot, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { map, take } from 'rxjs/operators';
 
-@Injectable({
-  providedIn: 'root'
-})
-export class RoleGuard implements CanActivate {
+export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
 
-  constructor(
-    private authService: AuthService,
-    private router: Router
-  ) {}
+  const requiredRoles = (route.data['requiredRoles'] as string[]) || [];
 
-  canActivate(
-    route: ActivatedRouteSnapshot,
-    state: RouterStateSnapshot
-  ): Observable<boolean> | Promise<boolean> | boolean {
+  // Tidak ada syarat role -> allow
+  if (requiredRoles.length === 0) return true;
 
-    const requiredRoles = route.data['requiredRoles'] as string[];
-    
-    if (!requiredRoles || requiredRoles.length === 0) {
-      return true; // No role requirement
-    }
-
-    return this.authService.currentUser$.pipe(
-      map(user => {
-        if (!user) {
-          this.router.navigate(['/login']);
-          return false;
-        }
-
-        const hasRole = requiredRoles.includes(user.role);
-        
-        if (!hasRole) {
-          // Redirect to dashboard or show access denied
-          this.router.navigate(['/dashboard']);
-          return false;
-        }
-
-        return true;
-      })
-    );
-  }
-}
+  return authService.currentUser$.pipe(
+    take(1),
+    map(user => {
+      if (!user) return router.createUrlTree(['/login']);
+      const hasRole = requiredRoles.includes(user.role);
+      return hasRole ? true : router.createUrlTree(['/dashboard']);
+    })
+  );
+};

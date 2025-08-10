@@ -1,4 +1,4 @@
-<!-- ===== INVENTORY LIST TEMPLATE WITH MINIMUM STOCK =====-->
+<!-- ===== FIXED: INVENTORY LIST TEMPLATE WITH RESPONSIVE COLUMNS ===== -->
 <!-- src/app/modules/inventory/components/inventory-list/inventory-list.component.html -->
 
 <div class="inventory-container">
@@ -38,19 +38,19 @@
           <mat-icon>inventory_2</mat-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ formatNumber(totalItems) }}</div>
+          <div class="stat-value">{{ formatNumber(statsData.totalProducts) }}</div>
           <div class="stat-label">Total Products</div>
         </div>
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="stat-card low-stock" *ngIf="lowStockProducts.length > 0">
+    <mat-card class="stat-card low-stock" *ngIf="statsData.lowStockCount > 0">
       <mat-card-content>
         <div class="stat-icon warning">
           <mat-icon>warning</mat-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ lowStockProducts.length }}</div>
+          <div class="stat-value">{{ statsData.lowStockCount }}</div>
           <div class="stat-label">Low Stock Items</div>
         </div>
       </mat-card-content>
@@ -62,7 +62,7 @@
           <mat-icon>trending_up</mat-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ formatPercentage(15.3) }}</div>
+          <div class="stat-value">{{ formatPercentage(statsData.averageMargin) }}</div>
           <div class="stat-label">Avg. Margin</div>
         </div>
       </mat-card-content>
@@ -85,9 +85,10 @@
           <!-- Category Filter -->
           <mat-form-field class="category-filter" appearance="outline">
             <mat-label>Category</mat-label>
-            <mat-select formControlName="categoryId">
+            <mat-select formControlName="categoryId" (click)="$event.stopPropagation()"
+              (selectionChange)="onCategoryFilterChange($event)">
               <mat-option value="">All Categories</mat-option>
-              <mat-option *ngFor="let category of categories" [value]="category.id">
+              <mat-option *ngFor="let category of categories; trackBy: trackCategoryById" [value]="category.id">
                 <span class="category-option">
                   <span class="category-color" [style.background-color]="category.color"></span>
                   {{ category.name }}
@@ -96,7 +97,7 @@
             </mat-select>
           </mat-form-field>
 
-          <!-- Stock Filter -->
+          <!-- ✅ FIXED: Stock Filter with proper enum values -->
           <mat-form-field class="stock-filter" appearance="outline">
             <mat-label>Stock Status</mat-label>
             <mat-select formControlName="stockFilter">
@@ -125,13 +126,22 @@
     </mat-card-content>
   </mat-card>
 
+  <!-- ===== RESPONSIVE INFO BAR ===== -->
+  <div class="responsive-info" *ngIf="!isDesktopView">
+    <mat-icon>info</mat-icon>
+    <span *ngIf="isMobileView">Mobile view: Essential columns only</span>
+    <span *ngIf="isTabletView">Tablet view: Core columns shown</span>
+    <small>Switch to desktop for full table view</small>
+  </div>
+
   <!-- ===== PRODUCTS TABLE ===== -->
   <mat-card class="table-card">
     <mat-card-content>
       <div class="table-container">
+        <!-- ✅ FIXED: Dynamic columns based on screen size -->
         <table mat-table [dataSource]="products" matSort (matSortChange)="onSortChange($event)" class="products-table">
 
-          <!-- Image Column -->
+          <!-- Image Column - Desktop Only -->
           <ng-container matColumnDef="image">
             <th mat-header-cell *matHeaderCellDef class="image-col">Image</th>
             <td mat-cell *matCellDef="let product" class="image-col">
@@ -142,7 +152,7 @@
             </td>
           </ng-container>
 
-          <!-- Product Info Column -->
+          <!-- Product Info Column - Always Visible -->
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Product</th>
             <td mat-cell *matCellDef="let product" class="product-info">
@@ -155,11 +165,30 @@
                 <div class="product-description" *ngIf="product.description">
                   {{ product.description }}
                 </div>
+
+                <!-- ✅ Mobile: Show additional info in product card -->
+                <div class="mobile-additional-info" *ngIf="isMobileView">
+                  <div class="mobile-info-row">
+                    <span class="mobile-label">Category:</span>
+                    <mat-chip class="mobile-category-chip"
+                      [style.background-color]="getCategoryColor(product.categoryId)">
+                      {{ getCategoryName(product.categoryId) }}
+                    </mat-chip>
+                  </div>
+                  <div class="mobile-info-row" *ngIf="isColumnVisible('buyPrice')">
+                    <span class="mobile-label">Buy:</span>
+                    <span class="mobile-value">{{ formatCurrency(product.buyPrice) }}</span>
+                  </div>
+                  <div class="mobile-info-row" *ngIf="isColumnVisible('sellPrice')">
+                    <span class="mobile-label">Sell:</span>
+                    <span class="mobile-value">{{ formatCurrency(product.sellPrice) }}</span>
+                  </div>
+                </div>
               </div>
             </td>
           </ng-container>
 
-          <!-- Barcode Column -->
+          <!-- Barcode Column - Tablet+ -->
           <ng-container matColumnDef="barcode">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Barcode</th>
             <td mat-cell *matCellDef="let product">
@@ -167,9 +196,9 @@
             </td>
           </ng-container>
 
-          <!-- Category Column -->
+          <!-- ✅ FIXED: Category Column - Add mat-sort-header -->
           <ng-container matColumnDef="category">
-            <th mat-header-cell *matHeaderCellDef>Category</th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header="categoryName">Category</th>
             <td mat-cell *matCellDef="let product" class="category-info">
               <mat-chip class="category-chip" [style.background-color]="getCategoryColor(product.categoryId)"
                 [style.color]="'white'">
@@ -178,9 +207,9 @@
             </td>
           </ng-container>
 
-          <!-- Stock Column -->
+          <!-- Stock Column - Always Visible -->
           <ng-container matColumnDef="stock">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>Current Stock</th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Stock</th>
             <td mat-cell *matCellDef="let product" class="stock-info">
               <div class="stock-main">
                 <span class="stock-value" [style.color]="getStockStatusColor(product)">
@@ -194,10 +223,16 @@
                   {{ getStockStatusLabel(product) }}
                 </mat-chip>
               </div>
+
+              <!-- ✅ Mobile: Show minimum stock info -->
+              <div class="mobile-minimum-info" *ngIf="isMobileView && product.stock <= product.minimumStock">
+                <mat-icon class="warning-icon" color="warn">warning</mat-icon>
+                <span class="warning-text">Min: {{ formatNumber(product.minimumStock) }}</span>
+              </div>
             </td>
           </ng-container>
 
-          <!-- ✅ FIXED: Minimum Stock Column -->
+          <!-- Minimum Stock Column - Desktop Only -->
           <ng-container matColumnDef="minimumStock">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Min. Stock</th>
             <td mat-cell *matCellDef="let product" class="minimum-stock-info">
@@ -212,7 +247,7 @@
             </td>
           </ng-container>
 
-          <!-- Buy Price Column -->
+          <!-- Buy Price Column - Desktop Only -->
           <ng-container matColumnDef="buyPrice">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Buy Price</th>
             <td mat-cell *matCellDef="let product" class="price-info">
@@ -220,7 +255,7 @@
             </td>
           </ng-container>
 
-          <!-- Sell Price Column -->
+          <!-- Sell Price Column - Tablet+ -->
           <ng-container matColumnDef="sellPrice">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Sell Price</th>
             <td mat-cell *matCellDef="let product" class="price-info">
@@ -228,9 +263,9 @@
             </td>
           </ng-container>
 
-          <!-- Margin Column -->
+          <!-- Margin Column - Desktop Only -->
           <ng-container matColumnDef="margin">
-            <th mat-header-cell *matHeaderCellDef>Margin</th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header="profitMargin">Margin</th>
             <td mat-cell *matCellDef="let product" class="margin-info">
               <div class="margin-details">
                 <div class="margin-percentage" [class.positive]="getMarginPercentage(product) > 0"
@@ -244,80 +279,114 @@
             </td>
           </ng-container>
 
-          <!-- Status Column -->
+          <!-- Status Column - Tablet+ -->
           <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header="isActive">Status</th>
             <td mat-cell *matCellDef="let product" class="status-info">
-              <mat-slide-toggle [checked]="product.isActive" (change)="toggleProductStatus(product)"
-                [color]="'primary'">
+              <mat-slide-toggle [checked]="product.isActive" (change)="toggleProductStatus(product)" [color]="'primary'">
                 {{ product.isActive ? 'Active' : 'Inactive' }}
               </mat-slide-toggle>
             </td>
           </ng-container>
 
-          <!-- Actions Column -->
+          <!-- Actions Column - Always Visible -->
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Actions</th>
             <td mat-cell *matCellDef="let product" class="actions-info">
               <div class="action-buttons">
-                <!-- Quick Stock Management -->
-                <button mat-icon-button (click)="manageStock(product)" matTooltip="Manage Stock" color="primary">
-                  <mat-icon>inventory</mat-icon>
-                </button>
-
-                <!-- Edit Product -->
-                <button mat-icon-button (click)="editProduct(product)" matTooltip="Edit Product" color="accent">
-                  <mat-icon>edit</mat-icon>
-                </button>
-
-                <!-- More Actions Menu -->
-                <button mat-icon-button [matMenuTriggerFor]="actionsMenu" matTooltip="More Actions">
-                  <mat-icon>more_vert</mat-icon>
-                </button>
-
-                <mat-menu #actionsMenu="matMenu">
-                  <button mat-menu-item (click)="editProduct(product)">
+                <!-- ✅ Mobile: Show essential actions only -->
+                <div class="mobile-actions" *ngIf="isMobileView">
+                  <button mat-icon-button (click)="editProduct(product)" matTooltip="Edit" color="primary">
                     <mat-icon>edit</mat-icon>
-                    <span>Edit Product</span>
                   </button>
 
-                  <button mat-menu-item (click)="manageStock(product)">
+                  <button mat-icon-button [matMenuTriggerFor]="mobileActionsMenu" matTooltip="More">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+
+                  <mat-menu #mobileActionsMenu="matMenu">
+                    <button mat-menu-item (click)="manageStock(product)">
+                      <mat-icon>inventory</mat-icon>
+                      <span>Manage Stock</span>
+                    </button>
+
+                    <button mat-menu-item (click)="toggleProductStatus(product)" [class.activate]="!product.isActive"
+                      [class.deactivate]="product.isActive">
+                      <mat-icon>{{ product.isActive ? 'visibility_off' : 'visibility' }}</mat-icon>
+                      <span>{{ product.isActive ? 'Deactivate' : 'Activate' }}</span>
+                    </button>
+
+                    <mat-divider></mat-divider>
+
+                    <button mat-menu-item (click)="deleteProduct(product)" class="delete-action">
+                      <mat-icon color="warn">delete</mat-icon>
+                      <span>Delete Product</span>
+                    </button>
+                  </mat-menu>
+                </div>
+
+                <!-- ✅ Tablet/Desktop: Show all actions -->
+                <div class="desktop-actions" *ngIf="!isMobileView">
+                  <!-- Quick Stock Management -->
+                  <button mat-icon-button (click)="manageStock(product)" matTooltip="Manage Stock" color="primary">
                     <mat-icon>inventory</mat-icon>
-                    <span>Manage Stock</span>
                   </button>
 
-                  <mat-divider></mat-divider>
-
-                  <button mat-menu-item (click)="toggleProductStatus(product)" [class.activate]="!product.isActive"
-                    [class.deactivate]="product.isActive">
-                    <mat-icon>{{ product.isActive ? 'visibility_off' : 'visibility' }}</mat-icon>
-                    <span>{{ product.isActive ? 'Deactivate' : 'Activate' }}</span>
+                  <!-- Edit Product -->
+                  <button mat-icon-button (click)="editProduct(product)" matTooltip="Edit Product" color="accent">
+                    <mat-icon>edit</mat-icon>
                   </button>
 
-                  <button mat-menu-item (click)="deleteProduct(product)" class="delete-action">
-                    <mat-icon color="warn">delete</mat-icon>
-                    <span>Delete Product</span>
+                  <!-- More Actions Menu -->
+                  <button mat-icon-button [matMenuTriggerFor]="desktopActionsMenu" matTooltip="More Actions">
+                    <mat-icon>more_vert</mat-icon>
                   </button>
-                </mat-menu>
+
+                  <mat-menu #desktopActionsMenu="matMenu">
+                    <button mat-menu-item (click)="editProduct(product)">
+                      <mat-icon>edit</mat-icon>
+                      <span>Edit Product</span>
+                    </button>
+
+                    <button mat-menu-item (click)="manageStock(product)">
+                      <mat-icon>inventory</mat-icon>
+                      <span>Manage Stock</span>
+                    </button>
+
+                    <mat-divider></mat-divider>
+
+                    <button mat-menu-item (click)="toggleProductStatus(product)" [class.activate]="!product.isActive"
+                      [class.deactivate]="product.isActive">
+                      <mat-icon>{{ product.isActive ? 'visibility_off' : 'visibility' }}</mat-icon>
+                      <span>{{ product.isActive ? 'Deactivate' : 'Activate' }}</span>
+                    </button>
+
+                    <button mat-menu-item (click)="deleteProduct(product)" class="delete-action">
+                      <mat-icon color="warn">delete</mat-icon>
+                      <span>Delete Product</span>
+                    </button>
+                  </mat-menu>
+                </div>
               </div>
             </td>
           </ng-container>
 
-          <!-- Table Header and Rows -->
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let product; columns: displayedColumns;" [class.low-stock-row]="product.isLowStock"
-            [class.out-of-stock-row]="product.isOutOfStock" [class.inactive-row]="!product.isActive">
+          <!-- ✅ FIXED: Dynamic table header and rows based on responsive columns -->
+          <tr mat-header-row *matHeaderRowDef="currentDisplayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let product; columns: currentDisplayedColumns;"
+            [class.low-stock-row]="product.isLowStock" [class.out-of-stock-row]="product.isOutOfStock"
+            [class.inactive-row]="!product.isActive">
           </tr>
         </table>
 
         <!-- ===== LOADING STATE ===== -->
-        <div class="loading-container" *ngIf="loading">
+        <div class="loading-container" *ngIf="loading()">
           <mat-spinner diameter="40"></mat-spinner>
           <p>Loading products...</p>
         </div>
 
         <!-- ===== EMPTY STATE ===== -->
-        <div class="empty-state" *ngIf="!loading && products.data.length === 0">
+        <div class="empty-state" *ngIf="!loading() && products.data.length === 0">
           <mat-icon class="empty-icon">inventory_2</mat-icon>
           <h3>No products found</h3>
           <p>Try adjusting your search criteria or add a new product.</p>
@@ -329,9 +398,27 @@
       </div>
 
       <!-- ===== PAGINATION ===== -->
-      <mat-paginator [length]="totalItems" [pageSize]="pageSize" [pageSizeOptions]="[10, 25, 50, 100]"
+      <mat-paginator [length]="totalItems()" [pageSize]="pageSize()" [pageSizeOptions]="[10, 25, 50, 100]"
         (page)="onPageChange($event)" showFirstLastButtons>
       </mat-paginator>
     </mat-card-content>
   </mat-card>
+
+  <!-- ===== DEBUG INFO (Development Only) ===== -->
+  <div class="debug-info" *ngIf="false">
+    <mat-card>
+      <mat-card-content>
+        <h4>Debug Info</h4>
+        <p><strong>Screen Width:</strong> {{ screenWidth() }}px</p>
+        <p><strong>View Type:</strong>
+          <span *ngIf="isMobileView">Mobile</span>
+          <span *ngIf="isTabletView">Tablet</span>
+          <span *ngIf="isDesktopView">Desktop</span>
+        </p>
+        <p><strong>Displayed Columns:</strong> {{ currentDisplayedColumns.join(', ') }}</p>
+        <p><strong>Total Products:</strong> {{ totalItems() }}</p>
+        <p><strong>Low Stock Count:</strong> {{ statsData.lowStockCount }}</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
 </div>

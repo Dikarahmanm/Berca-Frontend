@@ -1592,6 +1592,7 @@
     flex-shrink: 0;
     padding: var(--s6);
     border-bottom: 1px solid var(--border);
+    height: 174px; // ✅ FIX: Fixed height for header
     
     .cart-title {
       font-size: var(--text-xl);

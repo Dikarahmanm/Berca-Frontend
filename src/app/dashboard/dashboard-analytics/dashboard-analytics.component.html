@@ -1,8 +1,10 @@
 <!-- src/app/dashboard/dashboard-analytics/dashboard-analytics.component.html -->
+<!-- ✅ REDESIGNED: Clean Simple Design - No Material Design Complexity, High Contrast -->
+
 <div class="dashboard-analytics">
 
-  <!-- Header -->
-  <div class="analytics-header">
+  <!-- Header Section -->
+  <header class="analytics-header">
     <div class="header-content">
       <div class="title-section">
         <h1 class="page-title">
@@ -13,42 +15,43 @@
       </div>
 
       <div class="header-actions">
-        <mat-form-field appearance="outline" class="period-selector">
-          <mat-label>Period</mat-label>
-          <mat-select [(value)]="selectedPeriod" (selectionChange)="onPeriodChange()">
-            <mat-option value="today">Hari Ini</mat-option>
-            <mat-option value="week">7 Hari Terakhir</mat-option>
-            <mat-option value="month">30 Hari Terakhir</mat-option>
-            <mat-option value="year">1 Tahun Terakhir</mat-option>
-          </mat-select>
-        </mat-form-field>
+        <!-- Simple Select - No Material Design Outline -->
+        <div class="period-selector">
+          <label for="period-select" class="sr-only">Select Period</label>
+          <select id="period-select" [(ngModel)]="selectedPeriod" (change)="onPeriodChange()" class="form-select">
+            <option value="today">Hari Ini</option>
+            <option value="week">7 Hari Terakhir</option>
+            <option value="month">30 Hari Terakhir</option>
+            <option value="year">1 Tahun Terakhir</option>
+          </select>
+        </div>
 
-        <button mat-raised-button color="primary" (click)="refreshData()" [disabled]="isLoading">
+        <button class="btn btn-primary" (click)="refreshData()" [disabled]="isLoading" type="button">
           <mat-icon>refresh</mat-icon>
-          Refresh
+          <span>Refresh</span>
         </button>
       </div>
     </div>
-  </div>
+  </header>
 
   <!-- Loading State -->
-  <div class="loading-overlay" *ngIf="isLoading">
-    <mat-spinner diameter="60"></mat-spinner>
+  <div class="loading-overlay" *ngIf="isLoading" role="status" aria-live="polite">
+    <mat-spinner diameter="60" aria-label="Loading analytics data"></mat-spinner>
     <p>Memuat data analytics...</p>
   </div>
 
   <!-- Main Content -->
-  <div class="analytics-content" *ngIf="!isLoading && currentKPIs">
+  <main class="analytics-content" *ngIf="!isLoading && currentKPIs">
 
-    <!-- Quick Stats Section - Moved to top -->
-    <section class="quick-stats-section" *ngIf="currentQuickStats">
+    <!-- Quick Stats Section -->
+    <section class="quick-stats-section" *ngIf="currentQuickStats" aria-labelledby="quick-stats-title">
       <div class="section-header">
-        <h2>Quick Stats</h2>
+        <h2 id="quick-stats-title">Quick Stats</h2>
         <p>Ringkasan performa hari ini</p>
       </div>
-      
+
       <div class="quick-stats-grid">
-        <div class="quick-stat-card revenue">
+        <article class="quick-stat-card revenue">
           <div class="stat-icon">
             <mat-icon>attach_money</mat-icon>
           </div>
@@ -60,9 +63,9 @@
               <span>+{{ formatNumber(currentQuickStats.revenueGrowthPercentage) }}%</span>
             </div>
           </div>
-        </div>
+        </article>
 
-        <div class="quick-stat-card transactions">
+        <article class="quick-stat-card transactions">
           <div class="stat-icon">
             <mat-icon>receipt</mat-icon>
           </div>
@@ -71,9 +74,9 @@
             <div class="stat-label">Transaksi Hari Ini</div>
             <div class="stat-meta">Transaksi berhasil</div>
           </div>
-        </div>
+        </article>
 
-        <div class="quick-stat-card alerts">
+        <article class="quick-stat-card alerts">
           <div class="stat-icon">
             <mat-icon>warning</mat-icon>
           </div>
@@ -82,9 +85,9 @@
             <div class="stat-label">Stok Menipis</div>
             <div class="stat-meta">Produk perlu restock</div>
           </div>
-        </div>
+        </article>
 
-        <div class="quick-stat-card members">
+        <article class="quick-stat-card members">
           <div class="stat-icon">
             <mat-icon>people</mat-icon>
           </div>
@@ -93,19 +96,19 @@
             <div class="stat-label">Member Aktif</div>
             <div class="stat-meta">Member terdaftar</div>
           </div>
-        </div>
+        </article>
       </div>
     </section>
 
-    <!-- KPI Cards -->
-    <section class="kpi-section">
+    <!-- KPI Cards Section -->
+    <section class="kpi-section" aria-labelledby="kpi-title">
       <div class="section-header">
-        <h2>Key Performance Indicators</h2>
+        <h2 id="kpi-title">Key Performance Indicators</h2>
         <p>Metrik performa utama bisnis</p>
       </div>
-      
+
       <div class="kpi-grid">
-        <div class="kpi-card revenue">
+        <article class="kpi-card revenue">
           <div class="kpi-icon">
             <mat-icon>trending_up</mat-icon>
           </div>
@@ -114,9 +117,9 @@
             <div class="kpi-label">Pendapatan Hari Ini</div>
             <div class="kpi-meta">{{ formatNumber(currentKPIs.todayTransactions) }} transaksi</div>
           </div>
-        </div>
+        </article>
 
-        <div class="kpi-card monthly">
+        <article class="kpi-card monthly">
           <div class="kpi-icon">
             <mat-icon>calendar_month</mat-icon>
           </div>
@@ -125,9 +128,9 @@
             <div class="kpi-label">Pendapatan Bulanan</div>
             <div class="kpi-meta">{{ formatNumber(currentKPIs.monthlyTransactions) }} transaksi</div>
           </div>
-        </div>
+        </article>
 
-        <div class="kpi-card products">
+        <article class="kpi-card products">
           <div class="kpi-icon">
             <mat-icon>inventory_2</mat-icon>
           </div>
@@ -136,9 +139,9 @@
             <div class="kpi-label">Total Produk</div>
             <div class="kpi-meta">{{ formatNumber(currentKPIs.lowStockProducts) }} stok rendah</div>
           </div>
-        </div>
+        </article>
 
-        <div class="kpi-card profit">
+        <article class="kpi-card profit">
           <div class="kpi-icon">
             <mat-icon>savings</mat-icon>
           </div>
@@ -147,39 +150,44 @@
             <div class="kpi-label">Total Profit</div>
             <div class="kpi-meta">Rata-rata: {{ formatCurrency(currentKPIs.averageTransactionValue) }}</div>
           </div>
-        </div>
+        </article>
       </div>
     </section>
 
-    <!-- Products Analytics -->
-    <section class="products-section">
+    <!-- Products Analytics Section -->
+    <section class="products-section" aria-labelledby="products-title">
+      <div class="section-header">
+        <h2 id="products-title">Products Analytics</h2>
+        <p>Analisis performa produk terlaris dan terburuk</p>
+      </div>
+
       <div class="products-grid">
-        
+
         <!-- Top Selling Products -->
-        <div class="product-card top-products">
-          <div class="card-header">
+        <article class="product-card top-products">
+          <header class="card-header">
             <h3>
               <mat-icon>trending_up</mat-icon>
               Produk Terlaris
             </h3>
-            <button mat-button color="primary" (click)="navigateToProducts()">
+            <button class="btn btn-primary" (click)="navigateToProducts()" type="button">
               Lihat Semua
             </button>
-          </div>
-          
+          </header>
+
           <div class="product-list" *ngIf="topProducts.length > 0; else noTopProducts">
-            <div class="top-product-item" *ngFor="let product of topProducts; let i = index">
+            <article class="top-product-item" *ngFor="let product of topProducts; let i = index">
               <!-- Header with rank and weighted score -->
-              <div class="product-header">
-                <div class="rank-badge success">{{ i + 1 }}</div>
+              <header class="product-header">
+                <div class="rank-badge success" [attr.aria-label]="'Rank ' + (i + 1)">{{ i + 1 }}</div>
                 <div class="product-basic-info">
-                  <div class="product-name">{{ product.productName }}</div>
+                  <h4 class="product-name">{{ product.productName }}</h4>
                   <div class="product-barcode">{{ product.productBarcode }}</div>
                 </div>
                 <div class="weighted-score" [ngClass]="getTopProductScoreClass(product.weightedScore)">
                   {{ formatNumber(safeValue(product.weightedScore)) }}
                 </div>
-              </div>
+              </header>
 
               <!-- Performance metrics section -->
               <div class="performance-section">
@@ -210,70 +218,68 @@
               </div>
 
               <!-- Action button -->
-              <div class="product-actions">
-                <button mat-icon-button (click)="viewProductDetails(product.productId)" class="action-btn">
+              <footer class="product-actions">
+                <button class="action-btn" (click)="viewProductDetails(product.productId)" type="button"
+                  [attr.aria-label]="'View details for ' + product.productName">
                   <mat-icon>visibility</mat-icon>
                 </button>
-              </div>
-            </div>
+              </footer>
+            </article>
           </div>
-          
+
           <ng-template #noTopProducts>
             <div class="empty-state">
               <mat-icon>inventory_2</mat-icon>
               <p>Belum ada data produk terlaris</p>
             </div>
           </ng-template>
-        </div>
+        </article>
 
         <!-- Worst Performing Products -->
-        <div class="product-card worst-products">
-          <div class="card-header">
+        <article class="product-card worst-products">
+          <header class="card-header">
             <h3>
               <mat-icon>trending_down</mat-icon>
               Produk Performa Buruk
             </h3>
             <div class="header-actions">
-              <mat-form-field appearance="outline" class="category-filter">
-                <mat-label>Filter Kategori</mat-label>
-                <mat-select [(value)]="selectedWorstCategory" (selectionChange)="onWorstCategoryChange()">
-                  <mat-option value="all">Semua Kategori</mat-option>
-                  <mat-option *ngFor="let category of getWorstCategories()" [value]="category">
+              <div class="category-filter">
+                <label for="worst-category-select" class="sr-only">Filter Kategori</label>
+                <select id="worst-category-select" [(ngModel)]="selectedWorstCategory"
+                  (change)="onWorstCategoryChange()" class="form-select">
+                  <option value="all">Semua Kategori</option>
+                  <option *ngFor="let category of getWorstCategories()" [value]="category">
                     {{ category }}
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-              <button mat-button color="warn" (click)="navigateToProducts()">
+                  </option>
+                </select>
+              </div>
+              <button class="btn btn-warning" (click)="navigateToProducts()" type="button">
                 Lihat Semua
               </button>
             </div>
-          </div>
-          
+          </header>
+
           <div class="product-list" *ngIf="getSortedWorstProducts().length > 0; else noWorstProducts">
-            <div class="worst-product-item" 
-                 [attr.data-category]="product.performanceCategory"
-                 *ngFor="let product of getSortedWorstProducts(); let i = index">
+            <article class="worst-product-item" [attr.data-category]="product.performanceCategory"
+              *ngFor="let product of getSortedWorstProducts(); let i = index">
               <!-- Header with rank and category -->
-              <div class="product-header">
-                <div class="rank-badge">{{ i + 1 }}</div>
+              <header class="product-header">
+                <div class="rank-badge" [attr.aria-label]="'Rank ' + (i + 1)">{{ i + 1 }}</div>
                 <div class="product-basic-info">
-                  <div class="product-name">{{ product.productName }}</div>
+                  <h4 class="product-name">{{ product.productName }}</h4>
                   <div class="product-barcode">{{ product.productBarcode }}</div>
                 </div>
                 <div class="performance-score" [ngClass]="getPerformanceScoreClass(product.performanceScore)">
                   {{ product.performanceScore }}
                 </div>
-              </div>
+              </header>
 
               <!-- Performance category chip -->
               <div class="category-section">
-                <mat-chip 
-                  [color]="getPerformanceCategoryColor(product.performanceCategory)" 
-                  class="category-chip"
-                  [attr.data-category]="product.performanceCategory">
+                <div class="category-chip" [attr.data-category]="product.performanceCategory">
                   <mat-icon>{{ getPerformanceCategoryIcon(product.performanceCategory) }}</mat-icon>
                   {{ product.performanceCategory }}
-                </mat-chip>
+                </div>
               </div>
 
               <!-- Key metrics in compact format -->
@@ -297,41 +303,42 @@
               </div>
 
               <!-- Action button -->
-              <div class="product-actions">
-                <button mat-icon-button (click)="viewProductDetails(product.productId)" class="action-btn">
+              <footer class="product-actions">
+                <button class="action-btn" (click)="viewProductDetails(product.productId)" type="button"
+                  [attr.aria-label]="'View details for ' + product.productName">
                   <mat-icon>visibility</mat-icon>
                 </button>
-              </div>
-            </div>
+              </footer>
+            </article>
           </div>
-          
+
           <ng-template #noWorstProducts>
             <div class="empty-state">
               <mat-icon>trending_down</mat-icon>
               <p>Belum ada data produk performa buruk</p>
             </div>
           </ng-template>
-        </div>
+        </article>
       </div>
     </section>
 
-    <!-- Revenue by Category -->
-    <section class="category-revenue-section">
-      <div class="card-header">
-        <h3>
+    <!-- Revenue by Category Section -->
+    <section class="category-revenue-section" aria-labelledby="category-revenue-title">
+      <header class="card-header">
+        <h3 id="category-revenue-title">
           <mat-icon>pie_chart</mat-icon>
           Pendapatan per Kategori
         </h3>
-        <button mat-button color="primary" (click)="navigateToReports()">
+        <button class="btn btn-primary" (click)="navigateToReports()" type="button">
           Lihat Detail
         </button>
-      </div>
-      
+      </header>
+
       <div class="category-grid" *ngIf="categorySales.length > 0; else noCategoryData">
-        <div class="category-item" *ngFor="let category of categorySales">
+        <article class="category-item" *ngFor="let category of categorySales">
           <div class="category-color" [style.background-color]="category.categoryColor"></div>
           <div class="category-info">
-            <div class="category-name">{{ category.categoryName }}</div>
+            <h4 class="category-name">{{ category.categoryName }}</h4>
             <div class="category-stats">
               <span>{{ formatNumber(category.productCount) }} produk</span>
               <span>•</span>
@@ -342,9 +349,9 @@
             <div class="revenue-amount">{{ formatCurrency(category.totalRevenue) }}</div>
             <div class="transaction-count">{{ formatNumber(category.transactionCount) }} transaksi</div>
           </div>
-        </div>
+        </article>
       </div>
-      
+
       <ng-template #noCategoryData>
         <div class="empty-state">
           <mat-icon>category</mat-icon>
@@ -353,26 +360,26 @@
       </ng-template>
     </section>
 
-    <!-- Recent Transactions -->
-    <section class="transactions-section">
-      <div class="card-header">
-        <h3>
+    <!-- Recent Transactions Section -->
+    <section class="transactions-section" aria-labelledby="transactions-title">
+      <header class="card-header">
+        <h3 id="transactions-title">
           <mat-icon>receipt_long</mat-icon>
           Transaksi Terbaru
         </h3>
-        <button mat-button color="primary" (click)="navigateToTransactions()">
+        <button class="btn btn-primary" (click)="navigateToTransactions()" type="button">
           Lihat Semua
         </button>
-      </div>
-      
+      </header>
+
       <div class="transactions-list" *ngIf="recentTransactions.length > 0; else noTransactions">
-        <div class="transaction-item" *ngFor="let transaction of recentTransactions">
+        <article class="transaction-item" *ngFor="let transaction of recentTransactions">
           <div class="transaction-id">
             <mat-icon>receipt</mat-icon>
             <span>{{ transaction.saleNumber }}</span>
           </div>
           <div class="transaction-info">
-            <div class="transaction-customer">{{ transaction.customerName || 'Customer' }}</div>
+            <h4 class="transaction-customer">{{ transaction.customerName || 'Customer' }}</h4>
             <div class="transaction-cashier">Kasir: {{ transaction.cashierName || 'Unknown' }}</div>
             <div class="transaction-date">{{ transaction.saleDate | date:'dd/MM/yyyy HH:mm' }}</div>
           </div>
@@ -381,12 +388,13 @@
             <div class="transaction-items">{{ formatNumber(transaction.itemCount) }} item</div>
             <div class="transaction-method">{{ transaction.paymentMethod }}</div>
           </div>
-          <button mat-icon-button (click)="viewTransactionDetails(transaction)">
+          <button class="action-btn" (click)="viewTransactionDetails(transaction)" type="button"
+            [attr.aria-label]="'View details for transaction ' + transaction.saleNumber">
             <mat-icon>visibility</mat-icon>
           </button>
-        </div>
+        </article>
       </div>
-      
+
       <ng-template #noTransactions>
         <div class="empty-state">
           <mat-icon>receipt_long</mat-icon>
@@ -395,28 +403,26 @@
       </ng-template>
     </section>
 
-    <!-- Low Stock Alerts -->
-    <section class="low-stock-section">
-      <div class="card-header">
-        <h3>
+    <!-- Low Stock Alerts Section -->
+    <section class="low-stock-section" aria-labelledby="low-stock-title">
+      <header class="card-header">
+        <h3 id="low-stock-title">
           <mat-icon>warning</mat-icon>
           Peringatan Stok Menipis
-          <mat-chip-set>
-            <mat-chip color="warn">{{ lowStockAlerts.length }} items</mat-chip>
-          </mat-chip-set>
+          <span class="stock-count-badge">{{ lowStockAlerts.length }} items</span>
         </h3>
-        <button mat-button color="warn" (click)="navigateToInventory()">
+        <button class="btn btn-warning" (click)="navigateToInventory()" type="button">
           Kelola Stok
         </button>
-      </div>
-      
+      </header>
+
       <div class="low-stock-list" *ngIf="lowStockAlerts.length > 0; else noLowStock">
-        <div class="low-stock-item" *ngFor="let item of lowStockAlerts">
+        <article class="low-stock-item" *ngFor="let item of lowStockAlerts">
           <div class="stock-status" [ngClass]="item.isOutOfStock ? 'out-of-stock' : 'low-stock'">
             <mat-icon>{{ item.isOutOfStock ? 'block' : 'warning' }}</mat-icon>
           </div>
           <div class="item-info">
-            <div class="item-name">{{ item.name }}</div>
+            <h4 class="item-name">{{ item.name }}</h4>
             <div class="item-category">{{ item.categoryName }}</div>
             <div class="item-barcode">{{ item.barcode }}</div>
           </div>
@@ -430,13 +436,14 @@
             </div>
           </div>
           <div class="item-actions">
-            <button mat-raised-button color="{{ item.isOutOfStock ? 'warn' : 'accent' }}" size="small" (click)="viewProductDetails(item.id)">
+            <button class="btn" [ngClass]="item.isOutOfStock ? 'btn-error' : 'btn-warning'"
+              (click)="viewProductDetails(item.id)" type="button">
               {{ item.isOutOfStock ? 'Restock Sekarang' : 'Lihat Detail' }}
             </button>
           </div>
-        </div>
+        </article>
       </div>
-      
+
       <ng-template #noLowStock>
         <div class="empty-state success">
           <mat-icon>check_circle</mat-icon>
@@ -445,16 +452,16 @@
       </ng-template>
     </section>
 
-  </div>
+  </main>
 
   <!-- Empty State -->
-  <div class="empty-dashboard" *ngIf="!isLoading && !currentKPIs">
+  <div class="empty-dashboard" *ngIf="!isLoading && !currentKPIs" role="status">
     <mat-icon>analytics</mat-icon>
     <h2>Belum Ada Data Analytics</h2>
     <p>Data analytics akan muncul setelah ada transaksi dan aktivitas bisnis</p>
-    <button mat-raised-button color="primary" (click)="refreshData()">
+    <button class="btn btn-primary" (click)="refreshData()" type="button">
       <mat-icon>refresh</mat-icon>
-      Muat Ulang Data
+      <span>Muat Ulang Data</span>
     </button>
   </div>
 

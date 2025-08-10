@@ -6,7 +6,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 interface PaymentData {
-  method: 'cash' | 'card' | 'digital';
+  method: 'cash' | 'card' | 'digital' | 'credit';
   amountPaid: number;
   change: number;
   reference?: string;
@@ -153,7 +153,7 @@ interface PaymentData {
       <div class="shortcuts-info">
         <small>
           <strong>Shortcut:</strong> 
-          Enter: Proses | ESC: Batal | 1-6: Metode/Jumlah Cepat
+          Enter: Proses | ESC: Batal | 1-{{ hasMember ? '4' : '3' }}: Metode{{ selectedMethod === 'cash' ? ' | 5-7: Jumlah Cepat' : '' }}
         </small>
       </div>
     </div>
@@ -168,6 +168,7 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
 
   @Input() totalAmount: number = 0;
   @Input() isVisible: boolean = false;
+  @Input() hasMember: boolean = false;
   
   @Output() paymentComplete = new EventEmitter<PaymentData>();
   @Output() paymentCancelled = new EventEmitter<void>();
@@ -175,7 +176,7 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   // Payment state
-  selectedMethod: 'cash' | 'card' | 'digital' = 'cash';
+  selectedMethod: 'cash' | 'card' | 'digital' | 'credit' = 'cash';
   amountPaid: number = 0;
   change: number = 0;
   paymentReference: string = '';
@@ -185,26 +186,50 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   quickAmounts: number[] = [50000, 100000, 200000, 500000];
 
   // Payment methods configuration
-  paymentMethods = [
-    {
-      id: 'cash' as const,
-      label: 'Tunai',
-      description: 'Pembayaran dengan uang tunai',
-      iconPath: 'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z'
-    },
-    {
-      id: 'card' as const,
-      label: 'Kartu',
-      description: 'Kartu debit/kredit',
-      iconPath: 'M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z'
-    },
-    {
-      id: 'digital' as const,
-      label: 'Digital',
-      description: 'E-wallet, QRIS, dll',
-      iconPath: 'M3,11H5V13H3V11M11,5H13V9H11V5M9,11H13V15H11V13H9V11M15,11H17V13H19V11H17V9H15V11M19,19H17V17H15V15H13V17H15V19H17V21H19V19M21,17H19V19H21V17M7,15H9V17H7V15M3,19H5V21H3V19M5,3H9V7H7V5H5V3M17,3H21V7H19V5H17V3M11,11H13V13H11V11Z'
+  get paymentMethods(): Array<{
+    id: 'cash' | 'card' | 'digital' | 'credit';
+    label: string;
+    description: string;
+    iconPath: string;
+  }> {
+    const baseMethods: Array<{
+      id: 'cash' | 'card' | 'digital' | 'credit';
+      label: string;
+      description: string;
+      iconPath: string;
+    }> = [
+      {
+        id: 'cash',
+        label: 'Tunai',
+        description: 'Pembayaran dengan uang tunai',
+        iconPath: 'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z'
+      },
+      {
+        id: 'card',
+        label: 'Kartu',
+        description: 'Kartu debit/kredit',
+        iconPath: 'M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z'
+      },
+      {
+        id: 'digital',
+        label: 'Digital',
+        description: 'E-wallet, QRIS, dll',
+        iconPath: 'M3,11H5V13H3V11M11,5H13V9H11V5M9,11H13V15H11V13H9V11M15,11H17V13H19V11H17V9H15V11M19,19H17V17H15V15H13V17H15V19H17V21H19V19M21,17H19V19H21V17M7,15H9V17H7V15M3,19H5V21H3V19M5,3H9V7H7V5H5V3M17,3H21V7H19V5H17V3M11,11H13V13H11V11Z'
+      }
+    ];
+
+    // Add credit option only for members
+    if (this.hasMember) {
+      baseMethods.push({
+        id: 'credit',
+        label: 'Hutang',
+        description: 'Pembayaran kredit/hutang',
+        iconPath: 'M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z'
+      });
     }
-  ];
+
+    return baseMethods;
+  }
 
   constructor() {}
 
@@ -243,7 +268,7 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
 
   // ===== PAYMENT METHOD SELECTION =====
 
-  selectPaymentMethod(method: 'cash' | 'card' | 'digital') {
+  selectPaymentMethod(method: 'cash' | 'card' | 'digital' | 'credit') {
     this.selectedMethod = method;
     
     if (method === 'cash') {
@@ -366,9 +391,26 @@ handleKeyboardShortcuts(event: KeyboardEvent) {
       break;
     
     case '4':
-      if (this.selectedMethod === 'cash' && !event.ctrlKey && !event.altKey) {
+      if (this.hasMember && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        this.selectPaymentMethod('credit');
+      } else if (this.selectedMethod === 'cash' && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
         this.selectQuickAmount(this.quickAmounts[0]);
+      }
+      break;
+    
+    case '5':
+      if (this.selectedMethod === 'cash' && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        this.selectQuickAmount(this.quickAmounts[1]);
+      }
+      break;
+    
+    case '6':
+      if (this.selectedMethod === 'cash' && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+        this.selectQuickAmount(this.quickAmounts[2]);
       }
       break;
   }

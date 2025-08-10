@@ -1,12 +1,44 @@
 <div class="transaction-detail-container">
   <!-- Loading State -->
-  <div *ngIf="loading" class="loading-container">
-    <mat-spinner diameter="50"></mat-spinner>
-    <p>Memuat detail transaksi...</p>
+  @if (loading) {
+  <div class="loading-container">
+    <div class="loading-content">
+      <div class="loading-spinner">
+        <mat-spinner diameter="60" strokeWidth="4"></mat-spinner>
+        <div class="spinner-overlay">
+          <svg class="orange-spinner" viewBox="0 0 50 50">
+            <circle 
+              cx="25" cy="25" r="20" 
+              fill="none" 
+              stroke="#ff7f27" 
+              stroke-width="3"
+              stroke-dasharray="31.416" 
+              stroke-dashoffset="31.416">
+              <animate 
+                attributeName="stroke-dasharray" 
+                dur="2s" 
+                values="0 31.416;15.708 15.708;0 31.416" 
+                repeatCount="indefinite"/>
+              <animate 
+                attributeName="stroke-dashoffset" 
+                dur="2s" 
+                values="0;-15.708;-31.416" 
+                repeatCount="indefinite"/>
+            </circle>
+          </svg>
+        </div>
+      </div>
+      <div class="loading-text">
+        <h3>Memuat Detail Transaksi</h3>
+        <p>Mengambil informasi transaksi...</p>
+      </div>
+    </div>
   </div>
+  }
 
   <!-- Error State -->
-  <div *ngIf="error && !loading" class="error-container">
+  @if (error && !loading) {
+  <div class="error-container">
     <mat-icon color="warn">error</mat-icon>
     <h3>Error</h3>
     <p>{{ error }}</p>
@@ -15,9 +47,11 @@
       Kembali
     </button>
   </div>
+  }
 
   <!-- Transaction Detail Content -->
-  <div *ngIf="transaction && !loading && !error" class="detail-content">
+  @if (transaction && !loading && !error) {
+  <div class="detail-content fade-in">
     <!-- Header -->
     <div class="detail-header">
       <div class="header-left">
@@ -72,22 +106,28 @@
               <span class="label">Kasir:</span>
               <span class="value">{{ transaction.cashierName }}</span>
             </div>
-            <div class="info-item" *ngIf="transaction.customerName">
+            @if (transaction.customerName) {
+            <div class="info-item">
               <span class="label">Customer:</span>
               <span class="value">{{ transaction.customerName }}</span>
             </div>
-            <div class="info-item" *ngIf="transaction.memberName">
+            }
+            @if (transaction.memberName) {
+            <div class="info-item">
               <span class="label">Member:</span>
               <span class="value">{{ transaction.memberName }} ({{ transaction.memberNumber }})</span>
             </div>
+            }
             <div class="info-item">
               <span class="label">Metode Pembayaran:</span>
               <span class="value">{{ transaction.paymentMethod }}</span>
             </div>
-            <div class="info-item" *ngIf="transaction.paymentReference">
+            @if (transaction.paymentReference) {
+            <div class="info-item">
               <span class="label">Referensi Pembayaran:</span>
               <span class="value">{{ transaction.paymentReference }}</span>
             </div>
+            }
           </div>
         </mat-card-content>
       </mat-card>
@@ -107,14 +147,18 @@
               <span class="label">Subtotal:</span>
               <span class="value">{{ formatCurrency(transaction.subtotal) }}</span>
             </div>
-            <div class="financial-item" *ngIf="transaction.discountAmount > 0">
+            @if (transaction.discountAmount > 0) {
+            <div class="financial-item">
               <span class="label">Diskon:</span>
               <span class="value discount">-{{ formatCurrency(transaction.discountAmount) }}</span>
             </div>
-            <div class="financial-item" *ngIf="transaction.taxAmount > 0">
+            }
+            @if (transaction.taxAmount > 0) {
+            <div class="financial-item">
               <span class="label">Pajak:</span>
               <span class="value">{{ formatCurrency(transaction.taxAmount) }}</span>
             </div>
+            }
             <div class="financial-item total">
               <span class="label">TOTAL:</span>
               <span class="value">{{ formatCurrency(transaction.total) }}</span>
@@ -123,10 +167,12 @@
               <span class="label">Dibayar:</span>
               <span class="value">{{ formatCurrency(transaction.amountPaid) }}</span>
             </div>
-            <div class="financial-item" *ngIf="transaction.changeAmount > 0">
+            @if (transaction.changeAmount > 0) {
+            <div class="financial-item">
               <span class="label">Kembalian:</span>
               <span class="value">{{ formatCurrency(transaction.changeAmount) }}</span>
             </div>
+            }
           </div>
         </mat-card-content>
       </mat-card>
@@ -166,7 +212,9 @@
                 <div class="product-info">
                   <div class="product-name">{{ item.productName }}</div>
                   <div class="product-barcode">{{ item.productBarcode }}</div>
-                  <div *ngIf="item.notes" class="product-notes">{{ item.notes }}</div>
+                  @if (item.notes) {
+                  <div class="product-notes">{{ item.notes }}</div>
+                  }
                 </div>
               </td>
             </ng-container>
@@ -189,9 +237,11 @@
                 <div class="price-info">
                   <div class="selling-price">{{ formatCurrency(item.unitPrice) }}</div>
                   <div class="cost-price">(HPP: {{ formatCurrency(item.unitCost) }})</div>
-                  <div *ngIf="item.discountPercentage > 0" class="discount-info">
+                  @if (item.discountPercentage > 0) {
+                  <div class="discount-info">
                     Diskon: {{ item.discountPercentage }}%
                   </div>
+                  }
                 </div>
               </td>
             </ng-container>
@@ -203,9 +253,11 @@
                 <div class="subtotal-info">
                   <div class="subtotal">{{ formatCurrency(item.subtotal) }}</div>
                   <div class="profit">Profit: {{ formatCurrency(item.totalProfit) }}</div>
-                  <div *ngIf="item.discountAmount > 0" class="discount">
+                  @if (item.discountAmount > 0) {
+                  <div class="discount">
                     -{{ formatCurrency(item.discountAmount) }}
                   </div>
+                  }
                 </div>
               </td>
             </ng-container>
@@ -218,7 +270,8 @@
     </mat-card>
 
     <!-- Notes Section -->
-    <mat-card *ngIf="transaction.notes" class="notes-card">
+    @if (transaction.notes) {
+    <mat-card class="notes-card">
       <mat-card-header>
         <mat-card-title>Catatan</mat-card-title>
       </mat-card-header>
@@ -226,5 +279,7 @@
         <p>{{ transaction.notes }}</p>
       </mat-card-content>
     </mat-card>
+    }
   </div>
+  }
 </div>

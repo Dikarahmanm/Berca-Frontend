@@ -1,20 +1,40 @@
 /* ===== INVENTORY LIST COMPONENT STYLING ===== */
 /* src/app/modules/inventory/components/inventory-list/inventory-list.component.scss */
+/* Mobile-first responsive design with solid colors (no transparency) */
 
 .inventory-container {
-  padding: 24px;
+  // Mobile-first: Start with mobile padding
+  padding: var(--s4);
   max-width: 1400px;
   margin: 0 auto;
+  
+  // Tablet and up
+  @media (min-width: 768px) {
+    padding: var(--s6);
+  }
+  
+  // Desktop and up  
+  @media (min-width: 1024px) {
+    padding: var(--s8);
+  }
 
-  /* ===== PAGE HEADER ===== */
+  /* ===== PAGE HEADER - Mobile First ===== */
   .page-header {
-    margin-bottom: 24px;
+    margin-bottom: var(--s6);
 
     .header-content {
+      // Mobile: Stack vertically
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 24px;
+      flex-direction: column;
+      gap: var(--s4);
+      
+      // Tablet and up: Side by side
+      @media (min-width: 768px) {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: var(--s6);
+      }
 
       .title-section {
         flex: 1;
@@ -22,62 +42,130 @@
         .page-title {
           display: flex;
           align-items: center;
-          gap: 12px;
-          margin: 0 0 8px 0;
-          font-size: 28px;
-          font-weight: 600;
-          color: var(--clr-text-primary);
+          gap: var(--s3);
+          margin: 0 0 var(--s2) 0;
+          // Mobile: Smaller title
+          font-size: var(--text-xl);
+          font-weight: var(--font-semibold);
+          color: var(--text);
+          
+          // Tablet and up: Larger title  
+          @media (min-width: 768px) {
+            font-size: var(--text-2xl);
+          }
+          
+          // Desktop: Even larger
+          @media (min-width: 1024px) {
+            font-size: var(--text-3xl);
+          }
 
           mat-icon {
-            font-size: 32px;
-            color: var(--clr-primary);
+            // Mobile: Smaller icon
+            font-size: 24px;
+            color: var(--primary);
+            
+            // Tablet and up: Larger icon
+            @media (min-width: 768px) {
+              font-size: 28px;
+            }
+            
+            // Desktop: Even larger
+            @media (min-width: 1024px) {
+              font-size: 32px;
+            }
           }
         }
 
         .page-subtitle {
           margin: 0;
-          color: var(--clr-text-secondary);
-          font-size: 16px;
+          color: var(--text-secondary);
+          font-size: var(--text-sm);
+          
+          @media (min-width: 768px) {
+            font-size: var(--text-base);
+          }
         }
       }
 
       .header-actions {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: var(--s3);
+        // Mobile: Full width buttons
+        width: 100%;
+        
+        // Tablet and up: Auto width
+        @media (min-width: 768px) {
+          width: auto;
+        }
 
         .add-btn {
-          background: var(--clr-primary);
+          background: var(--primary);
           color: white;
-          border-radius: 8px;
-          padding: 12px 24px;
-          font-weight: 500;
+          border-radius: var(--radius);
+          font-weight: var(--font-medium);
+          min-height: 44px; // Touch target minimum
+          // Mobile: Full width
+          flex: 1;
+          padding: var(--s3) var(--s4);
+          
+          // Tablet and up: Auto width with more padding
+          @media (min-width: 768px) {
+            flex: none;
+            padding: var(--s3) var(--s6);
+          }
 
-          &:hover {
-            background: var(--clr-primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(255, 145, 77, 0.3);
+          &:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
           }
 
           mat-icon {
-            margin-right: 8px;
+            margin-right: var(--s2);
           }
+        }
+        
+        // Mobile: Stack action buttons vertically on very small screens
+        @media (max-width: 480px) {
+          flex-direction: column;
+          gap: var(--s2);
         }
       }
     }
   }
 
-  /* ===== STATS CARDS ===== */
+  /* ===== STATS CARDS - Mobile First Grid ===== */
   .stats-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+    gap: var(--s4);
+    margin-bottom: var(--s6);
+    
+    // Mobile: Single column
+    grid-template-columns: 1fr;
+    
+    // Small mobile: 2 columns if space allows
+    @media (min-width: 480px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    // Tablet: 3 columns
+    @media (min-width: 768px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    
+    // Desktop: Auto-fit with minimum width
+    @media (min-width: 1024px) {
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
 
     .stat-card {
-      background: var(--clr-surface);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      // NO transparency - solid background
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
       border-radius: 12px;
       transition: all 0.3s ease;
 

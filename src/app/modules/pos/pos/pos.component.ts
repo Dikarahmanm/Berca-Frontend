@@ -77,11 +77,17 @@ export class POSComponent implements OnInit, OnDestroy {
   isLoading = signal(false);
   isSearching = signal(false);
   showPaymentModal = signal(false);
+  showMobileCart = signal(false);
+  isProcessingPayment = signal(false);
   showBarcodeScanner = signal(false);
   showProductRegistrationModal = signal(false);
   scannedBarcodeForRegistration = signal('');
   errorMessage = signal('');
   successMessage = signal('');
+   // ✅ NEW: Mobile floating panels state
+  showMobileProducts = signal(false);
+  showMobileSummary = signal(false);
+  showMemberInput = signal(false);
 
   // SIGNALS: New product registration
   newProduct = signal({
@@ -103,20 +109,59 @@ export class POSComponent implements OnInit, OnDestroy {
   // SIGNALS: Membership integration
   selectedMember = signal<MemberDto | null>(null);
   memberSearchQuery = signal('');
+  memberPhone = signal('');
   searchedMembers = signal<MemberDto[]>([]);
   isSearchingMembers = signal(false);
+  showMemberSuggestions = false;
+  
+  // SIGNALS: Filter and UI state
+  selectedFilter = signal<'all' | 'category' | 'discount' | 'hot'>('all');
+  selectedCategoryId = signal<number | null>(null);
+  showClearCartModal = signal(false);
+  
+  // SIGNALS: Infinite scrolling and pagination
+  isLoadingMore = signal(false);
+  currentPage = signal(1);
+  hasMoreProducts = signal(true);
+  allProducts = signal<Product[]>([]); // Store all loaded products
+  displayedProducts = signal<Product[]>([]); // Products currently displayed
 
-  // COMPUTED: Filtered products based on search
+  // COMPUTED: Filtered products based on search and filters
   filteredProducts = computed(() => {
+    let products = this.allProducts(); // Use allProducts instead of products
     const query = this.searchQuery().toLowerCase();
-    const allProducts = this.products();
+    const filter = this.selectedFilter();
+    const categoryId = this.selectedCategoryId();
     
-    if (!query) return allProducts;
+    // Apply search filter
+    if (query) {
+      products = products.filter(product =>
+        product.name?.toLowerCase().includes(query) ||
+        product.barcode?.toLowerCase().includes(query)
+      );
+    }
     
-    return allProducts.filter(product =>
-      product.name?.toLowerCase().includes(query) ||
-      product.barcode?.toLowerCase().includes(query)
-    );
+    // Apply category filter
+    if (filter === 'category' && categoryId) {
+      products = products.filter(product => product.categoryId === categoryId);
+    }
+    
+    // Apply discount filter (products with sellPrice < buyPrice * 1.2 - indicating discount)
+    if (filter === 'discount') {
+      products = products.filter(product => {
+        const discountThreshold = product.buyPrice * 1.2;
+        return product.sellPrice < discountThreshold;
+      });
+    }
+    
+    // Apply hot products filter (low stock or high turnover simulation)
+    if (filter === 'hot') {
+      products = products.filter(product => 
+        product.stock <= (product.minStock || 5) * 2 && product.stock > 0
+      );
+    }
+    
+    return products;
   });
 
   // COMPUTED: Cart totals
@@ -136,6 +181,28 @@ export class POSComponent implements OnInit, OnDestroy {
 
   cartTotal = computed(() => {
     return this.cartSubtotal() - this.cartDiscountAmount();
+  });
+
+  // COMPUTED: Member discount and final total
+  memberDiscount = computed(() => {
+    const member = this.selectedMember();
+    const subtotal = this.cartSubtotal();
+    if (!member || subtotal <= 0) return 0;
+    
+    // Basic member discount: 5% for regular, 10% for gold, 15% for platinum, 20% for diamond
+    const discountRate = {
+      'regular': 0.05,
+      'gold': 0.10,
+      'platinum': 0.15,
+      'diamond': 0.20
+    };
+    
+    const rate = discountRate[member.tier.toLowerCase() as keyof typeof discountRate] || 0.05;
+    return subtotal * rate;
+  });
+
+  finalTotal = computed(() => {
+    return this.cartTotal() - this.memberDiscount();
   });
 
   // COMPUTED: Cart state
@@ -177,6 +244,79 @@ export class POSComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  // ===== FILTER MANAGEMENT =====
+
+  /**
+   * Set active filter for products
+   */
+  setFilter(filter: 'all' | 'category' | 'discount' | 'hot'): void {
+    this.selectedFilter.set(filter);
+    
+    // Reset category selection when changing filter
+    if (filter !== 'category') {
+      this.selectedCategoryId.set(null);
+    }
+  }
+
+  /**
+   * Set selected category for filtering
+   */
+  setSelectedCategory(categoryId: string | number): void {
+    const id = categoryId ? Number(categoryId) : null;
+    this.selectedCategoryId.set(id);
+  }
+
+  // ===== INFINITE SCROLLING =====
+
+  /**
+   * Handle scroll event for infinite loading
+   */
+  onProductListScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    const threshold = 100; // Load more when 100px from bottom
+    
+    if (element.scrollTop + element.clientHeight >= element.scrollHeight - threshold) {
+      this.loadMoreProducts();
+    }
+  }
+
+  /**
+   * Load more products for infinite scrolling
+   */
+  private loadMoreProducts(): void {
+    if (this.isLoadingMore() || !this.hasMoreProducts() || this.searchQuery().length > 0) {
+      return; // Don't load more if already loading, no more products, or searching
+    }
+
+    this.isLoadingMore.set(true);
+    const nextPage = this.currentPage() + 1;
+
+    this.posService.getProducts(nextPage, 20).subscribe({
+      next: (response) => {
+        this.isLoadingMore.set(false);
+        
+        if (response.success && response.data?.products) {
+          const newProducts = response.data.products;
+          
+          if (newProducts.length > 0) {
+            // Add new products to existing list
+            this.allProducts.update(existing => [...existing, ...newProducts]);
+            this.currentPage.set(nextPage);
+          } else {
+            // No more products to load
+            this.hasMoreProducts.set(false);
+          }
+        } else {
+          this.hasMoreProducts.set(false);
+        }
+      },
+      error: (error) => {
+        this.isLoadingMore.set(false);
+        console.error('Error loading more products:', error);
+      }
+    });
+  }
+
   // Setup search subscription
   private setupSearchSubscription(): void {
     this.searchSubject$
@@ -192,9 +332,11 @@ export class POSComponent implements OnInit, OnDestroy {
 
   // ===== INITIALIZATION =====
 
-  // Load products with signals
+  // Load products with signals and infinite scroll support
   loadProducts(): void {
     this.isLoading.set(true);
+    this.currentPage.set(1);
+    this.hasMoreProducts.set(true);
     
     this.posService.getProducts(1, 20).subscribe({
       next: (response) => {
@@ -203,12 +345,20 @@ export class POSComponent implements OnInit, OnDestroy {
         console.log('🔍 Response Data:', response.data);
         
         if (response.success && response.data) {
-          // ✅ FIX: Use signals properly
-          this.products.set(response.data.products || []);
-          console.log('✅ Products loaded:', this.products().length);
-          console.log('✅ First product:', this.products()[0]);
+          // ✅ FIX: Use allProducts for infinite scroll
+          const products = response.data.products || [];
+          this.allProducts.set(products);
+          this.products.set(products); // Keep for backward compatibility
+          console.log('✅ Products loaded:', products.length);
+          console.log('✅ First product:', products[0]);
+          
+          // Check if we can load more
+          if (products.length < 20) {
+            this.hasMoreProducts.set(false);
+          }
         } else {
           console.warn('⚠️ Response not successful:', response.message);
+          this.allProducts.set([]);
           this.products.set([]);
         }
         
@@ -216,6 +366,7 @@ export class POSComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('❌ Load Products Error:', error);
+        this.allProducts.set([]);
         this.products.set([]);
         this.isLoading.set(false);
       }
@@ -290,43 +441,62 @@ export class POSComponent implements OnInit, OnDestroy {
     this.searchSubject$.next(query);
   }
 
-  private performSearch(query: string) {
-    if (query.length < 2 && query.length > 0) {
-      // For short queries, clear the products to show nothing
-      this.products.set([]);
-      return;
-    }
-
-    this.isSearching.set(true);
-    this.errorMessage.set('');
-
-    // Use getProducts for empty query, searchProducts for specific search
-    const searchObservable = query.length === 0 
-      ? this.posService.getProducts()
-      : this.posService.searchProducts(query);
-
-    searchObservable
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response: ProductListResponseApiResponse) => {
-          this.isSearching.set(false);
-          if (response.success && response.data) {
-            // Handle both getProducts and searchProducts response format
-            const products = response.data.products || [];
-            this.products.set(products.filter((p: Product) => p.isActive && p.stock > 0));
-          } else {
-            this.products.set([]);
-            this.errorMessage.set(response.message || 'Gagal memuat produk');
-          }
-        },
-        error: (error: any) => {
-          this.isSearching.set(false);
-          this.products.set([]);
-          this.errorMessage.set(error.message || 'Gagal memuat produk');
-          console.error('Error loading products:', error);
-        }
-      });
+  // ✅ ADD: Auto-show products panel on search
+private performSearch(query: string) {
+  if (query.length < 2 && query.length > 0) {
+    this.products.set([]);
+    return;
   }
+
+  this.isSearching.set(true);
+  this.errorMessage.set('');
+
+  // ✅ NEW: Auto-show mobile products panel when searching on mobile
+  if (window.innerWidth <= 768 && query.length >= 2) {
+    this.showMobileProducts.set(true);
+    // Close summary panel if open
+    this.showMobileSummary.set(false);
+  }
+
+  const searchObservable = query.length === 0 
+    ? this.posService.getProducts()
+    : this.posService.searchProducts(query);
+
+  searchObservable
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: (response: ProductListResponseApiResponse) => {
+        this.isSearching.set(false);
+        if (response.success && response.data) {
+          const products = response.data.products || [];
+          this.products.set(products.filter((p: Product) => p.isActive && p.stock > 0));
+        } else {
+          this.products.set([]);
+          this.errorMessage.set(response.message || 'Failed to load products');
+        }
+      },
+      error: (error: any) => {
+        this.isSearching.set(false);
+        this.products.set([]);
+        this.errorMessage.set(error.message || 'Failed to load products');
+      }
+    });
+  }
+  // ✅ ENHANCED: Clear search and close mobile panels
+clearSearch(): void {
+  this.searchQuery.set('');
+  this.searchSubject$.next('');
+  
+  // ✅ NEW: Close mobile products panel when clearing search
+  if (window.innerWidth <= 768) {
+    this.showMobileProducts.set(false);
+  }
+  
+  if (this.productSearchInput) {
+    this.productSearchInput.nativeElement.value = '';
+    this.productSearchInput.nativeElement.focus();
+  }
+}
 
   // ===== CART OPERATIONS =====
 
@@ -440,16 +610,24 @@ export class POSComponent implements OnInit, OnDestroy {
     const currentCart = this.cart();
     if (currentCart.length === 0) return;
 
-    if (confirm('Yakin ingin mengosongkan keranjang?')) {
-      this.posService.clearCart();
-      this.globalDiscount.set(0);
-      this.customerName.set('');
-      this.customerPhone.set('');
-      this.notes.set('');
-      this.clearMember();
-      this.successMessage.set('Keranjang dikosongkan');
-      this.clearMessages();
-    }
+    // Show confirmation modal instead of browser confirm
+    this.showClearCartModal.set(true);
+  }
+  
+  confirmClearCart(): void {
+    this.showClearCartModal.set(false);
+    this.posService.clearCart();
+    this.globalDiscount.set(0);
+    this.customerName.set('');
+    this.customerPhone.set('');
+    this.notes.set('');
+    this.clearMember();
+    this.successMessage.set('Keranjang dikosongkan');
+    this.clearMessages();
+  }
+  
+  cancelClearCart(): void {
+    this.showClearCartModal.set(false);
   }
 
   // ===== CALCULATIONS - USING BACKEND =====
@@ -525,6 +703,52 @@ export class POSComponent implements OnInit, OnDestroy {
   }
 
   // ===== PAYMENT OPERATIONS =====
+
+  onMemberSearch(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const query = target.value.trim();
+    this.memberPhone.set(query);
+    
+    if (query.length >= 2) {
+      this.searchMembers(query);
+    } else {
+      this.searchedMembers.set([]);
+      this.showMemberSuggestions = false;
+    }
+  }
+  
+  onMemberInputBlur(): void {
+    // Delay hiding suggestions to allow for clicks
+    setTimeout(() => {
+      this.showMemberSuggestions = false;
+    }, 200);
+  }
+
+  searchMember(): void {
+    const query = this.memberPhone().trim();
+    if (!query) return;
+    
+    // Try direct phone search first
+    this.isSearchingMembers.set(true);
+    this.membershipService.getMemberByPhone(query)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (member) => {
+          this.selectedMember.set(member);
+          this.isSearchingMembers.set(false);
+          this.showMemberSuggestions = false;
+        },
+        error: (error) => {
+          console.error('Member not found by phone, trying search:', error);
+          // Fallback to search by name or member number
+          this.searchMembers(query);
+        }
+      });
+  }
+
+  proceedToCheckout(): void {
+    this.processPayment();
+  }
 
   processPayment(): void {
     const currentCart = this.cart();
@@ -1086,6 +1310,10 @@ onQuantityChange(index: number, newQuantity: number) {
   }
 }
 
+setItemDiscount(index: number, newDiscount: number) {
+  this.onDiscountChange(index, newDiscount);
+}
+
 onDiscountChange(index: number, newDiscount: number) {
   const item = this.cart()[index];
   if (!item) return;
@@ -1179,6 +1407,7 @@ onDiscountChange(index: number, newDiscount: number) {
   searchMembers(query: string): void {
     if (!query || query.length < 2) {
       this.searchedMembers.set([]);
+      this.showMemberSuggestions = false;
       return;
     }
 
@@ -1188,7 +1417,7 @@ onDiscountChange(index: number, newDiscount: number) {
       search: query,
       isActive: true,
       page: 1,
-      pageSize: 10
+      pageSize: 5 // Limit for suggestions
     };
 
     this.membershipService.searchMembers(filters)
@@ -1196,11 +1425,13 @@ onDiscountChange(index: number, newDiscount: number) {
       .subscribe({
         next: (response) => {
           this.searchedMembers.set(response.members);
+          this.showMemberSuggestions = response.members.length > 0;
           this.isSearchingMembers.set(false);
         },
         error: (error) => {
           console.error('Error searching members:', error);
           this.searchedMembers.set([]);
+          this.showMemberSuggestions = false;
           this.isSearchingMembers.set(false);
         }
       });
@@ -1208,15 +1439,63 @@ onDiscountChange(index: number, newDiscount: number) {
 
   selectMember(member: MemberDto): void {
     this.selectedMember.set(member);
+    this.memberPhone.set(`${member.name} (${member.phone})`);
     this.memberSearchQuery.set(`${member.name} (${member.memberNumber})`);
     this.searchedMembers.set([]);
+    this.showMemberSuggestions = false;
   }
 
   clearMember(): void {
     this.selectedMember.set(null);
+    this.memberPhone.set('');
     this.memberSearchQuery.set('');
     this.searchedMembers.set([]);
+    this.showMemberSuggestions = false;
   }
+// ✅ NEW: Toggle member input di mobile
+toggleMemberInput(): void {
+  this.showMemberInput.set(!this.showMemberInput());
+  
+  if (this.showMemberInput()) {
+    setTimeout(() => {
+      const memberInput = document.querySelector('.mobile-member-input') as HTMLInputElement;
+      if (memberInput) {
+        memberInput.focus();
+      }
+    }, 100);
+  }
+}
+// ✅ FIX: Mobile member search focus function
+focusMemberSearch(): void {
+  // ✅ NEW: For mobile, open summary panel and focus member search
+  if (window.innerWidth <= 768) {
+    this.showMobileSummary.set(true);
+    setTimeout(() => {
+      // ✅ FIX: Correct selector untuk mobile member input
+      const memberSearchInput = document.querySelector('.add-member-btn') as HTMLButtonElement;
+      if (memberSearchInput) {
+        memberSearchInput.click(); // Simulate click to open member search
+      }
+      
+      // ✅ FIX: Alternative - trigger member search UI state
+      setTimeout(() => {
+        const memberInput = document.querySelector('.mobile-summary-panel .member-input') as HTMLInputElement;
+        if (memberInput) {
+          memberInput.focus();
+        }
+      }, 100);
+    }, 300);
+  } else {
+    // Desktop: focus member search in right panel
+    const memberSearchInput = document.querySelector('.member-search input') as HTMLInputElement;
+    if (memberSearchInput) {
+      memberSearchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => {
+        memberSearchInput.focus();
+      }, 300);
+    }
+  }
+}
 
   calculateEarnedPoints(total: number): number {
     if (!this.selectedMember() || total <= 0) return 0;
@@ -1340,6 +1619,39 @@ onDiscountChange(index: number, newDiscount: number) {
           console.error('❌ Failed to check tier upgrade:', error);
         }
       });
+  }
+  /**
+   * ✅ NEW: Toggle mobile products panel
+   */
+  toggleMobileProducts(): void {
+    const isOpen = this.showMobileProducts();
+    this.showMobileProducts.set(!isOpen);
+    
+    // Close summary if products is opening
+    if (!isOpen) {
+      this.showMobileSummary.set(false);
+    }
+  }
+
+  /**
+   * ✅ NEW: Toggle mobile summary panel
+   */
+  toggleMobileSummary(): void {
+    const isOpen = this.showMobileSummary();
+    this.showMobileSummary.set(!isOpen);
+    
+    // Close products if summary is opening
+    if (!isOpen) {
+      this.showMobileProducts.set(false);
+    }
+  }
+
+  /**
+   * ✅ NEW: Close all mobile panels
+   */
+  closeMobilePanels(): void {
+    this.showMobileProducts.set(false);
+    this.showMobileSummary.set(false);
   }
 
   // ===== REAL-TIME NOTIFICATION TESTING =====

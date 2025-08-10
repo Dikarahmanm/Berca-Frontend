@@ -1,7 +1,7 @@
 // src/app/shared/components/topbar/topbar.component.ts
 // src/app/shared/components/topbar/topbar.component.ts
 // ✅ Refactor: sinkron dgn StateService (signals) + tetap pertahankan fungsi yang ada
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, Injector, runInInjectionContext } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, Injector, runInInjectionContext, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -23,6 +23,7 @@ import { StateService } from '../../core/services/state.service';
 @Component({
   selector: 'app-topbar',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,

@@ -1,7 +1,7 @@
 // ===== 5. FRONTEND FIX: Inventory List Component =====
 // src/app/modules/inventory/components/inventory-list/inventory-list.component.ts
 
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -31,6 +31,7 @@ import { Category, CategoryFilter } from '../../../category-management/models/ca
 @Component({
   selector: 'app-inventory-list',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     ReactiveFormsModule,

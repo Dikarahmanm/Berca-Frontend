@@ -63,9 +63,12 @@ export class BarcodeToolsComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initialize camera after view is rendered and DOM elements are available
     // Use a longer delay to ensure Angular change detection completes
     if (this.isOpen) {
+      this.isCameraActive = true;
+      this.isRetrying = true;
+      
       setTimeout(() => {
         this.requestCameraPermission();
-      }, 300);
+      }, 500); // Increased timeout like inventory component
     }
   }
 
@@ -131,10 +134,14 @@ export class BarcodeToolsComponent implements OnInit, AfterViewInit, OnDestroy {
 
   startCamera() {
     if (!this.isCameraActive) {
+      this.isCameraActive = true;
+      this.isRetrying = true;
+      this.errorMessage = '';
+      
       // Use longer timeout to ensure DOM is fully updated
       setTimeout(() => {
         this.requestCameraPermission();
-      }, 250);
+      }, 500); // Increased timeout like inventory component
     }
   }
 

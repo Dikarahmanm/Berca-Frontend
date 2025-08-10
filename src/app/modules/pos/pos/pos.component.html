@@ -1,628 +1,1003 @@
-<!-- src/app/modules/pos/pos/pos.component.html - IMPROVED LAYOUT -->
-<div class="pos-container">
-
-    <!-- Header -->
-    <div class="pos-header">
-        <div class="header-content">
-            <h1 class="pos-title">
-                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                        d="M7 18c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2z" />
-                </svg>
-                POS Kasir
-            </h1>
-
-            <div class="header-actions">
-                <button class="icon-button" (click)="showBarcodeScanner.set(true)" title="Scan Barcode (F1)">
-                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M3 5v4h2V7h2V5H3zm2 10H3v4h4v-2H5v-2zm14 4h-4v2h6v-4h-2v2zm0-16h-2v2h2v2h2V5h-2V3zM6 17h1.5v-6H6v6zm3.5 0H11v-6H9.5v6zm2.5 0h1.5v-6H12v6zm3.5 0H17v-6h-1.5v6z" />
-                    </svg>
-                    Scan Barcode
-                </button>
-
-                <button class="secondary-button" (click)="clearCart()" [disabled]="cartItemCount() === 0"
-                    title="Clear Cart (F12)">
-                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-                    </svg>
-                    Clear Cart
-                </button>
-            </div>
+<!-- POS System - Improved Layout -->
+<div class="main">
+  
+  <!-- Mobile Layout: Floating Panels Design -->
+  <div class="mobile-layout mobile-only">
+    
+    <!-- Fixed Header: Search + Quick Actions -->
+    <header class="mobile-header">
+      <div class="mobile-search-bar">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+          </svg>
+          <input 
+            #productSearchInput 
+            type="text" 
+            class="search-input"
+            placeholder="Search products..." 
+            [ngModel]="searchQuery()" 
+            (ngModelChange)="searchQuery.set($event)" 
+            (input)="onSearchInput($event)"
+          >
         </div>
-
-        <!-- Quick Stats -->
-        <div class="pos-stats">
-            <div class="stat-card">
-                <span class="stat-value">{{cartItemCount()}}</span>
-                <span class="stat-label">Items in Cart</span>
-            </div>
-            <div class="stat-card">
-                <span class="stat-value">{{cartTotal() | currency:'IDR':'symbol':'1.0-0'}}</span>
-                <span class="stat-label">Cart Total</span>
-            </div>
-            @if (selectedMember()) {
-            <div class="stat-card">
-                <span class="stat-value">{{selectedMember()!.availablePoints.toLocaleString()}}</span>
-                <span class="stat-label">Member Points</span>
-            </div>
-            }
-        </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="pos-main">
-
-        <!-- Left Panel: Product Search & List -->
-        <div class="left-panel">
-
-            <!-- Product Search -->
-            <div class="search-section">
-                <div class="search-input-wrapper">
-                    <svg class="search-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                    </svg>
-                    <input #productSearchInput type="text" placeholder="Search products by name or barcode... (F2)"
-                        [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" (input)="onSearchInput($event)" class="search-input">
-                </div>
-            </div>
-
-            <!-- Product List -->
-            <div class="product-list">
-                <!-- Loading Spinner -->
-                @if (isSearching()) {
-                <div class="loading-spinner">
-                    <div class="spinner-ring"></div>
-                    <span>Searching products...</span>
-                </div>
-                }
-
-                <!-- Product Grid -->
-                @if (!isSearching()) {
-                <div class="product-grid">
-                    <div *ngFor="let product of filteredProducts(); trackBy: trackByProductId" class="product-card"
-                        [class.out-of-stock]="product.stock === 0" [class.in-cart]="isProductInCart(product.id)"
-                        (click)="addToCart(product)">>
-
-                        <div class="product-info">
-                            <h3 class="product-name">{{product.name}}</h3>
-                            <p class="product-category">{{product.categoryName}}</p>
-                            <p class="product-price">{{formatCurrency(product.sellPrice)}}</p>
-                        </div>
-
-                        <div class="product-meta">
-                            <span class="product-stock"
-                                [class.low-stock]="product.stock > 0 && product.stock <= product.minStock"
-                                [class.out-of-stock]="product.stock === 0">
-                                Stock: {{product.stock}}
-                            </span>
-                            <span class="product-barcode">{{product.barcode}}</span>
-                        </div>
-
-                        @if (product.stock > 0) {
-                        <div class="product-actions">
-                            @if (isProductInCart(product.id)) {
-                            <span class="cart-quantity">
-                                Qty: {{getProductQuantityInCart(product.id)}}
-                            </span>
-                            }
-                            <button class="add-btn" (click)="addToCart(product, 1); $event.stopPropagation()">
-                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                                </svg>
-                            </button>
-                        </div>
-                        }
-
-                        @if (product.stock === 0) {
-                        <div class="out-of-stock-overlay">
-                            <span>Out of Stock</span>
-                        </div>
-                        }
-                    </div>
-                </div>
-                }
-
-                <!-- Empty State -->
-                @if (!isSearching() && filteredProducts().length === 0) {
-                <div class="empty-state">
-                    <div class="empty-icon">
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-                        </svg>
-                    </div>
-                    <h3>No products found</h3>
-                    <p>Try adjusting your search keywords</p>
-                </div>
-                }
-            </div>
-        </div>
-
-        <!-- Right Panel: Cart & Checkout -->
-        <div class="right-panel">
-
-            <!-- Cart Header -->
-            <div class="cart-header">
-                <h2 class="cart-title">
-                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M7 18c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1z" />
-                    </svg>
-                    Shopping Cart ({{cartItemCount()}})
-                </h2>
-            </div>
-
-            <!-- Cart Items -->
-            <div class="cart-items">
-                <!-- Empty Cart -->
-                @if (cartItemCount() === 0) {
-                <div class="empty-cart">
-                    <svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M7 18c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1z" />
-                    </svg>
-                    <p>Cart is empty</p>
-                    <small>Select products to start a transaction</small>
-                </div>
-                }
-
-                <!-- Cart Item List -->
-                <div class="cart-item" *ngFor="let item of cart(); let i = index; trackBy: trackByCartItemId">
-                    <div class="item-info">
-                        <h4 class="item-name">{{item.product.name}}</h4>
-                        <p class="item-price">{{formatCurrency(item.product.sellPrice)}}</p>
-                    </div>
-                
-                    <div class="item-controls">
-                        <div class="quantity-control">
-                            <button class="qty-btn" (click)="decreaseQuantity(i)" [disabled]="item.quantity <= 1">
-                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M19 13H5v-2h14v2z" />
-                                </svg>
-                            </button>
-                
-                            <!-- FIXED: Simple two-way binding -->
-                            <input type="number" [(ngModel)]="item.quantity" (ngModelChange)="onQuantityChange(i, $event)"
-                                class="qty-input" min="1" [max]="item.product.stock">
-                
-                            <button class="qty-btn" (click)="increaseQuantity(i)" [disabled]="item.quantity >= item.product.stock">
-                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                                </svg>
-                            </button>
-                        </div>
-                
-                        <div class="discount-control">
-                            <label>Diskon %</label>
-                            <!-- FIXED: Simple two-way binding -->
-                            <input type="number" [(ngModel)]="item.discount" (ngModelChange)="onDiscountChange(i, $event)"
-                                class="discount-input" min="0" max="100" step="0.1">
-                        </div>
-                    </div>
-                
-                    <div class="item-total">
-                        <span class="subtotal">{{formatCurrency(item.subtotal)}}</span>
-                        <button class="remove-btn" (click)="removeFromCart(i)" title="Hapus item">
-                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Cart Summary -->
+        
+        <!-- Quick Action Buttons -->
+        <div class="quick-actions">
+          <button class="quick-btn products-btn" (click)="toggleMobileProducts()" title="Browse Products">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/>
+            </svg>
+            <span>Products</span>
+          </button>
+          
+          <button class="quick-btn scan-btn" (click)="showBarcodeScanner.set(true)" title="Scan Barcode">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 5v4h2V7h2V5H3zm2 10H3v4h4v-2H5v-2zm14 4h-4v2h6v-4h-2v2zm0-16h-2v2h2v2h2V5h-2V3zM6 17h1.5v-6H6v6zm3.5 0H11v-6H9.5v6zm2.5 0h1.5v-6H12v6zm3.5 0H17v-6h-1.5v6z" />
+            </svg>
+            <span>Scan</span>
+          </button>
+          
+          <button class="quick-btn summary-btn" (click)="toggleMobileSummary()" title="Order Summary">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.5c0-.97.68-1.81 1.6-2.02C8.32 16.17 10.14 16 12 16s3.68.17 5.4.48c.92.21 1.6 1.05 1.6 2.02V19z"/>
+            </svg>
+            <span>Summary</span>
             @if (cartItemCount() > 0) {
-            <div class="cart-summary">
-                <!-- Customer Info -->
-                <div class="customer-info-section">
-                    <h3 class="section-title">
-                        <mat-icon>person</mat-icon>
-                        Informasi Pelanggan
-                    </h3>
+              <span class="cart-badge">{{cartItemCount()}}</span>
+            }
+          </button>
+        </div>
+      </div>
+    </header>
+    
+    <!-- Main Content: Cart Items (Scrollable) -->
+    <main class="mobile-cart-main">
+      <div class="cart-content-wrapper" [class.empty]="cartItemCount() === 0">
+        @if (cartItemCount() === 0) {
+          <div class="empty-cart-state">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+              </svg>
+            </div>
+            <h3>Cart is Empty</h3>
+            <p>Tap "Products" to browse and add items</p>
+          </div>
+        } @else {
+          <div class="cart-items-list">
+            @for (item of cart(); track item.product.id) {
+              <div class="mobile-cart-item">
+                <div class="item-image">
+                  <img 
+                    [src]="'/assets/images/placeholder-product.png'" 
+                    [alt]="item.product.name"
+                    loading="lazy"
+                  >
+                </div>
+                
+                <div class="item-details">
+                  <h4 class="item-name">{{item.product.name}}</h4>
+                  <div class="item-price">{{formatCurrency(item.product.sellPrice)}}</div>
+                  
+                  <div class="item-controls">
+                    <!-- Quantity Controls -->
+                    <div class="quantity-section">
+                      <button 
+                        class="qty-btn minus"
+                        (click)="decreaseQuantity($index)"
+                        [disabled]="item.quantity <= 1"
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 13H5v-2h14v2z"/>
+                        </svg>
+                      </button>
+                      
+                      <span class="qty-display">{{item.quantity}}</span>
+                      
+                      <button 
+                        class="qty-btn plus"
+                        (click)="increaseQuantity($index)"
+                        [disabled]="item.quantity >= item.product.stock"
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                      </button>
+                    </div>
                     
-                    <div class="customer-fields">
-                        <div class="input-group modern-input">
-                            <mat-icon class="input-icon">person</mat-icon>
-                            <input id="customerName" type="text" [(ngModel)]="customerName" 
-                                   class="modern-input-field" placeholder="Nama Pelanggan (Opsional)">
-                            <label for="customerName" class="floating-label">Nama Pelanggan</label>
-                        </div>
-
-                        <div class="input-group modern-input">
-                            <mat-icon class="input-icon">phone</mat-icon>
-                            <input id="customerPhone" type="tel" [(ngModel)]="customerPhone" 
-                                   class="modern-input-field" placeholder="No. Telepon (Opsional)">
-                            <label for="customerPhone" class="floating-label">No. Telepon</label>
-                        </div>
+                    <!-- Item Discount -->
+                    <div class="discount-section">
+                      <label>Disc:</label>
+                      <input 
+                        type="number" 
+                        class="discount-input"
+                        [ngModel]="item.discount || 0"
+                        (ngModelChange)="setItemDiscount($index, $event)"
+                        min="0"
+                        [max]="item.product.sellPrice * item.quantity"
+                        placeholder="0"
+                      >
                     </div>
-                </div>
-
-                <!-- Membership Integration -->
-                <div class="membership-section">
-                    <h3 class="section-title">
-                        <mat-icon>card_membership</mat-icon>
-                        Member
-                    </h3>
                     
-                    <div class="membership-fields">
-                        <!-- Selected Member Display -->
-                        @if (selectedMember()) {
-                        <div class="selected-member">
-                            <div class="member-info">
-                                <div class="member-details">
-                                    <span class="member-name">{{ selectedMember()!.name }}</span>
-                                    <span class="member-number">{{ selectedMember()!.memberNumber }}</span>
-                                    <span class="member-tier" [class]="'tier-' + selectedMember()!.tier.toLowerCase()">
-                                        {{ selectedMember()!.tier }}
-                                    </span>
-                                </div>
-                                <div class="member-points">
-                                    <span class="points-label">Poin:</span>
-                                    <span class="points-value">{{ selectedMember()!.availablePoints.toLocaleString() }}</span>
-                                </div>
-                            </div>
-                            <button type="button" class="clear-member-btn" (click)="clearMember()">
-                                <mat-icon>close</mat-icon>
-                            </button>
-                        </div>
-                        }
-
-                        <!-- Member Search -->
-                        @if (!selectedMember()) {
-                        <div class="member-search">
-                            <div class="input-group modern-input">
-                                <mat-icon class="input-icon">search</mat-icon>
-                                <input 
-                                    type="text" 
-                                    [ngModel]="memberSearchQuery()"
-                                    (ngModelChange)="memberSearchQuery.set($event)"
-                                    (input)="searchMembers($any($event.target).value)"
-                                    class="modern-input-field" 
-                                    placeholder="Cari member (nama/nomor)">
-                                <label class="floating-label">Cari Member</label>
-                            </div>
-                            
-                            <!-- Search Results -->
-                            @if (searchedMembers().length > 0) {
-                            <div class="member-dropdown">
-                                <div 
-                                    class="member-option" 
-                                    *ngFor="let member of searchedMembers()"
-                                    (click)="selectMember(member)">
-                                    <div class="member-option-details">
-                                        <span class="member-option-name">{{ member.name }}</span>
-                                        <span class="member-option-number">{{ member.memberNumber }}</span>
-                                    </div>
-                                    <span class="member-option-tier" [class]="'tier-' + member.tier.toLowerCase()">
-                                        {{ member.tier }}
-                                    </span>
-                                </div>
-                            </div>
-                            }
-                            
-                            <!-- Loading State -->
-                            @if (isSearchingMembers()) {
-                            <div class="member-loading">
-                                <span>Mencari member...</span>
-                            </div>
-                            }
-                        </div>
-                        }
-
-                        <!-- Points Earned Preview -->
-                        @if (selectedMember() && cartTotal() > 0) {
-                        <div class="points-preview">
-                            <div class="points-info">
-                                <mat-icon>star</mat-icon>
-                                <span>Poin yang akan didapat: <strong>{{ calculateEarnedPoints(cartTotal()) }}</strong></span>
-                            </div>
-                        </div>
-                        }
-                    </div>
-                </div>
-
-                <!-- Global Discount -->
-                <div class="global-discount-section">
-                    <h4 class="section-title small">
-                        <mat-icon>local_offer</mat-icon>
-                        Diskon Transaksi
-                    </h4>
-                    <div class="discount-input-wrapper">
-                        <input id="globalDiscount" type="number" [(ngModel)]="globalDiscount"
-                               (input)="onGlobalDiscountChange()" class="modern-discount-input" 
-                               min="0" max="100" placeholder="0">
-                        <span class="discount-unit">%</span>
-                        <label for="globalDiscount" class="discount-label">Diskon Global</label>
-                    </div>
-                </div>
-
-                <!-- Notes -->
-                <div class="notes-section">
-                    <h4 class="section-title small">
-                        <mat-icon>note</mat-icon>
-                        Catatan Transaksi
-                    </h4>
-                    <div class="modern-textarea">
-                        <mat-icon class="textarea-icon">edit_note</mat-icon>
-                        <textarea id="notes" [(ngModel)]="notes" class="modern-textarea-field" 
-                                  placeholder="Tambahkan catatan untuk transaksi ini..." rows="3"></textarea>
-                        <label for="notes" class="floating-label">Catatan Tambahan</label>
-                    </div>
-                </div>
-
-                <!-- Summary Lines -->
-                <div class="summary-lines">
-                    <div class="summary-line">
-                        <span>Subtotal</span>
-                        <span>{{formatCurrency(getCartTotals().subtotal)}}</span>
-                    </div>
-                    @if (getCartTotals().discountAmount > 0) {
-                    <div class="summary-line">
-                        <span>Diskon ({{getCartTotals().globalDiscount}}%)</span>
-                        <span class="discount-amount">-{{formatCurrency(getCartTotals().discountAmount)}}</span>
-                    </div>
+                    <!-- Remove Button -->
+                    <button 
+                      class="remove-btn"
+                      (click)="removeFromCart($index)"
+                      title="Remove item"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div class="item-total">
+                    @if (item.discount && item.discount > 0) {
+                      <div class="original-total">{{formatCurrency(item.product.sellPrice * item.quantity)}}</div>
                     }
-                    <!-- ✅ HIDDEN: Tax line removed as tax calculation is disabled -->
-                    <!-- <div class="summary-line">
-                        <span>Pajak (11%)</span>
-                        <span>{{formatCurrency(getCartTotals().taxAmount)}}</span>
-                    </div> -->
-                    <div class="summary-line total-line">
-                        <span>TOTAL</span>
-                        <span class="total-amount">{{formatCurrency(getCartTotals().total)}}</span>
-                    </div>
+                    <div class="final-total">{{formatCurrency((item.product.sellPrice * item.quantity) - (item.discount || 0))}}</div>
+                  </div>
                 </div>
-
-                <!-- Checkout Button -->
-                <button class="checkout-btn" (click)="processPayment()" [disabled]="cartItemCount() === 0 || isLoading()"
-                    title="Process Payment (F9)">
-                    @if (!isLoading()) {
-                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M11 9h2V6h3V4h-3V1h-2v3H8v2h3v3zm-4 9c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2zm-9.83-3.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25z" />
-                    </svg>
-                    }
-                    @if (isLoading()) {
-                    <div class="spinner"></div>
-                    }
-                    {{isLoading() ? 'Memproses...' : 'Bayar (F9)'}}
-                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </main>
+    
+    <!-- Floating Summary Panel -->
+    <div class="mobile-summary-panel" [class.open]="showMobileSummary()">
+      <div class="summary-handle" (click)="toggleMobileSummary()">
+        <div class="handle-bar"></div>
+        <div class="summary-preview">
+          <span class="item-count">{{cartItemCount()}} items</span>
+          <span class="total-amount">{{formatCurrency(cartTotal())}}</span>
+        </div>
+      </div>
+      
+      <div class="summary-content">
+        <!-- Member Info (No Auto Discount) -->
+        <!-- ✅ FIX: Mobile Member Search Section - Replace yang lama -->
+        @if (selectedMember()) {
+        <div class="member-display">
+          <div class="member-info">
+            <svg class="member-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+            </svg>
+            <div class="member-details">
+              <span class="member-name">{{selectedMember()!.name}}</span>
+              <span class="member-meta">{{selectedMember()!.tier}} • {{selectedMember()!.availablePoints}} pts</span>
+            </div>
+          </div>
+          <button class="clear-member" (click)="clearMember()">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+            </svg>
+          </button>
+        </div>
+        } @else {
+        <!-- ✅ FIX: Mobile member search with proper toggle -->
+        @if (!showMemberInput()) {
+        <button class="add-member-btn" (click)="toggleMemberInput()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+          </svg>
+          <span>Add Member</span>
+        </button>
+        } @else {
+          <!-- ✅ FIX: Member search input field -->
+          <div class="mobile-member-search">
+            <div class="member-input-wrapper">
+              <input type="text" class="mobile-member-input" placeholder="Search member by name or phone"
+                [ngModel]="memberPhone()" (ngModelChange)="memberPhone.set($event)" (input)="onMemberSearch($event)"
+                (keyup.enter)="searchMember()">
+              <button class="search-member-btn" (click)="searchMember()" [disabled]="!memberPhone()">
+                @if (isSearchingMembers()) {
+                <div class="loading-spinner-small"></div>
+                } @else {
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                </svg>
+                }
+              </button>
+              <button class="cancel-member-btn" (click)="toggleMemberInput()">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path
+                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </svg>
+              </button>
+            </div>
+          
+            <!-- ✅ FIX: Member suggestions for mobile -->
+            @if (showMemberSuggestions && searchedMembers().length > 0) {
+            <div class="mobile-member-suggestions">
+              @for (member of searchedMembers(); track member.id) {
+              <div class="mobile-member-item" (click)="selectMember(member)">
+                <div class="mobile-member-info">
+                  <div class="mobile-member-name">{{member.name}}</div>
+                  <div class="mobile-member-details">
+                    <span class="mobile-member-number">{{member.memberNumber}}</span>
+                    <span class="mobile-member-tier">{{member.tier}}</span>
+                  </div>
+                </div>
+                <div class="mobile-member-points">{{member.availablePoints}} pts</div>
+              </div>
+              }
             </div>
             }
-        </div>
-    </div>
-
-    <!-- Error/Success Messages -->
-    @if (errorMessage() || successMessage()) {
-    <div class="message-overlay">
-        @if (errorMessage()) {
-        <div class="message error">
-            <svg class="message-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M12,2C17.53,2 22,6.47 22,12C22,17.53 17.53,22 12,22C6.47,22 2,17.53 2,12C2,6.47 6.47,2 12,2M15.59,7L12,10.59L8.41,7L7,8.41L10.59,12L7,15.59L8.41,17L12,13.41L15.59,17L17,15.59L13.41,12L17,8.41L15.59,7Z" />
-            </svg>
-            {{errorMessage()}}
-        </div>
+          </div>
+          }
         }
-
-        @if (successMessage()) {
-        <div class="message success">
-            <svg class="message-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.08L11,13.67L7.91,10.58L6.5,12L11,16.5Z" />
+        
+        <!-- Global Discount -->
+        <div class="global-discount">
+          <label for="globalDisc">Global Discount (%):</label>
+          <input 
+            type="number" 
+            id="globalDisc"
+            class="discount-input"
+            [ngModel]="globalDiscount()"
+            (ngModelChange)="globalDiscount.set($event)"
+            min="0"
+            max="100"
+            placeholder="0"
+          >
+        </div>
+        
+        <!-- Totals -->
+        <div class="order-totals">
+          <div class="total-line">
+            <span>Subtotal:</span>
+            <span>{{formatCurrency(cartSubtotal())}}</span>
+          </div>
+          
+          @if (cartDiscountAmount() > 0) {
+            <div class="total-line discount">
+              <span>Discount:</span>
+              <span>-{{formatCurrency(cartDiscountAmount())}}</span>
+            </div>
+          }
+          
+          <div class="total-line final">
+            <span>Total:</span>
+            <span>{{formatCurrency(cartTotal())}}</span>
+          </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <button 
+            class="clear-cart-btn"
+            (click)="clearCart()"
+            [disabled]="cartItemCount() === 0"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
-            {{successMessage()}}
+            Clear Cart
+          </button>
+          
+          <button 
+            class="checkout-btn"
+            (click)="showPaymentModal.set(true)"
+            [disabled]="cartItemCount() === 0"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+            </svg>
+            Process Payment
+          </button>
         </div>
-        }
+      </div>
     </div>
-    }
-
-    <!-- Barcode Scanner Modal -->
-    @if (showBarcodeScanner()) {
-    <div class="modal-overlay" (click)="showBarcodeScanner.set(false)">
-        <div class="modal-content barcode-modal" (click)="$event.stopPropagation()">
-            <app-barcode-tools (barcodeScanned)="onBarcodeScanned($event)" (scannerClosed)="showBarcodeScanner.set(false)">
-            </app-barcode-tools>
+    
+    <!-- Floating Products Panel -->
+    <div class="mobile-products-panel" [class.open]="showMobileProducts()">
+      <div class="products-header">
+        <h3>Products</h3>
+        <button class="close-products" (click)="toggleMobileProducts()">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="products-content">
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+          <button 
+            class="filter-tab" 
+            [class.active]="selectedFilter() === 'all'"
+            (click)="setFilter('all')"
+          >
+            All
+          </button>
+          <button 
+            class="filter-tab" 
+            [class.active]="selectedFilter() === 'category'"
+            (click)="setFilter('category')"
+          >
+            Category
+          </button>
+          <button 
+            class="filter-tab" 
+            [class.active]="selectedFilter() === 'hot'"
+            (click)="setFilter('hot')"
+          >
+            Hot
+          </button>
         </div>
-    </div>
-    }
-
-    <!-- Payment Modal -->
-    @if (showPaymentModal()) {
-    <div class="modal-overlay" (click)="showPaymentModal.set(false)">
-        <div class="modal-content payment-modal" (click)="$event.stopPropagation()">
-            <app-payment-modal [totalAmount]="cartTotal()" [isVisible]="showPaymentModal()"
-                (paymentComplete)="onPaymentComplete($event)" (paymentCancelled)="onPaymentCancelled()">
-            </app-payment-modal>
-        </div>
-    </div>
-    }
-
-    <!-- Product Registration Modal -->
-    @if (showProductRegistrationModal()) {
-    <div class="modal-overlay" (click)="onProductRegistrationCancelled()">
-        <div class="modal-content product-registration-modal" (click)="$event.stopPropagation()">
-            <div class="modal-header">
-                <h3 class="modal-title">
-                    <mat-icon class="icon">add_shopping_cart</mat-icon>
-                    Daftarkan Produk Baru
-                </h3>
-                <button class="close-btn" (click)="onProductRegistrationCancelled()" title="Tutup Modal">
-                    <mat-icon class="icon">close</mat-icon>
+        
+        <!-- Product Grid -->
+        <div class="mobile-product-grid">
+          @for (product of filteredProducts(); track product.id) {
+            <div 
+              class="product-card"
+              [class.out-of-stock]="product.stock === 0"
+              [class.in-cart]="isProductInCart(product.id)"
+              (click)="addToCart(product)"
+            >
+              <div class="product-info">
+                <h4 class="product-name">{{product.name}}</h4>
+                <div class="product-price">{{formatCurrency(product.sellPrice)}}</div>
+                <div class="product-stock" [class.low]="product.stock <= (product.minStock || 5)">
+                  Stock: {{product.stock}}
+                </div>
+              </div>
+              
+              @if (product.stock > 0) {
+                <button class="add-product-btn" type="button">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
                 </button>
+              } @else {
+                <div class="out-of-stock-label">Out of Stock</div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+    
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" 
+         [class.active]="showMobileProducts() || showMobileSummary()"
+         (click)="closeMobilePanels()">
+    </div>
+  </div>
+  
+  <!-- Desktop Layout: 4:5:3 Grid -->
+  <div class="desktop-layout desktop-only">
+    
+    <!-- Left Panel: Products (4fr) -->
+    <section class="left-panel">
+      <!-- Search Section -->
+      <div class="search-section">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+          </svg>
+          <input 
+            #productSearchInput 
+            type="text" 
+            class="search-input"
+            placeholder="Search products by name or barcode..." 
+            [ngModel]="searchQuery()" 
+            (ngModelChange)="searchQuery.set($event)" 
+            (input)="onSearchInput($event)"
+          >
+        </div>
+        
+        <!-- Filter Section -->
+        <div class="filter-section">
+          <div class="filter-tabs">
+            <button 
+              class="filter-tab" 
+              [class.active]="selectedFilter() === 'all'"
+              (click)="setFilter('all')"
+            >
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+              All
+            </button>
+            
+            <button 
+              class="filter-tab" 
+              [class.active]="selectedFilter() === 'category'"
+              (click)="setFilter('category')"
+            >
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Category
+            </button>
+            
+            <button 
+              class="filter-tab" 
+              [class.active]="selectedFilter() === 'hot'"
+              (click)="setFilter('hot')"
+            >
+              <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/>
+              </svg>
+              Hot
+            </button>
+          </div>
+          
+          <!-- Category Dropdown -->
+          @if (selectedFilter() === 'category') {
+            <div class="category-dropdown">
+              <select 
+                class="category-select"
+                [ngModel]="selectedCategoryId()" 
+                (ngModelChange)="setSelectedCategory($event)"
+              >
+                <option value="">All Categories</option>
+                @for (category of categories(); track category.id) {
+                  <option [value]="category.id">{{category.name}}</option>
+                }
+              </select>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Product List (Full Height) -->
+      <div class="product-list">
+        @if (isSearching()) {
+          <div class="loading-spinner">
+            <div class="spinner-ring"></div>
+            <span>Searching products...</span>
+          </div>
+        } @else {
+          <div class="product-grid">
+            @for (product of filteredProducts(); track product.id) {
+              <div 
+                class="product-card"
+                [class.out-of-stock]="product.stock === 0"
+                [class.in-cart]="isProductInCart(product.id)"
+                (click)="addToCart(product)"
+              >
+                <div class="product-info">
+                  <h3 class="product-name">{{product.name}}</h3>
+                  <p class="product-category">{{product.categoryName}}</p>
+                  <p class="product-price">{{formatCurrency(product.sellPrice)}}</p>
+                </div>
+                
+                <div class="product-meta">
+                  <span 
+                    class="product-stock"
+                    [class.low-stock]="product.stock > 0 && product.stock <= (product.minStock || 5)"
+                    [class.out-of-stock]="product.stock === 0"
+                  >
+                    Stock: {{product.stock}}
+                  </span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+        
+        @if (!isSearching() && filteredProducts().length === 0) {
+          <div class="empty-state">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+              </svg>
+            </div>
+            <h3>No products found</h3>
+            <p>Try adjusting your search keywords</p>
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- Middle Panel: Shopping Cart (5fr) -->
+    <section class="middle-panel">
+      <!-- Cart Header with Actions -->
+      <div class="cart-header">
+        <h2 class="cart-title">Shopping Cart</h2>
+        
+        <!-- Scanner and Clear buttons BELOW title -->
+        <div class="cart-actions">
+          <button class="action-btn scanner-btn" (click)="showBarcodeScanner.set(true)" title="Scan Barcode">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 5v4h2V7h2V5H3zm2 10H3v4h4v-2H5v-2zm14 4h-4v2h6v-4h-2v2zm0-16h-2v2h2v2h2V5h-2V3zM6 17h1.5v-6H6v6zm3.5 0H11v-6H9.5v6zm2.5 0h1.5v-6H12v6zm3.5 0H17v-6h-1.5v6z"/>
+            </svg>
+            Scan
+          </button>
+          
+          <button class="action-btn clear-btn" (click)="clearCart()" [disabled]="cartItemCount() === 0" title="Clear Cart">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Cart Content -->
+      <div class="cart-content">
+        @if (cartItemCount() === 0) {
+          <div class="empty-cart">
+            <svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 18c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2z" />
+            </svg>
+            <p class="empty-message">Cart is empty</p>
+            <p class="empty-hint">Select products to start a transaction</p>
+          </div>
+        } @else {
+          <div class="cart-items">
+            @for (item of cart(); track item.product.id; let i = $index) {
+              <div class="cart-item">
+                <div class="item-header">
+                  <h4 class="item-name">{{item.product.name}}</h4>
+                  <button 
+                    class="remove-item"
+                    (click)="removeFromCart(i)"
+                    aria-label="Remove item"
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div class="item-details">
+                  <div class="price-section">
+                    <div class="item-price">{{formatCurrency(item.product.sellPrice)}}</div>
+                    <div class="discount-controls">
+                      <span class="discount-label">Item Disc:</span>
+                      <input 
+                        type="number" 
+                        class="item-discount-input"
+                        [ngModel]="item.discount || 0"
+                        (ngModelChange)="setItemDiscount(i, $event)"
+                        min="0"
+                        [max]="item.product.sellPrice * item.quantity"
+                        placeholder="0"
+                      >
+                    </div>
+                  </div>
+                  
+                  <div class="quantity-controls">
+                    <button 
+                      class="qty-btn"
+                      (click)="decreaseQuantity(i)"
+                      [disabled]="item.quantity <= 1"
+                    >
+                      −
+                    </button>
+                    
+                    <input 
+                      type="number" 
+                      class="qty-input"
+                      [(ngModel)]="item.quantity" 
+                      (ngModelChange)="onQuantityChange(i, $event)"
+                      min="1" 
+                      [max]="item.product.stock"
+                    >
+                    
+                    <button 
+                      class="qty-btn"
+                      (click)="increaseQuantity(i)"
+                      [disabled]="item.quantity >= item.product.stock"
+                    >
+                      +
+                    </button>
+                  </div>
+                  
+                  <div class="subtotal-section">
+                    @if (item.discount && item.discount > 0) {
+                      <div class="original-subtotal">
+                        {{formatCurrency(item.product.sellPrice * item.quantity)}}
+                      </div>
+                    }
+                    <div class="item-subtotal">
+                      {{formatCurrency((item.product.sellPrice * item.quantity) - (item.discount || 0))}}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- Right Panel: Summary (3fr) -->
+    <aside class="right-panel">
+      <!-- Summary Content -->
+      <div class="summary-content">
+        <!-- Member Section (No Auto Discount) -->
+        <div class="member-section">
+          <h4 class="section-title">Member Info</h4>
+          @if (!selectedMember()) {
+            <div class="member-search">
+              <div class="member-input-wrapper">
+                <input 
+                  type="text" 
+                  class="member-input"
+                  placeholder="Search member by name or phone"
+                  [ngModel]="memberPhone()"
+                  (ngModelChange)="memberPhone.set($event)"
+                  (input)="onMemberSearch($event)"
+                  (keyup.enter)="searchMember()"
+                  (focus)="showMemberSuggestions = true"
+                  (blur)="onMemberInputBlur()"
+                >
+                <button class="search-member-btn" (click)="searchMember()" [disabled]="!memberPhone()">
+                  @if (isSearchingMembers()) {
+                    <div class="loading-spinner-small"></div>
+                  } @else {
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                    </svg>
+                  }
+                </button>
+                
+                <!-- Member Suggestions -->
+                @if (showMemberSuggestions && searchedMembers().length > 0) {
+                  <div class="member-suggestions">
+                    @for (member of searchedMembers(); track member.id) {
+                      <div class="member-suggestion-item" (mousedown)="selectMember(member)">
+                        <div class="member-suggestion-info">
+                          <div class="member-suggestion-name">{{member.name}}</div>
+                          <div class="member-suggestion-details">
+                            <span class="member-number">{{member.memberNumber}}</span>
+                            <span class="member-tier">{{member.tier}}</span>
+                            <span class="member-phone">{{member.phone}}</span>
+                          </div>
+                        </div>
+                        <div class="member-suggestion-points">{{member.availablePoints}} pts</div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+            <div class="no-member-msg">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"/>
+              </svg>
+              <span>No member selected</span>
+            </div>
+          } @else {
+            <div class="member-info">
+              <div class="member-avatar">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"/>
+                </svg>
+              </div>
+              <div class="member-details">
+                <div class="member-name">{{selectedMember()!.name}}</div>
+                <div class="member-phone">{{selectedMember()!.phone}}</div>
+                <div class="member-stats">
+                  <div class="member-points">{{selectedMember()!.availablePoints.toLocaleString()}} points</div>
+                  <div class="member-tier">{{selectedMember()!.tier}} member</div>
+                </div>
+              </div>
+              <button class="clear-member-btn" (click)="clearMember()">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+          }
+        </div>
+
+        <!-- Global Discount Section -->
+        @if (cartItemCount() > 0) {
+          <div class="discount-section">
+            <h4 class="section-title">Global Discount</h4>
+            <div class="discount-input-group">
+              <input 
+                type="number" 
+                class="discount-input"
+                [ngModel]="globalDiscount()"
+                (ngModelChange)="globalDiscount.set($event)"
+                min="0"
+                max="100"
+                placeholder="0"
+              >
+              <span class="percent-symbol">%</span>
+            </div>
+            @if (globalDiscount() > 0) {
+              <div class="discount-amount">
+                Discount: -{{formatCurrency(cartDiscountAmount())}}
+              </div>
+            }
+          </div>
+
+          <!-- Cart Summary -->
+          <div class="cart-summary">
+            <div class="summary-line">
+              <span class="label">Items:</span>
+              <span class="value">{{cartItemCount()}}</span>
             </div>
             
-            <div class="modal-body">
-                <div class="barcode-display">
-                    <mat-icon class="barcode-icon">qr_code_scanner</mat-icon>
-                    <div class="barcode-info">
-                        <p class="barcode-label">Barcode yang dipindai:</p>
-                        <p class="barcode-value">{{scannedBarcodeForRegistration()}}</p>
-                    </div>
-                </div>
-
-                <form #productForm="ngForm" (ngSubmit)="submitNewProduct(productForm)" class="product-form">
-                    <!-- Product Name -->
-                    <div class="form-row full-width">
-                        <div class="form-group">
-                            <label for="productName" class="required">Nama Produk</label>
-                            <input 
-                                type="text" 
-                                id="productName" 
-                                name="productName"
-                                [ngModel]="newProduct().name"
-                                (ngModelChange)="updateNewProduct('name', $event)"
-                                class="form-input" 
-                                placeholder="Masukkan nama produk"
-                                maxlength="200"
-                                required>
-                        </div>
-                    </div>
-
-                    <!-- Description -->
-                    <div class="form-row full-width">
-                        <div class="form-group">
-                            <label for="productDescription">Deskripsi</label>
-                            <textarea 
-                                id="productDescription" 
-                                name="productDescription"
-                                [ngModel]="newProduct().description"
-                                (ngModelChange)="updateNewProduct('description', $event)"
-                                class="form-input form-textarea" 
-                                placeholder="Deskripsi produk (opsional)"
-                                rows="3"
-                                maxlength="500"></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Pricing -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="productBuyPrice" class="required">Harga Modal</label>
-                            <input 
-                                type="number" 
-                                id="productBuyPrice" 
-                                name="productBuyPrice"
-                                [ngModel]="newProduct().buyPrice"
-                                (ngModelChange)="updateNewProduct('buyPrice', $event)"
-                                class="form-input" 
-                                placeholder="0"
-                                min="0"
-                                step="0.01"
-                                required>
-                        </div>
-                        <div class="form-group">
-                            <label for="productPrice" class="required">Harga Jual</label>
-                            <input 
-                                type="number" 
-                                id="productPrice" 
-                                name="productPrice"
-                                [ngModel]="newProduct().sellPrice"
-                                (ngModelChange)="updateNewProduct('sellPrice', $event)"
-                                class="form-input" 
-                                placeholder="0"
-                                min="0"
-                                step="0.01"
-                                required>
-                        </div>
-                    </div>
-
-                    <!-- Stock Information -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="productStock" class="required">Stok Awal</label>
-                            <input 
-                                type="number" 
-                                id="productStock" 
-                                name="productStock"
-                                [ngModel]="newProduct().stock"
-                                (ngModelChange)="updateNewProduct('stock', $event)"
-                                class="form-input" 
-                                placeholder="0"
-                                min="0"
-                                required>
-                        </div>
-                        <div class="form-group">
-                            <label for="productMinStock" class="required">Minimal Stok</label>
-                            <input 
-                                type="number" 
-                                id="productMinStock" 
-                                name="productMinStock"
-                                [ngModel]="newProduct().minimumStock"
-                                (ngModelChange)="updateNewProduct('minimumStock', $event)"
-                                class="form-input" 
-                                placeholder="5"
-                                min="0"
-                                required>
-                        </div>
-                    </div>
-
-                    <!-- Category and Unit -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="productCategory" class="required">Kategori</label>
-                            <select 
-                                id="productCategory" 
-                                name="productCategory"
-                                [ngModel]="newProduct().categoryId"
-                                (ngModelChange)="updateNewProduct('categoryId', $event)"
-                                class="form-select"
-                                required>
-                                <option value="">Pilih Kategori</option>
-                                <option *ngFor="let category of categories()" [value]="category.id">
-                                    {{category.name}}
-                                </option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="productUnit" class="required">Satuan</label>
-                            <input 
-                                type="text" 
-                                id="productUnit" 
-                                name="productUnit"
-                                [ngModel]="newProduct().unit"
-                                (ngModelChange)="updateNewProduct('unit', $event)"
-                                class="form-input" 
-                                placeholder="pcs, kg, liter, dll"
-                                maxlength="20"
-                                required>
-                        </div>
-                    </div>
-                </form>
+            <div class="summary-line">
+              <span class="label">Subtotal:</span>
+              <span class="value">{{formatCurrency(cartSubtotal())}}</span>
             </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" (click)="onProductRegistrationCancelled()">
-                    <mat-icon class="icon">cancel</mat-icon>
-                    Batal
-                </button>
-                <button type="submit" class="btn btn-primary" (click)="submitNewProduct(productForm)" [disabled]="!productForm.form.valid || isLoading">
-                    @if (!isLoading()) {
-                    <span>
-                        <mat-icon class="icon">add_shopping_cart</mat-icon>
-                        Daftar & Tambah
-                    </span>
-                    }
-                    @if (isLoading()) {
-                    <span>
-                        <div class="spinner"></div>
-                        Mendaftarkan...
-                    </span>
-                    }
-                </button>
+            
+            @if (cartDiscountAmount() > 0) {
+              <div class="summary-line discount">
+                <span class="label">Global Discount:</span>
+                <span class="value">-{{formatCurrency(cartDiscountAmount())}}</span>
+              </div>
+            }
+            
+            <div class="summary-line total">
+              <span class="label">Total:</span>
+              <span class="value">{{formatCurrency(cartTotal())}}</span>
             </div>
-        </div>
-    </div>
-    }
+          </div>
 
-    <!-- Keyboard Shortcuts Help -->
-    <div class="shortcuts-help">
-        <small>
-            <strong>Shortcuts:</strong>
-            F1: Scan | F2: Search | F9: Bayar | F12: Clear | ESC: Close
-        </small>
-    </div>
+          <!-- Checkout Button -->
+          <button 
+            class="btn-checkout"
+            (click)="proceedToCheckout()"
+            [disabled]="cartItemCount() === 0 || isProcessingPayment()"
+          >
+            @if (isProcessingPayment()) {
+              Processing...
+            } @else {
+              Checkout {{formatCurrency(cartTotal())}}
+            }
+          </button>
+        } @else {
+          <div class="empty-summary">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 18c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2z"/>
+            </svg>
+            <p>Cart is empty</p>
+          </div>
+        }
+      </div>
+    </aside>
+  </div>
 </div>
+
+<!-- Barcode Scanner Modal -->
+@if (showBarcodeScanner()) {
+  <div class="backdrop" (click)="showBarcodeScanner.set(false)">
+    <div class="modal-dialog barcode-modal" (click)="$event.stopPropagation()">
+      <app-barcode-tools
+        [isOpen]="showBarcodeScanner()"
+        (barcodeScanned)="onBarcodeScanned($event)"
+        (scannerClosed)="showBarcodeScanner.set(false)"
+      />
+    </div>
+  </div>
+}
+
+<!-- Payment Modal -->
+@if (showPaymentModal()) {
+  <div class="backdrop" (click)="onPaymentCancelled()">
+    <div class="modal-dialog payment-modal-wrapper" (click)="$event.stopPropagation()">
+      <app-payment-modal
+        [totalAmount]="cartTotal()"
+        [isVisible]="showPaymentModal()"
+        [hasMember]="!!selectedMember()"
+        (paymentComplete)="onPaymentComplete($event)"
+        (paymentCancelled)="onPaymentCancelled()"
+      />
+    </div>
+  </div>
+}
+
+<!-- Product Registration Modal -->
+@if (showProductRegistrationModal()) {
+  <div class="backdrop" (click)="onProductRegistrationCancelled()">
+    <div class="modal-dialog product-registration-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg class="modal-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+          </svg>
+          Register New Product
+        </h3>
+        <button class="close-btn" (click)="onProductRegistrationCancelled()" type="button">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-message">
+          Barcode <strong>{{scannedBarcodeForRegistration()}}</strong> not found in system. 
+          Please fill in the product information below.
+        </div>
+
+        <form #productForm="ngForm" (ngSubmit)="submitNewProduct(productForm)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="productName">Product Name *</label>
+              <input 
+                type="text" 
+                id="productName"
+                name="productName"
+                class="form-input"
+                placeholder="Enter product name"
+                [ngModel]="newProduct().name"
+                (ngModelChange)="updateNewProduct('name', $event)"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="productBarcode">Barcode</label>
+              <input 
+                type="text" 
+                id="productBarcode"
+                name="productBarcode"
+                class="form-input"
+                [value]="scannedBarcodeForRegistration()"
+                readonly
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="productCategory">Category *</label>
+              <select 
+                id="productCategory"
+                name="productCategory"
+                class="form-select"
+                [ngModel]="newProduct().categoryId"
+                (ngModelChange)="updateNewProduct('categoryId', $event)"
+                required
+              >
+                <option value="" disabled>Select category</option>
+                @for (category of categories(); track category.id) {
+                  <option [value]="category.id">{{category.name}}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="productUnit">Unit</label>
+              <input 
+                type="text" 
+                id="productUnit"
+                name="productUnit"
+                class="form-input"
+                placeholder="pcs"
+                [ngModel]="newProduct().unit"
+                (ngModelChange)="updateNewProduct('unit', $event)"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="productStock">Current Stock *</label>
+              <input 
+                type="number" 
+                id="productStock"
+                name="productStock"
+                class="form-input"
+                placeholder="0"
+                min="0"
+                [ngModel]="newProduct().stock"
+                (ngModelChange)="updateNewProduct('stock', $event)"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="productMinStock">Minimum Stock *</label>
+              <input 
+                type="number" 
+                id="productMinStock"
+                name="productMinStock"
+                class="form-input"
+                placeholder="5"
+                min="0"
+                [ngModel]="newProduct().minimumStock"
+                (ngModelChange)="updateNewProduct('minimumStock', $event)"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="productBuyPrice">Buy Price *</label>
+              <input 
+                type="number" 
+                id="productBuyPrice"
+                name="productBuyPrice"
+                class="form-input"
+                placeholder="0"
+                min="0"
+                step="1000"
+                [ngModel]="newProduct().buyPrice"
+                (ngModelChange)="updateNewProduct('buyPrice', $event)"
+                required
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="productSellPrice">Sell Price *</label>
+              <input 
+                type="number" 
+                id="productSellPrice"
+                name="productSellPrice"
+                class="form-input"
+                placeholder="0"
+                min="0"
+                step="1000"
+                [ngModel]="newProduct().sellPrice"
+                (ngModelChange)="updateNewProduct('sellPrice', $event)"
+                required
+              >
+            </div>
+
+            <div class="form-group full-width">
+              <label for="productDescription">Description</label>
+              <textarea 
+                id="productDescription"
+                name="productDescription"
+                class="form-textarea"
+                placeholder="Product description (optional)"
+                rows="3"
+                [ngModel]="newProduct().description"
+                (ngModelChange)="updateNewProduct('description', $event)"
+              ></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-actions">
+        <button 
+          type="button"
+          class="modal-btn btn-cancel" 
+          (click)="onProductRegistrationCancelled()"
+        >
+          Cancel
+        </button>
+        <button 
+          type="submit"
+          class="modal-btn btn-confirm" 
+          (click)="submitNewProduct(productForm)"
+          [disabled]="isLoading() || !newProduct().name || !newProduct().sellPrice"
+        >
+          @if (isLoading()) {
+            <svg class="spinner" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z"/>
+            </svg>
+            Saving...
+          } @else {
+            Save & Add to Cart
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Clear Cart Confirmation Modal -->
+@if (showClearCartModal()) {
+  <div class="backdrop" (click)="cancelClearCart()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <svg class="modal-icon" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+      </svg>
+      <h3 class="modal-title">Clear Shopping Cart?</h3>
+      <p class="modal-message">This will remove all items from your cart. This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="modal-btn btn-cancel" (click)="cancelClearCart()">
+          Cancel
+        </button>
+        <button class="modal-btn btn-confirm" (click)="confirmClearCart()">
+          Clear Cart
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,6 +1,6 @@
 // src/app/shared/components/base-layout/base-layout.component.ts
 // Base layout component yang digunakan oleh Dashboard, POS, dan Notifications
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ElementRef, Injector, runInInjectionContext } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ElementRef, Injector, runInInjectionContext, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -20,6 +20,7 @@ import { StateService } from '../../../core/services/state.service';
 @Component({
   selector: 'app-base-layout',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,

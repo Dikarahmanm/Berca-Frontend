@@ -1,14 +1,14 @@
 // ===== DESIGN SYSTEM VARIABLES =====
 :host {
-  // COLORS: Senior-friendly palette
-  --clr-primary: #1E3A8A;           // Navy blue (primary)
-  --clr-primary-light: #DBEAFE;     // Light blue for backgrounds
-  --clr-primary-dark: #1E40AF;      // Darker blue for hover states
+  // COLORS: Orange theme (Toko Eniwan)
+  --clr-primary: #ff7f27;           // Orange (primary)
+  --clr-primary-light: #FFE7D3;     // Light orange for backgrounds
+  --clr-primary-dark: #E06B1B;      // Darker orange for hover states
   
   // SURFACES: Clean and accessible
   --clr-surface: #FFFFFF;           // Pure white
   --clr-surface-elevated: #FFFFFF;  // Elevated surfaces
-  --clr-bg-primary: #F8F6F0;        // Warm cream (main background)
+  --clr-bg-primary: #FDF9F6;        // Warm cream (main background)
   --clr-bg-secondary: #F3F4F6;      // Light gray
   
   // TEXT: High contrast for accessibility
@@ -43,19 +43,122 @@
   background: var(--clr-bg-primary);
 }
 
+// ===== ANIMATIONS =====
+.fade-in {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Staggered animation for cards
+.detail-content {
+  .info-cards .info-card:nth-child(1) { animation-delay: 0.1s; }
+  .info-cards .info-card:nth-child(2) { animation-delay: 0.2s; }
+  .info-cards .info-card:nth-child(3) { animation-delay: 0.3s; }
+  .items-card { animation-delay: 0.4s; }
+  .notes-card { animation-delay: 0.5s; }
+  
+  .info-card,
+  .items-card,
+  .notes-card {
+    animation: fadeInUp 0.5s ease-out forwards;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+// ===== MATERIAL THEME OVERRIDES =====
+:host {
+  // Material button overrides
+  ::ng-deep {
+    .mat-mdc-raised-button.mat-primary {
+      --mdc-protected-button-container-color: var(--clr-primary);
+      --mdc-protected-button-label-text-color: white;
+      
+      &:hover {
+        --mdc-protected-button-container-color: var(--clr-primary-dark);
+      }
+    }
+    
+    .mat-mdc-button.mat-primary {
+      --mdc-text-button-label-text-color: var(--clr-primary);
+      
+      &:hover {
+        --mdc-text-button-label-text-color: var(--clr-primary-dark);
+      }
+    }
+    
+    .mat-mdc-icon-button {
+      &:hover {
+        background-color: var(--clr-primary-light);
+      }
+    }
+    
+    // Material spinner color override
+    .mat-mdc-progress-spinner circle {
+      stroke: var(--clr-primary);
+    }
+  }
+}
+
 // ===== LOADING & ERROR STATES =====
 .loading-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 400px;
-  gap: 16px;
+  height: 70vh;
+  min-height: 400px;
 
-  p {
-    margin: 0;
-    color: var(--clr-text-secondary);
-    font-size: 18px;
+  .loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    text-align: center;
+  }
+
+  .loading-spinner {
+    position: relative;
+    width: 60px;
+    height: 60px;
+
+    .orange-spinner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 60px;
+      z-index: 2;
+    }
+
+    ::ng-deep .mat-spinner circle {
+      stroke: #E5E7EB;
+    }
+  }
+
+  .loading-text {
+    h3 {
+      margin: 0 0 8px 0;
+      color: var(--clr-primary);
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0;
+      color: var(--clr-text-secondary);
+      font-size: 16px;
+    }
   }
 }
 
@@ -64,28 +167,46 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 400px;
-  gap: 16px;
+  height: 50vh;
+  min-height: 400px;
+  gap: 24px;
   text-align: center;
+  padding: 32px;
 
   mat-icon {
-    font-size: 48px;
-    height: 48px;
-    width: 48px;
+    font-size: 64px;
+    height: 64px;
+    width: 64px;
     color: var(--clr-error);
+    margin-bottom: 8px;
   }
 
   h3 {
     margin: 0;
     color: var(--clr-error);
-    font-size: 20px;
+    font-size: 24px;
+    font-weight: 600;
   }
 
   p {
     margin: 0;
     color: var(--clr-text-secondary);
-    max-width: 400px;
-    font-size: 18px;
+    max-width: 500px;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  button {
+    margin-top: 16px;
+    
+    ::ng-deep .mat-mdc-button-base {
+      background-color: var(--clr-primary) !important;
+      color: white !important;
+      
+      &:hover {
+        background-color: var(--clr-primary-dark) !important;
+      }
+    }
   }
 }
 

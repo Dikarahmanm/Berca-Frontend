@@ -1,50 +1,50 @@
 // src/app/modules/pos/barcode-tools/barcode-tools.component.scss
 
-// Import design system colors
+// POS Theme Colors (Orange/White)
 :root {
-  /* PRIMARY COLORS - Navy Blue (Senior Friendly) */
-  --clr-primary: #1E3A8A;           /* Navy blue (12.6:1 contrast) */
-  --clr-primary-dark: #1E40AF;      /* Darker navy for hover */
-  --clr-primary-light: #DBEAFE;     /* Light blue for backgrounds */
+  /* PRIMARY COLORS - Orange Theme to match POS */
+  --clr-primary: #ff7f27;           /* Orange primary */
+  --clr-primary-dark: #e6671f;      /* Darker orange for hover */
+  --clr-primary-light: #fff3e6;     /* Light orange for backgrounds */
   
-  /* ACCENT COLORS - Teal for success actions */
-  --clr-accent: #0F766E;            /* Teal (7.8:1 contrast) */
-  --clr-accent-dark: #0D9488;       /* Darker teal */
-  --clr-accent-light: #CCFBF1;      /* Light teal */
+  /* ACCENT COLORS - Complementary colors */
+  --clr-accent: #27ae60;            /* Green for success */
+  --clr-accent-dark: #219a52;       /* Darker green */
+  --clr-accent-light: #e8f5e8;      /* Light green */
   
-  /* WARNING COLORS - Amber/Orange */
-  --clr-warning: #D97706;           /* Orange (7.3:1 contrast) */
-  --clr-warning-light: #FEF3C7;     /* Light amber background */
-  --clr-warning-dark: #92400E;      /* Dark amber */
+  /* WARNING COLORS - Amber/Yellow */
+  --clr-warning: #f39c12;           /* Warning orange */
+  --clr-warning-light: #fef5e7;     /* Light warning background */
+  --clr-warning-dark: #d68910;      /* Dark warning */
   
-  /* ERROR COLORS - Deep Red */
-  --clr-error: #B91C1C;             /* Red (8.2:1 contrast) */
-  --clr-error-light: #FEF2F2;       /* Light red background */
-  --clr-error-dark: #7F1D1D;        /* Very dark red */
+  /* ERROR COLORS - Red */
+  --clr-error: #e74c3c;             /* Error red */
+  --clr-error-light: #fdf2f2;       /* Light red background */
+  --clr-error-dark: #c0392b;        /* Dark red */
   
   /* SURFACE COLORS */
-  --clr-surface: #FFFFFF;           /* Pure white (cards) */
-  --clr-bg-primary: #F8F6F0;        /* Warm cream (main background) */
+  --clr-surface: #ffffff;           /* Pure white */
+  --clr-bg-primary: #f8f9fa;        /* Light gray background */
   
   /* TEXT COLORS */
-  --clr-text-primary: #1F2937;      /* Near black (15.3:1) */
-  --clr-text-secondary: #374151;    /* Dark gray (9.2:1) */
-  --clr-text-muted: #6B7280;        /* Medium gray (5.1:1) */
+  --clr-text-primary: #333333;      /* Dark text */
+  --clr-text-secondary: #666666;    /* Medium gray text */
+  --clr-text-muted: #999999;        /* Light gray text */
   
   /* BORDER COLORS */
-  --clr-border-light: #E5E7EB;      /* Light border */
-  --clr-border-medium: #D1D5DB;     /* Medium border */
+  --clr-border-light: #e0e0e0;      /* Light border */
+  --clr-border-medium: #cccccc;     /* Medium border */
   
   /* TYPOGRAPHY */
-  --font-size-base: 18px;           /* Default body text */
-  --font-size-sm: 16px;             /* Small text */
-  --font-weight-normal: 500;        /* Normal text */
+  --font-size-base: 16px;           /* Default body text */
+  --font-size-sm: 14px;             /* Small text */
+  --font-weight-normal: 400;        /* Normal text */
   --font-weight-medium: 600;        /* Medium emphasis */
   --font-weight-semibold: 700;      /* Strong emphasis */
 }
 
 .barcode-scanner {
-  padding: 1.5rem;
+  padding: 24px;
   background: var(--clr-surface);
   border-radius: 16px;
   border: 2px solid var(--clr-border-light);
@@ -53,43 +53,42 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  /* Remove glassmorphism effects for better senior accessibility */
 
   // Header
   .scanner-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(30, 58, 138, 0.1);
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--clr-border-light);
 
     .scanner-title {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 12px;
       margin: 0;
       color: var(--clr-primary);
       font-weight: 700;
-      font-size: 1.25rem;
+      font-size: 20px;
 
       .icon {
-        width: 1.5rem;
-        height: 1.5rem;
+        width: 24px;
+        height: 24px;
       }
     }
 
     .close-btn {
-      background: rgba(185, 28, 28, 0.1);
-      border: 1px solid rgba(185, 28, 28, 0.2);
+      background: rgba(231, 76, 60, 0.1);
+      border: 2px solid rgba(231, 76, 60, 0.2);
       border-radius: 8px;
       padding: 8px;
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: all 0.2s ease;
 
       &:hover {
-        background: rgba(185, 28, 28, 0.2);
-        transform: scale(1.05);
+        background: rgba(231, 76, 60, 0.2);
+        border-color: var(--clr-error);
       }
 
       .icon {
@@ -154,7 +153,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: rgba(0, 0, 0, 0.3);
+        background: rgba(0, 0, 0, 0.1);
         z-index: 10;
         pointer-events: none;
 
@@ -162,10 +161,11 @@
           position: relative;
           width: 280px;
           height: 180px;
-          border: 2px solid rgba(255, 255, 255, 0.6);
+          border: 2px solid rgba(255, 255, 255, 0.9);
           border-radius: 8px;
-          background: rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(2px);
+          background: rgba(255, 255, 255, 0.1);
+          // Remove backdrop-filter blur to fix camera clarity
+          // backdrop-filter: blur(2px);
 
           .scan-corners {
             position: absolute;
@@ -245,11 +245,12 @@
           font-size: 1rem;
           text-align: center;
           text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-          background: rgba(0, 0, 0, 0.7);
+          background: rgba(0, 0, 0, 0.8);
           padding: 0.75rem 1.5rem;
           border-radius: 20px;
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          // Remove backdrop-filter to improve camera clarity
+          // backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.3);
         }
       }
     }
@@ -370,24 +371,25 @@
 
   // Controls
   .scanner-controls {
-    margin-bottom: 1.5rem;
+    margin-bottom: 24px;
 
     .control-buttons {
       display: flex;
-      gap: 1rem;
-      margin-bottom: 1rem;
+      gap: 16px;
+      margin-bottom: 16px;
       justify-content: center;
 
       button {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1.5rem;
+        gap: 8px;
+        padding: 12px 24px;
         border-radius: 8px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: all 0.2s ease;
         border: none;
+        font-size: 14px;
 
         &:disabled {
           opacity: 0.5;
@@ -402,28 +404,28 @@
       }
 
       .primary-button {
-        background: linear-gradient(135deg, var(--clr-primary), var(--clr-primary-dark));
+        background: var(--clr-primary);
         color: white;
 
         &:hover:not(:disabled) {
-          background: linear-gradient(135deg, var(--clr-primary-dark), #1E40AF);
+          background: var(--clr-primary-dark);
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(30, 58, 138, 0.4);
+          box-shadow: 0 4px 12px rgba(255, 127, 39, 0.3);
         }
 
         &.scanning {
-          background: linear-gradient(135deg, var(--clr-error), var(--clr-error-dark));
+          background: var(--clr-error);
           animation: pulse 2s ease-in-out infinite;
 
           &:hover:not(:disabled) {
-            background: linear-gradient(135deg, var(--clr-error-dark), #7F1D1D);
+            background: var(--clr-error-dark);
           }
         }
       }
 
       .secondary-button {
-        background: none;
-        border: 1px solid var(--clr-primary);
+        background: white;
+        border: 2px solid var(--clr-primary);
         color: var(--clr-primary);
 
         &:hover:not(:disabled) {
@@ -436,9 +438,9 @@
 
     .manual-input-section {
       background: var(--clr-primary-light);
-      border: 1px solid rgba(30, 58, 138, 0.2);
+      border: 2px solid rgba(255, 127, 39, 0.2);
       border-radius: 12px;
-      padding: 1rem;
+      padding: 16px;
 
       .input-group {
         position: relative;
@@ -446,51 +448,51 @@
         label {
           display: block;
           font-weight: 600;
-          color: var(--clr-primary-dark);
-          margin-bottom: 0.5rem;
-          font-size: 0.9rem;
+          color: var(--clr-text-primary);
+          margin-bottom: 8px;
+          font-size: 14px;
         }
 
         .input-wrapper {
           display: flex;
-          gap: 0.5rem;
+          gap: 8px;
           position: relative;
 
           .manual-input {
             flex: 1;
-            padding: 0.875rem 1rem;
+            padding: 14px 16px;
             border: 2px solid var(--clr-border-medium);
             border-radius: 8px;
-            font-size: var(--font-size-base);
-            font-weight: var(--font-weight-normal);
-            background: var(--clr-surface);
+            font-size: 16px;
+            font-weight: 400;
+            background: white;
             color: var(--clr-text-primary);
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
 
             &:focus {
               outline: none;
               border-color: var(--clr-primary);
-              box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.2);
+              box-shadow: 0 0 0 3px rgba(255, 127, 39, 0.1);
             }
 
             &::placeholder {
               color: var(--clr-text-muted);
-              font-weight: var(--font-weight-normal);
+              font-weight: 400;
             }
           }
 
           .submit-btn {
-            background: var(--clr-accent);
+            background: var(--clr-primary);
             color: white;
             border: none;
             border-radius: 8px;
-            padding: 0.75rem;
+            padding: 12px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             min-width: 48px;
 
             &:hover:not(:disabled) {
-              background: var(--clr-accent-dark);
+              background: var(--clr-primary-dark);
               transform: scale(1.05);
             }
 

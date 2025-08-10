@@ -4,7 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MaterialModule } from '../../../shared/material.module';
 import { POSService } from '../../../core/services/pos.service';
 import { TransactionDetail, TransactionItem } from '../interfaces/transaction-detail.interface';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, timer } from 'rxjs';
 
 @Component({
   selector: 'app-transaction-detail',
@@ -20,6 +20,10 @@ export class TransactionDetailComponent implements OnInit, OnDestroy {
   loading = true;
   error: string | null = null;
   printingReceipt = false;
+  
+  // Minimum loading time for better UX
+  private minLoadingTime = 800; // ms
+  private loadingStartTime = 0;
 
   displayedColumns: string[] = ['productName', 'quantity', 'unitPrice', 'subtotal'];
 
@@ -39,6 +43,7 @@ export class TransactionDetailComponent implements OnInit, OnDestroy {
   }
 
   private loadTransactionDetail(): void {
+    this.loadingStartTime = Date.now();
     const id = this.route.snapshot.params['id'];
     
     console.log('🔍 TransactionDetailComponent - Route params:', this.route.snapshot.params);
@@ -47,7 +52,7 @@ export class TransactionDetailComponent implements OnInit, OnDestroy {
     if (!id || isNaN(Number(id))) {
       console.error('❌ Invalid transaction ID:', id);
       this.error = 'ID transaksi tidak valid';
-      this.loading = false;
+      this.finishLoading();
       return;
     }
 
@@ -59,14 +64,24 @@ export class TransactionDetailComponent implements OnInit, OnDestroy {
         next: (transaction) => {
           console.log('✅ Transaction loaded:', transaction);
           this.transaction = transaction;
-          this.loading = false;
+          this.finishLoading();
         },
         error: (error) => {
           console.error('❌ Error loading transaction:', error);
           this.error = 'Gagal memuat detail transaksi: ' + (error.message || 'Unknown error');
-          this.loading = false;
+          this.finishLoading();
         }
       });
+  }
+
+  private finishLoading(): void {
+    const elapsed = Date.now() - this.loadingStartTime;
+    const remainingTime = Math.max(0, this.minLoadingTime - elapsed);
+    
+    // Ensure minimum loading time for better UX
+    timer(remainingTime).subscribe(() => {
+      this.loading = false;
+    });
   }
 
   onPrintReceipt(): void {

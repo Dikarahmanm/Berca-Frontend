@@ -1,7 +1,7 @@
 // src/app/dashboard/dashboard.component.ts
 // ✅ SIMPLIFIED: Now just contains BaseLayout with router-outlet
 
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 
@@ -10,6 +10,7 @@ import { BaseLayoutComponent } from '../shared/components/base-layout/base-layou
 @Component({
   selector: 'app-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     RouterModule,

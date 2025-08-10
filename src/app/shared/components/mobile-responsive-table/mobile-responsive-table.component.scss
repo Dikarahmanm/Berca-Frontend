@@ -1,0 +1,309 @@
+// src/app/shared/components/mobile-responsive-table/mobile-responsive-table.component.scss
+// Mobile-first responsive table styles with solid colors (no transparency)
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+// ===== UTILITY CLASSES =====
+.hidden {
+  display: none !important;
+}
+
+// ===== DESKTOP TABLE VIEW =====
+.table-container {
+  overflow-x: auto;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 2px solid var(--border);
+  
+  .responsive-table {
+    width: 100%;
+    background: var(--surface);
+    
+    .mat-mdc-header-cell {
+      background: var(--bg);
+      color: var(--text);
+      font-weight: var(--font-semibold);
+      font-size: var(--text-sm);
+      border-bottom: 2px solid var(--border);
+      padding: var(--s4) var(--s3);
+      
+      .header-content {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        
+        .sort-icon {
+          font-size: 16px;
+          color: var(--text-muted);
+        }
+      }
+    }
+    
+    .mat-mdc-cell {
+      color: var(--text);
+      padding: var(--s4) var(--s3);
+      border-bottom: 1px solid var(--border);
+      font-size: var(--text-sm);
+      
+      // Cell type styling
+      &.number-cell, &.currency-cell {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      
+      &.date-cell {
+        white-space: nowrap;
+      }
+      
+      .action-buttons {
+        display: flex;
+        gap: var(--s1);
+        
+        button {
+          min-width: 40px;
+          min-height: 40px;
+        }
+      }
+    }
+    
+    .mat-mdc-row:hover {
+      background: var(--bg);
+    }
+  }
+}
+
+// ===== MOBILE CARD VIEW =====
+.card-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  
+  .mobile-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+    
+    &:hover {
+      border-color: var(--primary);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .card-content {
+      padding: var(--s4);
+      
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: var(--s4);
+        padding-bottom: var(--s3);
+        border-bottom: 1px solid var(--border);
+        
+        .card-title {
+          margin: 0;
+          font-size: var(--text-lg);
+          font-weight: var(--font-semibold);
+          color: var(--text);
+          line-height: var(--leading-tight);
+          flex: 1;
+          margin-right: var(--s3);
+        }
+        
+        .card-actions {
+          display: flex;
+          gap: var(--s1);
+          flex-shrink: 0;
+          
+          .card-action-btn {
+            min-width: 40px;
+            min-height: 40px;
+          }
+        }
+      }
+      
+      .card-fields {
+        display: flex;
+        flex-direction: column;
+        gap: var(--s3);
+        
+        .card-field {
+          display: flex;
+          align-items: center;
+          gap: var(--s3);
+          min-height: 24px;
+          
+          .field-label {
+            font-weight: var(--font-medium);
+            color: var(--text-secondary);
+            font-size: var(--text-sm);
+            min-width: 100px;
+            flex-shrink: 0;
+          }
+          
+          .field-value {
+            flex: 1;
+            font-size: var(--text-sm);
+            color: var(--text);
+            
+            &.number-value, &.currency-value {
+              font-variant-numeric: tabular-nums;
+            }
+            
+            &.currency-value {
+              font-weight: var(--font-medium);
+              color: var(--primary);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// ===== STATUS CHIPS =====
+.status-chip {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  height: 24px;
+  border-radius: var(--radius-full);
+  
+  &.status-active {
+    background: var(--success);
+    color: white;
+  }
+  
+  &.status-inactive {
+    background: var(--text-muted);
+    color: white;
+  }
+  
+  &.status-warning {
+    background: var(--warning);
+    color: white;
+  }
+  
+  &.status-error {
+    background: var(--error);
+    color: white;
+  }
+  
+  &.status-default {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+}
+
+// ===== RESPONSIVE BEHAVIOR =====
+
+// Show desktop view by default
+.desktop-view {
+  display: block;
+}
+
+.mobile-view {
+  display: none;
+}
+
+// Switch to mobile view on small screens
+@media (max-width: 767px) {
+  .desktop-view {
+    display: none;
+  }
+  
+  .mobile-view {
+    display: block;
+  }
+  
+  // Enhanced mobile card layout
+  .card-container {
+    gap: var(--s3);
+    
+    .mobile-card {
+      .card-content {
+        padding: var(--s3);
+        
+        .card-header {
+          margin-bottom: var(--s3);
+          padding-bottom: var(--s2);
+          
+          .card-title {
+            font-size: var(--text-base);
+            margin-right: var(--s2);
+          }
+        }
+        
+        .card-fields {
+          gap: var(--s2);
+          
+          .card-field {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: var(--s1);
+            
+            .field-label {
+              min-width: auto;
+            }
+            
+            .field-value {
+              width: 100%;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Very small screens optimization
+@media (max-width: 480px) {
+  .card-container .mobile-card .card-content {
+    padding: var(--s3) var(--s2);
+    
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--s2);
+      
+      .card-actions {
+        align-self: flex-end;
+        margin-top: var(--s2);
+      }
+    }
+  }
+}
+
+// ===== ACCESSIBILITY =====
+
+// Focus indicators
+.mobile-card:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+// High contrast mode
+@media (prefers-contrast: high) {
+  .responsive-table .mat-mdc-header-cell,
+  .responsive-table .mat-mdc-cell,
+  .mobile-card {
+    border-width: 3px;
+  }
+  
+  .status-chip {
+    border: 2px solid currentColor;
+  }
+}
+
+// Reduced motion
+@media (prefers-reduced-motion: reduce) {
+  .mobile-card,
+  .responsive-table .mat-mdc-row {
+    transition: none;
+  }
+}

@@ -127,7 +127,7 @@ export interface Customer {
 // ===== UI INTERFACES =====
 
 export interface PaymentData {
-  method: 'cash' | 'card' | 'digital';
+  method: 'cash' | 'card' | 'digital' | 'credit';
   amountPaid: number;
   change: number;
   reference?: string;

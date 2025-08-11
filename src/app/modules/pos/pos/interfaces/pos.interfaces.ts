@@ -17,6 +17,7 @@ export interface ProductDto {
   unit: string;
   createdAt: Date;
   updatedAt: Date;
+  expiryDate?: Date;
 }
 
 export interface CreateSaleRequest {

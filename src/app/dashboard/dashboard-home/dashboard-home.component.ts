@@ -1,15 +1,5 @@
-// Utility: Konversi waktu ke jam Jakarta (WIB)
-function toJakartaTime(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return '-';
-  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-  const jakarta = new Date(utc + (7 * 60 * 60 * 1000));
-  const hours = jakarta.getHours().toString().padStart(2, '0');
-  const minutes = jakarta.getMinutes().toString().padStart(2, '0');
-  return `${hours}:${minutes}`;
-}
 // src/app/dashboard/dashboard-home/dashboard-home.component.ts
-// ✅ NEW: Separate component for dashboard home content
+// ✅ REDESIGNED: Clean Simple Design - High Contrast, No Transparency
 
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -23,6 +13,18 @@ import { takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService, NotificationDto } from '../../core/services/notification.service';
 import { DashboardService, DashboardKPIDto, QuickStatsDto } from '../../core/services/dashboard.service';
+import { UserService } from '../../modules/user-management/services/user.service';
+
+// Utility: Konversi waktu ke jam Jakarta (WIB)
+function toJakartaTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '-';
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const jakarta = new Date(utc + (7 * 60 * 60 * 1000));
+  const hours = jakarta.getHours().toString().padStart(2, '0');
+  const minutes = jakarta.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
 
 interface UserStats {
   total: number;
@@ -64,55 +66,68 @@ interface QuickAction {
   template: `
     <div class="dashboard-home">
 
-      <!-- Welcome Section -->
+      <!-- Welcome Section - REDESIGNED: Clean Simple Design -->
       <section class="welcome-section">
-        <div class="welcome-card glass-card">
+        <div class="welcome-card">
           <div class="welcome-content">
             <div class="welcome-text">
-              <h2>{{ getGreeting() }}, {{ username }}! 👋</h2>
+              <h1 class="welcome-greeting">{{ getGreeting() }}, {{ username }}!</h1>
               <p class="welcome-date">{{ getCurrentDate() }}</p>
               <p class="welcome-subtitle">Selamat datang di sistem POS Toko Eniwan</p>
             </div>
             
             <div class="welcome-actions">
-              <button class="action-btn primary-btn" (click)="navigateTo('/pos')">
+              <button class="action-btn primary" (click)="navigateTo('/dashboard/pos')">
                 <mat-icon>point_of_sale</mat-icon>
-                Mulai Transaksi
+                <span>Mulai Transaksi</span>
               </button>
-              <button class="action-btn secondary-btn" (click)="navigateTo('/dashboard/inventory')">
+              <button class="action-btn secondary" (click)="navigateTo('/dashboard/inventory')">
                 <mat-icon>inventory_2</mat-icon>
-                Kelola Stok
+                <span>Kelola Stok</span>
               </button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Stats Grid -->
+      <!-- Stats Grid - REDESIGNED: High Contrast Cards -->
       <section class="stats-section">
         <div class="section-header">
-          <h2>Statistik Sistem</h2>
-          <p>Overview performa bisnis Anda</p>
+          <div class="header-content">
+            <div class="header-text">
+              <h2>Statistik Sistem</h2>
+              <p>Overview performa bisnis Anda</p>
+            </div>
+            <button 
+              class="refresh-btn" 
+              (click)="refreshDashboardData()"
+              [disabled]="isLoading"
+              title="Refresh Data">
+              <mat-icon [class.spinning]="isLoading">refresh</mat-icon>
+              <span *ngIf="!isLoading">Refresh</span>
+              <span *ngIf="isLoading">Loading...</span>
+            </button>
+          </div>
         </div>
 
         <div class="stats-grid">
           <!-- Total Users -->
-          <div class="stat-card glass-card">
-            <div class="stat-icon users">
+          <div class="stat-card users clickable" (click)="navigateTo('/dashboard/users')">
+            <div class="stat-icon">
               <mat-icon>people</mat-icon>
             </div>
             <div class="stat-content">
               <div class="stat-value">{{ formatNumber(userStats.total) }}</div>
               <div class="stat-label">Total Users</div>
               <div class="stat-meta">
-                <span class="stat-detail active">{{ userStats.active }} active</span>
+                <span class="stat-detail">{{ userStats.active }} active</span>
               </div>
             </div>
           </div>
 
           <!-- Total Products -->
-          <div class="stat-card glass-card clickable" (click)="navigateTo('/dashboard/inventory')">
-            <div class="stat-icon products">
+          <div class="stat-card products clickable" (click)="navigateTo('/dashboard/inventory')">
+            <div class="stat-icon">
               <mat-icon>inventory_2</mat-icon>
             </div>
             <div class="stat-content">
@@ -122,7 +137,7 @@ interface QuickAction {
                 <span class="stat-detail warning" *ngIf="dashboardStats.lowStockCount > 0">
                   {{ dashboardStats.lowStockCount }} stok rendah
                 </span>
-                <span class="stat-detail positive" *ngIf="dashboardStats.lowStockCount === 0">
+                <span class="stat-detail success" *ngIf="dashboardStats.lowStockCount === 0">
                   Stok mencukupi
                 </span>
               </div>
@@ -130,9 +145,9 @@ interface QuickAction {
           </div>
 
           <!-- Total Members -->
-          <div class="stat-card glass-card">
-            <div class="stat-icon categories">
-              <mat-icon>people</mat-icon>
+          <div class="stat-card members clickable" (click)="navigateTo('/dashboard/membership')">
+            <div class="stat-icon">
+              <mat-icon>card_membership</mat-icon>
             </div>
             <div class="stat-content">
               <div class="stat-value">{{ formatNumber(dashboardStats.totalMembers) }}</div>
@@ -144,22 +159,22 @@ interface QuickAction {
           </div>
 
           <!-- Today Revenue -->
-          <div class="stat-card glass-card">
-            <div class="stat-icon sales">
+          <div class="stat-card revenue clickable" (click)="navigateTo('/dashboard/reports')">
+            <div class="stat-icon">
               <mat-icon>trending_up</mat-icon>
             </div>
             <div class="stat-content">
               <div class="stat-value">{{ formatCurrency(dashboardStats.todayRevenue) }}</div>
               <div class="stat-label">Pendapatan Hari Ini</div>
               <div class="stat-meta">
-                <span class="stat-detail positive">{{ dashboardStats.todayTransactions }} transaksi</span>
+                <span class="stat-detail">{{ dashboardStats.todayTransactions }} transaksi</span>
               </div>
             </div>
           </div>
 
           <!-- Notifications -->
-          <div class="stat-card glass-card clickable" (click)="navigateTo('/notifications')">
-            <div class="stat-icon notifications">
+          <div class="stat-card notifications clickable" (click)="navigateTo('/dashboard/notifications')">
+            <div class="stat-icon">
               <mat-icon>notifications</mat-icon>
             </div>
             <div class="stat-content">
@@ -170,23 +185,38 @@ interface QuickAction {
               </div>
             </div>
           </div>
+
+          <!-- Monthly Revenue -->
+          <div class="stat-card monthly-revenue clickable" (click)="navigateTo('/dashboard/reports')">
+            <div class="stat-icon">
+              <mat-icon>bar_chart</mat-icon>
+            </div>
+            <div class="stat-content">
+              <div class="stat-value">{{ formatCurrency(dashboardStats.monthlyRevenue) }}</div>
+              <div class="stat-label">Pendapatan Bulanan</div>
+              <div class="stat-meta">
+                <span class="stat-detail">Bulan ini</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <!-- Quick Actions -->
-      <section class="quick-actions-section">
+      <!-- Quick Actions - REDESIGNED: Clean Action Cards -->
+      <section class="actions-section">
         <div class="section-header">
           <h2>Quick Actions</h2>
           <p>Akses cepat ke fitur utama sistem</p>
         </div>
 
-        <div class="quick-actions-grid">
+        <div class="actions-grid">
           <div 
-            class="quick-action-card glass-card" 
+            class="action-card" 
             *ngFor="let action of quickActions"
+            [ngClass]="action.color"
             (click)="executeQuickAction(action)">
             
-            <div class="action-icon" [ngClass]="action.color">
+            <div class="action-icon">
               <mat-icon>{{ action.icon }}</mat-icon>
             </div>
             
@@ -241,7 +271,8 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
     private router: Router,
     private authService: AuthService,
     private notificationService: NotificationService,
-    private dashboardService: DashboardService
+    private dashboardService: DashboardService,
+    private userService: UserService
   ) {}
 
   ngOnInit() {
@@ -251,6 +282,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
     this.setupQuickActions();
     this.subscribeToNotifications();
     this.loadDashboardData();
+    this.loadUserStatistics();
   }
 
   ngOnDestroy() {
@@ -312,6 +344,28 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
     this.dashboardStats.todayTransactions = stats.todayTransactions;
   }
 
+  private loadUserStatistics(): void {
+    // Load user statistics by getting first page with large pageSize to get total
+    this.userService.getUsers(1, 1000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          const users = response.users || [];
+          this.userStats = {
+            total: response.total || users.length,
+            active: users.filter(user => user.isActive).length,
+            inactive: users.filter(user => !user.isActive).length,
+            deleted: 0 // This might need to be tracked differently if supported by backend
+          };
+          console.log('👥 User statistics loaded:', this.userStats);
+        },
+        error: (error) => {
+          console.error('Error loading user statistics:', error);
+          // Keep default values if error occurs
+        }
+      });
+  }
+
   private loadUserData(): void {
     try {
       const currentUser = this.authService.getCurrentUser();
@@ -334,7 +388,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         title: 'Point of Sale',
         description: 'Mulai transaksi penjualan',
         icon: 'point_of_sale',
-        route: '/pos',
+        route: '/dashboard/pos',
         color: 'primary',
         enabled: true
       },
@@ -344,7 +398,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         description: 'Lihat laporan dan analisis bisnis',
         icon: 'analytics',
         route: '/dashboard/analytics',
-        color: 'accent',
+        color: 'success',
         enabled: true
       },
       {
@@ -353,7 +407,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         description: 'Kelola produk dan stok',
         icon: 'inventory_2',
         route: '/dashboard/inventory',
-        color: 'success',
+        color: 'warning',
         enabled: true
       },
       {
@@ -362,7 +416,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         description: 'Atur kategori produk',
         icon: 'category',
         route: '/dashboard/categories',
-        color: 'warning',
+        color: 'info',
         enabled: true
       },
       {
@@ -371,7 +425,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         description: 'Kelola pengguna sistem',
         icon: 'people',
         route: '/dashboard/users',
-        color: 'info',
+        color: 'secondary',
         enabled: true
       },
       {
@@ -380,7 +434,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         description: 'Riwayat aktivitas sistem',
         icon: 'history',
         route: '/dashboard/logs',
-        color: 'secondary',
+        color: 'accent',
         enabled: true
       }
     ];
@@ -401,6 +455,12 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
 
   executeQuickAction(action: QuickAction): void {
     this.navigateTo(action.route);
+  }
+
+  refreshDashboardData(): void {
+    console.log('🔄 Refreshing dashboard data...');
+    this.loadDashboardData();
+    this.loadUserStatistics();
   }
 
   getGreeting(): string {

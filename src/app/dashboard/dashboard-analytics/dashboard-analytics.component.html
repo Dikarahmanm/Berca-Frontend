@@ -26,9 +26,22 @@
           </select>
         </div>
 
-        <button class="btn btn-primary" (click)="refreshData()" [disabled]="isLoading" type="button">
+        <button class="btn btn-primary refresh-btn" (click)="refreshData()" [disabled]="isLoading" type="button"
+          title="Refresh dashboard data (Ctrl+R)">
           <mat-icon>refresh</mat-icon>
           <span>Refresh</span>
+        </button>
+
+        <!-- New: Add Product Button -->
+        <button class="btn btn-success" (click)="addNewProduct()" type="button" title="Add new product (Ctrl+N)">
+          <mat-icon>add</mat-icon>
+          <span class="hide-mobile">Tambah Produk</span>
+        </button>
+
+        <!-- New: Export Button -->
+        <button class="btn btn-accent" (click)="exportAnalyticsData()" type="button" title="Export analytics data">
+          <mat-icon>download</mat-icon>
+          <span class="hide-mobile">Export</span>
         </button>
       </div>
     </div>
@@ -176,7 +189,9 @@
           </header>
 
           <div class="product-list" *ngIf="topProducts.length > 0; else noTopProducts">
-            <article class="top-product-item" *ngFor="let product of topProducts; let i = index">
+            <article class="top-product-item" *ngFor="let product of topProducts; let i = index"
+              (contextmenu)="showProductContextMenu($event, product.productId, product.productName)"
+              title="Right-click for more options">
               <!-- Header with rank and weighted score -->
               <header class="product-header">
                 <div class="rank-badge success" [attr.aria-label]="'Rank ' + (i + 1)">{{ i + 1 }}</div>
@@ -217,11 +232,15 @@
                 </div>
               </div>
 
-              <!-- Action button -->
+              <!-- Enhanced Action buttons -->
               <footer class="product-actions">
-                <button class="action-btn" (click)="viewProductDetails(product.productId)" type="button"
-                  [attr.aria-label]="'View details for ' + product.productName">
-                  <mat-icon>visibility</mat-icon>
+                <button class="action-btn quick-view" (click)="showProductQuickView(product.productId)" type="button"
+                  title="Quick View" [attr.aria-label]="'Quick view for ' + product.productName">
+                  <mat-icon>preview</mat-icon>
+                </button>
+                <button class="action-btn edit-btn" (click)="viewProductDetails(product.productId)" type="button"
+                  title="Edit Product" [attr.aria-label]="'Edit details for ' + product.productName">
+                  <mat-icon>edit</mat-icon>
                 </button>
               </footer>
             </article>
@@ -261,7 +280,9 @@
 
           <div class="product-list" *ngIf="getSortedWorstProducts().length > 0; else noWorstProducts">
             <article class="worst-product-item" [attr.data-category]="product.performanceCategory"
-              *ngFor="let product of getSortedWorstProducts(); let i = index">
+              *ngFor="let product of getSortedWorstProducts(); let i = index"
+              (contextmenu)="showProductContextMenu($event, product.productId, product.productName)"
+              title="Right-click for more options">
               <!-- Header with rank and category -->
               <header class="product-header">
                 <div class="rank-badge" [attr.aria-label]="'Rank ' + (i + 1)">{{ i + 1 }}</div>
@@ -302,11 +323,15 @@
                 </div>
               </div>
 
-              <!-- Action button -->
+              <!-- Enhanced Action buttons -->
               <footer class="product-actions">
-                <button class="action-btn" (click)="viewProductDetails(product.productId)" type="button"
-                  [attr.aria-label]="'View details for ' + product.productName">
-                  <mat-icon>visibility</mat-icon>
+                <button class="action-btn quick-view" (click)="showProductQuickView(product.productId)" type="button"
+                  title="Quick View" [attr.aria-label]="'Quick view for ' + product.productName">
+                  <mat-icon>preview</mat-icon>
+                </button>
+                <button class="action-btn edit-btn" (click)="viewProductDetails(product.productId)" type="button"
+                  title="Edit Product" [attr.aria-label]="'Edit details for ' + product.productName">
+                  <mat-icon>edit</mat-icon>
                 </button>
               </footer>
             </article>
@@ -335,7 +360,9 @@
       </header>
 
       <div class="category-grid" *ngIf="categorySales.length > 0; else noCategoryData">
-        <article class="category-item" *ngFor="let category of categorySales">
+        <article class="category-item" *ngFor="let category of categorySales"
+          (click)="filterProductsByCategory(category.categoryName)" class="clickable-category"
+          title="Click to filter products by this category">
           <div class="category-color" [style.background-color]="category.categoryColor"></div>
           <div class="category-info">
             <h4 class="category-name">{{ category.categoryName }}</h4>
@@ -373,7 +400,8 @@
       </header>
 
       <div class="transactions-list" *ngIf="recentTransactions.length > 0; else noTransactions">
-        <article class="transaction-item" *ngFor="let transaction of recentTransactions">
+        <article class="transaction-item" *ngFor="let transaction of recentTransactions"
+          (contextmenu)="showTransactionContextMenu($event, transaction)" title="Right-click for more options">
           <div class="transaction-id">
             <mat-icon>receipt</mat-icon>
             <span>{{ transaction.saleNumber }}</span>
@@ -388,10 +416,17 @@
             <div class="transaction-items">{{ formatNumber(transaction.itemCount) }} item</div>
             <div class="transaction-method">{{ transaction.paymentMethod }}</div>
           </div>
-          <button class="action-btn" (click)="viewTransactionDetails(transaction)" type="button"
-            [attr.aria-label]="'View details for transaction ' + transaction.saleNumber">
-            <mat-icon>visibility</mat-icon>
-          </button>
+          <div class="transaction-actions">
+            <button class="action-btn quick-view" (click)="showTransactionQuickView(transaction)" type="button"
+              title="Quick View Transaction" [attr.aria-label]="'Quick view for transaction ' + transaction.saleNumber">
+              <mat-icon>preview</mat-icon>
+            </button>
+            <button class="action-btn detail-btn" (click)="viewTransactionDetails(transaction)" type="button"
+              title="View Full Details"
+              [attr.aria-label]="'View full details for transaction ' + transaction.saleNumber">
+              <mat-icon>visibility</mat-icon>
+            </button>
+          </div>
         </article>
       </div>
 
@@ -417,7 +452,8 @@
       </header>
 
       <div class="low-stock-list" *ngIf="lowStockAlerts.length > 0; else noLowStock">
-        <article class="low-stock-item" *ngFor="let item of lowStockAlerts">
+        <article class="low-stock-item" *ngFor="let item of lowStockAlerts"
+          (contextmenu)="showStockContextMenu($event, item)" title="Right-click for quick actions">
           <div class="stock-status" [ngClass]="item.isOutOfStock ? 'out-of-stock' : 'low-stock'">
             <mat-icon>{{ item.isOutOfStock ? 'block' : 'warning' }}</mat-icon>
           </div>
@@ -436,9 +472,16 @@
             </div>
           </div>
           <div class="item-actions">
-            <button class="btn" [ngClass]="item.isOutOfStock ? 'btn-error' : 'btn-warning'"
-              (click)="viewProductDetails(item.id)" type="button">
-              {{ item.isOutOfStock ? 'Restock Sekarang' : 'Lihat Detail' }}
+            <button class="btn btn-sm quick-restock-btn" [ngClass]="item.isOutOfStock ? 'btn-error' : 'btn-warning'"
+              (click)="restockProduct(item.id, item.name)" type="button" title="Quick restock this product">
+              <mat-icon>add_circle</mat-icon>
+              {{ item.isOutOfStock ? 'Restock Sekarang' : 'Quick Restock' }}
+            </button>
+
+            <button class="btn btn-sm btn-primary" (click)="manageProductStock(item.id)" type="button"
+              title="Manage stock details">
+              <mat-icon>inventory</mat-icon>
+              Kelola Stok
             </button>
           </div>
         </article>
@@ -451,6 +494,17 @@
         </div>
       </ng-template>
     </section>
+
+    <!-- Keyboard Shortcuts Help -->
+    <div class="keyboard-shortcuts-hint" *ngIf="!isLoading">
+      <div class="shortcuts-content">
+        <span class="shortcuts-label">Keyboard Shortcuts:</span>
+        <span class="shortcut-item">Ctrl+R: Refresh</span>
+        <span class="shortcut-item">Ctrl+N: New Product</span>
+        <span class="shortcut-item">Ctrl+I: Inventory</span>
+        <span class="shortcut-item">Ctrl+T: Transactions</span>
+      </div>
+    </div>
 
   </main>
 

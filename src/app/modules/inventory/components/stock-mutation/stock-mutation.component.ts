@@ -72,6 +72,10 @@ export class StockMutationComponent implements OnInit, OnDestroy {
   loading = false;
   saving = false;
   loadingHistory = false;
+  selectedTab: 'update' | 'history' = 'update';
+  currentPage: number = 1;
+  itemsPerPage: number = 10;
+  totalPages: number = 1;
   
   // Mutation types for dropdown
   mutationTypes = [
@@ -98,6 +102,7 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     this.initializeForms();
     this.loadProduct();
     this.loadHistory();
+    this.updatePagination();
   }
 
   ngOnDestroy(): void {
@@ -120,9 +125,9 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     return this.stockForm?.valid && !this.saving;
   }
 
-  get historyDataSource() {
-    return this.mutationHistory;
-  }
+get historyDataSource() {
+  return this.mutationHistory;
+}
 
   get currentStockStatus(): string {
     if (!this.product) return '';
@@ -168,7 +173,41 @@ export class StockMutationComponent implements OnInit, OnDestroy {
 
     return null;
   };
+  // ===== TAB MANAGEMENT =====
+setActiveTab(tab: 'update' | 'history'): void {
+  this.selectedTab = tab;
+  
+  if (tab === 'history') {
+    this.loadHistory();
+  }
+  }
+  // ===== PAGINATION METHODS =====
+updatePagination(): void {
+  const totalItems = this.mutationHistory.data.length;
+  this.totalPages = Math.ceil(totalItems / this.itemsPerPage);
+  
+  // Ensure current page is within valid range
+  if (this.currentPage > this.totalPages) {
+    this.currentPage = Math.max(1, this.totalPages);
+  }
+}
+getPaginatedData(): any[] {
+  const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+  const endIndex = startIndex + this.itemsPerPage;
+  return this.mutationHistory.data.slice(startIndex, endIndex);
+}
 
+previousPage(): void {
+  if (this.currentPage > 1) {
+    this.currentPage--;
+  }
+}
+
+nextPage(): void {
+  if (this.currentPage < this.totalPages) {
+    this.currentPage++;
+  }
+}
   // ===== FORM INITIALIZATION =====
 
   private initializeForms(): void {
@@ -197,6 +236,12 @@ export class StockMutationComponent implements OnInit, OnDestroy {
         this.loadHistory();
       })
     );
+    this.subscriptions.add(
+  this.historyFilterForm.valueChanges.subscribe(() => {
+    this.currentPage = 1; // Reset to first page when filters change
+    this.loadHistory();
+  })
+);
   }
 
   private updateFormValidation(type: MutationType): void {
@@ -254,38 +299,34 @@ export class StockMutationComponent implements OnInit, OnDestroy {
   }
 
   private loadHistory(): void {
-    if (!this.productId) return;
-    
-    this.loadingHistory = true;
-    const filterValues = this.historyFilterForm.value;
-    
-    this.subscriptions.add(
-      this.inventoryService.getInventoryHistory(
-        this.productId,
-        filterValues.startDate,
-        filterValues.endDate
-      ).subscribe({
-        next: (history) => {
-          let filteredHistory = history;
-          if (filterValues.type) {
-            filteredHistory = history.filter(h => h.type === filterValues.type);
-          }
-          
-          this.mutationHistory.data = filteredHistory;
-          this.loadingHistory = false;
-          
-          setTimeout(() => {
-            this.mutationHistory.paginator = this.paginator;
-            this.mutationHistory.sort = this.sort;
-          });
-        },
-        error: (error) => {
-          this.showError('Failed to load inventory history: ' + error.message);
-          this.loadingHistory = false;
+  if (!this.productId) return;
+  
+  this.loadingHistory = true;
+  const filterValues = this.historyFilterForm.value;
+  
+  this.subscriptions.add(
+    this.inventoryService.getInventoryHistory(
+      this.productId,
+      filterValues.startDate,
+      filterValues.endDate
+    ).subscribe({
+      next: (history) => {
+        let filteredHistory = history;
+        if (filterValues.type) {
+          filteredHistory = history.filter(h => h.type === filterValues.type);
         }
-      })
-    );
-  }
+        
+        this.mutationHistory.data = filteredHistory;
+        this.updatePagination(); // Add pagination update
+        this.loadingHistory = false;
+      },
+      error: (error) => {
+        this.showError('Failed to load inventory history: ' + error.message);
+        this.loadingHistory = false;
+      }
+    })
+  );
+}
 
   // ===== FORM SUBMISSION =====
 

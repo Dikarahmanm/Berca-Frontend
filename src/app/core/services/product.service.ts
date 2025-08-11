@@ -2,7 +2,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environment/environment';
 import { ApiResponse } from './user-profile.service';
 
@@ -10,6 +10,7 @@ export interface Product {
   id: number;
   name: string;
   barcode: string;
+  description?: string;
   stock: number;
   buyPrice: number;
   sellPrice: number;
@@ -17,6 +18,8 @@ export interface Product {
   categoryName: string;
   isActive: boolean;
   minStock: number;
+  unit?: string;
+  expiryDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -127,7 +130,37 @@ export class ProductService {
     return this.http.delete<ApiResponse<boolean>>(`${this.apiUrl}/${id}`)
       .pipe(catchError(this.handleError.bind(this)));
   }
-
+addStock(restockData: {
+  productId: number;
+  quantity: number;
+  type: string;
+  notes: string;
+  timestamp: string;
+}): Observable<any> {
+  // Map restock type to mutation type
+  const mutationTypeMap: { [key: string]: string } = {
+    'purchase': 'StockIn',
+    'return': 'StockIn', 
+    'transfer': 'StockIn',
+    'adjustment': 'StockIn',
+    'other': 'StockIn'
+  };
+  
+  const mutationType = mutationTypeMap[restockData.type] || 'StockIn';
+  const notes = `${restockData.type}: +${restockData.quantity} - ${restockData.notes}`;
+  const referenceNumber = `RESTOCK-${Date.now()}`;
+  
+  return this.addStockIncrement(
+    restockData.productId, 
+    restockData.quantity, 
+    notes,
+    mutationType,
+    referenceNumber,
+    0 // unitCost - we don't have this info in restock data
+  ).pipe(
+    map(response => response.data)
+  );
+}
   // ===== SEARCH & FILTERING =====
 
   /**
@@ -197,6 +230,19 @@ export class ProductService {
     return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/${productId}/stock`, {
       stock: newStock,
       reason: reason || 'Manual adjustment'
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
+
+  /**
+   * Add stock to product (increment)
+   */
+  addStockIncrement(productId: number, quantity: number, notes: string, mutationType: string = 'StockIn', referenceNumber?: string, unitCost?: number): Observable<ApiResponse<boolean>> {
+    return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/${productId}/stock`, {
+      quantity: quantity,
+      mutationType: mutationType,
+      notes: notes,
+      referenceNumber: referenceNumber || '',
+      unitCost: unitCost || 0
     }).pipe(catchError(this.handleError.bind(this)));
   }
 

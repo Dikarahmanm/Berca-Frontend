@@ -1,5 +1,5 @@
 // src/app/dashboard/dashboard-analytics/dashboard-analytics.component.ts
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -31,6 +31,11 @@ import {
   QuickStatsDto,
   LowStockProductDto
 } from '../../core/services/dashboard.service';
+
+// Import Modal Components
+import { ProductQuickViewModalComponent, ProductQuickViewData } from '../../shared/components/product-quick-view-modal/product-quick-view-modal.component';
+import { TransactionQuickViewModalComponent, TransactionQuickViewData } from '../../shared/components/transaction-quick-view-modal/transaction-quick-view-modal.component';
+import { QuickRestockModalComponent, QuickRestockData } from '../../shared/components/quick-restock-modal/quick-restock-modal.component';
 
 @Component({
   selector: 'app-dashboard-analytics',
@@ -93,10 +98,15 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
 
   readonly pieColors = ['#FF914D', '#4BBF7B', '#FFB84D', '#E15A4F', '#4FC3F7', '#9C27B0', '#607D8B', '#795548'];
 
-  constructor(private dashboardService: DashboardService) {
-    this.kpis$ = this.dashboardService.kpi$;
-    this.quickStats$ = this.dashboardService.quickStats$;
-  }
+constructor(
+  private dashboardService: DashboardService,
+  private router: Router,
+  private dialog: MatDialog,
+  private snackBar: MatSnackBar
+) {
+  this.kpis$ = this.dashboardService.kpi$;
+  this.quickStats$ = this.dashboardService.quickStats$;
+}
 
   ngOnInit() {
     this.loadDashboardData();
@@ -248,29 +258,190 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
 
   // ===== NAVIGATION METHODS =====
 
-  navigateToInventory() {
-    // Navigate to inventory management with low stock filter
-    console.log('Navigate to inventory with low stock filter');
+navigateToInventory() {
+  console.log('🔄 Navigating to inventory with low stock filter');
+  this.router.navigate(['/dashboard/inventory'], {
+    queryParams: { filter: 'low-stock' }
+  }).then(success => {
+    if (!success) {
+      this.showError('Gagal membuka halaman inventory');
+    }
+  }).catch(error => {
+    console.error('Navigation error:', error);
+    this.showError('Error navigasi ke inventory');
+  });
+}
+
+navigateToReports() {
+  console.log('🔄 Navigating to reports');
+  this.router.navigate(['/dashboard/reports']).then(success => {
+    if (!success) {
+      this.showError('Gagal membuka halaman reports');
+    }
+  }).catch(error => {
+    console.error('Navigation error:', error);
+    this.showError('Error navigasi ke reports');
+  });
+}
+
+navigateToProducts() {
+  console.log('🔄 Navigating to product management');
+  this.router.navigate(['/dashboard/inventory']).then(success => {
+    if (!success) {
+      this.showError('Gagal membuka halaman produk');
+    }
+  }).catch(error => {
+    console.error('Navigation error:', error);
+    this.showError('Error navigasi ke produk');
+  });
+}
+
+navigateToTransactions() {
+  console.log('🔄 Navigating to POS transactions');
+  this.router.navigate(['/dashboard/pos']).then(success => {
+    if (!success) {
+      this.showError('Gagal membuka halaman transaksi');
+    }
+  }).catch(error => {
+    console.error('Navigation error:', error);
+    this.showError('Error navigasi ke transaksi');
+  });
+}
+
+// ===== DETAIL VIEW METHODS =====
+
+viewTransactionDetails(transaction: RecentTransactionDto) {
+  console.log('🔍 Viewing transaction details:', transaction.id);
+  
+  if (!transaction.id) {
+    this.showError('ID transaksi tidak valid');
+    return;
   }
 
-  navigateToReports() {
-    console.log('Navigate to detailed reports');
+  // Navigate to transaction detail page
+  this.router.navigate(['/dashboard/pos/transaction', transaction.id]).then(success => {
+    if (!success) {
+      this.showError(`Gagal membuka detail transaksi ${transaction.saleNumber}`);
+    }
+  }).catch(error => {
+    console.error('Navigation error:', error);
+    this.showError('Error membuka detail transaksi');
+  });
+}
+
+viewProductDetails(productId: number) {
+  console.log('🔍 Viewing product details:', productId);
+  
+  if (!productId) {
+    this.showError('ID produk tidak valid');
+    return;
   }
 
-  navigateToProducts() {
-    console.log('Navigate to product management');
+  // Show loading
+  this.showInfo('Memuat detail produk...');
+
+  // Navigate to product edit form
+  this.router.navigate(['/dashboard/inventory/edit', productId]).then(success => {
+    if (success) {
+      this.snackBar.dismiss(); // Close loading message
+    } else {
+      this.showError(`Gagal membuka detail produk ID: ${productId}`);
+    }
+  }).catch(error => {
+    console.error('Navigation error:', error);
+    this.showError('Error membuka detail produk');
+  });
+}
+showProductQuickView(productId: number) {
+  console.log('📄 Opening product quick view modal:', productId);
+  
+  // Open a quick view modal (you can create this component)
+  const dialogRef = this.dialog.open(ProductQuickViewModalComponent, {
+    width: '600px',
+    maxWidth: '90vw',
+    maxHeight: '80vh',
+    data: { productId }
+  });
+
+  dialogRef.afterClosed().subscribe(result => {
+    if (result === 'edit') {
+      this.viewProductDetails(productId);
+    } else if (result === 'stock') {
+      this.manageProductStock(productId);
+    }
+  });
+}
+
+showTransactionQuickView(transaction: RecentTransactionDto) {
+    console.log('📄 Opening transaction quick view modal:', transaction.id);
+    
+    const dialogRef = this.dialog.open(TransactionQuickViewModalComponent, {
+      width: '700px',
+      maxWidth: '90vw',
+      maxHeight: '80vh',
+      data: { transaction } as TransactionQuickViewData
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result === 'detail') {
+        this.viewTransactionDetails(transaction);
+      } else if (result === 'receipt') {
+        this.printReceipt(transaction.id);
+      }
+    });
+  }
+// Quick Actions
+  addNewProduct() {
+    console.log('➕ Adding new product');
+    this.router.navigate(['/dashboard/inventory/add']).then(success => {
+      if (!success) {
+        this.showError('Gagal membuka form tambah produk');
+      }
+    }).catch(error => {
+      console.error('Navigation error:', error);
+      this.showError('Error membuka form produk');
+    });
   }
 
-  navigateToTransactions() {
-    console.log('Navigate to transactions');
+  manageProductStock(productId: number) {
+    console.log('📦 Managing product stock:', productId);
+    this.router.navigate(['/dashboard/inventory/stock', productId]).then(success => {
+      if (!success) {
+        this.showError(`Gagal membuka manajemen stok untuk produk ID: ${productId}`);
+      }
+    }).catch(error => {
+      console.error('Navigation error:', error);
+      this.showError('Error membuka manajemen stok');
+    });
   }
 
-  viewTransactionDetails(transaction: RecentTransactionDto) {
-    console.log('View transaction details:', transaction.id);
+  restockProduct(productId: number, productName: string) {
+    console.log('🔄 Quick restock for product:', productId);
+    
+    const dialogRef = this.dialog.open(QuickRestockModalComponent, {
+      width: '400px',
+      maxWidth: '90vw',
+      data: { productId, productName } as QuickRestockData
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.success) {
+        this.showSuccess(`Stok ${productName} berhasil ditambahkan`);
+        this.refreshData();
+      }
+    });
   }
 
-  viewProductDetails(productId: number) {
-    console.log('View product details:', productId);
+  printReceipt(transactionId: number) {
+    console.log('🖨️ Printing receipt for transaction:', transactionId);
+    this.router.navigate(['/dashboard/pos/receipt', transactionId]).then(success => {
+      if (!success) {
+        this.showError(`Gagal membuka receipt untuk transaksi ID: ${transactionId}`);
+      }
+    }).catch(error => {
+      console.error('Navigation error:', error);
+      this.showError('Error membuka receipt');
+    });
   }
 
   // ===== CUSTOM TOOLTIP FORMATTERS =====
@@ -432,5 +603,86 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
     if (margin >= 20) return 'margin-average';
     if (margin >= 10) return 'margin-low';
     return 'margin-poor';
+  }
+
+  // ===== MISSING METHODS =====
+  
+  exportAnalyticsData() {
+    console.log('📁 Exporting analytics data');
+    this.showInfo('Export feature akan segera tersedia');
+  }
+
+  filterProductsByCategory(categoryName: string) {
+    console.log('🔍 Filtering products by category:', categoryName);
+    this.router.navigate(['/dashboard/inventory'], { 
+      queryParams: { category: categoryName } 
+    });
+  }
+
+  showTransactionContextMenu(event: MouseEvent, transaction: RecentTransactionDto) {
+    event.preventDefault();
+    console.log('📋 Transaction context menu for:', transaction.id);
+    this.showInfo('Context menu feature akan segera tersedia');
+  }
+
+  showStockContextMenu(event: MouseEvent, item: LowStockProductDto) {
+    event.preventDefault();
+    console.log('📦 Stock context menu for:', item.id);
+    this.showInfo('Context menu feature akan segera tersedia');
+  }
+
+  // Context Menu
+  showProductContextMenu(event: MouseEvent, productId: number, productName: string) {
+    event.preventDefault();
+    console.log('📋 Product context menu for:', productId);
+    this.showInfo('Context menu feature akan segera tersedia');
+  }
+
+  // ===== NOTIFICATION METHODS =====
+
+  private showError(message: string) {
+    this.snackBar.open(message, 'Tutup', {
+      duration: 5000,
+      panelClass: ['error-snackbar']
+    });
+  }
+
+  private showInfo(message: string) {
+    this.snackBar.open(message, 'Tutup', {
+      duration: 3000,
+      panelClass: ['info-snackbar']
+    });
+  }
+
+  private showSuccess(message: string) {
+    this.snackBar.open(message, 'Tutup', {
+      duration: 3000,
+      panelClass: ['success-snackbar']
+    });
+  }
+
+  // ===== KEYBOARD SHORTCUTS =====
+  
+  @HostListener('keydown', ['$event'])
+  handleKeyboardShortcuts(event: KeyboardEvent) {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
+      event.preventDefault();
+      this.refreshData();
+    }
+    
+    if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
+      event.preventDefault();
+      this.addNewProduct();
+    }
+    
+    if ((event.ctrlKey || event.metaKey) && event.key === 'i') {
+      event.preventDefault();
+      this.navigateToInventory();
+    }
+    
+    if ((event.ctrlKey || event.metaKey) && event.key === 't') {
+      event.preventDefault();
+      this.navigateToTransactions();
+    }
   }
 }

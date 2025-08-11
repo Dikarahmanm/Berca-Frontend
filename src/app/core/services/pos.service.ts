@@ -266,6 +266,15 @@ export class POSService {
       withCredentials: true
     }).pipe(catchError(this.handleError.bind(this)));
   }
+/**
+   * getById
+   * Endpoint: GET /api/POS/sales/{id}
+   */
+  getById(id: number): Observable<ApiResponse<SaleDto>> {
+    return this.http.get<ApiResponse<SaleDto>>(`${this.apiUrl}/POS/sales/${id}`, {
+      withCredentials: true
+    }).pipe(catchError(this.handleError.bind(this)));
+  }
 
   /**
    * Mark receipt as printed

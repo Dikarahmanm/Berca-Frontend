@@ -1,5 +1,5 @@
 <!-- src/app/modules/category-management/category-list/category-list.component.html -->
-<!-- ✅ FIXED - Clean, professional, dan mudah dibaca -->
+<!-- ✅ REDESIGNED - Clean, Simple, High Contrast Design -->
 
 <div class="category-list-container">
 
@@ -14,12 +14,12 @@
                     </svg>
                     Category Management
                 </h1>
-                <p class="page-subtitle">Kelola kategori produk untuk Toko Eniwan</p>
+                <p class="page-subtitle">Manage product categories for Toko Eniwan</p>
             </div>
 
             <div class="header-actions">
-                <button type="button" class="action-btn secondary-btn" (click)="refreshCategories()"
-                    [disabled]="loading" title="Refresh data kategori">
+                <button type="button" class="btn btn-secondary" (click)="refreshCategories()" [disabled]="loading"
+                    title="Refresh categories">
                     <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path
                             d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
@@ -27,8 +27,8 @@
                     <span>Refresh</span>
                 </button>
 
-                <button type="button" class="action-btn export-btn" (click)="exportCategories()"
-                    [disabled]="categories.length === 0" title="Export kategori ke Excel">
+                <button type="button" class="btn btn-outline" (click)="exportCategories()"
+                    [disabled]="categories.length === 0" title="Export to Excel">
                     <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path
                             d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z" />
@@ -36,8 +36,7 @@
                     <span>Export</span>
                 </button>
 
-                <button type="button" class="action-btn primary-btn" (click)="onCreateCategory()"
-                    title="Tambah kategori baru">
+                <button type="button" class="btn btn-primary" (click)="onCreateCategory()" title="Add new category">
                     <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                     </svg>
@@ -48,28 +47,31 @@
     </div>
 
     <!-- ==================== LOADING STATE ==================== -->
-    <div class="loading-container" *ngIf="loading">
+    <div class="loading-state" *ngIf="loading">
         <div class="loading-grid">
-            <div class="category-card-skeleton" *ngFor="let item of [1,2,3,4,5,6]">
+            <div class="skeleton-card" *ngFor="let item of [1,2,3,4,5,6]">
                 <div class="skeleton-color"></div>
                 <div class="skeleton-content">
-                    <div class="skeleton-title"></div>
-                    <div class="skeleton-description"></div>
+                    <div class="skeleton-line skeleton-title"></div>
+                    <div class="skeleton-line skeleton-description"></div>
+                    <div class="skeleton-line skeleton-meta"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- ==================== ERROR STATE ==================== -->
-    <div class="error-container" *ngIf="error && !loading">
+    <div class="error-state" *ngIf="error && !loading">
         <div class="error-content">
-            <svg class="error-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-            </svg>
-            <h3 class="error-title">Oops! Something went wrong</h3>
+            <div class="error-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                </svg>
+            </div>
+            <h3 class="error-title">Something went wrong</h3>
             <p class="error-message">{{ error }}</p>
-            <button type="button" class="action-btn primary-btn" (click)="refreshCategories()">
+            <button type="button" class="btn btn-primary" (click)="refreshCategories()">
                 <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path
                         d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
@@ -82,17 +84,19 @@
     <!-- ==================== EMPTY STATE ==================== -->
     <div class="empty-state" *ngIf="!loading && !error && categories.length === 0">
         <div class="empty-content">
-            <svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z" />
-            </svg>
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z" />
+                </svg>
+            </div>
             <h3 class="empty-title">No Categories Found</h3>
             <p class="empty-description">
                 {{ searchForm.get('searchTerm')?.value ?
-                'No categories match your search criteria. Try adjusting your filters.' :
+                'No categories match your search. Try adjusting your filters.' :
                 'Get started by creating your first category for better product organization.' }}
             </p>
-            <button type="button" class="action-btn primary-btn" (click)="onCreateCategory()">
+            <button type="button" class="btn btn-primary" (click)="onCreateCategory()">
                 <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
                 </svg>
@@ -101,7 +105,7 @@
         </div>
     </div>
 
-    <!-- ==================== MAIN CONTENT (when data exists) ==================== -->
+    <!-- ==================== MAIN CONTENT ==================== -->
     <ng-container *ngIf="!loading && !error && categories.length > 0">
 
         <!-- Search & Filter Bar -->
@@ -111,14 +115,14 @@
                 <!-- Search Section -->
                 <div class="search-section">
                     <form [formGroup]="searchForm" class="search-form" (ngSubmit)="onSearch()">
-                        <div class="search-input-wrapper">
+                        <div class="search-input-group">
                             <svg class="search-icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path
                                     d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
                             </svg>
-                            <input type="text" placeholder="Search categories by name..." formControlName="searchTerm"
+                            <input type="text" placeholder="Search categories..." formControlName="searchTerm"
                                 class="search-input" autocomplete="off">
-                            <button type="button" class="clear-search-btn" (click)="onSearchClear()"
+                            <button type="button" class="clear-btn" (click)="onSearchClear()"
                                 *ngIf="searchForm.get('searchTerm')?.value" title="Clear search">
                                 <svg viewBox="0 0 24 24" fill="currentColor">
                                     <path
@@ -131,19 +135,17 @@
 
                 <!-- Filter Controls -->
                 <div class="filter-controls">
-                    <button type="button" class="filter-toggle-btn" (click)="toggleFilters()"
-                        [class.active]="showFilters" title="Toggle advanced filters">
+                    <button type="button" class="btn btn-outline btn-sm" [class.active]="showFilters"
+                        (click)="toggleFilters()">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z" />
                         </svg>
                         <span>Filters</span>
-                        <span class="filter-count"
-                            *ngIf="(filterForm.get('color')?.value || searchForm.get('searchTerm')?.value)">
-                        </span>
+                        <span class="badge" *ngIf="hasActiveFilters">!</span>
                     </button>
 
-                    <!-- View Mode Controls -->
-                    <div class="view-mode-controls">
+                    <!-- View Mode -->
+                    <div class="view-controls">
                         <button type="button" class="view-btn" [class.active]="viewMode.type === 'grid'"
                             (click)="setViewMode('grid')" title="Grid view">
                             <svg viewBox="0 0 24 24" fill="currentColor">
@@ -162,7 +164,7 @@
                 </div>
             </div>
 
-            <!-- Advanced Filters (Collapsible) -->
+            <!-- Advanced Filters -->
             <div class="advanced-filters" [class.show]="showFilters">
                 <form [formGroup]="filterForm" class="filter-form">
 
@@ -170,7 +172,7 @@
                     <div class="filter-group">
                         <label class="filter-label">Filter by Color:</label>
                         <div class="color-filter-grid">
-                            <button type="button" class="color-filter-btn"
+                            <button type="button" class="color-btn"
                                 [class.active]="filterForm.get('color')?.value === color"
                                 [style.background-color]="color" (click)="onColorFilter(color)"
                                 *ngFor="let color of defaultColors" [title]="color">
@@ -179,9 +181,9 @@
                                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                                 </svg>
                             </button>
-                            <button type="button" class="color-filter-btn clear-color"
+                            <button type="button" class="color-btn all-colors"
                                 [class.active]="!filterForm.get('color')?.value" (click)="onColorFilter('')"
-                                title="Show all colors">
+                                title="All colors">
                                 <span>All</span>
                             </button>
                         </div>
@@ -191,14 +193,14 @@
                     <div class="filter-group">
                         <label class="filter-label">Sort by:</label>
                         <div class="sort-controls">
-                            <select formControlName="sortBy" class="sort-select">
+                            <select formControlName="sortBy" class="form-select">
                                 <option *ngFor="let option of sortOptions" [value]="option.value">
                                     {{ option.label }}
                                 </option>
                             </select>
-                            <button type="button" class="sort-order-btn"
+                            <button type="button" class="sort-btn"
                                 [class.desc]="filterForm.get('sortOrder')?.value === 'desc'" (click)="toggleSortOrder()"
-                                title="Change sort direction">
+                                title="Sort direction">
                                 <svg viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M7 14l5-5 5 5z" *ngIf="filterForm.get('sortOrder')?.value === 'asc'" />
                                     <path d="M7 10l5 5 5-5z" *ngIf="filterForm.get('sortOrder')?.value === 'desc'" />
@@ -207,10 +209,10 @@
                         </div>
                     </div>
 
-                    <!-- Page Size -->
+                    <!-- Items per page -->
                     <div class="filter-group">
                         <label class="filter-label">Items per page:</label>
-                        <select formControlName="pageSize" class="page-size-select">
+                        <select formControlName="pageSize" class="form-select">
                             <option *ngFor="let size of pageSizeOptions" [value]="size">
                                 {{ size }} items
                             </option>
@@ -219,7 +221,7 @@
 
                     <!-- Clear Filters -->
                     <div class="filter-actions">
-                        <button type="button" class="clear-filters-btn" (click)="clearAllFilters()">
+                        <button type="button" class="btn btn-outline btn-sm" (click)="clearAllFilters()">
                             <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path
                                     d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
@@ -231,19 +233,19 @@
             </div>
         </div>
 
-        <!-- Selection Bar (when items are selected) -->
+        <!-- Selection Bar -->
         <div class="selection-bar" *ngIf="hasSelection">
             <div class="selection-info">
-                <span class="selection-count">{{ selectedCount }} category(s) selected</span>
+                <span class="selection-count">{{ selectedCount }} selected</span>
             </div>
             <div class="selection-actions">
-                <button type="button" class="selection-btn danger-btn" (click)="onBulkDelete()" [disabled]="loading">
+                <button type="button" class="btn btn-danger btn-sm" (click)="onBulkDelete()" [disabled]="loading">
                     <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
                     </svg>
                     <span>Delete Selected</span>
                 </button>
-                <button type="button" class="selection-btn secondary-btn" (click)="clearSelection()">
+                <button type="button" class="btn btn-outline btn-sm" (click)="clearSelection()">
                     <span>Clear Selection</span>
                 </button>
             </div>
@@ -251,28 +253,23 @@
 
         <!-- Category Grid -->
         <div class="category-grid" [class.grid-view]="viewMode.type === 'grid'"
-            [class.list-view]="viewMode.type === 'list'" [class.size-small]="viewMode.size === 'small'"
-            [class.size-medium]="viewMode.size === 'medium'" [class.size-large]="viewMode.size === 'large'">
+            [class.list-view]="viewMode.type === 'list'">
 
             <div class="category-card" *ngFor="let category of categories; trackBy: trackByCategory"
-                [class.selected]="isSelected(category.id)" (click)="toggleCategorySelection(category.id)"
-                [attr.aria-label]="'Category: ' + category.name">
+                [class.selected]="isSelected(category.id)" (click)="toggleCategorySelection(category.id)">
+
+                <!-- Selection Checkbox -->
+                <div class="selection-checkbox" [class.checked]="isSelected(category.id)">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                    </svg>
+                </div>
 
                 <!-- Color Preview -->
                 <div class="category-color" [style.background-color]="category.color">
-                    <div class="color-overlay">
-                        <span class="color-code" [style.color]="getContrastTextColor(category.color)">
-                            {{ category.color }}
-                        </span>
-                    </div>
-
-                    <!-- Selection Checkbox -->
-                    <div class="selection-checkbox" [class.checked]="isSelected(category.id)"
-                        [attr.aria-label]="isSelected(category.id) ? 'Selected' : 'Not selected'">
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                        </svg>
-                    </div>
+                    <span class="color-code" [style.color]="getContrastTextColor(category.color)">
+                        {{ category.color }}
+                    </span>
                 </div>
 
                 <!-- Category Info -->
@@ -280,7 +277,7 @@
                     <div class="category-header">
                         <h3 class="category-name">{{ category.name }}</h3>
                         <span class="product-count" *ngIf="category.productCount && category.productCount > 0">
-                            {{ category.productCount }} {{ category.productCount === 1 ? 'product' : 'products' }}
+                            {{ category.productCount }} products
                         </span>
                     </div>
 
@@ -290,14 +287,14 @@
 
                     <div class="category-meta">
                         <span class="meta-item">
-                            <svg viewBox="0 0 24 24" fill="currentColor" style="width: 12px; height: 12px;">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
                                 <path
                                     d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                             </svg>
                             Created: {{ category.createdAt | date:'MMM dd, yyyy' }}
                         </span>
                         <span class="meta-item" *ngIf="category.updatedAt && category.updatedAt !== category.createdAt">
-                            <svg viewBox="0 0 24 24" fill="currentColor" style="width: 12px; height: 12px;">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
                                 <path
                                     d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
                             </svg>
@@ -308,15 +305,14 @@
 
                 <!-- Action Buttons -->
                 <div class="category-actions" (click)="$event.stopPropagation()">
-                    <button type="button" class="action-btn small" (click)="onEditCategory(category)"
-                        title="Edit category">
+                    <button type="button" class="action-btn" (click)="onEditCategory(category)" title="Edit category">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path
                                 d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
                         </svg>
                     </button>
 
-                    <button type="button" class="action-btn small" (click)="onDuplicateCategory(category)"
+                    <button type="button" class="action-btn" (click)="onDuplicateCategory(category)"
                         title="Duplicate category">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path
@@ -324,7 +320,7 @@
                         </svg>
                     </button>
 
-                    <button type="button" class="action-btn small danger" (click)="onDeleteCategory(category)"
+                    <button type="button" class="action-btn danger" (click)="onDeleteCategory(category)"
                         title="Delete category">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
@@ -337,19 +333,17 @@
         <!-- Pagination -->
         <div class="pagination-container">
             <div class="pagination-info">
-                <span class="results-info">
-                    Showing {{ categories.length }} categories
-                </span>
+                <span class="results-text">Showing {{ categories.length }} categories</span>
             </div>
         </div>
 
     </ng-container>
 
-    <!-- ==================== DELETE CONFIRMATION MODAL ==================== -->
+    <!-- ==================== DELETE MODAL ==================== -->
     <div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeDeleteModal()">
-        <div class="delete-modal" (click)="$event.stopPropagation()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
             <div class="modal-header">
-                <div class="modal-icon danger-icon">
+                <div class="modal-icon danger">
                     <svg viewBox="0 0 24 24" fill="currentColor">
                         <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
                     </svg>
@@ -357,8 +351,8 @@
                 <h3>Delete Category</h3>
             </div>
 
-            <div class="modal-content">
-                <p>Are you sure you want to delete the category <strong>"{{ categoryToDelete?.name }}"</strong>?</p>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong>"{{ categoryToDelete?.name }}"</strong>?</p>
 
                 <div class="category-preview" *ngIf="categoryToDelete">
                     <div class="preview-color" [style.background-color]="categoryToDelete.color"></div>
@@ -371,15 +365,15 @@
                 </div>
 
                 <p class="warning-text">
-                    ⚠️ This action cannot be undone. All products in this category will need to be reassigned.
+                    ⚠️ This action cannot be undone. Products in this category will need reassignment.
                 </p>
             </div>
 
             <div class="modal-actions">
-                <button type="button" class="modal-btn cancel-btn" (click)="closeDeleteModal()">
-                    <span>Cancel</span>
+                <button type="button" class="btn btn-outline" (click)="closeDeleteModal()">
+                    Cancel
                 </button>
-                <button type="button" class="modal-btn delete-btn" (click)="confirmDelete()" [disabled]="loading">
+                <button type="button" class="btn btn-danger" (click)="confirmDelete()" [disabled]="loading">
                     <span *ngIf="!loading">Delete Category</span>
                     <span *ngIf="loading" class="loading-text">
                         <div class="spinner"></div>
@@ -390,71 +384,20 @@
         </div>
     </div>
 
-    <!-- ==================== CATEGORY FORM MODALS ==================== -->
-    <!-- Create Modal -->
+    <!-- ==================== MODALS ==================== -->
     <app-category-form-modal *ngIf="showCreateModal" [isOpen]="showCreateModal" [mode]="'create'"
         (categoryCreated)="onCategoryCreated($event)" (modalClosed)="closeCreateModal()">
     </app-category-form-modal>
 
-    <!-- Edit Modal -->
     <app-category-form-modal *ngIf="showEditModal && categoryToEdit" [isOpen]="showEditModal" [mode]="'edit'"
         [category]="categoryToEdit" (categoryUpdated)="onCategoryUpdated($event)" (modalClosed)="closeEditModal()">
     </app-category-form-modal>
 
 </div>
 
-<!-- ==================== FLOATING ACTION BUTTON (Mobile) ==================== -->
-<div class="fab-container" *ngIf="!loading && !error">
-    <button type="button" class="fab primary-fab" (click)="onCreateCategory()" title="Add new category"
-        [attr.aria-label]="'Add new category'">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-        </svg>
-    </button>
-</div>
-
-<style>
-    /* FAB styles for mobile */
-    .fab-container {
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        z-index: 100;
-
-        @media (min-width: 769px) {
-            display: none;
-        }
-    }
-
-    .fab {
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-        transition: all 120ms ease-out;
-
-        &.primary-fab {
-            background: linear-gradient(135deg, var(--clr-primary), var(--clr-primary-dark));
-            color: white;
-
-            &:hover {
-                transform: scale(1.1);
-                box-shadow: 0 12px 32px rgba(255, 145, 77, 0.3);
-            }
-
-            &:active {
-                transform: scale(0.95);
-            }
-        }
-
-        svg {
-            width: 24px;
-            height: 24px;
-        }
-    }
-</style>
+<!-- ==================== FLOATING ACTION BUTTON ==================== -->
+<button type="button" class="fab" (click)="onCreateCategory()" *ngIf="!loading && !error" title="Add category">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+    </svg>
+</button>

@@ -1,11 +1,11 @@
 <!-- src/app/modules/category-management/category-form-modal/category-form-modal.component.html -->
-<!-- ✅ FIXED - Event handlers corrected -->
+<!-- ✅ REDESIGNED - Clean Simple Modal Design -->
 
 <div class="modal-overlay" *ngIf="isOpen" (click)="onBackdropClick($event)" (keydown)="onKeydown($event)" tabindex="0">
 
-    <div class="category-modal" (click)="$event.stopPropagation()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
 
-        <!-- Modal Header -->
+        <!-- ==================== MODAL HEADER ==================== -->
         <div class="modal-header">
             <div class="header-content">
                 <div class="modal-icon" [style.background-color]="currentColorPreview">
@@ -25,7 +25,8 @@
                 </div>
             </div>
 
-            <button class="close-btn" (click)="closeModal()" [disabled]="isSubmitting">
+            <button type="button" class="close-btn" (click)="closeModal()" [disabled]="isSubmitting"
+                title="Close modal">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                     <path
                         d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
@@ -33,34 +34,42 @@
             </button>
         </div>
 
-        <!-- Modal Body -->
+        <!-- ==================== MODAL BODY ==================== -->
         <div class="modal-body">
             <form [formGroup]="categoryForm" (ngSubmit)="onSubmit()" class="category-form">
 
-                <!-- Quick Actions -->
+                <!-- Quick Actions Bar -->
                 <div class="quick-actions">
-                    <button type="button" class="quick-action-btn suggestions-btn" (click)="toggleSuggestions()"
-                        [class.active]="showSuggestions">
+                    <button type="button" class="btn btn-outline btn-sm" [class.active]="showSuggestions"
+                        (click)="toggleSuggestions()">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                             <path
                                 d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.1 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z" />
                         </svg>
-                        Suggestions
+                        <span>Templates</span>
                     </button>
 
-                    <button type="button" class="quick-action-btn random-btn" (click)="getRandomSuggestion()">
+                    <button type="button" class="btn btn-outline btn-sm" (click)="getRandomSuggestion()">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                             <path
                                 d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
                         </svg>
-                        Random
+                        <span>Random</span>
+                    </button>
+
+                    <button type="button" class="btn btn-outline btn-sm" (click)="generateRandomColor()">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8z" />
+                        </svg>
+                        <span>Random Color</span>
                     </button>
                 </div>
 
                 <!-- Suggestions Panel -->
                 <div class="suggestions-panel" [class.show]="showSuggestions">
-                    <div class="suggestions-header">
-                        <h4>Category Suggestions</h4>
+                    <div class="panel-header">
+                        <h4>Category Templates</h4>
                         <p>Choose from popular category templates</p>
                     </div>
 
@@ -76,7 +85,7 @@
                     </div>
                 </div>
 
-                <!-- Category Name -->
+                <!-- Category Name Field -->
                 <div class="form-group">
                     <label for="categoryName" class="form-label required">
                         Category Name
@@ -85,37 +94,33 @@
                         </span>
                     </label>
 
-                    <div class="input-wrapper">
+                    <div class="input-group">
                         <input #nameInput id="categoryName" type="text" formControlName="name" class="form-input"
                             [class.error]="isFieldInvalid('name') || nameExists" [class.checking]="isCheckingName"
                             placeholder="e.g., Electronics, Food & Beverages" maxlength="{{ maxNameLength }}">
 
-                        <!-- Loading indicator for name checking -->
-                        <div class="input-icon checking-icon" *ngIf="isCheckingName">
-                            <svg class="spinner" viewBox="0 0 24 24">
-                                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-dasharray="32" stroke-dashoffset="32">
-                                    <animate attributeName="stroke-dasharray" dur="2s" values="0 32;16 16;0 32;0 32"
-                                        repeatCount="indefinite" />
-                                    <animate attributeName="stroke-dashoffset" dur="2s" values="0;-16;-32;-32"
-                                        repeatCount="indefinite" />
-                                </circle>
-                            </svg>
-                        </div>
+                        <!-- Input Icons -->
+                        <div class="input-icons">
+                            <!-- Loading -->
+                            <div class="input-icon checking" *ngIf="isCheckingName">
+                                <div class="spinner"></div>
+                            </div>
 
-                        <!-- Success/Error icons -->
-                        <div class="input-icon success-icon"
-                            *ngIf="categoryForm.get('name')?.valid && !nameExists && !isCheckingName && categoryForm.get('name')?.value">
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                            </svg>
-                        </div>
+                            <!-- Success -->
+                            <div class="input-icon success"
+                                *ngIf="categoryForm.get('name')?.valid && !nameExists && !isCheckingName && categoryForm.get('name')?.value">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                </svg>
+                            </div>
 
-                        <div class="input-icon error-icon" *ngIf="isFieldInvalid('name') || nameExists">
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                            </svg>
+                            <!-- Error -->
+                            <div class="input-icon error" *ngIf="isFieldInvalid('name') || nameExists">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path
+                                        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                                </svg>
+                            </div>
                         </div>
                     </div>
 
@@ -124,44 +129,36 @@
                     </div>
                 </div>
 
-                <!-- Color Selection -->
+                <!-- Color Selection Field -->
                 <div class="form-group">
                     <label class="form-label required">
                         Category Color
-                        <button type="button" class="color-toggle-btn" (click)="toggleColorPicker()"
-                            [class.active]="showColorPicker">
+                        <button type="button" class="btn btn-outline btn-xs" [class.active]="showColorPicker"
+                            (click)="toggleColorPicker()">
                             <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path
                                     d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8z" />
                             </svg>
-                            {{ showColorPicker ? 'Hide' : 'Show' }} Color Picker
+                            <span>{{ showColorPicker ? 'Hide' : 'Show' }} Picker</span>
                         </button>
                     </label>
 
-                    <!-- Color Preview -->
-                    <div class="color-preview-section">
+                    <!-- Color Preview Bar -->
+                    <div class="color-preview-bar">
                         <div class="color-preview" [style.background-color]="currentColorPreview">
                             <span class="color-code" [style.color]="getContrastTextColor(currentColorPreview)">
                                 {{ currentColorPreview }}
                             </span>
                         </div>
 
-                        <div class="color-input-wrapper">
+                        <div class="color-input-group">
                             <input #colorInput id="categoryColor" type="text" formControlName="color"
                                 class="color-input" [class.error]="isFieldInvalid('color')" placeholder="#FF914D"
                                 maxlength="7">
 
                             <input type="color" [value]="customColor" (input)="onCustomColorInput($event)"
-                                (change)="onCustomColorChange($event)" class="native-color-picker">
+                                (change)="onCustomColorChange($event)" class="native-color-picker" title="Color picker">
                         </div>
-
-                        <button type="button" class="random-color-btn" (click)="generateRandomColor()"
-                            title="Generate random color">
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
-                            </svg>
-                        </button>
                     </div>
 
                     <div class="field-error" *ngIf="isFieldInvalid('color')">
@@ -172,15 +169,15 @@
                 <!-- Color Picker Panel -->
                 <div class="color-picker-panel" [class.show]="showColorPicker">
 
-                    <!-- Color Picker Tabs -->
-                    <div class="color-picker-tabs">
+                    <!-- Picker Tabs -->
+                    <div class="picker-tabs">
                         <button type="button" class="tab-btn" [class.active]="selectedColorTab === 'predefined'"
                             (click)="setColorTab('predefined')">
                             <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path
                                     d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                             </svg>
-                            Predefined
+                            <span>Presets</span>
                         </button>
 
                         <button type="button" class="tab-btn" [class.active]="selectedColorTab === 'custom'"
@@ -189,7 +186,7 @@
                                 <path
                                     d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8z" />
                             </svg>
-                            Custom
+                            <span>Custom</span>
                         </button>
 
                         <button type="button" class="tab-btn" [class.active]="selectedColorTab === 'suggestions'"
@@ -198,76 +195,19 @@
                                 <path
                                     d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" />
                             </svg>
-                            Recent
+                            <span>Recent</span>
                         </button>
                     </div>
 
-                    <!-- Predefined Colors -->
-                    <div class="color-tab-content" *ngIf="selectedColorTab === 'predefined'">
-                        <div class="predefined-colors-grid">
-                            <button type="button" class="color-option" *ngFor="let color of defaultColors"
-                                [style.background-color]="color" [class.active]="currentColorPreview === color"
-                                (click)="onColorSelect(color)" [title]="color">
-                                <svg *ngIf="currentColorPreview === color" class="check-icon" viewBox="0 0 24 24"
-                                    fill="currentColor">
-                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Tab Content -->
+                    <div class="tab-content">
 
-                    <!-- Custom Color -->
-                    <div class="color-tab-content" *ngIf="selectedColorTab === 'custom'">
-                        <div class="custom-color-section">
-                            <div class="custom-color-controls">
-                                <label class="custom-color-label">
-                                    Custom Hex Color:
-                                    <input type="text" [value]="customColor" (input)="onCustomColorInput($event)"
-                                        (change)="onCustomColorChange($event)" class="custom-color-input"
-                                        placeholder="#FF914D" pattern="^#[A-Fa-f0-9]{6}$">
-                                </label>
-
-                                <div class="custom-color-picker-wrapper">
-                                    <input type="color" [value]="customColor" (input)="onCustomColorInput($event)"
-                                        (change)="onCustomColorChange($event)" class="custom-color-picker">
-                                </div>
-                            </div>
-
-                            <div class="color-variations" *ngIf="isValidHexColor(customColor)">
-                                <h5>Color Variations:</h5>
-                                <div class="variations-grid">
-                                    <button type="button" class="variation-btn"
-                                        [style.background-color]="getLighterColor(customColor)"
-                                        (click)="onColorSelect(getLighterColor(customColor))" title="Lighter">
-                                        Light
-                                    </button>
-
-                                    <button type="button" class="variation-btn current"
-                                        [style.background-color]="customColor" (click)="onColorSelect(customColor)"
-                                        title="Current">
-                                        Current
-                                    </button>
-
-                                    <button type="button" class="variation-btn"
-                                        [style.background-color]="getDarkerColor(customColor)"
-                                        (click)="onColorSelect(getDarkerColor(customColor))" title="Darker">
-                                        Dark
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recent Colors -->
-                    <div class="color-tab-content"
-                        *ngIf="selectedColorTab === 'suggestions' && recentColors.length > 0">
-                        <div class="recent-colors-section">
-                            <h5>Recently Used Colors:</h5>
-                            <div class="recent-colors-grid">
-                                <button type="button" class="color-option recent-color"
-                                    *ngFor="let color of recentColors" [style.background-color]="color"
-                                    [class.active]="currentColorPreview === color" (click)="onColorSelect(color)"
-                                    [title]="color">
+                        <!-- Predefined Colors -->
+                        <div class="tab-panel" *ngIf="selectedColorTab === 'predefined'">
+                            <div class="color-grid">
+                                <button type="button" class="color-btn" *ngFor="let color of defaultColors"
+                                    [style.background-color]="color" [class.active]="currentColorPreview === color"
+                                    (click)="onColorSelect(color)" [title]="color">
                                     <svg *ngIf="currentColorPreview === color" class="check-icon" viewBox="0 0 24 24"
                                         fill="currentColor">
                                         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
@@ -275,10 +215,71 @@
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Custom Color -->
+                        <div class="tab-panel" *ngIf="selectedColorTab === 'custom'">
+                            <div class="custom-color-section">
+                                <div class="custom-controls">
+                                    <div class="form-group">
+                                        <label class="form-label">Hex Color Code:</label>
+                                        <input type="text" [value]="customColor" (input)="onCustomColorInput($event)"
+                                            (change)="onCustomColorChange($event)" class="form-input"
+                                            placeholder="#FF914D" pattern="^#[A-Fa-f0-9]{6}$">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">Color Picker:</label>
+                                        <input type="color" [value]="customColor" (input)="onCustomColorInput($event)"
+                                            (change)="onCustomColorChange($event)" class="color-picker-input">
+                                    </div>
+                                </div>
+
+                                <!-- Color Variations -->
+                                <div class="color-variations" *ngIf="isValidHexColor(customColor)">
+                                    <label class="form-label">Color Variations:</label>
+                                    <div class="variations-grid">
+                                        <button type="button" class="variation-btn"
+                                            [style.background-color]="getLighterColor(customColor)"
+                                            (click)="onColorSelect(getLighterColor(customColor))" title="Lighter shade">
+                                            <span>Light</span>
+                                        </button>
+
+                                        <button type="button" class="variation-btn current"
+                                            [style.background-color]="customColor" (click)="onColorSelect(customColor)"
+                                            title="Current color">
+                                            <span>Current</span>
+                                        </button>
+
+                                        <button type="button" class="variation-btn"
+                                            [style.background-color]="getDarkerColor(customColor)"
+                                            (click)="onColorSelect(getDarkerColor(customColor))" title="Darker shade">
+                                            <span>Dark</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Colors -->
+                        <div class="tab-panel" *ngIf="selectedColorTab === 'suggestions' && recentColors.length > 0">
+                            <div class="recent-colors-section">
+                                <label class="form-label">Recently Used Colors:</label>
+                                <div class="color-grid">
+                                    <button type="button" class="color-btn recent" *ngFor="let color of recentColors"
+                                        [style.background-color]="color" [class.active]="currentColorPreview === color"
+                                        (click)="onColorSelect(color)" [title]="color">
+                                        <svg *ngIf="currentColorPreview === color" class="check-icon"
+                                            viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Description -->
+                <!-- Description Field -->
                 <div class="form-group">
                     <label for="categoryDescription" class="form-label">
                         Description (Optional)
@@ -297,37 +298,40 @@
                     </div>
                 </div>
 
-                <!-- Form Actions -->
-                <div class="form-actions">
-                    <button type="button" class="cancel-btn" (click)="closeModal()" [disabled]="isSubmitting">
-                        Cancel
-                    </button>
-
-                    <button type="submit" class="submit-btn" [disabled]="!isFormValid || isSubmitting"
-                        [class.loading]="isSubmitting">
-                        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor" *ngIf="!isSubmitting">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" *ngIf="mode === 'create'" />
-                            <path
-                                d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                                *ngIf="mode === 'edit'" />
-                        </svg>
-
-                        <div class="loading-spinner" *ngIf="isSubmitting">
-                            <svg class="spinner" viewBox="0 0 24 24">
-                                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-dasharray="32" stroke-dashoffset="32">
-                                    <animate attributeName="stroke-dasharray" dur="2s" values="0 32;16 16;0 32;0 32"
-                                        repeatCount="indefinite" />
-                                    <animate attributeName="stroke-dashoffset" dur="2s" values="0;-16;-32;-32"
-                                        repeatCount="indefinite" />
-                                </circle>
-                            </svg>
-                        </div>
-
-                        <span class="btn-text">{{ submitButtonText }}</span>
-                    </button>
-                </div>
             </form>
+        </div>
+
+        <!-- ==================== MODAL FOOTER ==================== -->
+        <div class="modal-footer">
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" (click)="closeModal()" [disabled]="isSubmitting">
+                    Cancel
+                </button>
+
+                <button type="submit" class="btn btn-primary" [disabled]="!isFormValid || isSubmitting"
+                    [class.loading]="isSubmitting" (click)="onSubmit()">
+
+                    <!-- Loading Spinner -->
+                    <div class="btn-spinner" *ngIf="isSubmitting">
+                        <div class="spinner"></div>
+                    </div>
+
+                    <!-- Success Icon -->
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"
+                        *ngIf="!isSubmitting && mode === 'create'">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                    </svg>
+
+                    <!-- Edit Icon -->
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor"
+                        *ngIf="!isSubmitting && mode === 'edit'">
+                        <path
+                            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                    </svg>
+
+                    <span>{{ submitButtonText }}</span>
+                </button>
+            </div>
         </div>
     </div>
 </div>

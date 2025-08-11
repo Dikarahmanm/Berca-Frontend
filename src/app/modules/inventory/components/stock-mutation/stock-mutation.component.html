@@ -1,17 +1,18 @@
-<!-- src/app/modules/inventory/components/stock-mutation/stock-mutation.component.html -->
+<!-- ✅ REDESIGNED: Stock Mutation Template - Clean Simple Design (PROPER) -->
+<!-- Following Toko Eniwan POS Design Guidelines: Professional, Clean, High Contrast -->
 
 <div class="stock-mutation-container">
 
     <!-- Header Section -->
-    <div class="mutation-header glass-card">
+    <div class="mutation-header">
         <div class="header-content">
             <div class="title-section">
-                <button mat-icon-button (click)="goBack()" class="back-button">
+                <button class="back-button" (click)="goBack()">
                     <mat-icon>arrow_back</mat-icon>
                 </button>
                 <div class="title-content">
                     <h1 class="page-title">
-                        <mat-icon>swap_vert</mat-icon>
+                        <mat-icon class="title-icon">swap_vert</mat-icon>
                         Stock Management
                     </h1>
                     <p class="page-subtitle" *ngIf="product">{{ product.name }}</p>
@@ -28,7 +29,7 @@
     </div>
 
     <!-- Loading State -->
-    <div *ngIf="loading" class="loading-container glass-card">
+    <div *ngIf="loading" class="loading-container">
         <mat-spinner diameter="50"></mat-spinner>
         <p>Loading product details...</p>
     </div>
@@ -37,15 +38,15 @@
     <div *ngIf="!loading && product" class="main-content">
 
         <!-- Product Summary Card -->
-        <div class="product-summary glass-card">
-            <div class="summary-header">
+        <div class="product-summary card">
+            <div class="card-header">
                 <h2>
                     <mat-icon>info</mat-icon>
                     Product Information
                 </h2>
             </div>
 
-            <div class="summary-content">
+            <div class="card-content">
                 <div class="product-details">
                     <div class="detail-item">
                         <span class="detail-label">Product Name</span>
@@ -98,8 +99,8 @@
             </div>
         </div>
 
-        <!-- Tabs for Stock Management -->
-        <div class="content-tabs glass-card">
+        <!-- Content Tabs Card -->
+        <div class="content-tabs card">
             <mat-tab-group (selectedTabChange)="onTabChange($event)" class="mutation-tabs">
 
                 <!-- Stock Update Tab -->
@@ -114,31 +115,31 @@
                         <!-- Quick Actions -->
                         <div class="quick-actions">
                             <h3>Quick Actions</h3>
-                            <div class="action-buttons">
+                            <div class="action-grid">
                                 <button mat-stroked-button (click)="quickStockIn(10)" class="quick-btn stock-in">
                                     <mat-icon>add_circle</mat-icon>
-                                    +10 Stock In
+                                    <span>+10 Stock In</span>
                                 </button>
 
                                 <button mat-stroked-button (click)="quickStockIn(50)" class="quick-btn stock-in">
                                     <mat-icon>add_circle</mat-icon>
-                                    +50 Stock In
+                                    <span>+50 Stock In</span>
                                 </button>
 
                                 <button mat-stroked-button (click)="quickStockOut(5)" class="quick-btn stock-out"
                                     [disabled]="product.stock < 5">
                                     <mat-icon>remove_circle</mat-icon>
-                                    -5 Stock Out
+                                    <span>-5 Stock Out</span>
                                 </button>
 
                                 <button mat-stroked-button (click)="quickAdjustment()" class="quick-btn adjustment">
                                     <mat-icon>tune</mat-icon>
-                                    Adjustment
+                                    <span>Adjustment</span>
                                 </button>
                             </div>
                         </div>
 
-                        <mat-divider></mat-divider>
+                        <mat-divider class="section-divider"></mat-divider>
 
                         <!-- Stock Update Form -->
                         <form [formGroup]="stockForm" (ngSubmit)="onSubmitStockUpdate()" class="stock-form">
@@ -217,51 +218,58 @@
                             <!-- Preview Section -->
                             <div class="preview-section"
                                 *ngIf="stockForm.valid && stockForm.get('quantity')?.value !== null && stockForm.get('quantity')?.value !== ''">
-                                <h3>
-                                    <mat-icon [style.color]="selectedMutationType.color">{{ selectedMutationType.icon
-                                        }}</mat-icon>
-                                    Mutation Preview
-                                </h3>
-
-                                <div class="preview-grid">
-                                    <div class="preview-item">
-                                        <span class="preview-label">Current Stock</span>
-                                        <span class="preview-value current">{{ formatNumber(product.stock) }}</span>
+                                <div class="preview-card">
+                                    <div class="preview-header">
+                                        <mat-icon [style.color]="selectedMutationType.color">{{
+                                            selectedMutationType.icon }}</mat-icon>
+                                        <span>Mutation Preview</span>
                                     </div>
 
-                                    <div class="preview-item">
-                                        <span class="preview-label">Change</span>
-                                        <span class="preview-value"
-                                            [style.color]="stockForm.get('quantity')?.value < 0 ? '#E15A4F' : '#4BBF7B'">
-                                            {{ stockForm.get('quantity')?.value > 0 ? '+' : '' }}{{
-                                            formatNumber(stockForm.get('quantity')?.value || 0) }}
-                                        </span>
-                                    </div>
+                                    <div class="preview-content">
+                                        <div class="preview-grid">
+                                            <div class="preview-item">
+                                                <span class="preview-label">Current Stock</span>
+                                                <span class="preview-value current">{{ formatNumber(product.stock)
+                                                    }}</span>
+                                            </div>
 
-                                    <div class="preview-item">
-                                        <span class="preview-label">New Stock</span>
-                                        <span class="preview-value new" [style.color]="getNewStockColor()">
-                                            {{ formatNumber(getNewStockPreview()) }}
-                                        </span>
-                                    </div>
+                                            <div class="preview-item">
+                                                <span class="preview-label">Change</span>
+                                                <span class="preview-value"
+                                                    [style.color]="stockForm.get('quantity')?.value < 0 ? '#E15A4F' : '#4BBF7B'">
+                                                    {{ stockForm.get('quantity')?.value > 0 ? '+' : '' }}{{
+                                                    formatNumber(stockForm.get('quantity')?.value || 0) }}
+                                                </span>
+                                            </div>
 
-                                    <div class="preview-item"
-                                        *ngIf="stockForm.get('type')?.value === 'StockIn' && stockForm.get('unitCost')?.value > 0">
-                                        <span class="preview-label">Total Cost</span>
-                                        <span class="preview-value cost">{{ formatCurrency(getTotalCostPreview())
-                                            }}</span>
+                                            <div class="preview-item">
+                                                <span class="preview-label">New Stock</span>
+                                                <span class="preview-value new" [style.color]="getNewStockColor()">
+                                                    {{ formatNumber(getNewStockPreview()) }}
+                                                </span>
+                                            </div>
+
+                                            <div class="preview-item"
+                                                *ngIf="stockForm.get('type')?.value === 'StockIn' && stockForm.get('unitCost')?.value > 0">
+                                                <span class="preview-label">Total Cost</span>
+                                                <span class="preview-value cost">{{
+                                                    formatCurrency(getTotalCostPreview()) }}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Form Actions -->
                             <div class="form-actions">
-                                <button mat-stroked-button type="button" (click)="resetForm()" [disabled]="saving">
+                                <button mat-stroked-button type="button" (click)="resetForm()" [disabled]="saving"
+                                    class="action-btn secondary">
                                     <mat-icon>refresh</mat-icon>
-                                    Reset Form
+                                    <span>Reset Form</span>
                                 </button>
 
-                                <button mat-raised-button color="primary" type="submit" [disabled]="!canSubmit">
+                                <button mat-raised-button color="primary" type="submit" [disabled]="!canSubmit"
+                                    class="action-btn primary">
                                     <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
                                     <mat-icon *ngIf="!saving" [style.color]="selectedMutationType.color">
                                         {{ selectedMutationType.icon }}
@@ -326,91 +334,93 @@
                             </div>
 
                             <!-- History Table -->
-                            <table *ngIf="!loadingHistory" mat-table [dataSource]="historyDataSource" matSort
-                                class="history-table">
+                            <div *ngIf="!loadingHistory" class="table-wrapper">
+                                <table mat-table [dataSource]="historyDataSource" matSort class="history-table">
 
-                                <!-- Date Column -->
-                                <ng-container matColumnDef="date">
-                                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
-                                    <td mat-cell *matCellDef="let mutation">
-                                        <div class="date-cell">
-                                            {{ formatDate(mutation.createdAt) }}
-                                        </div>
-                                    </td>
-                                </ng-container>
+                                    <!-- Date Column -->
+                                    <ng-container matColumnDef="date">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Date</th>
+                                        <td mat-cell *matCellDef="let mutation">
+                                            <div class="date-cell">
+                                                {{ formatDate(mutation.createdAt) }}
+                                            </div>
+                                        </td>
+                                    </ng-container>
 
-                                <!-- Type Column -->
-                                <ng-container matColumnDef="type">
-                                    <th mat-header-cell *matHeaderCellDef>Type</th>
-                                    <td mat-cell *matCellDef="let mutation">
-                                        <mat-chip [style.background-color]="getMutationTypeColor(mutation.type)"
-                                            [style.color]="'white'" class="type-chip">
-                                            <mat-icon>{{ getMutationTypeIcon(mutation.type) }}</mat-icon>
-                                            {{ getMutationTypeLabel(mutation.type) }}
-                                        </mat-chip>
-                                    </td>
-                                </ng-container>
+                                    <!-- Type Column -->
+                                    <ng-container matColumnDef="type">
+                                        <th mat-header-cell *matHeaderCellDef>Type</th>
+                                        <td mat-cell *matCellDef="let mutation">
+                                            <mat-chip [style.background-color]="getMutationTypeColor(mutation.type)"
+                                                [style.color]="'white'" class="type-chip">
+                                                <mat-icon matChipAvatar>{{ getMutationTypeIcon(mutation.type)
+                                                    }}</mat-icon>
+                                                {{ getMutationTypeLabel(mutation.type) }}
+                                            </mat-chip>
+                                        </td>
+                                    </ng-container>
 
-                                <!-- Quantity Column -->
-                                <ng-container matColumnDef="quantity">
-                                    <th mat-header-cell *matHeaderCellDef>Quantity</th>
-                                    <td mat-cell *matCellDef="let mutation">
-                                        <div class="quantity-cell">
-                                            <span [class.positive]="getActualQuantityChange(mutation) > 0"
-                                                [class.negative]="getActualQuantityChange(mutation) < 0">
-                                                {{ formatQuantityChange(mutation) }}
-                                            </span>
-                                        </div>
-                                    </td>
-                                </ng-container>
+                                    <!-- Quantity Column -->
+                                    <ng-container matColumnDef="quantity">
+                                        <th mat-header-cell *matHeaderCellDef>Quantity</th>
+                                        <td mat-cell *matCellDef="let mutation">
+                                            <div class="quantity-cell">
+                                                <span [class.positive]="getActualQuantityChange(mutation) > 0"
+                                                    [class.negative]="getActualQuantityChange(mutation) < 0">
+                                                    {{ formatQuantityChange(mutation) }}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </ng-container>
 
-                                <!-- Stock Before Column -->
-                                <ng-container matColumnDef="stockBefore">
-                                    <th mat-header-cell *matHeaderCellDef>Before</th>
-                                    <td mat-cell *matCellDef="let mutation">
-                                        {{ formatNumber(mutation.stockBefore) }}
-                                    </td>
-                                </ng-container>
+                                    <!-- Stock Before Column -->
+                                    <ng-container matColumnDef="stockBefore">
+                                        <th mat-header-cell *matHeaderCellDef>Before</th>
+                                        <td mat-cell *matCellDef="let mutation">
+                                            {{ formatNumber(mutation.stockBefore) }}
+                                        </td>
+                                    </ng-container>
 
-                                <!-- Stock After Column -->
-                                <ng-container matColumnDef="stockAfter">
-                                    <th mat-header-cell *matHeaderCellDef>After</th>
-                                    <td mat-cell *matCellDef="let mutation">
-                                        {{ formatNumber(mutation.stockAfter) }}
-                                    </td>
-                                </ng-container>
+                                    <!-- Stock After Column -->
+                                    <ng-container matColumnDef="stockAfter">
+                                        <th mat-header-cell *matHeaderCellDef>After</th>
+                                        <td mat-cell *matCellDef="let mutation">
+                                            {{ formatNumber(mutation.stockAfter) }}
+                                        </td>
+                                    </ng-container>
 
-                                <!-- Notes Column -->
-                                <ng-container matColumnDef="notes">
-                                    <th mat-header-cell *matHeaderCellDef>Notes</th>
-                                    <td mat-cell *matCellDef="let mutation">
-                                        <div class="notes-cell" [matTooltip]="mutation.notes">
-                                            {{ mutation.notes | slice:0:50 }}{{ mutation.notes.length > 50 ? '...' : ''
-                                            }}
-                                        </div>
-                                    </td>
-                                </ng-container>
+                                    <!-- Notes Column -->
+                                    <ng-container matColumnDef="notes">
+                                        <th mat-header-cell *matHeaderCellDef>Notes</th>
+                                        <td mat-cell *matCellDef="let mutation">
+                                            <div class="notes-cell" [matTooltip]="mutation.notes">
+                                                {{ mutation.notes | slice:0:50 }}{{ mutation.notes.length > 50 ? '...' :
+                                                '' }}
+                                            </div>
+                                        </td>
+                                    </ng-container>
 
-                                <!-- Reference Column -->
-                                <ng-container matColumnDef="reference">
-                                    <th mat-header-cell *matHeaderCellDef>Reference</th>
-                                    <td mat-cell *matCellDef="let mutation">
-                                        <span class="reference-cell">{{ mutation.referenceNumber || '-' }}</span>
-                                    </td>
-                                </ng-container>
+                                    <!-- Reference Column -->
+                                    <ng-container matColumnDef="reference">
+                                        <th mat-header-cell *matHeaderCellDef>Reference</th>
+                                        <td mat-cell *matCellDef="let mutation">
+                                            <span class="reference-cell">{{ mutation.referenceNumber || '-' }}</span>
+                                        </td>
+                                    </ng-container>
 
-                                <!-- Created By Column -->
-                                <ng-container matColumnDef="createdBy">
-                                    <th mat-header-cell *matHeaderCellDef>Created By</th>
-                                    <td mat-cell *matCellDef="let mutation">
-                                        <span class="created-by-cell">{{ mutation.createdBy || 'System' }}</span>
-                                    </td>
-                                </ng-container>
+                                    <!-- Created By Column -->
+                                    <ng-container matColumnDef="createdBy">
+                                        <th mat-header-cell *matHeaderCellDef>Created By</th>
+                                        <td mat-cell *matCellDef="let mutation">
+                                            <span class="created-by-cell">{{ mutation.createdBy || 'System' }}</span>
+                                        </td>
+                                    </ng-container>
 
-                                <!-- Header and Row Definitions -->
-                                <tr mat-header-row *matHeaderRowDef="historyColumns"></tr>
-                                <tr mat-row *matRowDef="let row; columns: historyColumns;" class="history-row"></tr>
-                            </table>
+                                    <!-- Header and Row Definitions -->
+                                    <tr mat-header-row *matHeaderRowDef="historyColumns"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: historyColumns;" class="history-row"></tr>
+                                </table>
+                            </div>
 
                             <!-- Empty State -->
                             <div *ngIf="!loadingHistory && historyDataSource.data.length === 0" class="empty-state">
@@ -421,7 +431,7 @@
 
                             <!-- Pagination -->
                             <mat-paginator *ngIf="historyDataSource.data.length > 0" [pageSizeOptions]="[10, 25, 50]"
-                                showFirstLastButtons>
+                                showFirstLastButtons class="history-paginator">
                             </mat-paginator>
                         </div>
                     </div>

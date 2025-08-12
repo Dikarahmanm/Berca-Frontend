@@ -18,6 +18,9 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTableModule } from '@angular/material/table';
+import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatSortModule } from '@angular/material/sort';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -58,24 +61,22 @@ interface TierDistribution {
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
-    ReactiveFormsModule,
-    RouterModule,
-    // Material modules
     MatCardModule,
-    MatButtonModule,
+    MatTableModule,
     MatIconModule,
-    MatDatepickerModule,
+    MatButtonModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    MatPaginatorModule,
+    MatSortModule,
     MatFormFieldModule,
     MatInputModule,
-    MatNativeDateModule,
     MatSelectModule,
-    MatSnackBarModule,
-    MatProgressSpinnerModule,
-    MatChipsModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
     MatTabsModule,
-    MatTooltipModule,
-    // Charts
+    ReactiveFormsModule,
+    FormsModule,
     NgxChartsModule
   ],
   templateUrl: './membership-analytics.component.html',

@@ -5,8 +5,8 @@
 :host {
   display: block;
   min-height: 100vh;
-  background-color: var(--clr-bg-primary);
-  font-family: var(--font-family-primary);
+  background-color: var(--bg-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 // ===== MAIN DASHBOARD LAYOUT =====
@@ -18,7 +18,7 @@
     "sidebar topbar"
     "sidebar content";
   min-height: 100vh;
-  background-color: var(--clr-bg-primary);
+  background-color: var(--bg-primary);
   
   // Mobile responsive
   @media (max-width: 1024px) {
@@ -33,7 +33,7 @@
       left: -280px;
       height: 100vh;
       z-index: 1000;
-      transition: left var(--duration-normal) var(--ease-out);
+  transition: left var(--transition-normal);
       
       &.mobile-open {
         left: 0;
@@ -53,14 +53,12 @@
 // ===== SIDEBAR AREA =====
 .sidebar {
   grid-area: sidebar;
-  background-color: var(--clr-surface);
-  border-right: 2px solid var(--clr-border-light);
+  background-color: var(--surface);
+  border-right: 2px solid var(--border-light);
   overflow-y: auto;
   
   // High contrast sidebar for senior users
-  background: linear-gradient(180deg, 
-    var(--clr-surface) 0%, 
-    var(--clr-bg-secondary) 100%);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg-secondary) 100%);
   
   // Better scrollbar for seniors
   &::-webkit-scrollbar {
@@ -68,15 +66,15 @@
   }
   
   &::-webkit-scrollbar-track {
-    background-color: var(--clr-bg-secondary);
+  background-color: var(--bg-secondary);
   }
   
   &::-webkit-scrollbar-thumb {
-    background-color: var(--clr-border-medium);
+  background-color: var(--border-medium);
     border-radius: var(--radius-md);
     
     &:hover {
-      background-color: var(--clr-border-dark);
+  background-color: var(--border-medium);
     }
   }
 }
@@ -84,8 +82,8 @@
 // ===== TOPBAR AREA =====
 .topbar {
   grid-area: topbar;
-  background-color: var(--clr-surface);
-  border-bottom: 2px solid var(--clr-border-light);
+  background-color: var(--surface);
+  border-bottom: 2px solid var(--border-light);
   box-shadow: var(--shadow-sm);
   z-index: 100;
 }
@@ -93,13 +91,13 @@
 // ===== CONTENT AREA =====
 .dashboard-content {
   grid-area: content;
-  padding: var(--space-8);
+  padding: var(--s8);
   overflow-y: auto;
-  background-color: var(--clr-bg-primary);
+  background-color: var(--bg-primary);
   
   // Mobile padding adjustment
   @media (max-width: 1024px) {
-    padding: var(--space-6);
+  padding: var(--s6);
   }
   
   @media (max-width: 640px) {
@@ -109,13 +107,13 @@
 
 // ===== PAGE HEADER =====
 .page-header {
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--s8);
   
   .page-title {
     font-size: var(--font-size-h1);
     font-weight: var(--font-weight-bold);
-    color: var(--clr-text-primary);
-    margin: 0 0 var(--space-2) 0;
+  color: var(--text-primary);
+  margin: 0 0 var(--s2) 0;
     line-height: var(--line-height-tight);
     
     @media (max-width: 640px) {
@@ -125,7 +123,7 @@
   
   .page-subtitle {
     font-size: var(--font-size-base);
-    color: var(--clr-text-secondary);
+  color: var(--text-secondary);
     margin: 0;
     line-height: var(--line-height-normal);
     
@@ -137,20 +135,20 @@
   .page-breadcrumb {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    margin-top: var(--space-4);
+  gap: var(--s2);
+  margin-top: var(--s4);
     font-size: var(--font-size-sm);
-    color: var(--clr-text-muted);
+  color: var(--text-muted);
     
     .breadcrumb-item {
       &:not(:last-child)::after {
         content: '/';
-        margin-left: var(--space-2);
-        color: var(--clr-border-dark);
+  margin-left: var(--s2);
+  color: var(--border-medium);
       }
       
       &:hover {
-        color: var(--clr-primary);
+  color: var(--primary);
         text-decoration: underline;
       }
     }
@@ -163,15 +161,15 @@
   align-items: center;
   justify-content: center;
   min-height: 200px;
-  background-color: var(--clr-surface);
-  border: 2px solid var(--clr-border-light);
+  background-color: var(--surface);
+  border: 2px solid var(--border-light);
   border-radius: var(--radius-lg);
   
   .loading-spinner {
     width: 48px;
     height: 48px;
-    border: 4px solid var(--clr-border-light);
-    border-top-color: var(--clr-primary);
+  border: 4px solid var(--border-light);
+  border-top-color: var(--primary);
     border-radius: var(--radius-full);
     animation: spin 1s linear infinite;
   }
@@ -910,7 +908,8 @@
         margin-bottom: 4px;
         line-height: 1.3;
         display: -webkit-box;
-        -webkit-line-clamp: 2;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
       }

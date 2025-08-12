@@ -26,8 +26,8 @@ import { ToastNotificationComponent, ToastNotification } from '../toast-notifica
         [notification]="toast"
         [style.animation-delay.ms]="i * 100"
         [style.margin-bottom.px]="8"
-        (close)="onToastClose($event)"
-        (action)="onToastAction($event)">
+        (close)="onToastClose(toast.id)"
+        (action)="onToastAction({ id: toast.id, actionUrl: toast.actionUrl })">
       </app-toast-notification>
     </div>
   `,

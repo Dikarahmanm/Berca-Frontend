@@ -5,6 +5,15 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
+// Angular Material imports
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+
 interface PaymentData {
   method: 'cash' | 'card' | 'digital' | 'credit';
   amountPaid: number;
@@ -160,7 +169,17 @@ interface PaymentData {
   `,
   styleUrls: ['./payment-modal.component.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule]
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatProgressSpinnerModule
+  ]
 })
 export class PaymentModalComponent implements OnInit, OnDestroy {
   @ViewChild('amountInput') amountInput!: ElementRef<HTMLInputElement>;

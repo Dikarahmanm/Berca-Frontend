@@ -5,47 +5,12 @@
   overflow: hidden;
 }
 
-// ===== CSS VARIABLES =====
-:root {
-  // Colors
-  --primary: #FF914D;
-  --primary-hover: #E07A3B;
-  --primary-light: #FFF4EF;
-  --success: #4BBF7B;
-  --warning: #FFB84D;
-  --error: #E15A4F;
-  --surface: #FFFFFF;
-  --bg: #F8F9FA;
-  --text: #212529;
-  --text-secondary: #6C757D;
-  --border: #DEE2E6;
-  
-  // Spacing (8px grid)
-  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
-  --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px;
-  
-  // Typography
-  --text-xs: 12px; --text-sm: 14px; --text-base: 16px;
-  --text-lg: 18px; --text-xl: 20px; --text-2xl: 24px;
-  
-  // Transitions
-  --transition: 150ms ease;
-  --radius: 6px;
-  
-  // Touch targets
-  --touch-min: 44px;
-  --touch-comfortable: 48px;
-  
-  // Z-index layers
-  --z-overlay: 1000;
-  --z-modal: 1100;
-  --z-floating: 1200;
-}
+// All variables now come from styles.scss :root
 
 // ===== MAIN LAYOUT =====
 .main {
   height: 100vh;
-  background: var(--bg);
+  background: var(--bg-primary);
   position: relative;
   overflow: hidden;
 }
@@ -62,7 +27,7 @@
 // Left Panel - Products (4fr, Full Height)
 .left-panel {
   background: var(--surface);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;
   overflow: hidden; // ✅ Prevent overflow
@@ -70,31 +35,31 @@
   
   .search-section {
     flex-shrink: 0;
-    padding: var(--s6);
-    border-bottom: 1px solid var(--border);
+  padding: var(--s6);
+  border-bottom: 1px solid var(--border-light);
     
     .search-input-wrapper {
       position: relative;
-      margin-bottom: var(--s4);
+  margin-bottom: var(--s4);
       
       .search-icon {
         position: absolute;
-        left: var(--s3);
+  left: var(--s3);
         top: 50%;
         transform: translateY(-50%);
         width: 20px;
         height: 20px;
-        color: var(--text-secondary);
+  color: var(--text-secondary);
       }
       
       .search-input {
         width: 100%;
-        padding: var(--s3) var(--s3) var(--s3) var(--s10);
-        border: 2px solid var(--border);
-        border-radius: var(--radius);
-        font-size: var(--text-base);
+  padding: var(--s3) var(--s3) var(--s3) var(--s10);
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
         outline: none;
-        transition: border-color var(--transition);
+  transition: border-color var(--transition-normal);
         
         &:focus {
           border-color: var(--primary);
@@ -106,20 +71,20 @@
       .filter-tabs {
         display: flex;
         flex-wrap: wrap;
-        gap: var(--s2);
-        margin-bottom: var(--s4);
+  gap: var(--s2);
+  margin-bottom: var(--s4);
         
         .filter-tab {
           display: flex;
           align-items: center;
           gap: var(--s2);
           padding: var(--s2) var(--s3);
-          border: 2px solid var(--border);
+          border: 2px solid var(--border-light);
           background: var(--surface);
-          border-radius: var(--radius);
+          border-radius: var(--radius-md);
           font-size: var(--text-sm);
           cursor: pointer;
-          transition: all var(--transition);
+          transition: all var(--transition-normal);
           
           .icon {
             width: 16px;

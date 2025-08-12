@@ -1,0 +1,45 @@
+// src/styles/material-theme.scss
+// Angular Material Custom Theme using CSS Variables from Design System
+
+@use '@angular/material' as mat;
+
+// Define custom palettes using the new Material 3 approach
+$primary: mat.m2-define-palette(mat.$m2-orange-palette, 500, 300, 700);
+$accent: mat.m2-define-palette(mat.$m2-deep-orange-palette, 400, 200, 600);
+$warn: mat.m2-define-palette(mat.$m2-red-palette, 600, 300, 800);
+
+// If you want to use CSS variables directly, you can override Material tokens:
+:root {
+  --mat-primary: var(--primary);
+  --mat-primary-contrast: var(--text-on-primary);
+  --mat-accent: var(--primary-soft);
+  --mat-warn: var(--error);
+}
+
+$theme: mat.m2-define-light-theme((
+  color: (
+    primary: $primary,
+    accent: $accent,
+    warn: $warn,
+  ),
+  typography: mat.m2-define-typography-config(),
+  density: 0,
+));
+
+@include mat.all-component-themes($theme);
+
+// Override Material background and surface colors
+div, mat-card, .mat-mdc-card, .mat-mdc-dialog-container {
+  background-color: var(--surface, #FEFCFB) !important;
+  color: var(--text-primary, #2D3748) !important;
+}
+
+.mat-mdc-button, .mat-mdc-raised-button, .mat-mdc-fab, .mat-mdc-mini-fab {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%) !important;
+  color: var(--text-on-primary) !important;
+}
+
+.mat-mdc-snack-bar-container {
+  background: var(--surface-elevated, #fff) !important;
+  color: var(--text-primary, #2D3748) !important;
+}

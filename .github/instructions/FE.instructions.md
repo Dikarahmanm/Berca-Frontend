@@ -84,19 +84,23 @@ src/app/
 ```scss
 // styles/variables.scss - Clean Simple Design System
 :root {
-  // High Contrast Color Palette - Light Theme Only
-  --primary: #ff914d; // Orange primary
-  --primary-hover: #e07a3b; // Orange hover
-  --primary-light: #fff4ef; // Light orange background
-  --success: #4bbf7b; // Green success
-  --warning: #ffb84d; // Yellow warning
-  --error: #e15a4f; // Red error
-  --info: #3b82f6; // Blue info
+  // ===== SOFTER PRIMARY COLORS =====
+  --primary: #e47a3f; // Softer orange (was #FF914D)
+  --primary-hover: #d66b2f; // Softer hover (was #E07A3B)
+  --primary-light: #f9f1ec; // Warmer light background (was #FFF4EF)
+  --primary-dark: #b85a29; // Softer dark orange
 
-  // High Contrast Surfaces - NO Transparency
-  --surface: #ffffff; // Pure white surfaces
-  --bg: #f8f9fa; // Light gray background
-  --bg-secondary: #f5f5f5; // Secondary gray background
+  // ===== GENTLER SEMANTIC COLORS =====
+  --success: #52a573; // Softer green (was #4BBF7B)
+  --warning: #e6a855; // Softer yellow (was #FFB84D)
+  --error: #d44a3f; // Softer red (was #E15A4F)
+  --info: #4b89e6; // Softer blue (was #3B82F6)
+
+  // ===== WARMER SURFACES =====
+  --surface: #fefefe; // Off-white (was pure #FFFFFF)
+  --bg: #f6f7f8; // Softer gray (was #F8F9FA)
+  --bg-secondary: #f1f3f4; // Warmer secondary (was #F3F4F6)
+  --bg-primary: #fafbfb; // Warmer primary bg (was #FAFBFC)// Secondary gray background
   --text: #212529; // Dark text for high contrast
   --text-secondary: #6c757d; // Secondary gray text
   --text-muted: #adb5bd; // Muted text

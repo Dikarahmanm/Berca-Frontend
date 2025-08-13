@@ -1,7 +1,7 @@
 // src/app/modules/membership/components/membership-form/membership-form.component.ts
-// ✅ Membership Form Component - Create/Edit/View
+// ✅ FIXED Membership Form Component - Backend Compatible
 
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
@@ -20,7 +20,6 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatStepperModule } from '@angular/material/stepper';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Services and interfaces
@@ -30,7 +29,14 @@ import type {
   CreateMemberRequest,
   UpdateMemberRequest,
   MemberFormMode,
-  GenderOption
+  GenderOption,
+  TierInfo,
+  MemberTier
+} from '../../interfaces/membership.interfaces';
+import {
+  GENDER_OPTIONS,
+  TIER_COLORS,
+  TIER_ICONS
 } from '../../interfaces/membership.interfaces';
 
 @Component({
@@ -54,39 +60,40 @@ import type {
     MatProgressSpinnerModule,
     MatChipsModule,
     MatSlideToggleModule,
-    MatStepperModule,
     MatTooltipModule
   ],
   templateUrl: './membership-form.component.html',
   styleUrls: ['./membership-form.component.scss']
 })
 export class MembershipFormComponent implements OnInit, OnDestroy {
-  // Form configuration
-  memberForm: FormGroup;
-  formMode: MemberFormMode = { mode: 'create' };
+  // ===== SIGNALS FOR REACTIVE STATE =====
   
-  // Data
-  member: MemberDto | null = null;
+  member = signal<MemberDto | null>(null);
+  loading = signal<boolean>(false);
+  error = signal<string | null>(null);
+  isSubmitting = signal<boolean>(false);
+  phoneExists = signal<boolean>(false);
+  
+  // ===== COMPUTED PROPERTIES =====
+  
+  isReadOnlyMode = computed(() => this.formMode.mode === 'view');
+  isEditMode = computed(() => this.formMode.mode === 'edit');
+  canShowActiveToggle = computed(() => this.formMode.mode === 'edit');
+  
+  // ===== FORM CONFIGURATION =====
+  
+  memberForm: FormGroup;
+  formMode: { mode: MemberFormMode; member?: MemberDto } = { mode: 'create' };
   memberId: number | null = null;
   
-  // State
-  loading$: Observable<boolean>;
-  error$: Observable<string | null>;
-  isSubmitting = false;
-  phoneExists = false;
+  // ===== OPTIONS & CONSTANTS =====
   
-  // Options
-  genderOptions: GenderOption[] = [
-    { value: 'Male', label: 'Male', icon: 'man' },
-    { value: 'Female', label: 'Female', icon: 'woman' },
-    { value: 'Other', label: 'Other', icon: 'person' }
-  ];
-
-  // Validation
+  genderOptions: GenderOption[] = GENDER_OPTIONS;
   maxDate = new Date(); // Can't select future dates for birth date
   minDate = new Date(1900, 0, 1); // Minimum birth year 1900
-
-  // Subscription management
+  
+  // ===== SUBSCRIPTION MANAGEMENT =====
+  
   private subscriptions = new Subscription();
 
   constructor(
@@ -97,8 +104,6 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
     private snackBar: MatSnackBar
   ) {
     this.memberForm = this.initializeForm();
-    this.loading$ = this.membershipService.loading$;
-    this.error$ = this.membershipService.error$;
   }
 
   ngOnInit(): void {
@@ -120,10 +125,10 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
     return this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100)]],
       phone: ['', [Validators.required, Validators.pattern(/^[0-9+\-\s()]+$/), Validators.minLength(10)]],
-      email: ['', [Validators.required, Validators.email]],
-      address: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
-      dateOfBirth: ['', [Validators.required]],
-      gender: ['', [Validators.required]],
+      email: ['', [Validators.email]], // ✅ FIXED: Email not required based on backend
+      address: ['', [Validators.maxLength(500)]], // ✅ FIXED: Address not required
+      dateOfBirth: [''], // ✅ FIXED: Not required
+      gender: [''], // ✅ FIXED: Not required
       isActive: [true] // Only visible in edit mode
     });
   }
@@ -142,16 +147,6 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
         }
       }
     });
-  }
-
-  // Helper method to determine if datepicker toggle should be disabled
-  isDatePickerDisabled(): boolean {
-    return this.isReadOnlyMode();
-  }
-
-  // Helper method to determine if submit button should be disabled
-  isSubmitButtonDisabled(): boolean {
-    return this.memberForm.invalid || this.isSubmitting || this.phoneExists;
   }
 
   private determineFormMode(): void {
@@ -173,11 +168,13 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
   }
 
   private setupFormValidation(): void {
-    // Phone number validation
+    // Phone number validation with debounce
     this.subscriptions.add(
       this.memberForm.get('phone')?.valueChanges.subscribe(phone => {
         if (phone && phone.length >= 10) {
           this.validatePhoneNumber(phone);
+        } else {
+          this.phoneExists.set(false);
         }
       })
     );
@@ -195,16 +192,25 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
   private loadMember(): void {
     if (!this.memberId) return;
 
+    this.loading.set(true);
+    this.error.set(null);
+
     this.subscriptions.add(
       this.membershipService.getMemberById(this.memberId).subscribe({
         next: (member) => {
-          this.member = member;
-          this.formMode.member = member;
-          this.populateForm(member);
+          if (member) {
+            this.member.set(member);
+            this.formMode.member = member;
+            this.populateForm(member);
+          } else {
+            this.error.set('Failed to load member data');
+          }
+          this.loading.set(false);
         },
         error: (error) => {
+          this.error.set('Failed to load member data');
+          this.loading.set(false);
           this.showError('Failed to load member data');
-          this.navigateBack();
         }
       })
     );
@@ -214,10 +220,10 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
     this.memberForm.patchValue({
       name: member.name,
       phone: member.phone,
-      email: member.email,
-      address: member.address,
-      dateOfBirth: new Date(member.dateOfBirth),
-      gender: member.gender,
+      email: member.email || '',
+      address: member.address || '',
+      dateOfBirth: member.dateOfBirth ? new Date(member.dateOfBirth) : null,
+      gender: member.gender || '',
       isActive: member.isActive
     });
   }
@@ -230,7 +236,7 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.membershipService.validatePhone(phone, excludeId).subscribe({
         next: (exists) => {
-          this.phoneExists = exists;
+          this.phoneExists.set(exists);
           
           if (exists) {
             this.memberForm.get('phone')?.setErrors({ phoneExists: true });
@@ -246,6 +252,7 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           console.error('Phone validation error:', error);
+          this.phoneExists.set(false);
         }
       })
     );
@@ -263,12 +270,12 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
   // ===== FORM SUBMISSION =====
 
   onSubmit(): void {
-    if (this.memberForm.invalid || this.isSubmitting || this.phoneExists) {
+    if (this.memberForm.invalid || this.isSubmitting() || this.phoneExists()) {
       this.markFormGroupTouched();
       return;
     }
 
-    this.isSubmitting = true;
+    this.isSubmitting.set(true);
     
     if (this.formMode.mode === 'create') {
       this.createMember();
@@ -282,21 +289,26 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
     const request: CreateMemberRequest = {
       name: formValue.name.trim(),
       phone: formValue.phone.trim(),
-      email: formValue.email.trim(),
-      address: formValue.address.trim(),
-      dateOfBirth: formValue.dateOfBirth,
-      gender: formValue.gender
+      email: formValue.email?.trim() || undefined,
+      address: formValue.address?.trim() || undefined,
+      dateOfBirth: formValue.dateOfBirth ? this.formatDateForAPI(formValue.dateOfBirth) : undefined,
+      gender: formValue.gender || undefined
     };
 
     this.subscriptions.add(
       this.membershipService.createMember(request).subscribe({
         next: (member) => {
-          this.showSuccess('Member created successfully');
-          this.router.navigate(['/dashboard/membership/view', member.id]);
+          if (member) {
+            this.showSuccess('Member created successfully');
+            this.router.navigate(['/dashboard/membership/view', member.id]);
+          } else {
+            this.showError('Failed to create member');
+            this.isSubmitting.set(false);
+          }
         },
         error: (error) => {
           this.showError('Failed to create member');
-          this.isSubmitting = false;
+          this.isSubmitting.set(false);
         }
       })
     );
@@ -309,22 +321,27 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
     const request: UpdateMemberRequest = {
       name: formValue.name.trim(),
       phone: formValue.phone.trim(),
-      email: formValue.email.trim(),
-      address: formValue.address.trim(),
-      dateOfBirth: formValue.dateOfBirth,
-      gender: formValue.gender,
+      email: formValue.email?.trim() || undefined,
+      address: formValue.address?.trim() || undefined,
+      dateOfBirth: formValue.dateOfBirth ? this.formatDateForAPI(formValue.dateOfBirth) : undefined,
+      gender: formValue.gender || undefined,
       isActive: formValue.isActive
     };
 
     this.subscriptions.add(
       this.membershipService.updateMember(this.memberId, request).subscribe({
         next: (member) => {
-          this.showSuccess('Member updated successfully');
-          this.router.navigate(['/dashboard/membership/view', member.id]);
+          if (member) {
+            this.showSuccess('Member updated successfully');
+            this.router.navigate(['/dashboard/membership/view', member.id]);
+          } else {
+            this.showError('Failed to update member');
+            this.isSubmitting.set(false);
+          }
         },
         error: (error) => {
           this.showError('Failed to update member');
-          this.isSubmitting = false;
+          this.isSubmitting.set(false);
         }
       })
     );
@@ -342,16 +359,28 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
     const field = this.memberForm.get(fieldName);
     
     if (field?.errors && field.touched) {
-      if (field.errors['required']) return `${fieldName} is required`;
+      if (field.errors['required']) return `${this.getFieldLabel(fieldName)} is required`;
       if (field.errors['email']) return 'Please enter a valid email address';
-      if (field.errors['minlength']) return `${fieldName} is too short`;
-      if (field.errors['maxlength']) return `${fieldName} is too long`;
+      if (field.errors['minlength']) return `${this.getFieldLabel(fieldName)} is too short`;
+      if (field.errors['maxlength']) return `${this.getFieldLabel(fieldName)} is too long`;
       if (field.errors['pattern']) return 'Please enter a valid phone number';
       if (field.errors['phoneExists']) return 'This phone number is already registered';
       if (field.errors['tooYoung']) return 'Member must be at least 12 years old';
     }
     
     return null;
+  }
+
+  private getFieldLabel(fieldName: string): string {
+    const labels: Record<string, string> = {
+      name: 'Name',
+      phone: 'Phone number',
+      email: 'Email',
+      address: 'Address',
+      dateOfBirth: 'Date of birth',
+      gender: 'Gender'
+    };
+    return labels[fieldName] || fieldName;
   }
 
   isFieldInvalid(fieldName: string): boolean {
@@ -398,64 +427,43 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
   }
 
   getSubmitButtonText(): string {
-    if (this.isSubmitting) return 'Saving...';
+    if (this.isSubmitting()) return 'Saving...';
     return this.formMode.mode === 'create' ? 'Create Member' : 'Update Member';
   }
 
-  isReadOnlyMode(): boolean {
-    return this.formMode.mode === 'view';
+  // Helper method to determine if datepicker toggle should be disabled
+  isDatePickerDisabled(): boolean {
+    return this.isReadOnlyMode();
   }
 
-  isEditMode(): boolean {
-    return this.formMode.mode === 'edit';
-  }
-
-  canShowActiveToggle(): boolean {
-    return this.formMode.mode === 'edit';
+  // Helper method to determine if submit button should be disabled
+  isSubmitButtonDisabled(): boolean {
+    return this.memberForm.invalid || this.isSubmitting() || this.phoneExists();
   }
 
   // ===== UI HELPERS =====
 
   private showSuccess(message: string): void {
-    this.snackBar.open(message, 'Tutup', {
+    this.snackBar.open(message, 'Close', {
       duration: 3000,
       panelClass: ['success-snackbar']
     });
   }
 
   private showError(message: string): void {
-    this.snackBar.open(message, 'Tutup', {
+    this.snackBar.open(message, 'Close', {
       duration: 5000,
       panelClass: ['error-snackbar']
     });
   }
 
-  // ===== AGE CALCULATION =====
+  // ===== DATE & NUMBER FORMATTING =====
 
-  calculateAge(birthDate: Date): number {
-    const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    
-    return age;
+  private formatDateForAPI(date: Date): string {
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
   }
 
-  getDisplayAge(): string {
-    if (this.member?.dateOfBirth) {
-      const age = this.calculateAge(new Date(this.member.dateOfBirth));
-      return `${age} years old`;
-    }
-    return '';
-  }
-
-  // ===== UTILITY METHODS =====
-
-  formatDate(date: Date | string | null): string {
+  formatDate(date: Date | string | null | undefined): string {
     if (!date) return '-';
     const d = new Date(date);
     return d.toLocaleDateString('en-US', {
@@ -477,21 +485,54 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
     return new Intl.NumberFormat('id-ID').format(num);
   }
 
-  // ===== TIER UTILITY METHODS =====
-  getTierInfo(tier: string): { color: string; icon: string; name: string } {
-    return this.tierInfoMap[tier] || this.tierInfoMap['Bronze'];
+  // ===== AGE CALCULATION =====
+
+  calculateAge(birthDate: Date | string): number {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age;
+  }
+
+  getDisplayAge(): string {
+    const currentMember = this.member();
+    if (currentMember?.dateOfBirth) {
+      const age = this.calculateAge(currentMember.dateOfBirth);
+      return `${age} years old`;
+    }
+    return '';
+  }
+
+  // ===== TIER INFORMATION =====
+
+  getTierInfo(tier: string): TierInfo {
+    return {
+      name: tier,
+      color: TIER_COLORS[tier as MemberTier] || '#666666',
+      icon: TIER_ICONS[tier as MemberTier] || 'person',
+      minSpent: 0,
+      pointMultiplier: 1,
+      benefits: []
+    };
   }
 
   getTierIcon(tier: string): string {
-    return this.getTierInfo(tier).icon;
+    return TIER_ICONS[tier as MemberTier] || '👤';
   }
 
-  // ===== UTILITY HELPERS =====
-  private generateId(): string {
-    return Math.random().toString(36).substring(2, 15) + 
-           Math.random().toString(36).substring(2, 15);
+  // ===== FORM ICON MAPPING =====
+  getFormIconEmoji(): string {
+    switch (this.formMode.mode) {
+      case 'create': return '➕';
+      case 'edit': return '✏️';
+      case 'view': return '👁️';
+      default: return '👤';
+    }
   }
-
-  // ===== PERFORMANCE OPTIMIZATION =====
-  trackByMember = (index: number, member: any): number => member.id;
 }

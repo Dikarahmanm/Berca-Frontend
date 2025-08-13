@@ -1,48 +1,58 @@
-<!-- src/app/modules/membership/components/membership-analytics/membership-analytics.component.html -->
-<div class="membership-analytics">
+<!-- membership-analytics.component.html -->
+<!-- Clean Simple Analytics Design - Compatible with TypeScript Component -->
+<div class="analytics-container">
 
-    <!-- Header Section -->
-    <div class="analytics-header">
+    <!-- Header Section with Real-time Status -->
+    <div class="page-header">
         <div class="header-content">
             <h1 class="page-title">
-                <mat-icon>analytics</mat-icon>
+                <span class="title-icon">📊</span>
                 Membership Analytics
+                <span class="realtime-indicator" [class.active]="realtimeConnected()">
+                    <span class="indicator-dot"></span>
+                    {{ realtimeConnected() ? 'Live' : 'Offline' }}
+                </span>
             </h1>
             <p class="page-subtitle">
-                Analisis mendalam performa membership dan loyalty program
+                Comprehensive insights into membership performance and growth
             </p>
         </div>
 
         <!-- Date Range Controls -->
-        <div class="date-controls glass-card">
+        <div class="date-controls card">
             <form [formGroup]="dateRangeForm" class="date-form">
-                <mat-form-field appearance="outline" class="preset-field">
-                    <mat-label>Periode</mat-label>
-                    <mat-select formControlName="preset" (selectionChange)="onPresetChange($event.value)">
-                        <mat-option value="last7Days">7 Hari Terakhir</mat-option>
-                        <mat-option value="last30Days">30 Hari Terakhir</mat-option>
-                        <mat-option value="thisMonth">Bulan Ini</mat-option>
-                        <mat-option value="thisYear">Tahun Ini</mat-option>
-                        <mat-option value="custom">Custom</mat-option>
-                    </mat-select>
-                </mat-form-field>
+                <div class="form-field">
+                    <label class="field-label">Period</label>
+                    <div class="select-wrapper">
+                        <select class="form-control" formControlName="preset" (change)="onPresetChange($event)">
+                            <option value="last7Days">Last 7 Days</option>
+                            <option value="last30Days">Last 30 Days</option>
+                            <option value="thisMonth">This Month</option>
+                            <option value="thisYear">This Year</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                        <span class="select-icon">▼</span>
+                    </div>
+                </div>
 
-                <mat-form-field appearance="outline">
-                    <mat-label>Tanggal Mulai</mat-label>
-                    <input matInput [matDatepicker]="startPicker" formControlName="startDate">
-                    <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
-                    <mat-datepicker #startPicker></mat-datepicker>
-                </mat-form-field>
+                <div class="form-field">
+                    <label class="field-label">Start Date</label>
+                    <div class="input-wrapper">
+                        <input type="date" class="form-control" formControlName="startDate">
+                        <span class="field-icon">📅</span>
+                    </div>
+                </div>
 
-                <mat-form-field appearance="outline">
-                    <mat-label>Tanggal Selesai</mat-label>
-                    <input matInput [matDatepicker]="endPicker" formControlName="endDate">
-                    <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
-                    <mat-datepicker #endPicker></mat-datepicker>
-                </mat-form-field>
+                <div class="form-field">
+                    <label class="field-label">End Date</label>
+                    <div class="input-wrapper">
+                        <input type="date" class="form-control" formControlName="endDate">
+                        <span class="field-icon">📅</span>
+                    </div>
+                </div>
 
-                <button mat-raised-button color="primary" (click)="exportAnalytics()">
-                    <mat-icon>download</mat-icon>
+                <button class="btn btn-primary" (click)="exportAnalytics()">
+                    <span class="btn-icon">💾</span>
                     Export
                 </button>
             </form>
@@ -50,34 +60,44 @@
     </div>
 
     <!-- Loading State -->
-    <div *ngIf="loading" class="loading-container">
-        <mat-spinner diameter="50"></mat-spinner>
-        <p>Loading analytics data...</p>
+    <div *ngIf="loading$()" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading analytics data...</p>
     </div>
 
     <!-- Error State -->
-    <div *ngIf="error" class="error-container glass-card">
-        <mat-icon color="warn">error</mat-icon>
-        <p>{{ error }}</p>
-        <button mat-raised-button color="primary" (click)="loadAnalyticsData()">
-            <mat-icon>refresh</mat-icon>
-            Retry
-        </button>
+    <div *ngIf="error$() as error" class="error-container card">
+        <div class="error-content">
+            <span class="error-icon">⚠️</span>
+            <div class="error-message">
+                <h3>Oops! Something went wrong</h3>
+                <p>{{ error }}</p>
+            </div>
+            <button class="btn btn-primary" (click)="loadAnalyticsData()">
+                <span class="btn-icon">🔄</span>
+                Retry
+            </button>
+        </div>
     </div>
 
     <!-- Analytics Content -->
-    <div class="analytics-content" *ngIf="!loading && !error && membershipKPIs">
+    <div class="content-section" *ngIf="!loading$() && !error$() && membershipKPIs">
 
         <!-- KPI Summary Cards -->
         <div class="kpi-summary">
+            <div class="kpi-header">
+                <h3 class="kpi-title">
+                    <span class="kpi-icon">📈</span>
+                    Key Performance Indicators
+                </h3>
+            </div>
             <div class="kpi-grid">
-                <div class="kpi-card glass-card">
-                    <div class="kpi-header">
-                        <mat-icon>people</mat-icon>
-                        <div class="kpi-trend">
-                            <mat-icon [style.color]="getGrowthColor()">{{ getGrowthIcon() }}</mat-icon>
-                            <span [style.color]="getGrowthColor()">{{ formatPercentage(getGrowthTrend().percentage)
-                                }}</span>
+                <div class="kpi-card card">
+                    <div class="kpi-header-content">
+                        <span class="kpi-card-icon">👥</span>
+                        <div class="kpi-trend" [class]="getGrowthTrendClass()">
+                            <span class="trend-icon">{{ getGrowthIcon() }}</span>
+                            <span class="trend-value">{{ formatPercentage(getGrowthTrend().percentage) }}</span>
                         </div>
                     </div>
                     <div class="kpi-content">
@@ -87,9 +107,9 @@
                     </div>
                 </div>
 
-                <div class="kpi-card glass-card">
-                    <div class="kpi-header">
-                        <mat-icon>person_add</mat-icon>
+                <div class="kpi-card card">
+                    <div class="kpi-header-content">
+                        <span class="kpi-card-icon">✨</span>
                         <div class="kpi-badge">
                             <span class="badge badge-primary">New</span>
                         </div>
@@ -101,9 +121,9 @@
                     </div>
                 </div>
 
-                <div class="kpi-card glass-card">
-                    <div class="kpi-header">
-                        <mat-icon>account_balance_wallet</mat-icon>
+                <div class="kpi-card card">
+                    <div class="kpi-header-content">
+                        <span class="kpi-card-icon">💰</span>
                     </div>
                     <div class="kpi-content">
                         <h3>Avg. Spending</h3>
@@ -112,9 +132,9 @@
                     </div>
                 </div>
 
-                <div class="kpi-card glass-card">
-                    <div class="kpi-header">
-                        <mat-icon>stars</mat-icon>
+                <div class="kpi-card card">
+                    <div class="kpi-header-content">
+                        <span class="kpi-card-icon">⭐</span>
                     </div>
                     <div class="kpi-content">
                         <h3>Points Activity</h3>
@@ -123,11 +143,11 @@
                     </div>
                 </div>
 
-                <div class="kpi-card glass-card featured">
-                    <div class="kpi-header">
-                        <mat-icon [style.color]="getTierInfo(membershipKPIs.topTier).color">
-                            {{ getTierInfo(membershipKPIs.topTier).icon }}
-                        </mat-icon>
+                <div class="kpi-card card featured">
+                    <div class="kpi-header-content">
+                        <span class="kpi-card-icon" [attr.data-tier]="membershipKPIs.topTier.toLowerCase()">
+                            {{ getTierIcon(membershipKPIs.topTier) }}
+                        </span>
                     </div>
                     <div class="kpi-content">
                         <h3>Top Tier</h3>
@@ -136,9 +156,9 @@
                     </div>
                 </div>
 
-                <div class="kpi-card glass-card">
-                    <div class="kpi-header">
-                        <mat-icon>trending_up</mat-icon>
+                <div class="kpi-card card">
+                    <div class="kpi-header-content">
+                        <span class="kpi-card-icon">📊</span>
                     </div>
                     <div class="kpi-content">
                         <h3>Growth Rate</h3>
@@ -150,167 +170,194 @@
         </div>
 
         <!-- Insights Section -->
-        <div class="insights-section glass-card" *ngIf="generateInsights().length > 0">
+        <div class="insights-section card" *ngIf="generateInsights().length > 0">
             <div class="insights-header">
-                <h3>
-                    <mat-icon>lightbulb</mat-icon>
+                <h3 class="insights-title">
+                    <span class="insights-icon">💡</span>
                     Key Insights
                 </h3>
             </div>
             <div class="insights-list">
-                <div class="insight-item" *ngFor="let insight of generateInsights()">
-                    <mat-icon>arrow_right</mat-icon>
-                    <span>{{ insight }}</span>
+                <div class="insight-item" *ngFor="let insight of generateInsights(); trackBy: trackByInsight">
+                    <span class="insight-bullet">•</span>
+                    <span class="insight-text">{{ insight }}</span>
                 </div>
             </div>
         </div>
 
         <!-- Analytics Charts -->
         <div class="analytics-charts">
-            <mat-tab-group [(selectedIndex)]="selectedTab" class="charts-tab-group">
+            <div class="charts-header">
+                <h3 class="charts-title">
+                    <span class="charts-icon">📈</span>
+                    Analytics Charts
+                </h3>
+            </div>
+            
+            <div class="charts-container">
+                <!-- Tier Distribution Chart -->
+                <div class="chart-section card">
+                    <div class="chart-header">
+                        <h4 class="chart-title">
+                            <span class="chart-icon">🥇</span>
+                            Member Tier Distribution
+                        </h4>
+                        <p class="chart-subtitle">Distribution of members across different tiers</p>
+                    </div>
 
-                <!-- Tier Distribution Tab -->
-                <mat-tab label="Tier Distribution">
-                    <div class="chart-container glass-card">
-                        <div class="chart-header">
-                            <h3>
-                                <mat-icon>donut_large</mat-icon>
-                                Member Tier Distribution
-                            </h3>
-                            <p>Distribution of members across different tiers</p>
+                    <div class="chart-content">
+                        <div class="chart-wrapper">
+                            <ngx-charts-pie-chart 
+                                [results]="getTierChartData()" 
+                                [view]="getChartSize()"
+                                [scheme]="colorScheme" 
+                                [legend]="false" 
+                                [labels]="true" 
+                                [doughnut]="true"
+                                [gradient]="false" 
+                                [tooltipDisabled]="false" 
+                                (select)="onChartSelect($event)"
+                                (activate)="onChartActivate($event)" 
+                                (deactivate)="onChartDeactivate($event)">
+                            </ngx-charts-pie-chart>
                         </div>
 
-                        <div class="chart-content">
-                            <div class="chart-wrapper">
-                                <ngx-charts-pie-chart [results]="getTierChartData()" [view]="[700, 400]"
-                                    [scheme]="colorScheme" [legend]="showLegend" [labels]="true" [doughnut]="true"
-                                    [gradient]="gradient" [tooltipDisabled]="false" (select)="onChartSelect($event)"
-                                    (activate)="onChartActivate($event)" (deactivate)="onChartDeactivate($event)">
-                                </ngx-charts-pie-chart>
-                            </div>
-
-                            <div class="tier-stats">
-                                <div class="tier-stat" *ngFor="let tier of tierDistribution">
-                                    <div class="tier-color" [style.background-color]="tier.color"></div>
-                                    <div class="tier-info">
-                                        <div class="tier-name">{{ tier.tier }}</div>
-                                        <div class="tier-numbers">
-                                            {{ formatNumber(tier.count) }} members ({{ formatPercentage(tier.percentage)
-                                            }})
-                                        </div>
+                        <div class="tier-stats">
+                            <div class="tier-stat" *ngFor="let tier of tierDistribution; trackBy: trackByTier">
+                                <div class="tier-color" [style.background-color]="tier.color"></div>
+                                <div class="tier-info">
+                                    <div class="tier-name">{{ tier.tier }}</div>
+                                    <div class="tier-numbers">
+                                        {{ formatNumber(tier.count) }} members ({{ formatPercentage(tier.percentage) }})
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </mat-tab>
+                </div>
 
-                <!-- Member Growth Tab -->
-                <mat-tab label="Member Growth">
-                    <div class="chart-container glass-card">
-                        <div class="chart-header">
-                            <h3>
-                                <mat-icon>show_chart</mat-icon>
-                                Member Growth Trend
-                            </h3>
-                            <p>Monthly new member acquisitions over the past year</p>
-                        </div>
+                <!-- Member Growth Chart -->
+                <div class="chart-section card">
+                    <div class="chart-header">
+                        <h4 class="chart-title">
+                            <span class="chart-icon">📈</span>
+                            Member Growth Trend
+                        </h4>
+                        <p class="chart-subtitle">Monthly new member acquisitions over the past year</p>
+                    </div>
 
-                        <div class="chart-content">
-                            <ngx-charts-line-chart [results]="[{name: 'New Members', series: getGrowthChartData()}]"
-                                [view]="[700, 400]" [scheme]="colorScheme" [legend]="false"
-                                [showXAxisLabel]="showXAxisLabel" [showYAxisLabel]="showYAxisLabel" [xAxis]="showXAxis"
-                                [yAxis]="showYAxis" [xAxisLabel]="'Month'" [yAxisLabel]="'New Members'"
-                                [gradient]="gradient" [curve]="'cardinal'" [tooltipDisabled]="false"
+                    <div class="chart-content">
+                        <div class="chart-wrapper">
+                            <ngx-charts-line-chart 
+                                [results]="[{name: 'New Members', series: getGrowthChartData()}]"
+                                [view]="getChartSize()" 
+                                [scheme]="colorScheme" 
+                                [legend]="false"
+                                [showXAxisLabel]="false" 
+                                [showYAxisLabel]="false" 
+                                [xAxis]="true"
+                                [yAxis]="true" 
+                                [gradient]="false" 
+                                [curve]="'cardinalClosed'" 
+                                [tooltipDisabled]="false"
                                 (select)="onChartSelect($event)">
                             </ngx-charts-line-chart>
                         </div>
                     </div>
-                </mat-tab>
+                </div>
 
-                <!-- Spending Analysis Tab -->
-                <mat-tab label="Spending Analysis">
-                    <div class="chart-container glass-card">
-                        <div class="chart-header">
-                            <h3>
-                                <mat-icon>account_balance</mat-icon>
-                                Member Spending Segments
-                            </h3>
-                            <p>Distribution of members by spending behavior</p>
-                        </div>
+                <!-- Spending Analysis Chart -->
+                <div class="chart-section card">
+                    <div class="chart-header">
+                        <h4 class="chart-title">
+                            <span class="chart-icon">💳</span>
+                            Member Spending Segments
+                        </h4>
+                        <p class="chart-subtitle">Distribution of members by spending behavior</p>
+                    </div>
 
-                        <div class="chart-content">
-                            <ngx-charts-bar-vertical [results]="getSpendingChartData()" [view]="[700, 400]"
-                                [scheme]="colorScheme" [legend]="false" [showXAxisLabel]="showXAxisLabel"
-                                [showYAxisLabel]="showYAxisLabel" [xAxis]="showXAxis" [yAxis]="showYAxis"
-                                [xAxisLabel]="'Spending Segments'" [yAxisLabel]="'Percentage'" [gradient]="gradient"
-                                [tooltipDisabled]="false" (select)="onChartSelect($event)">
+                    <div class="chart-content">
+                        <div class="chart-wrapper">
+                            <ngx-charts-bar-vertical 
+                                [results]="getSpendingChartData()" 
+                                [view]="getChartSize()"
+                                [scheme]="colorScheme" 
+                                [legend]="false" 
+                                [showXAxisLabel]="false"
+                                [showYAxisLabel]="false" 
+                                [xAxis]="true" 
+                                [yAxis]="true"
+                                [gradient]="false"
+                                [tooltipDisabled]="false" 
+                                (select)="onChartSelect($event)">
                             </ngx-charts-bar-vertical>
                         </div>
                     </div>
-                </mat-tab>
+                </div>
 
-                <!-- Points Analysis Tab -->
-                <mat-tab label="Points Analysis">
-                    <div class="chart-container glass-card">
-                        <div class="chart-header">
-                            <h3>
-                                <mat-icon>stars</mat-icon>
-                                Points Usage Analysis
-                            </h3>
-                            <p>Breakdown of points earned, redeemed, and available</p>
+                <!-- Points Analysis Chart -->
+                <div class="chart-section card">
+                    <div class="chart-header">
+                        <h4 class="chart-title">
+                            <span class="chart-icon">⭐</span>
+                            Points Usage Analysis
+                        </h4>
+                        <p class="chart-subtitle">Breakdown of points earned, redeemed, and available</p>
+                    </div>
+
+                    <div class="chart-content">
+                        <div class="chart-wrapper">
+                            <ngx-charts-pie-chart 
+                                [results]="getPointsChartData()" 
+                                [view]="getChartSize()"
+                                [scheme]="colorScheme" 
+                                [legend]="false" 
+                                [labels]="true" 
+                                [doughnut]="false"
+                                [gradient]="false" 
+                                [tooltipDisabled]="false" 
+                                (select)="onChartSelect($event)">
+                            </ngx-charts-pie-chart>
                         </div>
 
-                        <div class="chart-content">
-                            <div class="chart-wrapper">
-                                <ngx-charts-pie-chart [results]="getPointsChartData()" [view]="[700, 400]"
-                                    [scheme]="colorScheme" [legend]="showLegend" [labels]="true" [doughnut]="false"
-                                    [gradient]="gradient" [tooltipDisabled]="false" (select)="onChartSelect($event)">
-                                </ngx-charts-pie-chart>
+                        <div class="points-summary-stats">
+                            <div class="points-stat">
+                                <div class="stat-label">Redemption Rate</div>
+                                <div class="stat-value">
+                                    {{ formatPercentage((membershipKPIs.totalPointsRedeemed / membershipKPIs.totalPointsAwarded) * 100) }}
+                                </div>
                             </div>
 
-                            <div class="points-summary-stats">
-                                <div class="points-stat">
-                                    <div class="stat-label">Redemption Rate</div>
-                                    <div class="stat-value">
-                                        {{ formatPercentage((membershipKPIs.totalPointsRedeemed /
-                                        membershipKPIs.totalPointsAwarded) * 100) }}
-                                    </div>
-                                </div>
-
-                                <div class="points-stat">
-                                    <div class="stat-label">Available Points</div>
-                                    <div class="stat-value">
-                                        {{ formatNumber(membershipKPIs.totalPointsAwarded -
-                                        membershipKPIs.totalPointsRedeemed) }}
-                                    </div>
+                            <div class="points-stat">
+                                <div class="stat-label">Available Points</div>
+                                <div class="stat-value">
+                                    {{ formatNumber(membershipKPIs.totalPointsAwarded - membershipKPIs.totalPointsRedeemed) }}
                                 </div>
                             </div>
                         </div>
                     </div>
-                </mat-tab>
-
-            </mat-tab-group>
+                </div>
+            </div>
         </div>
 
         <!-- Top Members Section -->
-        <div class="top-members-section glass-card">
+        <div class="top-members-section card">
             <div class="section-header">
-                <h3>
-                    <mat-icon>star</mat-icon>
+                <h3 class="section-title">
+                    <span class="section-icon">🏆</span>
                     Top Performing Members
                 </h3>
-                <p>Highest spending members in the selected period</p>
+                <p class="section-subtitle">Highest spending members in the selected period</p>
             </div>
 
             <div class="top-members-list" *ngIf="topMembers.length > 0">
-                <div class="member-item" *ngFor="let member of topMembers; let i = index"
+                <div class="member-item" *ngFor="let member of topMembers; let i = index; trackBy: trackByMember"
                     (click)="navigateToMemberDetail(member)">
                     <div class="member-rank">
                         <div class="rank-number">{{ i + 1 }}</div>
-                        <mat-icon *ngIf="i < 3" class="rank-icon" [class]="'rank-' + (i + 1)">
-                            {{ i === 0 ? 'emoji_events' : i === 1 ? 'military_tech' : 'workspace_premium' }}
-                        </mat-icon>
+                        <span class="rank-icon" *ngIf="i < 3" [class]="'rank-' + (i + 1)">
+                            {{ i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉' }}
+                        </span>
                     </div>
 
                     <div class="member-info">
@@ -341,13 +388,13 @@
                     </div>
 
                     <div class="member-actions">
-                        <mat-icon>chevron_right</mat-icon>
+                        <span class="action-icon">›</span>
                     </div>
                 </div>
             </div>
 
             <div class="empty-members" *ngIf="topMembers.length === 0">
-                <mat-icon class="empty-icon">people_outline</mat-icon>
+                <span class="empty-icon">👥</span>
                 <h4>No Member Data</h4>
                 <p>No member transactions found for the selected period.</p>
             </div>
@@ -355,4 +402,18 @@
 
     </div>
 
+</div>
+
+<!-- Real-time Update Toast Notifications -->
+<div class="toast-container">
+    <div class="toast" *ngFor="let toast of realtimeToasts(); trackBy: trackByToast" [class]="'toast-' + toast.type">
+        <div class="toast-content">
+            <span class="toast-icon">{{ getToastIcon(toast.type) }}</span>
+            <div class="toast-message">
+                <div class="toast-title">{{ toast.title }}</div>
+                <div class="toast-text">{{ toast.message }}</div>
+            </div>
+        </div>
+        <button class="toast-close" (click)="dismissToast(toast.id)">×</button>
+    </div>
 </div>

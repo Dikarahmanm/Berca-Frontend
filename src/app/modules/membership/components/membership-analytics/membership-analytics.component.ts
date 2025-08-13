@@ -226,17 +226,52 @@ export class MembershipAnalyticsComponent implements OnInit, OnDestroy {
 
     // Generate spending analysis
     this.spendingAnalysisData = [
-      { name: 'Low Spenders (< 1M)', value: 35 },
-      { name: 'Medium Spenders (1M - 5M)', value: 45 },
-      { name: 'High Spenders (5M - 15M)', value: 15 },
-      { name: 'Premium Spenders (> 15M)', value: 5 }
+      {
+        name: 'Low Spenders (< 1M)',
+        value: 35,
+        labels: ['Low Spenders (< 1M)'],
+        data: [35]
+      },
+      {
+        name: 'Medium Spenders (1M - 5M)',
+        value: 45,
+        labels: ['Medium Spenders (1M - 5M)'],
+        data: [45]
+      },
+      {
+        name: 'High Spenders (5M - 15M)',
+        value: 15,
+        labels: ['High Spenders (5M - 15M)'],
+        data: [15]
+      },
+      {
+        name: 'Premium Spenders (> 15M)',
+        value: 5,
+        labels: ['Premium Spenders (> 15M)'],
+        data: [5]
+      }
     ];
 
     // Generate points analysis
     this.pointsAnalysisData = [
-      { name: 'Points Earned', value: 45600 },
-      { name: 'Points Redeemed', value: 32100 },
-      { name: 'Points Available', value: 13500 }
+      {
+        name: 'Points Earned',
+        value: 45600,
+        labels: ['Points Earned'],
+        data: [45600]
+      },
+      {
+        name: 'Points Redeemed',
+        value: 32100,
+        labels: ['Points Redeemed'],
+        data: [32100]
+      },
+      {
+        name: 'Points Available',
+        value: 13500,
+        labels: ['Points Available'],
+        data: [13500]
+      }
     ];
 
     this.loading = false;
@@ -247,9 +282,12 @@ export class MembershipAnalyticsComponent implements OnInit, OnDestroy {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
     for (let i = 0; i < 12; i++) {
+      const value = Math.floor(Math.random() * 100) + 50; // Random growth between 50-150
       data.push({
         name: months[i],
-        value: Math.floor(Math.random() * 100) + 50 // Random growth between 50-150
+        value,
+        labels: [months[i]],
+        data: [value]
       });
     }
     
@@ -299,6 +337,8 @@ export class MembershipAnalyticsComponent implements OnInit, OnDestroy {
     return this.tierDistribution.map(tier => ({
       name: tier.tier,
       value: tier.count,
+      labels: [tier.tier],
+      data: [tier.count],
       extra: { color: tier.color, percentage: tier.percentage }
     }));
   }

@@ -8,13 +8,9 @@
             <h1 class="page-title">
                 <span class="title-icon">{{ getFormIcon() }}</span>
                 {{ getFormTitle() }}
-                <span class="realtime-indicator" [class.active]="realtimeConnected()">
-                    <span class="indicator-dot"></span>
-                    {{ realtimeConnected() ? 'Live' : 'Offline' }}
-                </span>
             </h1>
-            <p class="page-subtitle" *ngIf="member">
-                {{ member.memberNumber }} • {{ member.name }}
+            <p class="page-subtitle" *ngIf="member()">
+                {{ member()?.memberNumber }} • {{ member()?.name }}
             </p>
         </div>
 
@@ -32,13 +28,13 @@
     </div>
 
     <!-- Loading State -->
-    <div *ngIf="loading$()" class="loading-container">
+    <div *ngIf="loading()" class="loading-container">
         <div class="loading-spinner"></div>
         <p class="loading-text">Loading member data...</p>
     </div>
 
     <!-- Error State -->
-    <div *ngIf="error$() as error" class="error-container card">
+    <div *ngIf="error() as error" class="error-container card">
         <div class="error-content">
             <span class="error-icon">⚠️</span>
             <div class="error-message">
@@ -53,10 +49,10 @@
     </div>
 
     <!-- Form Content -->
-    <div class="content-section" *ngIf="!loading$() && !error$()">
+    <div class="content-section" *ngIf="!loading() && !error()">
 
         <!-- Member Stats Card (View Mode Only) -->
-        <div class="member-stats card" *ngIf="isReadOnlyMode() && member">
+        <div class="member-stats card" *ngIf="isReadOnlyMode() && member()">
             <div class="stats-header">
                 <h3 class="stats-title">
                     <span class="stats-icon">📊</span>
@@ -68,17 +64,17 @@
                     <div class="stat-icon">🆔</div>
                     <div class="stat-content">
                         <div class="stat-label">Member Since</div>
-                        <div class="stat-value">{{ formatDate(member.createdAt) }}</div>
+                        <div class="stat-value">{{ formatDate(member()?.createdAt) }}</div>
                     </div>
                 </div>
 
                 <div class="stat-item">
-                    <div class="stat-icon tier-icon" [attr.data-tier]="member.tier.toLowerCase()">
-                        {{ getTierIcon(member.tier) }}
+                    <div class="stat-icon tier-icon" [attr.data-tier]="member()?.tier?.toLowerCase()">
+                        {{ getTierIcon(member()?.tier || 'Bronze') }}
                     </div>
                     <div class="stat-content">
                         <div class="stat-label">Current Tier</div>
-                        <div class="stat-value">{{ member.tier }}</div>
+                        <div class="stat-value">{{ member()?.tier }}</div>
                     </div>
                 </div>
 
@@ -86,7 +82,7 @@
                     <div class="stat-icon">💰</div>
                     <div class="stat-content">
                         <div class="stat-label">Total Spent</div>
-                        <div class="stat-value">{{ formatCurrency(member.totalSpent) }}</div>
+                        <div class="stat-value">{{ formatCurrency(member()?.totalSpent || 0) }}</div>
                     </div>
                 </div>
 
@@ -94,7 +90,7 @@
                     <div class="stat-icon">⭐</div>
                     <div class="stat-content">
                         <div class="stat-label">Available Points</div>
-                        <div class="stat-value">{{ formatNumber(member.availablePoints) }}</div>
+                        <div class="stat-value">{{ formatNumber(member()?.availablePoints || 0) }}</div>
                     </div>
                 </div>
 
@@ -102,7 +98,7 @@
                     <div class="stat-icon">🧾</div>
                     <div class="stat-content">
                         <div class="stat-label">Total Transactions</div>
-                        <div class="stat-value">{{ formatNumber(member.totalTransactions) }}</div>
+                        <div class="stat-value">{{ formatNumber(member()?.totalTransactions || 0) }}</div>
                     </div>
                 </div>
 
@@ -110,7 +106,7 @@
                     <div class="stat-icon">📅</div>
                     <div class="stat-content">
                         <div class="stat-label">Last Transaction</div>
-                        <div class="stat-value">{{ formatDate(member.lastTransactionDate) }}</div>
+                        <div class="stat-value">{{ formatDate(member()?.lastTransactionDate) }}</div>
                     </div>
                 </div>
             </div>
@@ -118,7 +114,7 @@
             <!-- Quick Actions -->
             <div class="quick-actions" *ngIf="isReadOnlyMode()">
                 <button class="btn btn-primary" 
-                    (click)="router.navigate(['/dashboard/membership/points', member.id])">
+                    (click)="router.navigate(['/dashboard/membership/points', member()?.id])">
                     <span class="btn-icon">⭐</span>
                     Manage Points
                 </button>
@@ -168,7 +164,7 @@
                             <div class="field-error" *ngIf="isFieldInvalid('phone')">
                                 {{ getFieldError('phone') }}
                             </div>
-                            <div class="field-hint" *ngIf="phoneExists">
+                            <div class="field-hint" *ngIf="phoneExists()">
                                 <span class="hint-icon">⚠️</span>
                                 This phone number is already registered
                             </div>
@@ -176,7 +172,7 @@
 
                         <!-- Email -->
                         <div class="form-field">
-                            <label class="field-label">Email Address *</label>
+                            <label class="field-label">Email Address</label>
                             <div class="input-wrapper">
                                 <input class="form-control" type="email" formControlName="email" 
                                     placeholder="member@example.com" [readonly]="isReadOnlyMode()">
@@ -189,7 +185,7 @@
 
                         <!-- Gender -->
                         <div class="form-field">
-                            <label class="field-label">Gender *</label>
+                            <label class="field-label">Gender</label>
                             <div class="select-wrapper">
                                 <select class="form-control" formControlName="gender" [disabled]="isReadOnlyMode()">
                                     <option value="" disabled>Select gender</option>
@@ -206,7 +202,7 @@
 
                         <!-- Date of Birth -->
                         <div class="form-field">
-                            <label class="field-label">Date of Birth *</label>
+                            <label class="field-label">Date of Birth</label>
                             <div class="input-wrapper">
                                 <input class="form-control" type="date" formControlName="dateOfBirth"
                                     [readonly]="isReadOnlyMode()">
@@ -215,14 +211,14 @@
                             <div class="field-error" *ngIf="isFieldInvalid('dateOfBirth')">
                                 {{ getFieldError('dateOfBirth') }}
                             </div>
-                            <div class="field-hint" *ngIf="member && isReadOnlyMode()">
+                            <div class="field-hint" *ngIf="member() && isReadOnlyMode()">
                                 {{ getDisplayAge() }}
                             </div>
                         </div>
 
                         <!-- Address -->
                         <div class="form-field full-width">
-                            <label class="field-label">Address *</label>
+                            <label class="field-label">Address</label>
                             <div class="input-wrapper">
                                 <textarea class="form-control" formControlName="address" rows="3" 
                                     placeholder="Enter complete address" [readonly]="isReadOnlyMode()"></textarea>
@@ -262,7 +258,7 @@
                 </div>
 
                 <!-- Member Information Display (View Mode) -->
-                <div class="form-section" *ngIf="isReadOnlyMode() && member">
+                <div class="form-section" *ngIf="isReadOnlyMode() && member()">
                     <div class="section-header">
                         <h3 class="section-title">
                             <span class="section-icon">📋</span>
@@ -274,15 +270,15 @@
                         <div class="info-item">
                             <div class="info-label">Member Number</div>
                             <div class="info-value">
-                                <span class="info-badge primary">{{ member.memberNumber }}</span>
+                                <span class="info-badge primary">{{ member()?.memberNumber }}</span>
                             </div>
                         </div>
 
                         <div class="info-item">
                             <div class="info-label">Member Tier</div>
                             <div class="info-value">
-                                <span class="tier-badge" [attr.data-tier]="member.tier.toLowerCase()">
-                                    {{ getTierIcon(member.tier) }} {{ member.tier }}
+                                <span class="tier-badge" [attr.data-tier]="member()?.tier?.toLowerCase()">
+                                    {{ getTierIcon(member()?.tier || 'Bronze') }} {{ member()?.tier }}
                                 </span>
                             </div>
                         </div>
@@ -290,21 +286,21 @@
                         <div class="info-item">
                             <div class="info-label">Account Status</div>
                             <div class="info-value">
-                                <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
-                                    <span class="status-icon">{{ member.isActive ? '✅' : '❌' }}</span>
-                                    {{ member.isActive ? 'Active' : 'Inactive' }}
+                                <span class="status-badge" [class.active]="member()?.isActive" [class.inactive]="!member()?.isActive">
+                                    <span class="status-icon">{{ member()?.isActive ? '✅' : '❌' }}</span>
+                                    {{ member()?.isActive ? 'Active' : 'Inactive' }}
                                 </span>
                             </div>
                         </div>
 
                         <div class="info-item">
                             <div class="info-label">Created At</div>
-                            <div class="info-value">{{ formatDate(member.createdAt) }}</div>
+                            <div class="info-value">{{ formatDate(member()?.createdAt) }}</div>
                         </div>
 
                         <div class="info-item">
                             <div class="info-label">Last Updated</div>
-                            <div class="info-value">{{ formatDate(member.updatedAt) }}</div>
+                            <div class="info-value">{{ formatDate(member()?.updatedAt) }}</div>
                         </div>
                     </div>
                 </div>
@@ -317,8 +313,8 @@
                     </button>
 
                     <button class="btn btn-primary" type="submit" [disabled]="isSubmitButtonDisabled()">
-                        <div class="loading-spinner" *ngIf="isSubmitting"></div>
-                        <span class="btn-icon" *ngIf="!isSubmitting">💾</span>
+                        <div class="loading-spinner" *ngIf="isSubmitting()"></div>
+                        <span class="btn-icon" *ngIf="!isSubmitting()">💾</span>
                         {{ getSubmitButtonText() }}
                     </button>
                 </div>
@@ -328,22 +324,8 @@
 
     <!-- Floating Action Button (Mobile) -->
     <button class="fab" *ngIf="!isReadOnlyMode()" (click)="onSubmit()" title="Save member" [disabled]="isSubmitButtonDisabled()">
-        <span class="fab-icon" *ngIf="!isSubmitting">💾</span>
-        <div class="loading-spinner" *ngIf="isSubmitting"></div>
+        <span class="fab-icon" *ngIf="!isSubmitting()">💾</span>
+        <div class="loading-spinner" *ngIf="isSubmitting()"></div>
     </button>
 
-</div>
-
-<!-- Real-time Update Toast Notifications -->
-<div class="toast-container">
-    <div class="toast" *ngFor="let toast of realtimeToasts(); trackBy: trackByToast" [class]="'toast-' + toast.type">
-        <div class="toast-content">
-            <span class="toast-icon">{{ getToastIcon(toast.type) }}</span>
-            <div class="toast-message">
-                <div class="toast-title">{{ toast.title }}</div>
-                <div class="toast-text">{{ toast.message }}</div>
-            </div>
-        </div>
-        <button class="toast-close" (click)="dismissToast(toast.id)">×</button>
-    </div>
 </div>

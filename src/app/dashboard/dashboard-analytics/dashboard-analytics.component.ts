@@ -1,5 +1,5 @@
 // src/app/dashboard/dashboard-analytics/dashboard-analytics.component.ts
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -66,24 +66,24 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
   kpis$: Observable<DashboardKPIDto | null>;
   quickStats$: Observable<QuickStatsDto | null>;
   
-  // Chart data
-  salesChartData: ChartDataDto[] = [];
-  revenueChartData: ChartDataDto[] = [];
-  topProducts: TopProductDto[] = [];
-  worstProducts: WorstPerformingProductDto[] = [];
-  categorySales: CategorySalesDto[] = [];
-  recentTransactions: RecentTransactionDto[] = [];
-  lowStockAlerts: LowStockProductDto[] = [];
+  // Chart data - converted to signals
+  salesChartData = signal<ChartDataDto[]>([]);
+  revenueChartData = signal<ChartDataDto[]>([]);
+  topProducts = signal<TopProductDto[]>([]);
+  worstProducts = signal<WorstPerformingProductDto[]>([]);
+  categorySales = signal<CategorySalesDto[]>([]);
+  recentTransactions = signal<RecentTransactionDto[]>([]);
+  lowStockAlerts = signal<LowStockProductDto[]>([]);
 
-  // Current data for calculations
-  currentKPIs: DashboardKPIDto | null = null;
-  currentQuickStats: QuickStatsDto | null = null;
+  // Current data for calculations - converted to signals
+  currentKPIs = signal<DashboardKPIDto | null>(null);
+  currentQuickStats = signal<QuickStatsDto | null>(null);
 
-  // UI state
-  isLoading = true;
-  selectedPeriod: 'today' | 'week' | 'month' | 'year' = 'month';
-  selectedChartPeriod: 'daily' | 'weekly' | 'monthly' = 'daily';
-  selectedWorstCategory: string = 'all';
+  // UI state - converted to signals
+  isLoading = signal<boolean>(true);
+  selectedPeriod = signal<'today' | 'week' | 'month' | 'year'>('month');
+  selectedChartPeriod = signal<'daily' | 'weekly' | 'monthly'>('daily');
+  selectedWorstCategory = signal<string>('all');
   refreshInterval: any;
 
   // Chart colors
@@ -125,8 +125,9 @@ constructor(
   // ===== DATA LOADING =====
 
   loadDashboardData() {
-    this.isLoading = true;
+    this.isLoading.set(true);
     
+    // ✅ SYNCHRONIZED: Use same date range as Reports (current month)
     // ✅ SYNCHRONIZED: Use same date range as Reports (current month)
     const { startDate, endDate } = DateRangeUtil.getCurrentMonthRange();
     
@@ -141,7 +142,7 @@ constructor(
     // Load all dashboard data with synchronized date range
     const kpis$ = this.dashboardService.getDashboardKPIs(startDate, endDate);
     const quickStats$ = this.dashboardService.getQuickStats();
-    const salesChart$ = this.dashboardService.getSalesChartData(this.selectedChartPeriod, startDate, endDate);
+    const salesChart$ = this.dashboardService.getSalesChartData(this.selectedChartPeriod(), startDate, endDate);
     const revenueChart$ = this.dashboardService.getRevenueChartData('monthly', startDate, endDate);
     const topProducts$ = this.dashboardService.getTopSellingProducts(8, startDate, endDate);
     const worstProducts$ = this.dashboardService.getWorstPerformingProducts(8, startDate, endDate);
@@ -173,20 +174,20 @@ constructor(
           console.log('✅ Backend Fix Applied - KPI now includes SaleItems and uses correct date parameters');
         }
         
-        this.currentKPIs = kpis;
-        this.currentQuickStats = quickStats;
-        this.salesChartData = salesChart || [];
-        this.revenueChartData = revenueChart || [];
-        this.topProducts = topProducts || [];
-        this.worstProducts = worstProducts || [];
-        this.categorySales = categorySales || [];
-        this.recentTransactions = recentTransactions || [];
-        this.lowStockAlerts = lowStockAlerts || [];
-        this.isLoading = false;
+        this.currentKPIs.set(kpis);
+        this.currentQuickStats.set(quickStats);
+        this.salesChartData.set(salesChart || []);
+        this.revenueChartData.set(revenueChart || []);
+        this.topProducts.set(topProducts || []);
+        this.worstProducts.set(worstProducts || []);
+        this.categorySales.set(categorySales || []);
+        this.recentTransactions.set(recentTransactions || []);
+        this.lowStockAlerts.set(lowStockAlerts || []);
+        this.isLoading.set(false);
       },
       error: (error) => {
         console.error('Error loading dashboard data:', error);
-        this.isLoading = false;
+        this.isLoading.set(false);
       }
     });
   }
@@ -194,12 +195,12 @@ constructor(
   private subscribeToData() {
     // Subscribe to real-time KPIs
     this.kpis$.pipe(takeUntil(this.destroy$)).subscribe(kpis => {
-      this.currentKPIs = kpis;
+      this.currentKPIs.set(kpis);
     });
 
     // Subscribe to real-time quick stats
     this.quickStats$.pipe(takeUntil(this.destroy$)).subscribe(stats => {
-      this.currentQuickStats = stats;
+      this.currentQuickStats.set(stats);
     });
   }
 
@@ -456,7 +457,7 @@ showTransactionQuickView(transaction: RecentTransactionDto) {
   // ===== PIE CHART HELPERS =====
 
   getPieChartData() {
-    return this.categorySales.map((item, index) => ({
+    return this.categorySales().map((item, index) => ({
       name: item.categoryName,
       value: item.totalRevenue,
       color: item.categoryColor || this.pieColors[index % this.pieColors.length]
@@ -543,10 +544,10 @@ showTransactionQuickView(transaction: RecentTransactionDto) {
     };
 
     // Filter out "Good Performance" and apply category filter
-    let filtered = this.worstProducts.filter(product => {
+    let filtered = this.worstProducts().filter(product => {
       const isNotGoodPerformance = product.performanceCategory !== 'Good Performance';
-      const matchesFilter = this.selectedWorstCategory === 'all' || 
-                           product.performanceCategory === this.selectedWorstCategory;
+      const matchesFilter = this.selectedWorstCategory() === 'all' || 
+                           product.performanceCategory === this.selectedWorstCategory();
       return isNotGoodPerformance && matchesFilter;
     });
 
@@ -566,7 +567,7 @@ showTransactionQuickView(transaction: RecentTransactionDto) {
   // Get available worst performance categories
   getWorstCategories(): string[] {
     const categories = [...new Set(
-      this.worstProducts
+      this.worstProducts()
         .filter(p => p.performanceCategory !== 'Good Performance')
         .map(p => p.performanceCategory)
     )];

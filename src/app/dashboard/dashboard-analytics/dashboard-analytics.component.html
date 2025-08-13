@@ -15,42 +15,45 @@
       </div>
 
       <div class="header-actions">
-        <!-- Simple Select - No Material Design Outline -->
+        <!-- Clean Simple Select - High Contrast Design -->
         <div class="period-selector">
           <label for="period-select" class="sr-only">Select Period</label>
-          <select id="period-select" [(ngModel)]="selectedPeriod" (change)="onPeriodChange()" class="form-select">
-            <option value="today">Hari Ini</option>
-            <option value="week">7 Hari Terakhir</option>
-            <option value="month">30 Hari Terakhir</option>
-            <option value="year">1 Tahun Terakhir</option>
+          <select id="period-select" [ngModel]="selectedPeriod()" (ngModelChange)="selectedPeriod.set($event); onPeriodChange()" class="form-select" 
+            aria-label="Select time period for analytics">
+            <option value="today">📅 Hari Ini</option>
+            <option value="week">📊 7 Hari Terakhir</option>
+            <option value="month">🗓️ 30 Hari Terakhir</option>
+            <option value="year">📈 1 Tahun Terakhir</option>
           </select>
         </div>
 
         <button class="btn btn-primary refresh-btn" (click)="refreshData()" [disabled]="isLoading" type="button"
-          title="Refresh dashboard data (Ctrl+R)">
+          title="Refresh dashboard data (Ctrl+R)" aria-label="Refresh analytics data">
           <mat-icon>refresh</mat-icon>
-          <span>Refresh</span>
+          <span>🔄 Refresh</span>
         </button>
 
-        <!-- New: Add Product Button -->
-        <button class="btn btn-success" (click)="addNewProduct()" type="button" title="Add new product (Ctrl+N)">
+        <!-- New: Add Product Button - Clean Design -->
+        <button class="btn btn-success" (click)="addNewProduct()" type="button" 
+          title="Add new product (Ctrl+N)" aria-label="Add new product">
           <mat-icon>add</mat-icon>
-          <span class="hide-mobile">Tambah Produk</span>
+          <span class="hide-mobile">➕ Tambah Produk</span>
         </button>
 
-        <!-- New: Export Button -->
-        <button class="btn btn-accent" (click)="exportAnalyticsData()" type="button" title="Export analytics data">
+        <!-- New: Export Button - High Contrast -->
+        <button class="btn btn-accent" (click)="exportAnalyticsData()" type="button" 
+          title="Export analytics data" aria-label="Export analytics data">
           <mat-icon>download</mat-icon>
-          <span class="hide-mobile">Export</span>
+          <span class="hide-mobile">📥 Export</span>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- Loading State -->
+  <!-- Clean Loading State -->
   <div class="loading-overlay" *ngIf="isLoading" role="status" aria-live="polite">
-    <mat-spinner diameter="60" aria-label="Loading analytics data"></mat-spinner>
-    <p>Memuat data analytics...</p>
+    <div class="loading-spinner"></div>
+    <p>🔄 Memuat data analytics...</p>
   </div>
 
   <!-- Main Content -->
@@ -64,48 +67,48 @@
       </div>
 
       <div class="quick-stats-grid">
-        <article class="quick-stat-card revenue">
-          <div class="stat-icon">
-            <mat-icon>attach_money</mat-icon>
+        <article class="quick-stat-card revenue" role="article" aria-labelledby="revenue-stat">
+          <div class="stat-icon" aria-hidden="true">
+            💰
           </div>
           <div class="stat-content">
-            <div class="stat-value">{{ formatCurrency(currentQuickStats.todayRevenue) }}</div>
+            <div class="stat-value" id="revenue-stat">{{ formatCurrency(currentQuickStats()?.todayRevenue || 0) }}</div>
             <div class="stat-label">Pendapatan Hari Ini</div>
-            <div class="stat-change positive" *ngIf="currentQuickStats.revenueGrowthPercentage > 0">
-              <mat-icon>trending_up</mat-icon>
-              <span>+{{ formatNumber(currentQuickStats.revenueGrowthPercentage) }}%</span>
+            <div class="stat-change positive" *ngIf="currentQuickStats()?.revenueGrowthPercentage && currentQuickStats()!.revenueGrowthPercentage > 0">
+              📈
+              <span>+{{ formatNumber(currentQuickStats()!.revenueGrowthPercentage) }}%</span>
             </div>
           </div>
         </article>
 
-        <article class="quick-stat-card transactions">
-          <div class="stat-icon">
-            <mat-icon>receipt</mat-icon>
+        <article class="quick-stat-card transactions" role="article" aria-labelledby="transactions-stat">
+          <div class="stat-icon" aria-hidden="true">
+            🧾
           </div>
           <div class="stat-content">
-            <div class="stat-value">{{ formatNumber(currentQuickStats.todayTransactions) }}</div>
+            <div class="stat-value" id="transactions-stat">{{ formatNumber(currentQuickStats()?.todayTransactions || 0) }}</div>
             <div class="stat-label">Transaksi Hari Ini</div>
             <div class="stat-meta">Transaksi berhasil</div>
           </div>
         </article>
 
-        <article class="quick-stat-card alerts">
-          <div class="stat-icon">
-            <mat-icon>warning</mat-icon>
+        <article class="quick-stat-card alerts" role="article" aria-labelledby="alerts-stat">
+          <div class="stat-icon" aria-hidden="true">
+            ⚠️
           </div>
           <div class="stat-content">
-            <div class="stat-value">{{ formatNumber(currentQuickStats.lowStockAlerts) }}</div>
+            <div class="stat-value" id="alerts-stat">{{ formatNumber(currentQuickStats()?.lowStockAlerts || 0) }}</div>
             <div class="stat-label">Stok Menipis</div>
             <div class="stat-meta">Produk perlu restock</div>
           </div>
         </article>
 
-        <article class="quick-stat-card members">
-          <div class="stat-icon">
-            <mat-icon>people</mat-icon>
+        <article class="quick-stat-card members" role="article" aria-labelledby="members-stat">
+          <div class="stat-icon" aria-hidden="true">
+            👥
           </div>
           <div class="stat-content">
-            <div class="stat-value">{{ formatNumber(currentQuickStats.activeMembers) }}</div>
+            <div class="stat-value" id="members-stat">{{ formatNumber(currentQuickStats()?.activeMembers || 0) }}</div>
             <div class="stat-label">Member Aktif</div>
             <div class="stat-meta">Member terdaftar</div>
           </div>
@@ -121,47 +124,47 @@
       </div>
 
       <div class="kpi-grid">
-        <article class="kpi-card revenue">
-          <div class="kpi-icon">
-            <mat-icon>trending_up</mat-icon>
+        <article class="kpi-card revenue" role="article" aria-labelledby="kpi-revenue">
+          <div class="kpi-icon" aria-hidden="true">
+            📈
           </div>
           <div class="kpi-content">
-            <div class="kpi-value">{{ formatCurrency(currentKPIs.todayRevenue) }}</div>
+            <div class="kpi-value" id="kpi-revenue">{{ formatCurrency(currentKPIs()?.todayRevenue || 0) }}</div>
             <div class="kpi-label">Pendapatan Hari Ini</div>
-            <div class="kpi-meta">{{ formatNumber(currentKPIs.todayTransactions) }} transaksi</div>
+            <div class="kpi-meta">{{ formatNumber(currentKPIs()?.todayTransactions || 0) }} transaksi</div>
           </div>
         </article>
 
-        <article class="kpi-card monthly">
-          <div class="kpi-icon">
-            <mat-icon>calendar_month</mat-icon>
+        <article class="kpi-card monthly" role="article" aria-labelledby="kpi-monthly">
+          <div class="kpi-icon" aria-hidden="true">
+            🗓️
           </div>
           <div class="kpi-content">
-            <div class="kpi-value">{{ formatCurrency(currentKPIs.monthlyRevenue) }}</div>
+            <div class="kpi-value" id="kpi-monthly">{{ formatCurrency(currentKPIs()?.monthlyRevenue || 0) }}</div>
             <div class="kpi-label">Pendapatan Bulanan</div>
-            <div class="kpi-meta">{{ formatNumber(currentKPIs.monthlyTransactions) }} transaksi</div>
+            <div class="kpi-meta">{{ formatNumber(currentKPIs()?.monthlyTransactions || 0) }} transaksi</div>
           </div>
         </article>
 
-        <article class="kpi-card products">
-          <div class="kpi-icon">
-            <mat-icon>inventory_2</mat-icon>
+        <article class="kpi-card products" role="article" aria-labelledby="kpi-products">
+          <div class="kpi-icon" aria-hidden="true">
+            📦
           </div>
           <div class="kpi-content">
-            <div class="kpi-value">{{ formatNumber(currentKPIs.totalProducts) }}</div>
+            <div class="kpi-value" id="kpi-products">{{ formatNumber(currentKPIs()?.totalProducts || 0) }}</div>
             <div class="kpi-label">Total Produk</div>
-            <div class="kpi-meta">{{ formatNumber(currentKPIs.lowStockProducts) }} stok rendah</div>
+            <div class="kpi-meta">{{ formatNumber(currentKPIs()?.lowStockProducts || 0) }} stok rendah</div>
           </div>
         </article>
 
-        <article class="kpi-card profit">
-          <div class="kpi-icon">
-            <mat-icon>savings</mat-icon>
+        <article class="kpi-card profit" role="article" aria-labelledby="kpi-profit">
+          <div class="kpi-icon" aria-hidden="true">
+            💰
           </div>
           <div class="kpi-content">
-            <div class="kpi-value">{{ formatCurrency(currentKPIs.totalProfit) }}</div>
+            <div class="kpi-value" id="kpi-profit">{{ formatCurrency(currentKPIs()?.totalProfit || 0) }}</div>
             <div class="kpi-label">Total Profit</div>
-            <div class="kpi-meta">Rata-rata: {{ formatCurrency(currentKPIs.averageTransactionValue) }}</div>
+            <div class="kpi-meta">Rata-rata: {{ formatCurrency(currentKPIs()?.averageTransactionValue || 0) }}</div>
           </div>
         </article>
       </div>
@@ -180,16 +183,17 @@
         <article class="product-card top-products">
           <header class="card-header">
             <h3>
-              <mat-icon>trending_up</mat-icon>
+              📈
               Produk Terlaris
             </h3>
-            <button class="btn btn-primary" (click)="navigateToProducts()" type="button">
-              Lihat Semua
+            <button class="btn btn-primary" (click)="navigateToProducts()" type="button" 
+              aria-label="View all top selling products">
+              👁️ Lihat Semua
             </button>
           </header>
 
-          <div class="product-list" *ngIf="topProducts.length > 0; else noTopProducts">
-            <article class="top-product-item" *ngFor="let product of topProducts; let i = index"
+          <div class="product-list" *ngIf="topProducts().length > 0; else noTopProducts">
+            <article class="top-product-item" *ngFor="let product of topProducts(); let i = index"
               (contextmenu)="showProductContextMenu($event, product.productId, product.productName)"
               title="Right-click for more options">
               <!-- Header with rank and weighted score -->
@@ -248,7 +252,7 @@
 
           <ng-template #noTopProducts>
             <div class="empty-state">
-              <mat-icon>inventory_2</mat-icon>
+              <div class="empty-icon">📦</div>
               <p>Belum ada data produk terlaris</p>
             </div>
           </ng-template>
@@ -258,22 +262,24 @@
         <article class="product-card worst-products">
           <header class="card-header">
             <h3>
-              <mat-icon>trending_down</mat-icon>
+              📉
               Produk Performa Buruk
             </h3>
             <div class="header-actions">
               <div class="category-filter">
                 <label for="worst-category-select" class="sr-only">Filter Kategori</label>
-                <select id="worst-category-select" [(ngModel)]="selectedWorstCategory"
-                  (change)="onWorstCategoryChange()" class="form-select">
-                  <option value="all">Semua Kategori</option>
+                <select id="worst-category-select" [ngModel]="selectedWorstCategory()"
+                  (ngModelChange)="selectedWorstCategory.set($event); onWorstCategoryChange()" class="form-select" 
+                  aria-label="Filter products by category">
+                  <option value="all">🏷️ Semua Kategori</option>
                   <option *ngFor="let category of getWorstCategories()" [value]="category">
-                    {{ category }}
+                    📂 {{ category }}
                   </option>
                 </select>
               </div>
-              <button class="btn btn-warning" (click)="navigateToProducts()" type="button">
-                Lihat Semua
+              <button class="btn btn-warning" (click)="navigateToProducts()" type="button" 
+                aria-label="View all worst performing products">
+                👁️ Lihat Semua
               </button>
             </div>
           </header>
@@ -339,7 +345,7 @@
 
           <ng-template #noWorstProducts>
             <div class="empty-state">
-              <mat-icon>trending_down</mat-icon>
+              <div class="empty-icon">📉</div>
               <p>Belum ada data produk performa buruk</p>
             </div>
           </ng-template>
@@ -351,16 +357,17 @@
     <section class="category-revenue-section" aria-labelledby="category-revenue-title">
       <header class="card-header">
         <h3 id="category-revenue-title">
-          <mat-icon>pie_chart</mat-icon>
+          🥰
           Pendapatan per Kategori
         </h3>
-        <button class="btn btn-primary" (click)="navigateToReports()" type="button">
-          Lihat Detail
+        <button class="btn btn-primary" (click)="navigateToReports()" type="button" 
+          aria-label="View detailed category revenue report">
+          📊 Lihat Detail
         </button>
       </header>
 
-      <div class="category-grid" *ngIf="categorySales.length > 0; else noCategoryData">
-        <article class="category-item" *ngFor="let category of categorySales"
+      <div class="category-grid" *ngIf="categorySales().length > 0; else noCategoryData">
+        <article class="category-item" *ngFor="let category of categorySales()"
           (click)="filterProductsByCategory(category.categoryName)" class="clickable-category"
           title="Click to filter products by this category">
           <div class="category-color" [style.background-color]="category.categoryColor"></div>
@@ -381,7 +388,7 @@
 
       <ng-template #noCategoryData>
         <div class="empty-state">
-          <mat-icon>category</mat-icon>
+          <div class="empty-icon">🏷️</div>
           <p>Belum ada data penjualan per kategori</p>
         </div>
       </ng-template>
@@ -391,16 +398,17 @@
     <section class="transactions-section" aria-labelledby="transactions-title">
       <header class="card-header">
         <h3 id="transactions-title">
-          <mat-icon>receipt_long</mat-icon>
+          🧾
           Transaksi Terbaru
         </h3>
-        <button class="btn btn-primary" (click)="navigateToTransactions()" type="button">
-          Lihat Semua
+        <button class="btn btn-primary" (click)="navigateToTransactions()" type="button" 
+          aria-label="View all recent transactions">
+          👁️ Lihat Semua
         </button>
       </header>
 
-      <div class="transactions-list" *ngIf="recentTransactions.length > 0; else noTransactions">
-        <article class="transaction-item" *ngFor="let transaction of recentTransactions"
+      <div class="transactions-list" *ngIf="recentTransactions().length > 0; else noTransactions">
+        <article class="transaction-item" *ngFor="let transaction of recentTransactions()"
           (contextmenu)="showTransactionContextMenu($event, transaction)" title="Right-click for more options">
           <div class="transaction-id">
             <mat-icon>receipt</mat-icon>
@@ -432,7 +440,7 @@
 
       <ng-template #noTransactions>
         <div class="empty-state">
-          <mat-icon>receipt_long</mat-icon>
+          <div class="empty-icon">🧾</div>
           <p>Belum ada transaksi terbaru</p>
         </div>
       </ng-template>
@@ -442,17 +450,18 @@
     <section class="low-stock-section" aria-labelledby="low-stock-title">
       <header class="card-header">
         <h3 id="low-stock-title">
-          <mat-icon>warning</mat-icon>
+          ⚠️
           Peringatan Stok Menipis
-          <span class="stock-count-badge">{{ lowStockAlerts.length }} items</span>
+          <span class="stock-count-badge">🔢 {{ lowStockAlerts().length }} items</span>
         </h3>
-        <button class="btn btn-warning" (click)="navigateToInventory()" type="button">
-          Kelola Stok
+        <button class="btn btn-warning" (click)="navigateToInventory()" type="button" 
+          aria-label="Manage inventory stock levels">
+          📦 Kelola Stok
         </button>
       </header>
 
-      <div class="low-stock-list" *ngIf="lowStockAlerts.length > 0; else noLowStock">
-        <article class="low-stock-item" *ngFor="let item of lowStockAlerts"
+      <div class="low-stock-list" *ngIf="lowStockAlerts().length > 0; else noLowStock">
+        <article class="low-stock-item" *ngFor="let item of lowStockAlerts()"
           (contextmenu)="showStockContextMenu($event, item)" title="Right-click for quick actions">
           <div class="stock-status" [ngClass]="item.isOutOfStock ? 'out-of-stock' : 'low-stock'">
             <mat-icon>{{ item.isOutOfStock ? 'block' : 'warning' }}</mat-icon>
@@ -489,7 +498,7 @@
 
       <ng-template #noLowStock>
         <div class="empty-state success">
-          <mat-icon>check_circle</mat-icon>
+          <div class="empty-icon">✅</div>
           <p>Semua produk memiliki stok yang mencukupi</p>
         </div>
       </ng-template>
@@ -510,12 +519,13 @@
 
   <!-- Empty State -->
   <div class="empty-dashboard" *ngIf="!isLoading && !currentKPIs" role="status">
-    <mat-icon>analytics</mat-icon>
+    <div class="empty-icon">📊</div>
     <h2>Belum Ada Data Analytics</h2>
     <p>Data analytics akan muncul setelah ada transaksi dan aktivitas bisnis</p>
-    <button class="btn btn-primary" (click)="refreshData()" type="button">
+    <button class="btn btn-primary" (click)="refreshData()" type="button" 
+      aria-label="Reload analytics data">
       <mat-icon>refresh</mat-icon>
-      <span>Muat Ulang Data</span>
+      <span>🔄 Muat Ulang Data</span>
     </button>
   </div>
 

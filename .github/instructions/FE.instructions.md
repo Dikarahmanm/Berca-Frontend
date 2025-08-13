@@ -1,4 +1,8 @@
-# Frontend Development Instructions - Toko Eniwan POS
+# 🚀 Frontend Development Instructions - Toko Eniwan POS
+
+_Updated Final Revision • Sprint 2-3 Complete • Enhanced for Sprint 4+ Implementation_
+
+---
 
 ## ⚠️ CRITICAL CODE GENERATION RULES
 
@@ -12,22 +16,23 @@
 ### 🔄 **MANDATORY Workflow:**
 
 ```
-1. Request: "Create ProductListComponent"
+1. Request: "Create SupplierListComponent"
 2. Response:
-   - "I'll create ProductListComponent using Angular 20 standalone pattern"
+   - "I'll create SupplierListComponent using Angular 20 standalone pattern"
    - "It will include signals for state, mobile-first responsive design"
    - "Uses OnPush change detection for performance optimization"
+   - "Includes branch-aware supplier management and facture integration"
    - "MAY I GENERATE THE CODE NOW, Tuan Maharaja Dika?"
 3. Wait for: "yes/boleh/silakan"
 4. Generate: Component with proper patterns
-5. Suggest: "Next, we should create ProductService and ProductDto interfaces"
+5. Suggest: "Next, we should create SupplierService and SupplierDto interfaces"
 ```
 
 ---
 
-## 🏗️ **Architecture & Stack**
+## 🏗️ **Architecture & Technology Stack**
 
-### Technology Stack
+### **Core Technologies**
 
 - **Angular 20** with Standalone Components
 - **Angular Build System** for fast development and building
@@ -35,67 +40,74 @@
 - **RxJS** for async operations and data streams
 - **PWA** with Service Worker for offline functionality
 - **Web Notification API** for browser/tab notifications
-- **Modern Simple Design** (no glass-morphism, no mixins)
+- **Clean Simple Design** (high contrast, no glass-morphism, no mixins)
 
-### Project Structure
+### **Project Structure (Enhanced)**
 
 ```
 src/app/
 ├── core/                 # Core services, guards, interceptors
-│   ├── services/        # Global services (auth, state, theme)
-│   ├── guards/          # Route guards
-│   ├── interceptors/    # HTTP interceptors
+│   ├── services/        # Global services (auth, state, theme, receipt, notification)
+│   ├── guards/          # Route guards (auth, role-based)
+│   ├── interceptors/    # HTTP interceptors (auth, error handling)
 │   └── models/          # TypeScript interfaces/types
 ├── shared/              # Shared components, pipes, directives
-│   ├── components/      # Reusable UI components
-│   ├── pipes/           # Custom pipes
+│   ├── components/      # Reusable UI components (data-table, form-controls)
+│   ├── pipes/           # Custom pipes (currency, date formatting)
 │   ├── directives/      # Custom directives
 │   └── utils/           # Utility functions
-├── modules/             # Feature modules
-│   ├── pos/            # Point of Sale
-│   ├── inventory/      # Product & inventory management
-│   ├── facture/        # Facture management
-│   ├── supplier/       # Supplier management
-│   ├── notifications/  # Notification center
+├── modules/             # Feature modules (Sprint-based organization)
+│   ├── pos/            # Point of Sale (Sprint 2 ✅ Complete)
+│   │   ├── pos/        # Main POS interface
+│   │   ├── receipt-preview/  # Receipt generation & printing
+│   │   ├── barcode-tools/    # Barcode scanner integration
+│   │   └── transaction-detail/ # Transaction management
+│   ├── inventory/      # Product & inventory management (Sprint 2 ✅ Complete)
+│   ├── dashboard/      # Analytics dashboard (Sprint 3 ✅ Complete)
+│   ├── notifications/  # Notification center (Sprint 3 ✅ Complete)
+│   ├── membership/     # Member management (Sprint 2 ✅ Complete)
+│   ├── supplier/       # Supplier management (Sprint 4 🔄 Next)
+│   ├── facture/        # Facture management (Sprint 5 🔄 Future)
+│   ├── branch/         # Branch management (Sprint 4 🔄 Next)
+│   ├── member-debt/    # Member debt system (Sprint 5 🔄 Future)
 │   └── user-profile/   # User profile management
-├── layouts/            # Layout components
+├── layouts/            # Layout components (sidebar, topbar)
 └── styles/             # Global styles (variables, components, utilities)
 ```
 
 ---
 
-## 🎨 **Modern Simple Design System**
+## 🎨 **Enhanced Design System (Clean & Simple)**
 
-### Global CSS Variables (No Mixins)
+### **Global CSS Variables (High Contrast, No Mixins)**
 
 ```scss
-// styles/variables.scss - Global Variables Only
+// styles/variables.scss - Clean Simple Design System
 :root {
-  // Colors - Light Theme
-  --primary: #ff914d;
-  --primary-hover: #e07a3b;
-  --primary-light: #fff4ef;
-  --success: #4bbf7b;
-  --warning: #ffb84d;
-  --error: #e15a4f;
-  --surface: #ffffff;
-  --bg: #fafafa;
-  --bg-secondary: #f5f5f5;
-  --text: #1a1a1a;
-  --text-secondary: #4a5568;
-  --border: #e5e5e5;
-  --shadow: rgba(0, 0, 0, 0.08);
+  // High Contrast Color Palette - Light Theme Only
+  --primary: #ff914d; // Orange primary
+  --primary-hover: #e07a3b; // Orange hover
+  --primary-light: #fff4ef; // Light orange background
+  --success: #4bbf7b; // Green success
+  --warning: #ffb84d; // Yellow warning
+  --error: #e15a4f; // Red error
+  --info: #3b82f6; // Blue info
 
-  // Dark Theme
-  --surface-dark: #2d3748;
-  --bg-dark: #1a202c;
-  --bg-secondary-dark: #2d3748;
-  --text-dark: #f7fafc;
-  --text-secondary-dark: #a0aec0;
-  --border-dark: #4a5568;
-  --shadow-dark: rgba(0, 0, 0, 0.3);
+  // High Contrast Surfaces - NO Transparency
+  --surface: #ffffff; // Pure white surfaces
+  --bg: #f8f9fa; // Light gray background
+  --bg-secondary: #f5f5f5; // Secondary gray background
+  --text: #212529; // Dark text for high contrast
+  --text-secondary: #6c757d; // Secondary gray text
+  --text-muted: #adb5bd; // Muted text
+  --border: #dee2e6; // Light borders
+  --shadow: rgba(0, 0, 0, 0.08); // Subtle shadows
 
-  // Spacing (8px grid system)
+  // NO Dark Theme Variables - Light Theme Only
+  // NO Transparency/Opacity Usage
+  // ALWAYS Ensure High Contrast Between Text and Background
+
+  // Spacing System (8px grid)
   --s1: 4px;
   --s2: 8px;
   --s3: 12px;
@@ -105,58 +117,78 @@ src/app/
   --s8: 32px;
   --s10: 40px;
   --s12: 48px;
+  --s16: 64px;
+  --s20: 80px;
 
-  // Typography
+  // Typography - Readable Sizes
   --text-xs: 12px;
   --text-sm: 14px;
   --text-base: 16px;
   --text-lg: 18px;
   --text-xl: 20px;
   --text-2xl: 24px;
-  --text-3xl: 32px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
 
-  // Borders & Effects
-  --radius: 6px;
-  --radius-lg: 8px;
-  --border-width: 1px;
+  // Font Weights
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  // Line Heights
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  // Simple Transitions - No Complex Animations
   --transition: 150ms ease;
+  --transition-fast: 100ms ease;
+  --transition-slow: 300ms ease;
 
-  // Shadows (simple, minimal)
+  // Border Radius - Simple Rounded Corners
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  // Simple Shadows - Minimal Depth
   --shadow-sm: 0 1px 3px var(--shadow);
   --shadow-md: 0 4px 12px var(--shadow);
+  --shadow-lg: 0 8px 24px var(--shadow);
 
-  // Mobile responsive breakpoints
+  // Mobile Responsive Breakpoints
   --mobile: 640px;
   --tablet: 768px;
   --desktop: 1024px;
+  --wide: 1280px;
 }
 
-// Dark theme application
-:root[data-theme="dark"] {
-  --surface: var(--surface-dark);
-  --bg: var(--bg-dark);
-  --bg-secondary: var(--bg-secondary-dark);
-  --text: var(--text-dark);
-  --text-secondary: var(--text-secondary-dark);
-  --border: var(--border-dark);
-  --shadow: var(--shadow-dark);
-}
+// Design Principles - Clean & Simple
+// ✅ High contrast text/background combinations
+// ✅ No transparency or opacity effects
+// ✅ Light themes only - no dark modes
+// ✅ Simple, clean, reusable components
+// ❌ No "modern" glass effects or complex animations
+// ❌ No dark themes or low contrast elements
+// ❌ No transparency that reduces readability
 ```
 
-### Reusable Component Classes
+### **Reusable Component Classes (Performance Optimized)**
 
 ```scss
-// styles/components.scss - Reusable Component Classes
+// styles/components.scss - Clean Simple Components
 .card {
   background: var(--surface);
-  border: var(--border-width) solid var(--border);
+  border: 2px solid var(--border); // High contrast borders
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
   padding: var(--s6);
-  transition: box-shadow var(--transition);
+  transition: var(--transition);
 
+  // NO shadows, NO transparency - simple clean design
   &:hover {
-    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
   }
 }
 
@@ -164,33 +196,48 @@ src/app/
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--s2);
   padding: var(--s3) var(--s4);
-  border: none;
+  border: 2px solid transparent;
   border-radius: var(--radius);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: var(--font-medium);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: var(--transition);
   text-decoration: none;
-  min-height: 44px; /* Touch target for mobile */
+  min-height: 44px; // Touch target for mobile
 
+  // High Contrast Button Variants
   &.btn-primary {
     background: var(--primary);
-    color: white;
+    color: white; // High contrast on primary
+    border-color: var(--primary);
 
     &:hover:not(:disabled) {
       background: var(--primary-hover);
+      border-color: var(--primary-hover);
     }
   }
 
   &.btn-outline {
-    background: transparent;
-    border: var(--border-width) solid var(--border);
+    background: var(--surface);
     color: var(--text);
+    border-color: var(--border);
 
     &:hover:not(:disabled) {
-      background: var(--bg-secondary);
+      background: var(--primary);
+      color: white; // High contrast on hover
       border-color: var(--primary);
+    }
+  }
+
+  &.btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text);
+    border-color: var(--border);
+
+    &:hover:not(:disabled) {
+      background: var(--border);
     }
   }
 
@@ -206,7 +253,7 @@ src/app/
   label {
     display: block;
     font-size: var(--text-sm);
-    font-weight: 500;
+    font-weight: var(--font-medium);
     color: var(--text);
     margin-bottom: var(--s2);
   }
@@ -216,18 +263,18 @@ src/app/
   textarea {
     width: 100%;
     padding: var(--s3);
-    border: var(--border-width) solid var(--border);
+    border: 2px solid var(--border); // High contrast borders
     border-radius: var(--radius);
     font-size: var(--text-base);
     background: var(--surface);
     color: var(--text);
-    transition: border-color var(--transition);
-    min-height: 44px; /* Touch target */
+    transition: var(--transition);
+    min-height: 44px; // Touch target
 
     &:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(255, 145, 77, 0.1);
+      // NO glow effects, simple border change
     }
   }
 
@@ -238,7 +285,7 @@ src/app/
   }
 }
 
-// Grid system
+// Simple Grid System - No Mixins
 .grid {
   display: grid;
   gap: var(--s6);
@@ -255,10 +302,10 @@ src/app/
 }
 ```
 
-### Mobile-First Responsive Layout (No Mixins)
+### **Mobile-First Responsive Layout (No Mixins)**
 
 ```scss
-// styles/layout.scss - Mobile-First Responsive Layout
+// styles/layout.scss - Mobile-First Clean Layout
 .container {
   width: 100%;
   max-width: 1200px;
@@ -266,78 +313,7 @@ src/app/
   padding: 0 var(--s4);
 }
 
-.topbar {
-  height: 64px;
-  background: var(--surface);
-  border-bottom: var(--border-width) solid var(--border);
-  padding: 0 var(--s4);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  .logo {
-    font-size: var(--text-xl);
-    font-weight: 700;
-    color: var(--primary);
-  }
-
-  .nav-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--s3);
-  }
-}
-
-.sidebar {
-  width: 240px;
-  background: var(--surface);
-  border-right: var(--border-width) solid var(--border);
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 64px;
-  transform: translateX(-100%);
-  transition: transform var(--transition);
-  z-index: 100;
-
-  &.open {
-    transform: translateX(0);
-  }
-
-  .nav-item {
-    display: flex;
-    align-items: center;
-    padding: var(--s4);
-    color: var(--text);
-    text-decoration: none;
-    transition: background-color var(--transition);
-    min-height: 48px; /* Touch target */
-
-    &:hover {
-      background: var(--bg-secondary);
-    }
-
-    &.active {
-      background: var(--primary-light);
-      color: var(--primary);
-      border-right: 3px solid var(--primary);
-    }
-
-    .icon {
-      margin-right: var(--s3);
-      font-size: var(--text-lg);
-    }
-  }
-}
-
-.main-content {
-  margin-left: 0;
-  padding: var(--s6) var(--s4);
-  min-height: calc(100vh - 64px);
-  transition: margin-left var(--transition);
-}
-
-/* Mobile First - Stack everything */
+// Mobile First - Stack everything
 @media (max-width: 640px) {
   .grid-2,
   .grid-3,
@@ -346,805 +322,159 @@ src/app/
   }
 
   .btn {
-    min-height: 48px; /* Larger touch targets on mobile */
+    min-height: 48px; // Larger touch targets on mobile
     padding: var(--s4) var(--s5);
   }
 
-  .card {
-    padding: var(--s4);
-  }
-
-  .sidebar {
-    width: 100%;
+  .form-field input,
+  .form-field select,
+  .form-field textarea {
+    min-height: 48px; // Touch-friendly inputs
   }
 }
 
-/* Tablet - Show sidebar, adjust grid */
+// Tablet - Show 2 columns for grid-3 and grid-4
 @media (min-width: 641px) and (max-width: 1023px) {
   .grid-3,
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
-
-  .sidebar {
-    position: relative;
-    transform: translateX(0);
-    height: calc(100vh - 64px);
-  }
-
-  .main-content {
-    margin-left: 240px;
-    padding: var(--s8);
-  }
 }
 
-/* Desktop - Full layout */
+// Desktop - Full layout
 @media (min-width: 1024px) {
-  .sidebar {
-    position: relative;
-    transform: translateX(0);
-    height: calc(100vh - 64px);
-  }
-
-  .main-content {
-    margin-left: 240px;
-    padding: var(--s10);
-  }
-
   .grid-auto {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
 }
 ```
 
-### Utility Classes (Minimal)
-
-```scss
-// styles/utilities.scss - Minimal Utility Classes
-.text-xs {
-  font-size: var(--text-xs);
-}
-.text-sm {
-  font-size: var(--text-sm);
-}
-.text-base {
-  font-size: var(--text-base);
-}
-.text-lg {
-  font-size: var(--text-lg);
-}
-
-.text-primary {
-  color: var(--text);
-}
-.text-secondary {
-  color: var(--text-secondary);
-}
-.text-success {
-  color: var(--success);
-}
-.text-warning {
-  color: var(--warning);
-}
-.text-error {
-  color: var(--error);
-}
-
-.flex {
-  display: flex;
-}
-.flex-col {
-  flex-direction: column;
-}
-.items-center {
-  align-items: center;
-}
-.justify-center {
-  justify-content: center;
-}
-.justify-between {
-  justify-content: space-between;
-}
-
-.w-full {
-  width: 100%;
-}
-.h-full {
-  height: 100%;
-}
-
-.p-2 {
-  padding: var(--s2);
-}
-.p-4 {
-  padding: var(--s4);
-}
-.p-6 {
-  padding: var(--s6);
-}
-
-.m-2 {
-  margin: var(--s2);
-}
-.m-4 {
-  margin: var(--s4);
-}
-.m-6 {
-  margin: var(--s6);
-}
-
-.hidden {
-  display: none;
-}
-
-/* Mobile utilities */
-@media (max-width: 640px) {
-  .sm-hidden {
-    display: none;
-  }
-  .sm-block {
-    display: block;
-  }
-  .sm-flex {
-    display: flex;
-  }
-  .sm-text-sm {
-    font-size: var(--text-sm);
-  }
-}
-
-/* Tablet utilities */
-@media (min-width: 641px) and (max-width: 1023px) {
-  .md-hidden {
-    display: none;
-  }
-  .md-block {
-    display: block;
-  }
-  .md-flex {
-    display: flex;
-  }
-}
-```
-
 ---
 
-## 🧩 **Component Architecture Patterns**
+## 🧩 **Enhanced Component Architecture Patterns**
 
-### Standalone Component Template (Performance Optimized)
+### **Standalone Component Template (Sprint 4+ Ready)**
 
 ```typescript
 import { Component, input, output, signal, computed, inject, ChangeDetectionStrategy } from "@angular/core";
 import { CommonModule } from "@angular/common";
+import { ReactiveFormsModule } from "@angular/forms";
 
-export interface EntityDto {
+// Enhanced interfaces for Sprint 4+ features
+export interface SupplierDto {
   id: number;
-  name: string;
-  // ... other properties
+  supplierCode: string;
+  companyName: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  address: string;
+  paymentTerms: number;
+  creditLimit: number;
+  isActive: boolean;
+  branchId?: number; // NEW: Branch-aware suppliers
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BranchDto {
+  id: number;
+  branchCode: string;
+  branchName: string;
+  parentBranchId?: number;
+  branchType: "Head" | "Branch" | "SubBranch";
+  address: string;
+  managerName: string;
+  phone: string;
+  isActive: boolean;
 }
 
 @Component({
-  selector: "app-entity-component",
+  selector: "app-supplier-list",
   standalone: true,
-  imports: [CommonModule], // Minimal imports only
+  imports: [CommonModule, ReactiveFormsModule], // Minimal imports only
   changeDetection: ChangeDetectionStrategy.OnPush, // Performance optimization
   template: `
-    <div class="card">
-      <!-- Mobile-first responsive template -->
-      <div class="flex justify-between items-center">
-        <h3 class="text-lg">{{ data().name }}</h3>
-        <span class="badge" [class]="statusClass()">{{ status() }}</span>
-      </div>
+    <div class="supplier-container">
+      <!-- Header with Actions -->
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">Supplier Management</h2>
 
-      <!-- Hide details on mobile, show on tablet+ -->
-      <div class="sm-hidden md-block">
-        <p class="text-sm text-secondary">Additional info here</p>
-      </div>
+        <!-- Branch Filter for Multi-Branch Support -->
+        <div class="flex gap-4 items-center">
+          <select class="form-control" [(ngModel)]="selectedBranchId">
+            <option value="">All Branches</option>
+            <option *ngFor="let branch of branches()" [value]="branch.id">
+              {{ branch.branchName }}
+            </option>
+          </select>
 
-      <div class="flex justify-between items-center mt-4">
-        <div class="flex flex-col">
-          <span class="text-xs text-secondary">Secondary info</span>
-          <span class="text-sm">Primary info</span>
-        </div>
-
-        <div class="flex gap-2">
-          <button class="btn btn-outline" (click)="onEdit()">Edit</button>
-          <button class="btn btn-primary" (click)="onAction()">Action</button>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [
-    `
-      .badge {
-        padding: var(--s1) var(--s2);
-        border-radius: var(--radius);
-        font-size: var(--text-xs);
-        font-weight: 500;
-
-        &.success {
-          background: var(--success);
-          color: white;
-        }
-        &.warning {
-          background: var(--warning);
-          color: white;
-        }
-        &.error {
-          background: var(--error);
-          color: white;
-        }
-      }
-
-      @media (max-width: 640px) {
-        .btn {
-          font-size: var(--text-xs);
-          padding: var(--s2) var(--s3);
-        }
-      }
-    `,
-  ],
-})
-export class EntityComponent {
-  // Signal inputs (Angular 20 feature)
-  data = input.required<EntityDto>();
-
-  // Signal outputs
-  edit = output<EntityDto>();
-  action = output<EntityDto>();
-
-  // Internal state signals
-  loading = signal(false);
-  error = signal<string | null>(null);
-
-  // Computed properties (efficient reactivity)
-  status = computed(() => {
-    const item = this.data();
-    // Simple business logic here
-    return item.name ? "Active" : "Inactive";
-  });
-
-  statusClass = computed(() => {
-    const status = this.status();
-    return status === "Active" ? "success" : "warning";
-  });
-
-  // Event handlers
-  onEdit(): void {
-    this.edit.emit(this.data());
-  }
-
-  onAction(): void {
-    this.action.emit(this.data());
-  }
-}
-```
-
-### Service Pattern with Signals
-
-```typescript
-import { Injectable, signal, computed, inject } from "@angular/core";
-import { HttpClient } from "@angular/common/http";
-import { environment } from "../../environments/environment";
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message: string;
-  errors: string[];
-}
-
-@Injectable({ providedIn: "root" })
-export class EntityService {
-  private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/Entity`;
-
-  // Signal-based state management
-  private _entities = signal<EntityDto[]>([]);
-  private _loading = signal<boolean>(false);
-  private _error = signal<string | null>(null);
-
-  // Public read-only signals
-  readonly entities = this._entities.asReadonly();
-  readonly loading = this._loading.asReadonly();
-  readonly error = this._error.asReadonly();
-
-  // CRUD operations with proper error handling
-  async getEntities(): Promise<void> {
-    this._loading.set(true);
-    this._error.set(null);
-
-    try {
-      const response = await this.http.get<ApiResponse<EntityDto[]>>(this.baseUrl).toPromise();
-      if (response?.success) {
-        this._entities.set(response.data);
-      } else {
-        this._error.set(response?.message || "Failed to load entities");
-      }
-    } catch (error) {
-      this._error.set("Network error occurred");
-      console.error("Error loading entities:", error);
-    } finally {
-      this._loading.set(false);
-    }
-  }
-}
-```
-
----
-
-## 🛡️ **Guards & Interceptors**
-
-### Auth Guard with Signals
-
-```typescript
-import { Injectable, inject } from "@angular/core";
-import { CanActivate, Router, ActivatedRouteSnapshot } from "@angular/router";
-import { StateService } from "../services/state.service";
-
-@Injectable({ providedIn: "root" })
-export class AuthGuard implements CanActivate {
-  private readonly stateService = inject(StateService);
-  private readonly router = inject(Router);
-
-  async canActivate(route: ActivatedRouteSnapshot): Promise<boolean> {
-    // Check if user is authenticated
-    if (!this.stateService.isAuthenticated()) {
-      await this.router.navigate(["/login"]);
-      return false;
-    }
-
-    // Check role-based permissions
-    const requiredRoles = route.data?.["roles"] as string[];
-    if (requiredRoles) {
-      const user = this.stateService.user();
-      if (!user || !requiredRoles.includes(user.role)) {
-        await this.router.navigate(["/dashboard"]);
-        return false;
-      }
-    }
-
-    // Check permission-based access
-    const requiredPermission = route.data?.["permission"] as string;
-    if (requiredPermission && !this.stateService.hasPermission(requiredPermission)) {
-      await this.router.navigate(["/dashboard"]);
-      return false;
-    }
-
-    return true;
-  }
-}
-```
-
-### HTTP Interceptor for API calls
-
-```typescript
-import { Injectable, inject } from "@angular/core";
-import { HttpInterceptor, HttpRequest, HttpHandler, HttpErrorResponse } from "@angular/common/http";
-import { Router } from "@angular/router";
-import { StateService } from "../services/state.service";
-import { catchError, finalize, throwError } from "rxjs";
-
-@Injectable()
-export class ApiInterceptor implements HttpInterceptor {
-  private readonly router = inject(Router);
-  private readonly stateService = inject(StateService);
-
-  intercept(req: HttpRequest<any>, next: HttpHandler) {
-    // Show loading for API requests
-    this.stateService.setLoading(true);
-
-    // Add common headers
-    const apiReq = req.clone({
-      setHeaders: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      withCredentials: true, // Include cookies for authentication
-    });
-
-    return next.handle(apiReq).pipe(
-      catchError((error: HttpErrorResponse) => this.handleError(error)),
-      finalize(() => this.stateService.setLoading(false))
-    );
-  }
-
-  private handleError(error: HttpErrorResponse) {
-    switch (error.status) {
-      case 401:
-        this.router.navigate(["/login"]);
-        this.showError("Session expired. Please login again.");
-        break;
-
-      case 403:
-        this.showError("You do not have permission to perform this action.");
-        break;
-
-      case 404:
-        this.showError("Resource not found.");
-        break;
-
-      case 500:
-        this.showError("Server error occurred. Please try again later.");
-        break;
-
-      default:
-        if (error.error?.message) {
-          this.showError(error.error.message);
-        } else {
-          this.showError("An unexpected error occurred.");
-        }
-        break;
-    }
-
-    return throwError(() => error);
-  }
-
-  private showError(message: string): void {
-    // You can integrate with a toast service here
-    console.error(message);
-  }
-}
-```
-
----
-
-## 📱 **Form Handling Patterns**
-
-### Reactive Form with Validation (Performance Optimized)
-
-```typescript
-import { Component, inject, signal, computed, ChangeDetectionStrategy } from "@angular/core";
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from "@angular/forms";
-import { CommonModule } from "@angular/common";
-
-export interface CreateProductDto {
-  name: string;
-  barcode: string;
-  expiryDate: string; // MANDATORY
-  batchNumber?: string;
-  manufacturedDate?: string;
-  buyPrice: number;
-  sellPrice: number;
-  stock: number;
-  categoryId: number;
-}
-
-@Component({
-  selector: "app-product-form",
-  standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <form [formGroup]="productForm" (ngSubmit)="onSubmit()" class="form-container">
-      <div class="grid grid-2 gap-4">
-        <!-- Basic Information -->
-        <div class="form-field">
-          <label for="name">Product Name *</label>
-          <input id="name" formControlName="name" placeholder="Enter product name" />
-          <span class="error-message" *ngIf="isFieldInvalid('name')">
-            {{ getFieldError("name") }}
-          </span>
-        </div>
-
-        <div class="form-field">
-          <label for="barcode">Barcode *</label>
-          <input id="barcode" formControlName="barcode" placeholder="Scan or enter barcode" />
-          <span class="error-message" *ngIf="isFieldInvalid('barcode')">
-            {{ getFieldError("barcode") }}
-          </span>
-        </div>
-
-        <!-- Mandatory Expiry Date -->
-        <div class="form-field">
-          <label for="expiryDate">Expiry Date *</label>
-          <input id="expiryDate" type="date" formControlName="expiryDate" />
-          <span class="error-message" *ngIf="isFieldInvalid('expiryDate')">
-            {{ getFieldError("expiryDate") }}
-          </span>
-        </div>
-
-        <div class="form-field">
-          <label for="batchNumber">Batch Number</label>
-          <input id="batchNumber" formControlName="batchNumber" placeholder="Optional batch number" />
-        </div>
-
-        <!-- Pricing -->
-        <div class="form-field">
-          <label for="buyPrice">Buy Price *</label>
-          <input id="buyPrice" type="number" formControlName="buyPrice" placeholder="0" />
-          <span class="error-message" *ngIf="isFieldInvalid('buyPrice')">
-            {{ getFieldError("buyPrice") }}
-          </span>
-        </div>
-
-        <div class="form-field">
-          <label for="sellPrice">Sell Price *</label>
-          <input id="sellPrice" type="number" formControlName="sellPrice" placeholder="0" />
-          <span class="error-message" *ngIf="isFieldInvalid('sellPrice')">
-            {{ getFieldError("sellPrice") }}
-          </span>
+          <button class="btn btn-primary" (click)="onCreateSupplier()">Add Supplier</button>
         </div>
       </div>
 
-      <!-- Profit Preview -->
-      <div class="profit-preview" *ngIf="profitMargin() !== null">
-        <div class="card">
-          <h4>Profit Analysis</h4>
-          <p>
-            Margin: <strong>{{ profitMargin() }}%</strong>
-          </p>
-          <p>
-            Profit per Unit: <strong>{{ profitAmount() }}</strong>
-          </p>
+      <!-- Search and Filters -->
+      <div class="grid grid-3 gap-4 mb-6">
+        <div class="form-field">
+          <input type="text" placeholder="Search suppliers..." [(ngModel)]="searchQuery" (input)="onSearchChange($event)" class="form-control" />
+        </div>
+
+        <div class="form-field">
+          <select [(ngModel)]="statusFilter" class="form-control">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+
+        <div class="form-field">
+          <select [(ngModel)]="paymentTermsFilter" class="form-control">
+            <option value="">All Payment Terms</option>
+            <option value="30">30 Days</option>
+            <option value="60">60 Days</option>
+            <option value="90">90 Days</option>
+          </select>
         </div>
       </div>
 
-      <div class="flex justify-between mt-6">
-        <button type="button" class="btn btn-outline" (click)="onCancel()">Cancel</button>
-        <button type="submit" class="btn btn-primary" [disabled]="productForm.invalid || submitting()">
-          {{ submitting() ? "Saving..." : "Save Product" }}
-        </button>
+      <!-- Loading State -->
+      <div *ngIf="loading()" class="text-center py-8">
+        <div class="loading-spinner"></div>
+        <p class="text-secondary mt-2">Loading suppliers...</p>
       </div>
-    </form>
-  `,
-  styles: [
-    `
-      .form-container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: var(--s6);
-        background: var(--surface);
-        border-radius: var(--radius-lg);
-        border: var(--border-width) solid var(--border);
-      }
 
-      .profit-preview .card {
-        background: var(--primary-light);
-        border-color: var(--primary);
-        padding: var(--s4);
-      }
+      <!-- Error State -->
+      <div *ngIf="error()" class="card error-card mb-4">
+        <p class="text-error">{{ error() }}</p>
+        <button class="btn btn-outline mt-2" (click)="loadSuppliers()">Try Again</button>
+      </div>
 
-      .profit-preview h4 {
-        margin: 0 0 var(--s2) 0;
-        font-size: var(--text-base);
-        color: var(--primary);
-      }
-
-      .profit-preview p {
-        margin: 0;
-        font-size: var(--text-sm);
-      }
-
-      @media (max-width: 640px) {
-        .form-container {
-          padding: var(--s4);
-        }
-
-        .grid-2 {
-          grid-template-columns: 1fr;
-        }
-      }
-    `,
-  ],
-})
-export class ProductFormComponent {
-  private fb = inject(FormBuilder);
-  private productService = inject(ProductService);
-
-  // Signals for component state
-  submitting = signal(false);
-  categories = signal<CategoryDto[]>([]);
-
-  // Form definition
-  productForm: FormGroup;
-
-  // Computed properties for business logic
-  profitMargin = computed(() => {
-    const buyPrice = this.productForm.get("buyPrice")?.value;
-    const sellPrice = this.productForm.get("sellPrice")?.value;
-
-    if (!buyPrice || !sellPrice || buyPrice <= 0) return null;
-
-    return Math.round(((sellPrice - buyPrice) / buyPrice) * 100);
-  });
-
-  profitAmount = computed(() => {
-    const buyPrice = this.productForm.get("buyPrice")?.value || 0;
-    const sellPrice = this.productForm.get("sellPrice")?.value || 0;
-
-    const profit = sellPrice - buyPrice;
-    return this.formatCurrency(profit);
-  });
-
-  constructor() {
-    this.productForm = this.fb.group({
-      name: ["", [Validators.required, Validators.maxLength(100)]],
-      barcode: ["", [Validators.required, Validators.maxLength(50)]],
-      expiryDate: ["", Validators.required], // MANDATORY
-      batchNumber: ["", Validators.maxLength(50)],
-      manufacturedDate: [""],
-      buyPrice: [0, [Validators.required, Validators.min(0)]],
-      sellPrice: [0, [Validators.required, Validators.min(0)]],
-      stock: [0, [Validators.required, Validators.min(0)]],
-      categoryId: ["", Validators.required],
-    });
-
-    // Add custom validators
-    this.productForm.addValidators([this.sellPriceGreaterThanBuyPrice.bind(this), this.expiryDateFutureValidator.bind(this)]);
-  }
-
-  async onSubmit(): Promise<void> {
-    if (this.productForm.invalid) {
-      this.markAllFieldsAsTouched();
-      return;
-    }
-
-    this.submitting.set(true);
-
-    try {
-      const formValue = this.productForm.value as CreateProductDto;
-      await this.productService.createProduct(formValue);
-
-      // Success - navigate back or show success message
-      this.onCancel();
-    } catch (error) {
-      console.error("Error saving product:", error);
-      // Handle error - show toast or error message
-    } finally {
-      this.submitting.set(false);
-    }
-  }
-
-  onCancel(): void {
-    // Navigate back to product list
-    // Router navigation logic
-  }
-
-  // Form validation helpers
-  isFieldInvalid(fieldName: string): boolean {
-    const field = this.productForm.get(fieldName);
-    return !!(field?.invalid && (field?.dirty || field?.touched));
-  }
-
-  getFieldError(fieldName: string): string {
-    const field = this.productForm.get(fieldName);
-
-    if (field?.hasError("required")) {
-      return `${this.getFieldLabel(fieldName)} is required`;
-    }
-
-    if (field?.hasError("maxlength")) {
-      const maxLength = field.errors?.["maxlength"].requiredLength;
-      return `${this.getFieldLabel(fieldName)} cannot exceed ${maxLength} characters`;
-    }
-
-    if (field?.hasError("min")) {
-      return `${this.getFieldLabel(fieldName)} must be greater than 0`;
-    }
-
-    if (field?.hasError("sellPriceTooLow")) {
-      return "Sell price must be greater than buy price";
-    }
-
-    if (field?.hasError("expiryDatePast")) {
-      return "Expiry date must be in the future";
-    }
-
-    return "Invalid input";
-  }
-
-  // Custom validators
-  private sellPriceGreaterThanBuyPrice(form: FormGroup) {
-    const buyPrice = form.get("buyPrice")?.value;
-    const sellPrice = form.get("sellPrice")?.value;
-
-    if (buyPrice && sellPrice && sellPrice <= buyPrice) {
-      form.get("sellPrice")?.setErrors({ sellPriceTooLow: true });
-      return { sellPriceTooLow: true };
-    }
-
-    return null;
-  }
-
-  private expiryDateFutureValidator(form: FormGroup) {
-    const expiryDate = form.get("expiryDate")?.value;
-
-    if (expiryDate && new Date(expiryDate) <= new Date()) {
-      form.get("expiryDate")?.setErrors({ expiryDatePast: true });
-      return { expiryDatePast: true };
-    }
-
-    return null;
-  }
-
-  private markAllFieldsAsTouched(): void {
-    Object.keys(this.productForm.controls).forEach((key) => {
-      this.productForm.get(key)?.markAsTouched();
-    });
-  }
-
-  private getFieldLabel(fieldName: string): string {
-    const labels: Record<string, string> = {
-      name: "Product Name",
-      barcode: "Barcode",
-      expiryDate: "Expiry Date",
-      buyPrice: "Buy Price",
-      sellPrice: "Sell Price",
-    };
-
-    return labels[fieldName] || fieldName;
-  }
-
-  private formatCurrency(amount: number): string {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  }
-}
-```
-
----
-
-## 📊 **Data Table Component (Mobile Responsive)**
-
-### Reusable Data Table with Mobile Support
-
-```typescript
-import { Component, input, output, computed, ChangeDetectionStrategy } from "@angular/core";
-import { CommonModule } from "@angular/common";
-
-export interface TableColumn {
-  key: string;
-  label: string;
-  sortable?: boolean;
-  width?: string;
-  type?: "text" | "number" | "date" | "currency" | "badge" | "actions";
-  mobileHidden?: boolean; // Hide on mobile
-}
-
-export interface TableAction {
-  icon: string;
-  label: string;
-  color?: string;
-  action: (row: any) => void;
-}
-
-@Component({
-  selector: "app-data-table",
-  standalone: true,
-  imports: [CommonModule],
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="table-container">
       <!-- Mobile Card View -->
       <div class="mobile-view sm-block md-hidden">
-        <div *ngFor="let row of paginatedData(); trackBy: trackByFn" class="mobile-card card">
+        <div *ngFor="let supplier of filteredSuppliers(); trackBy: trackBySupplier" class="card mb-4 supplier-card">
           <div class="flex justify-between items-start">
             <div class="flex-1">
-              <h4 class="text-base font-medium">{{ row[primaryColumn()] }}</h4>
-              <div class="mt-2 space-y-1">
-                <div *ngFor="let col of visibleColumns()" class="text-sm">
-                  <span class="text-secondary">{{ col.label }}:</span>
-                  <span class="ml-2" [ngSwitch]="col.type">
-                    <span *ngSwitchCase="'currency'">{{ formatCurrency(row[col.key]) }}</span>
-                    <span *ngSwitchCase="'date'">{{ formatDate(row[col.key]) }}</span>
-                    <span *ngSwitchCase="'badge'" class="badge" [class]="getBadgeClass(row[col.key])">
-                      {{ row[col.key] }}
-                    </span>
-                    <span *ngSwitchDefault>{{ row[col.key] }}</span>
-                  </span>
-                </div>
+              <h4 class="text-lg font-semibold">{{ supplier.companyName }}</h4>
+              <p class="text-sm text-secondary">{{ supplier.supplierCode }}</p>
+              <p class="text-sm mt-2">Contact: {{ supplier.contactPerson }}</p>
+              <p class="text-sm">Terms: {{ supplier.paymentTerms }} days</p>
+
+              <div class="flex items-center gap-2 mt-3">
+                <span class="badge" [class.badge-success]="supplier.isActive" [class.badge-secondary]="!supplier.isActive">
+                  {{ supplier.isActive ? "Active" : "Inactive" }}
+                </span>
+
+                <!-- Branch Info for Multi-Branch -->
+                <span *ngIf="supplier.branchId" class="badge badge-info">
+                  {{ getBranchName(supplier.branchId) }}
+                </span>
               </div>
             </div>
 
             <!-- Mobile Actions -->
-            <div class="flex gap-1 ml-4">
-              <button *ngFor="let action of actions()" class="btn btn-sm" [style.color]="action.color" (click)="action.action(row)">
-                {{ action.icon }}
-              </button>
+            <div class="flex flex-col gap-2 ml-4">
+              <button class="btn btn-sm btn-outline" (click)="onEditSupplier(supplier)">Edit</button>
+              <button class="btn btn-sm btn-outline" (click)="onViewFactures(supplier)">Factures</button>
             </div>
           </div>
         </div>
@@ -1152,38 +482,46 @@ export interface TableAction {
 
       <!-- Desktop Table View -->
       <div class="desktop-view sm-hidden md-block">
-        <div class="table-wrapper">
+        <div class="card">
           <table class="w-full">
             <thead>
               <tr class="border-b">
-                <th *ngFor="let col of columns()" class="text-left p-3 text-sm font-medium" [style.width]="col.width" [class.cursor-pointer]="col.sortable" (click)="col.sortable ? onSort(col.key) : null">
-                  {{ col.label }}
-                  <span *ngIf="col.sortable && currentSort() === col.key">
-                    {{ sortDirection() === "asc" ? "↑" : "↓" }}
-                  </span>
-                </th>
+                <th class="text-left p-3 font-medium">Supplier Code</th>
+                <th class="text-left p-3 font-medium">Company Name</th>
+                <th class="text-left p-3 font-medium">Contact Person</th>
+                <th class="text-left p-3 font-medium">Payment Terms</th>
+                <th class="text-left p-3 font-medium">Credit Limit</th>
+                <th class="text-left p-3 font-medium">Branch</th>
+                <th class="text-left p-3 font-medium">Status</th>
+                <th class="text-left p-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of paginatedData(); trackBy: trackByFn" class="border-b hover:bg-secondary transition-colors">
-                <td *ngFor="let col of columns()" class="p-3 text-sm">
-                  <ng-container [ngSwitch]="col.type">
-                    <span *ngSwitchCase="'currency'">
-                      {{ formatCurrency(row[col.key]) }}
-                    </span>
-                    <span *ngSwitchCase="'date'">
-                      {{ formatDate(row[col.key]) }}
-                    </span>
-                    <span *ngSwitchCase="'badge'" class="badge" [class]="getBadgeClass(row[col.key])">
-                      {{ row[col.key] }}
-                    </span>
-                    <div *ngSwitchCase="'actions'" class="flex gap-2">
-                      <button *ngFor="let action of actions()" class="btn btn-sm btn-outline" [style.color]="action.color" [attr.title]="action.label" (click)="action.action(row)">
-                        {{ action.icon }}
-                      </button>
-                    </div>
-                    <span *ngSwitchDefault>{{ row[col.key] }}</span>
-                  </ng-container>
+              <tr *ngFor="let supplier of filteredSuppliers(); trackBy: trackBySupplier" class="border-b hover:bg-secondary transition-colors">
+                <td class="p-3 text-sm font-medium">{{ supplier.supplierCode }}</td>
+                <td class="p-3 text-sm">{{ supplier.companyName }}</td>
+                <td class="p-3 text-sm">{{ supplier.contactPerson }}</td>
+                <td class="p-3 text-sm">{{ supplier.paymentTerms }} days</td>
+                <td class="p-3 text-sm">{{ formatCurrency(supplier.creditLimit) }}</td>
+                <td class="p-3 text-sm">
+                  <span *ngIf="supplier.branchId" class="badge badge-info">
+                    {{ getBranchName(supplier.branchId) }}
+                  </span>
+                  <span *ngIf="!supplier.branchId" class="text-muted">All Branches</span>
+                </td>
+                <td class="p-3 text-sm">
+                  <span class="badge" [class.badge-success]="supplier.isActive" [class.badge-secondary]="!supplier.isActive">
+                    {{ supplier.isActive ? "Active" : "Inactive" }}
+                  </span>
+                </td>
+                <td class="p-3 text-sm">
+                  <div class="flex gap-2">
+                    <button class="btn btn-sm btn-outline" (click)="onEditSupplier(supplier)">Edit</button>
+                    <button class="btn btn-sm btn-outline" (click)="onViewFactures(supplier)">Factures</button>
+                    <button class="btn btn-sm" [class.btn-primary]="!supplier.isActive" [class.btn-secondary]="supplier.isActive" (click)="onToggleStatus(supplier)">
+                      {{ supplier.isActive ? "Deactivate" : "Activate" }}
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -1192,17 +530,18 @@ export interface TableAction {
       </div>
 
       <!-- Empty State -->
-      <div *ngIf="data().length === 0" class="empty-state">
-        <div class="text-center p-8">
-          <div class="text-6xl mb-4">📝</div>
-          <h3 class="text-lg font-medium mb-2">No data available</h3>
-          <p class="text-secondary">{{ emptyMessage() }}</p>
+      <div *ngIf="filteredSuppliers().length === 0 && !loading()" class="empty-state">
+        <div class="text-center py-12">
+          <div class="text-6xl mb-4">🏢</div>
+          <h3 class="text-lg font-medium mb-2">No suppliers found</h3>
+          <p class="text-secondary mb-4">Start by adding your first supplier.</p>
+          <button class="btn btn-primary" (click)="onCreateSupplier()">Add Supplier</button>
         </div>
       </div>
 
       <!-- Simple Pagination -->
-      <div class="pagination" *ngIf="totalPages() > 1">
-        <div class="flex justify-between items-center p-4 border-t">
+      <div class="pagination mt-6" *ngIf="totalPages() > 1">
+        <div class="flex justify-between items-center">
           <button class="btn btn-outline" [disabled]="currentPage() === 1" (click)="previousPage()">Previous</button>
 
           <span class="text-sm text-secondary"> Page {{ currentPage() }} of {{ totalPages() }} </span>
@@ -1214,433 +553,284 @@ export interface TableAction {
   `,
   styles: [
     `
-      .table-container {
-        background: var(--surface);
-        border: var(--border-width) solid var(--border);
-        border-radius: var(--radius-lg);
-        overflow: hidden;
+      .supplier-container {
+        padding: var(--s6);
+        max-width: 1200px;
+        margin: 0 auto;
       }
 
-      .table-wrapper {
-        overflow-x: auto;
-      }
+      .supplier-card {
+        transition: var(--transition);
 
-      table {
-        min-width: 600px;
-      }
-
-      .mobile-card {
-        margin-bottom: var(--s4);
-        padding: var(--s4);
+        &:hover {
+          border-color: var(--primary);
+        }
       }
 
       .badge {
         padding: var(--s1) var(--s2);
         border-radius: var(--radius);
         font-size: var(--text-xs);
-        font-weight: 500;
+        font-weight: var(--font-medium);
 
-        &.success {
+        &.badge-success {
           background: var(--success);
           color: white;
         }
-        &.warning {
-          background: var(--warning);
-          color: white;
-        }
-        &.error {
-          background: var(--error);
-          color: white;
-        }
-        &.secondary {
+
+        &.badge-secondary {
           background: var(--bg-secondary);
           color: var(--text);
+        }
+
+        &.badge-info {
+          background: var(--info);
+          color: white;
         }
       }
 
       .btn-sm {
-        padding: var(--s1) var(--s2);
+        padding: var(--s2) var(--s3);
         font-size: var(--text-xs);
-        min-height: 32px;
+        min-height: 36px;
       }
 
-      .space-y-1 > * + * {
-        margin-top: var(--s1);
+      .loading-spinner {
+        width: 24px;
+        height: 24px;
+        border: 2px solid var(--border);
+        border-top: 2px solid var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto;
       }
 
-      @media (max-width: 640px) {
-        table {
-          min-width: 500px;
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
-        .p-3 {
-          padding: var(--s2);
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .error-card {
+        border-color: var(--error);
+        background: rgba(225, 90, 79, 0.1);
+      }
+
+      // Mobile responsiveness
+      @media (max-width: 640px) {
+        .supplier-container {
+          padding: var(--s4);
+        }
+
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+
+        .flex {
+          flex-direction: column;
+          gap: var(--s3);
         }
       }
     `,
   ],
 })
-export class DataTableComponent<T> {
-  // Inputs
-  data = input.required<T[]>();
-  columns = input.required<TableColumn[]>();
-  actions = input<TableAction[]>([]);
-  pageSize = input<number>(20);
-  emptyMessage = input<string>("No data to display");
+export class SupplierListComponent {
+  // Inject services
+  private supplierService = inject(SupplierService);
+  private branchService = inject(BranchService);
+  private router = inject(Router);
+  private notificationService = inject(NotificationService);
 
-  // Internal state
-  currentPage = signal<number>(1);
-  currentSort = signal<string>("");
-  sortDirection = signal<"asc" | "desc">("asc");
+  // Signal-based state management
+  suppliers = signal<SupplierDto[]>([]);
+  branches = signal<BranchDto[]>([]);
+  loading = signal(false);
+  error = signal<string | null>(null);
 
-  // Outputs
-  pageChange = output<number>();
-  sortChange = output<{ column: string; direction: "asc" | "desc" }>();
+  // Filter state
+  searchQuery = signal("");
+  statusFilter = signal<string>("");
+  paymentTermsFilter = signal<string>("");
+  selectedBranchId = signal<number | null>(null);
 
-  // Computed properties
-  totalPages = computed(() => Math.ceil(this.data().length / this.pageSize()));
+  // Pagination state
+  currentPage = signal(1);
+  pageSize = signal(20);
 
-  paginatedData = computed(() => {
-    let sortedData = [...this.data()];
+  // Computed properties for efficient filtering
+  filteredSuppliers = computed(() => {
+    let filtered = this.suppliers();
 
-    // Apply sorting
-    if (this.currentSort()) {
-      sortedData.sort((a, b) => {
-        const aValue = a[this.currentSort() as keyof T];
-        const bValue = b[this.currentSort() as keyof T];
-
-        let comparison = 0;
-        if (aValue > bValue) comparison = 1;
-        if (aValue < bValue) comparison = -1;
-
-        return this.sortDirection() === "desc" ? -comparison : comparison;
-      });
+    // Search filter
+    const search = this.searchQuery().toLowerCase();
+    if (search) {
+      filtered = filtered.filter((supplier) => supplier.companyName.toLowerCase().includes(search) || supplier.supplierCode.toLowerCase().includes(search) || supplier.contactPerson.toLowerCase().includes(search));
     }
 
-    // Apply pagination
+    // Status filter
+    const status = this.statusFilter();
+    if (status) {
+      filtered = filtered.filter((supplier) => (status === "active" ? supplier.isActive : !supplier.isActive));
+    }
+
+    // Payment terms filter
+    const paymentTerms = this.paymentTermsFilter();
+    if (paymentTerms) {
+      filtered = filtered.filter((supplier) => supplier.paymentTerms === parseInt(paymentTerms));
+    }
+
+    // Branch filter
+    const branchId = this.selectedBranchId();
+    if (branchId) {
+      filtered = filtered.filter((supplier) => supplier.branchId === branchId);
+    }
+
+    // Pagination
     const start = (this.currentPage() - 1) * this.pageSize();
-    return sortedData.slice(start, start + this.pageSize());
+    return filtered.slice(start, start + this.pageSize());
   });
 
-  // For mobile view - columns that aren't actions and aren't hidden
-  visibleColumns = computed(
-    () =>
-      this.columns()
-        .filter((col) => col.type !== "actions" && !col.mobileHidden)
-        .slice(0, 3) // Show max 3 columns on mobile
-  );
-
-  // Primary column for mobile card title
-  primaryColumn = computed(() => this.columns().find((col) => col.type === "text")?.key || this.columns()[0]?.key || "id");
+  totalPages = computed(() => Math.ceil(this.suppliers().length / this.pageSize()));
 
   // TrackBy function for performance
-  trackByFn = (index: number, item: T): any => {
-    return (item as any).id || index;
-  };
+  trackBySupplier = (index: number, supplier: SupplierDto): number => supplier.id;
+
+  ngOnInit() {
+    this.loadSuppliers();
+    this.loadBranches();
+  }
+
+  // Data loading methods
+  async loadSuppliers(): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+
+    try {
+      const response = await this.supplierService.getSuppliers();
+      if (response.success) {
+        this.suppliers.set(response.data);
+      } else {
+        this.error.set(response.message || "Failed to load suppliers");
+      }
+    } catch (error: any) {
+      this.error.set("Network error occurred");
+      console.error("Error loading suppliers:", error);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async loadBranches(): Promise<void> {
+    try {
+      const response = await this.branchService.getBranches();
+      if (response.success) {
+        this.branches.set(response.data);
+      }
+    } catch (error) {
+      console.error("Error loading branches:", error);
+    }
+  }
+
+  // Event handlers
+  onSearchChange(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.searchQuery.set(target.value);
+    this.currentPage.set(1); // Reset to first page on search
+  }
+
+  onCreateSupplier(): void {
+    this.router.navigate(["/dashboard/supplier/create"]);
+  }
+
+  onEditSupplier(supplier: SupplierDto): void {
+    this.router.navigate(["/dashboard/supplier/edit", supplier.id]);
+  }
+
+  onViewFactures(supplier: SupplierDto): void {
+    this.router.navigate(["/dashboard/facture"], {
+      queryParams: { supplierId: supplier.id },
+    });
+  }
+
+  async onToggleStatus(supplier: SupplierDto): Promise<void> {
+    try {
+      const response = await this.supplierService.updateSupplierStatus(supplier.id, !supplier.isActive);
+
+      if (response.success) {
+        // Update local state
+        this.suppliers.update((suppliers) => suppliers.map((s) => (s.id === supplier.id ? { ...s, isActive: !s.isActive } : s)));
+
+        this.notificationService.showSuccess(`Supplier ${supplier.isActive ? "deactivated" : "activated"} successfully`);
+      } else {
+        this.notificationService.showError(response.message || "Failed to update supplier");
+      }
+    } catch (error) {
+      this.notificationService.showError("Network error occurred");
+    }
+  }
 
   // Pagination methods
   previousPage(): void {
     if (this.currentPage() > 1) {
       this.currentPage.update((page) => page - 1);
-      this.pageChange.emit(this.currentPage());
     }
   }
 
   nextPage(): void {
     if (this.currentPage() < this.totalPages()) {
       this.currentPage.update((page) => page + 1);
-      this.pageChange.emit(this.currentPage());
     }
   }
 
-  // Sorting
-  onSort(column: string): void {
-    if (this.currentSort() === column) {
-      // Toggle direction
-      this.sortDirection.update((dir) => (dir === "asc" ? "desc" : "asc"));
-    } else {
-      // New column
-      this.currentSort.set(column);
-      this.sortDirection.set("asc");
-    }
-
-    this.sortChange.emit({
-      column: this.currentSort(),
-      direction: this.sortDirection(),
-    });
-  }
-
-  // Formatting utilities
-  formatCurrency = (value: number): string =>
-    new Intl.NumberFormat("id-ID", {
+  // Utility methods
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       minimumFractionDigits: 0,
-    }).format(value);
+    }).format(amount);
+  }
 
-  formatDate = (value: string): string => new Date(value).toLocaleDateString("id-ID");
-
-  getBadgeClass = (value: string): string => {
-    const classes: Record<string, string> = {
-      Active: "success",
-      Inactive: "secondary",
-      "Low Stock": "warning",
-      "Out of Stock": "error",
-      Pending: "warning",
-      Approved: "success",
-      Cancelled: "error",
-    };
-    return classes[value] || "secondary";
-  };
+  getBranchName(branchId: number): string {
+    const branch = this.branches().find((b) => b.id === branchId);
+    return branch?.branchName || "Unknown Branch";
+  }
 }
 ```
 
 ---
 
-## 🚀 **Performance Optimization Guidelines**
+## 🔔 **Enhanced Notification & PWA Patterns**
 
-### Essential Performance Rules
-
-1. **OnPush change detection** for all components
-2. **Minimal imports** - only import what you need
-3. **TrackBy functions** for all \*ngFor loops
-4. **Lazy loading** for feature modules
-5. **CSS variables** instead of computed styles
-6. **Single transition** value (150ms ease)
-7. **Signals** for reactive state management
-8. **Minimal component styles** - use global classes
-
-### Mobile Performance Optimization
+### **Browser Notification Service (Enhanced)**
 
 ```typescript
-// Mobile-specific optimizations
-export class MobileOptimizedComponent {
-  // Use computed signals for expensive calculations
-  expensiveCalculation = computed(() => {
-    // Only recalculates when dependencies change
-    return this.data().reduce((sum, item) => sum + item.value, 0);
-  });
+import { Injectable, signal, computed } from "@angular/core";
 
-  // Efficient event handling
-  @HostListener("touchstart", ["$event"], { passive: true })
-  onTouchStart(event: TouchEvent): void {
-    // Passive event listeners for better scroll performance
-  }
-
-  // Virtual scrolling for large lists
-  trackByFn = (index: number, item: any): any => item.id;
+export interface NotificationDto {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  priority: "Low" | "Medium" | "High" | "Critical";
+  isRead: boolean;
+  actionUrl?: string;
+  relatedId?: number;
+  createdAt: string;
+  branchId?: number; // NEW: Branch-specific notifications
 }
-```
-
----
-
-## 📋 **Final Checklist for All Frontend Code**
-
-### ✅ **Must Have:**
-
-- [ ] Standalone component with minimal imports
-- [ ] OnPush change detection strategy
-- [ ] Signal-based state management
-- [ ] Mobile-first responsive design
-- [ ] Touch targets minimum 44px
-- [ ] TrackBy functions for \*ngFor loops
-- [ ] Proper error handling and loading states
-- [ ] TypeScript strict mode compliance
-- [ ] Accessibility attributes (aria-label, etc.)
-
-### ✅ **Performance:**
-
-- [ ] Lazy loading for feature modules
-- [ ] Minimal component styles (use global classes)
-- [ ] Efficient change detection (OnPush + signals)
-- [ ] Optimized bundle size
-- [ ] Fast rendering (avoid complex calculations in templates)
-
-### ✅ **Mobile & Responsive:**
-
-- [ ] Mobile-first CSS (no mixins)
-- [ ] Touch-friendly interactions
-- [ ] Readable text without zoom
-- [ ] Efficient navigation for thumbs
-- [ ] Responsive grid system
-
-siap! aku rapihin markdown-nya biar rapi, konsisten, dan enak dibaca. aku juga benerin fence code + bahasa untuk highlight, menutup blok yang kepotong, dan bikin struktur langkahnya jelas.
-
----
-
-## 🔧 Development Workflow for Copilot
-
-### ✅ Langkah Wajib
-
-#### 1) Request Analysis
-
-```text
-User Request: "Create ProductListComponent with filters"
-
-Assistant Analysis:
-- Component menampilkan daftar produk dengan pagination
-- Ada search dan filter kategori
-- Desain mobile-responsive: card (mobile) / table (desktop)
-- Menggunakan Signals untuk state management
-- Ada loading dan error states
-```
-
-#### 2) Approach Explanation
-
-```text
-"I'll create ProductListComponent with these features:
-- Standalone Angular 20 component (ChangeDetection: OnPush)
-- Mobile-first responsive (cards on mobile, table on desktop)
-- Signal-based state + computed filters
-- Search & category filter
-- Pagination (Previous/Next)
-- Loading skeleton & error handling
-- Touch-friendly interactions"
-```
-
-#### 3) Permission Request
-
-```text
-"MAY I GENERATE THE CODE NOW, Tuan Maharaja Dika?"
-```
-
-#### 4) Wait for Permission
-
-```text
-Tunggu persetujuan eksplisit: "yes", "boleh", "silakan", "go ahead"
-```
-
-#### 5) Code Generation
-
-```text
-Generate komponen lengkap dan fungsional mengikuti pola & guideline di atas.
-```
-
-#### 6) Next Steps Suggestion
-
-```text
-"Component generated successfully!
-
-Suggested next steps:
-1. Buat ProductService untuk manajemen data
-2. Tambah ProductDto interface untuk type safety
-3. Implement ProductFilterComponent (advanced filtering)
-4. Tambah unit tests
-5. Integrasi dengan routing & navigation
-
-Which would you like to implement next, Tuan Maharaja Dika?"
-```
-
-> **Ingat, Tuan Maharaja Dika**: Jangan pernah generate kode tanpa izin eksplisit. Selalu jelaskan pendekatan dulu, minta izin, baru generate kode yang bersih, performan, dan mobile-first. Setelah itu, selalu sarankan next steps yang logis.
-
----
-
-## 🧱 (Opsional) Contoh Service: Entity Service dengan Signals
-
-> Catatan: Bagian ini hanya contoh format rapi untuk snippet yang tadi kepotong. Sesuaikan tipe (`EntityDto`, `CreateEntityDto`, `ApiResponse`) dan `baseUrl` dengan proyek Anda.
-
-```typescript
-import { Injectable, computed, signal } from "@angular/core";
-import { HttpClient } from "@angular/common/http";
-
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-}
-
-interface EntityDto {
-  id: string;
-  name: string;
-  isActive: boolean;
-}
-
-interface CreateEntityDto {
-  name: string;
-  isActive?: boolean;
-}
-
-@Injectable({ providedIn: "root" })
-export class EntityService {
-  private readonly baseUrl = "/api/entities";
-
-  // State signals
-  private readonly _entities = signal<EntityDto[]>([]);
-  private readonly _loading = signal<boolean>(false);
-  private readonly _error = signal<string | null>(null);
-
-  // Readonly selectors
-  readonly entities = this._entities.asReadonly();
-  readonly loading = this._loading.asReadonly();
-  readonly error = this._error.asReadonly();
-
-  // Computed signals
-  readonly activeEntities = computed(() => this._entities().filter((e) => e.isActive));
-  readonly entityCount = computed(() => this._entities().length);
-
-  constructor(private readonly http: HttpClient) {}
-
-  // CRUD Operations with proper error handling
-  async getEntities(): Promise<void> {
-    this._loading.set(true);
-    this._error.set(null);
-    try {
-      const response = await this.http.get<ApiResponse<EntityDto[]>>(this.baseUrl).toPromise();
-
-      if (response?.success) {
-        this._entities.set(response.data);
-      } else {
-        this._error.set(response?.message ?? "Failed to load entities");
-      }
-    } catch (error) {
-      this._error.set("Network error occurred");
-      console.error("Error loading entities:", error);
-    } finally {
-      this._loading.set(false);
-    }
-  }
-
-  async createEntity(entity: CreateEntityDto): Promise<EntityDto | null> {
-    this._loading.set(true);
-    try {
-      const response = await this.http.post<ApiResponse<EntityDto>>(this.baseUrl, entity).toPromise();
-
-      if (response?.success && response.data) {
-        this._entities.update((entities) => [...entities, response.data]);
-        return response.data;
-      } else {
-        this._error.set(response?.message ?? "Failed to create entity");
-        return null;
-      }
-    } catch (error) {
-      this._error.set("Failed to create entity");
-      console.error("Error creating entity:", error);
-      return null;
-    } finally {
-      this._loading.set(false);
-    }
-  }
-
-  // Utilities
-  clearError(): void {
-    this._error.set(null);
-  }
-}
-```
-
----
-
-## 🔔 Browser & Tab Notification System
-
-### Browser Notification Service
-
-```typescript
-import { Injectable, signal } from "@angular/core";
-
-export type NotificationPermission = "default" | "granted" | "denied";
 
 @Injectable({ providedIn: "root" })
 export class BrowserNotificationService {
   private permission = signal<NotificationPermission>("default");
+  private notificationCount = signal<number>(0);
+
+  // Computed properties
+  readonly canNotify = computed(() => this.permission() === "granted");
+  readonly shouldRequestPermission = computed(() => this.permission() === "default");
 
   constructor() {
     if ("Notification" in window) {
@@ -1653,6 +843,7 @@ export class BrowserNotificationService {
       console.warn("This browser does not support notifications");
       return false;
     }
+
     if (this.permission() === "granted") return true;
 
     const permission = await Notification.requestPermission();
@@ -1660,34 +851,75 @@ export class BrowserNotificationService {
     return permission === "granted";
   }
 
-  showNotification(title: string, options: NotificationOptions = {}): void {
+  // Enhanced notification with priority handling
+  showNotification(notification: NotificationDto): void {
     if (this.permission() !== "granted") {
       console.warn("Notification permission not granted");
       return;
     }
 
-    const notification = new Notification(title, {
+    const options: NotificationOptions = {
       icon: "/assets/icons/icon-192x192.png",
       badge: "/assets/icons/badge-72x72.png",
       dir: "ltr",
       lang: "id-ID",
       renotify: true,
-      requireInteraction: false,
+      tag: notification.type,
+      data: {
+        id: notification.id,
+        actionUrl: notification.actionUrl,
+        relatedId: notification.relatedId,
+      },
+    };
+
+    // Priority-based behavior
+    switch (notification.priority) {
+      case "Critical":
+        options.requireInteraction = true;
+        options.silent = false;
+        this.showTabNotification(1, "URGENT");
+        break;
+      case "High":
+        options.requireInteraction = false;
+        options.silent = false;
+        this.showTabNotification(this.notificationCount() + 1);
+        break;
+      case "Medium":
+        options.requireInteraction = false;
+        options.silent = true;
+        this.showTabNotification(this.notificationCount() + 1);
+        break;
+      case "Low":
+        // Only tab notification for low priority
+        this.showTabNotification(this.notificationCount() + 1);
+        return;
+    }
+
+    const browserNotification = new Notification(notification.title, {
+      body: notification.message,
       ...options,
     });
 
-    if (!options.requireInteraction) {
-      setTimeout(() => notification.close(), 5000);
-    }
-
-    notification.onclick = (event) => {
+    browserNotification.onclick = (event) => {
       event.preventDefault();
       window.focus();
-      notification.close();
+
+      // Navigate to action URL if provided
+      if (notification.actionUrl) {
+        window.location.href = notification.actionUrl;
+      }
+
+      browserNotification.close();
     };
+
+    // Auto close for non-critical notifications
+    if (notification.priority !== "Critical") {
+      setTimeout(() => browserNotification.close(), 5000);
+    }
   }
 
   showTabNotification(count: number, title?: string): void {
+    this.notificationCount.set(count);
     this.updateFaviconBadge(count);
 
     if (count > 0) {
@@ -1704,23 +936,20 @@ export class BrowserNotificationService {
     const ctx = canvas.getContext("2d");
     canvas.width = canvas.height = 32;
 
-    if (ctx) {
-      if (count > 0) {
-        ctx.fillStyle = "#FF914D";
-        ctx.beginPath();
-        ctx.arc(16, 16, 16, 0, 2 * Math.PI);
-        ctx.fill();
+    if (ctx && count > 0) {
+      // Draw orange circle with count
+      ctx.fillStyle = "#FF914D";
+      ctx.beginPath();
+      ctx.arc(16, 16, 16, 0, 2 * Math.PI);
+      ctx.fill();
 
-        ctx.fillStyle = "white";
-        ctx.font = "bold 18px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+      ctx.fillStyle = "white";
+      ctx.font = "bold 18px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
 
-        const text = count > 99 ? "!" : String(count);
-        ctx.fillText(text, 16, 16);
-      } else {
-        ctx.clearRect(0, 0, 32, 32);
-      }
+      const text = count > 99 ? "!" : String(count);
+      ctx.fillText(text, 16, 16);
     }
 
     const link = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
@@ -1732,58 +961,99 @@ export class BrowserNotificationService {
   clearTabNotification(): void {
     this.showTabNotification(0);
   }
+
+  // Enhanced methods for different notification types
+  showDebtReminder(memberName: string, amount: number, dueDate: string): void {
+    this.showNotification({
+      id: Date.now(),
+      type: "DEBT_REMINDER",
+      title: "Payment Reminder",
+      message: `${memberName} has payment of ${this.formatCurrency(amount)} due on ${dueDate}`,
+      priority: "High",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  showFactureOverdue(supplierName: string, factureNumber: string): void {
+    this.showNotification({
+      id: Date.now(),
+      type: "FACTURE_OVERDUE",
+      title: "Facture Overdue",
+      message: `Facture ${factureNumber} from ${supplierName} is overdue`,
+      priority: "Critical",
+      isRead: false,
+      actionUrl: `/dashboard/facture/${factureNumber}`,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  showLowStock(productName: string, currentStock: number): void {
+    this.showNotification({
+      id: Date.now(),
+      type: "LOW_STOCK",
+      title: "Low Stock Alert",
+      message: `${productName} is running low (${currentStock} remaining)`,
+      priority: "Medium",
+      isRead: false,
+      actionUrl: "/dashboard/inventory",
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  private formatCurrency(amount: number): string {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
+    }).format(amount);
+  }
 }
 ```
 
 ---
 
-mau disesuaikan lagi (mis. tone bahasa full Indonesia/Inggris, atau ganti ikon/title default)? bilang aja, aku rapihin.
+## 🚀 **Enhanced State Management with Signals**
 
----
-
-## 🔄 **State Management with Signals**
-
-### Global State Service
+### **Global State Service (Sprint 4+ Ready)**
 
 ```typescript
-import { Injectable, signal, computed } from "@angular/core";
+import { Injectable, signal, computed, inject } from "@angular/core";
 
 export interface UserDto {
   id: number;
   username: string;
-  role: string;
-  preferredTheme: "light" | "dark";
+  role: "Admin" | "Manager" | "User" | "Cashier";
   fullName?: string;
   email?: string;
+  branchId?: number; // NEW: User's assigned branch
 }
 
-export interface NotificationDto {
-  id: number;
-  type: string;
-  title: string;
-  message: string;
-  priority: "Low" | "Medium" | "High" | "Critical";
-  isRead: boolean;
-  actionUrl?: string;
-  relatedId?: number;
-  createdAt: string;
+export interface BranchContextDto {
+  currentBranchId: number | null;
+  availableBranches: BranchDto[];
+  canSwitchBranches: boolean;
 }
 
 @Injectable({ providedIn: "root" })
 export class StateService {
   // Private state signals
   private _user = signal<UserDto | null>(null);
-  private _theme = signal<"light" | "dark">("light");
   private _sidebarCollapsed = signal<boolean>(false);
   private _notifications = signal<NotificationDto[]>([]);
   private _loading = signal<boolean>(false);
+  private _branchContext = signal<BranchContextDto>({
+    currentBranchId: null,
+    availableBranches: [],
+    canSwitchBranches: false,
+  });
 
   // Public readonly state
   readonly user = this._user.asReadonly();
-  readonly theme = this._theme.asReadonly();
   readonly sidebarCollapsed = this._sidebarCollapsed.asReadonly();
   readonly notifications = this._notifications.asReadonly();
   readonly loading = this._loading.asReadonly();
+  readonly branchContext = this._branchContext.asReadonly();
 
   // Computed state
   readonly isAuthenticated = computed(() => this._user() !== null);
@@ -1792,33 +1062,60 @@ export class StateService {
 
   readonly criticalNotificationCount = computed(() => this._notifications().filter((n) => !n.isRead && n.priority === "Critical").length);
 
+  readonly currentBranch = computed(() => {
+    const context = this._branchContext();
+    return context.availableBranches.find((b) => b.id === context.currentBranchId) || null;
+  });
+
   readonly userPermissions = computed(() => {
     const user = this._user();
     if (!user) return [];
 
-    // Map role to permissions
+    // Enhanced role permissions for Sprint 4+
     const rolePermissions: Record<string, string[]> = {
-      Admin: ["inventory.write", "facture.write", "reports.export", "users.manage"],
-      Manager: ["inventory.write", "facture.write", "reports.export"],
-      User: ["inventory.write", "pos.operate"],
-      Cashier: ["pos.operate"],
+      Admin: ["inventory.write", "facture.write", "reports.export", "users.manage", "supplier.write", "branch.manage", "member-debt.write"],
+      Manager: ["inventory.write", "facture.write", "reports.export", "supplier.write", "member-debt.write"],
+      User: ["inventory.write", "pos.operate", "supplier.read"],
+      Cashier: ["pos.operate", "member-debt.read"],
     };
 
     return rolePermissions[user.role] || [];
   });
 
+  readonly canManageBranches = computed(() => this.hasPermission("branch.manage"));
+
+  readonly canManageSuppliers = computed(() => this.hasPermission("supplier.write"));
+
+  readonly canManageMemberDebt = computed(() => this.hasPermission("member-debt.write"));
+
   // Actions
   setUser(user: UserDto | null): void {
     this._user.set(user);
-    if (user?.preferredTheme) {
-      this.setTheme(user.preferredTheme);
+
+    // Set default branch context for user
+    if (user?.branchId) {
+      this.setBranchContext({
+        currentBranchId: user.branchId,
+        availableBranches: [],
+        canSwitchBranches: ["Admin", "Manager"].includes(user.role),
+      });
     }
   }
 
-  setTheme(theme: "light" | "dark"): void {
-    this._theme.set(theme);
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("preferred-theme", theme);
+  setBranchContext(context: BranchContextDto): void {
+    this._branchContext.set(context);
+    localStorage.setItem("current-branch-id", String(context.currentBranchId));
+  }
+
+  switchBranch(branchId: number): void {
+    const context = this._branchContext();
+    if (context.canSwitchBranches) {
+      this._branchContext.update((ctx) => ({
+        ...ctx,
+        currentBranchId: branchId,
+      }));
+      localStorage.setItem("current-branch-id", String(branchId));
+    }
   }
 
   toggleSidebar(): void {
@@ -1830,8 +1127,41 @@ export class StateService {
     this._loading.set(loading);
   }
 
+  // Enhanced notification management
   addNotification(notification: NotificationDto): void {
     this._notifications.update((notifications) => [notification, ...notifications]);
+
+    // Show browser notification for high priority
+    if (["High", "Critical"].includes(notification.priority)) {
+      const browserService = inject(BrowserNotificationService);
+      browserService.showNotification(notification);
+    }
+  }
+
+  addDebtNotification(memberName: string, amount: number, dueDate: string): void {
+    this.addNotification({
+      id: Date.now(),
+      type: "MEMBER_DEBT_DUE",
+      title: "Member Payment Due",
+      message: `${memberName} has payment of ${this.formatCurrency(amount)} due on ${dueDate}`,
+      priority: "High",
+      isRead: false,
+      actionUrl: "/dashboard/member-debt",
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  addFactureNotification(supplierName: string, factureNumber: string, dueDate: string): void {
+    this.addNotification({
+      id: Date.now(),
+      type: "FACTURE_DUE",
+      title: "Facture Payment Due",
+      message: `Facture ${factureNumber} from ${supplierName} is due on ${dueDate}`,
+      priority: "High",
+      isRead: false,
+      actionUrl: `/dashboard/facture/${factureNumber}`,
+      createdAt: new Date().toISOString(),
+    });
   }
 
   markNotificationAsRead(notificationId: number): void {
@@ -1853,98 +1183,311 @@ export class StateService {
 
   // Initialize state from localStorage
   initializeFromStorage(): void {
-    const savedTheme = localStorage.getItem("preferred-theme") as "light" | "dark";
-    if (savedTheme) {
-      this.setTheme(savedTheme);
-    }
-
     const sidebarCollapsed = localStorage.getItem("sidebar-collapsed") === "true";
     this._sidebarCollapsed.set(sidebarCollapsed);
+
+    const currentBranchId = localStorage.getItem("current-branch-id");
+    if (currentBranchId) {
+      this._branchContext.update((ctx) => ({
+        ...ctx,
+        currentBranchId: parseInt(currentBranchId),
+      }));
+    }
+  }
+
+  private formatCurrency(amount: number): string {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
+    }).format(amount);
   }
 }
 ```
 
 ---
 
-## 📝 **Code Generation Guidelines for Copilot**
+## 🗂️ **Enhanced Service Patterns (Sprint 4+ Ready)**
 
-### Essential Development Rules
-
-#### ⚠️ **CRITICAL RULES:**
-
-1. **NEVER generate code** without explicit permission from Tuan Maharaja Dika
-2. **ALWAYS explain approach** and reasoning before asking permission
-3. **ALWAYS ask**: "May I generate the code now, Tuan Maharaja Dika?"
-4. **WAIT for permission**: "yes/boleh/silakan/go ahead"
-5. **SUGGEST next steps** after code generation
-
-#### 🎯 **Development Priorities:**
-
-1. **Mobile-first responsive** design (no mixins)
-2. **Performance optimization** (OnPush, signals, minimal imports)
-3. **Accessibility** (WCAG 2.1 AA compliance)
-4. **Touch targets** minimum 44px for mobile
-5. **Clean, minimal code** with efficient rendering
-
-### Component Generation Template
+### **Supplier Service with Branch Support**
 
 ```typescript
-// Standard template for all new components
-@Component({
-  selector: "app-component-name",
-  standalone: true,
-  imports: [CommonModule], // Minimal imports only
-  changeDetection: ChangeDetectionStrategy.OnPush, // Performance
-  template: `
-    <!-- Mobile-first responsive template -->
-    <div class="component-container">
-      <!-- Component content here -->
-    </div>
-  `,
-  styles: [
-    `
-      .component-container {
-        /* Component-specific styles only */
-        /* Use global CSS variables */
-        /* Mobile-first responsive */
-      }
-    `,
-  ],
-})
-export class ComponentNameComponent {
-  // Signal-based state management
-  data = signal<DataType[]>([]);
-  loading = signal(false);
-  error = signal<string | null>(null);
+import { Injectable, signal, computed, inject } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
+import { environment } from "../../../environment/environment";
 
-  // Computed properties for derived state
-  filteredData = computed(() => this.data().filter((item) => item.active));
-
-  // Event handlers
-  onAction(): void {
-    // Implementation
-  }
-
-  // TrackBy function for performance
-  trackById = (index: number, item: DataType): any => item.id;
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  errors?: string[];
 }
-```
 
-### Service Generation Template
+export interface CreateSupplierDto {
+  supplierCode: string;
+  companyName: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  address: string;
+  paymentTerms: number;
+  creditLimit: number;
+  branchId?: number;
+}
 
-```typescript
-// Standard template for all new services
-@Injectable({ providedIn: 'root' })
-export class EntityService {
+export interface UpdateSupplierDto extends Partial<CreateSupplierDto> {
+  isActive?: boolean;
+}
+
+export interface SupplierQueryParams {
+  search?: string;
+  branchId?: number;
+  isActive?: boolean;
+  paymentTerms?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+@Injectable({ providedIn: "root" })
+export class SupplierService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/Entity`;
+  private readonly baseUrl = `${environment.apiUrl}/Supplier`;
 
   // Signal-based state
-  private _entities = signal<EntityDto[]>([]);
+  private _suppliers = signal<SupplierDto[]>([]);
   private _loading = signal<boolean>(false);
   private _error = signal<string | null>(null);
 
   // Public readonly signals
-  readonly entities = this._entities.asReadonly();
-  readonly loading = this._loading.asRea
+  readonly suppliers = this._suppliers.asReadonly();
+  readonly loading = this._loading.asReadonly();
+  readonly error = this._error.asReadonly();
+
+  // Computed properties
+  readonly activeSuppliers = computed(() => this._suppliers().filter((s) => s.isActive));
+
+  readonly suppliersByBranch = computed(() => {
+    const suppliers = this._suppliers();
+    const grouped = new Map<number | string, SupplierDto[]>();
+
+    suppliers.forEach((supplier) => {
+      const branchKey = supplier.branchId || "all-branches";
+      if (!grouped.has(branchKey)) {
+        grouped.set(branchKey, []);
+      }
+      grouped.get(branchKey)!.push(supplier);
+    });
+
+    return grouped;
+  });
+
+  // CRUD Operations
+  async getSuppliers(params?: SupplierQueryParams): Promise<ApiResponse<SupplierDto[]>> {
+    this._loading.set(true);
+    this._error.set(null);
+
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.search) queryParams.append("search", params.search);
+      if (params?.branchId) queryParams.append("branchId", params.branchId.toString());
+      if (params?.isActive !== undefined) queryParams.append("isActive", params.isActive.toString());
+      if (params?.paymentTerms) queryParams.append("paymentTerms", params.paymentTerms.toString());
+      if (params?.page) queryParams.append("page", params.page.toString());
+      if (params?.pageSize) queryParams.append("pageSize", params.pageSize.toString());
+
+      const url = `${this.baseUrl}?${queryParams.toString()}`;
+      const response = await this.http.get<ApiResponse<SupplierDto[]>>(url).toPromise();
+
+      if (response?.success) {
+        this._suppliers.set(response.data);
+        return response;
+      } else {
+        this._error.set(response?.message || "Failed to load suppliers");
+        return response || { success: false, data: [], message: "Failed to load suppliers" };
+      }
+    } catch (error: any) {
+      this._error.set("Network error occurred");
+      console.error("Error loading suppliers:", error);
+      return { success: false, data: [], message: "Network error occurred" };
+    } finally {
+      this._loading.set(false);
+    }
+  }
+
+  async createSupplier(supplier: CreateSupplierDto): Promise<ApiResponse<SupplierDto>> {
+    this._loading.set(true);
+
+    try {
+      const response = await this.http.post<ApiResponse<SupplierDto>>(this.baseUrl, supplier).toPromise();
+
+      if (response?.success && response.data) {
+        // Update local state
+        this._suppliers.update((suppliers) => [...suppliers, response.data]);
+        return response;
+      }
+
+      return response || { success: false, data: {} as SupplierDto, message: "Failed to create supplier" };
+    } catch (error) {
+      console.error("Error creating supplier:", error);
+      return { success: false, data: {} as SupplierDto, message: "Network error occurred" };
+    } finally {
+      this._loading.set(false);
+    }
+  }
+
+  async updateSupplierStatus(id: number, isActive: boolean): Promise<ApiResponse<boolean>> {
+    try {
+      const response = await this.http.patch<ApiResponse<boolean>>(`${this.baseUrl}/${id}/status`, { isActive }).toPromise();
+
+      if (response?.success) {
+        // Update local state
+        this._suppliers.update((suppliers) => suppliers.map((s) => (s.id === id ? { ...s, isActive } : s)));
+      }
+
+      return response || { success: false, data: false, message: "Failed to update supplier status" };
+    } catch (error) {
+      console.error("Error updating supplier status:", error);
+      return { success: false, data: false, message: "Network error occurred" };
+    }
+  }
+
+  // Utility methods
+  clearError(): void {
+    this._error.set(null);
+  }
+
+  refreshSuppliers(): void {
+    this.getSuppliers();
+  }
+}
 ```
+
+---
+
+## 📝 **Final Development Checklist (Sprint 4+ Ready)**
+
+### ✅ **Enhanced Must-Have Requirements**
+
+#### **Component Level:**
+
+- [ ] Standalone component with OnPush change detection
+- [ ] Signal-based state management with computed properties
+- [ ] Mobile-first responsive design (card/table views)
+- [ ] Touch targets minimum 44px (48px on mobile)
+- [ ] TrackBy functions for all \*ngFor loops
+- [ ] Proper error handling with user-friendly messages
+- [ ] Loading states with skeleton loaders
+- [ ] TypeScript strict mode compliance
+- [ ] High contrast design (no transparency/opacity)
+- [ ] Branch-aware functionality (where applicable)
+
+#### **Service Level:**
+
+- [ ] Signal-based state with readonly selectors
+- [ ] Comprehensive CRUD operations
+- [ ] Proper error handling and retry logic
+- [ ] Branch filtering and multi-tenant support
+- [ ] Optimistic updates for better UX
+- [ ] Caching strategy for performance
+- [ ] Real-time updates via SignalR integration
+
+#### **Form Level:**
+
+- [ ] Reactive forms with comprehensive validation
+- [ ] Real-time validation feedback
+- [ ] Custom validators for business rules
+- [ ] Proper accessibility attributes
+- [ ] Touch-friendly inputs on mobile
+- [ ] Progress indication for multi-step forms
+- [ ] Auto-save functionality (where appropriate)
+
+### ✅ **Sprint 4+ Specific Requirements**
+
+#### **Branch Management:**
+
+- [ ] Hierarchical branch display
+- [ ] Branch user assignment
+- [ ] Branch-specific data filtering
+- [ ] Parent-child relationship management
+- [ ] Branch performance metrics
+
+#### **Supplier Management:**
+
+- [ ] Supplier CRUD with branch assignment
+- [ ] Credit limit and payment terms
+- [ ] Contact validation and management
+- [ ] Supplier performance tracking
+- [ ] Integration with facture system
+
+#### **Enhanced Notifications:**
+
+- [ ] Branch-specific notifications
+- [ ] Priority-based notification handling
+- [ ] Debt and facture reminder system
+- [ ] Real-time browser notifications
+- [ ] Tab notification badges
+
+### ✅ **Performance & Accessibility**
+
+#### **Performance:**
+
+- [ ] Lazy loading for feature modules
+- [ ] Minimal component styles (use global classes)
+- [ ] Efficient change detection (OnPush + signals)
+- [ ] Optimized bundle size
+- [ ] Fast rendering (avoid expensive operations in templates)
+
+#### **Mobile & Responsive:**
+
+- [ ] Mobile-first CSS (no mixins, CSS variables only)
+- [ ] Touch-friendly interactions
+- [ ] Readable text without zoom
+- [ ] Efficient navigation for thumbs
+- [ ] Responsive grid system
+
+#### **Accessibility:**
+
+- [ ] WCAG 2.1 AA compliance
+- [ ] Proper ARIA labels and roles
+- [ ] Keyboard navigation support
+- [ ] Screen reader compatibility
+- [ ] High contrast text/background ratios
+
+---
+
+## 🎯 **Summary & Next Steps**
+
+This enhanced frontend development guide now includes:
+
+### ✅ **Completed Sprint Features (Reference Patterns):**
+
+- **Sprint 2**: POS System, Receipt Generation, Barcode Scanner
+- **Sprint 3**: Dashboard Analytics, Notification System
+
+### ✅ **Sprint 4+ Ready Patterns:**
+
+- **Supplier Management**: Complete CRUD with branch support
+- **Branch Management**: Hierarchical structure management
+- **Enhanced Notifications**: Priority-based, branch-aware notifications
+- **Member Debt System**: Credit limit and payment tracking
+- **Facture System**: Supplier invoice management
+
+### ✅ **Enhanced Architecture:**
+
+- **Multi-tenant Branch Support**: Branch-aware components and services
+- **Advanced State Management**: Enhanced StateService with branch context
+- **Notification Integration**: Browser and tab notifications with priorities
+- **Mobile-First Responsive**: Card/table views with touch optimization
+- **Performance Optimized**: Signals, OnPush, minimal imports
+
+### 🚀 **Ready for Implementation:**
+
+The guidelines now provide complete patterns for implementing Sprint 4+ features while maintaining consistency with the completed Sprint 2-3 architecture. All components follow the clean, simple design principles with high contrast and mobile-first responsive design.
+
+**Next development priorities:**
+
+1. **Sprint 4**: Supplier Management + Branch Setup + Category-Based Expiry
+2. **Sprint 5**: Member Debt System + Facture Management
+3. **Sprint 6**: Enhanced PWA + Advanced Notifications
+
+All patterns are ready for immediate implementation following the mandatory permission workflow! 🎯

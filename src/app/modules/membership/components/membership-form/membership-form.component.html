@@ -1,66 +1,80 @@
-<!-- src/app/modules/membership/components/membership-form/membership-form.component.html -->
-<div class="membership-form">
+<!-- membership-form.component.html -->
+<!-- Fixed All Signals Errors - Compatible with TypeScript Component -->
+<div class="membership-container">
 
-    <!-- Header Section -->
-    <div class="form-header">
+    <!-- Header Section with Real-time Status -->
+    <div class="page-header">
         <div class="header-content">
-            <h1 class="form-title">
-                <mat-icon>{{ getFormIcon() }}</mat-icon>
+            <h1 class="page-title">
+                <span class="title-icon">{{ getFormIcon() }}</span>
                 {{ getFormTitle() }}
+                <span class="realtime-indicator" [class.active]="realtimeConnected()">
+                    <span class="indicator-dot"></span>
+                    {{ realtimeConnected() ? 'Live' : 'Offline' }}
+                </span>
             </h1>
-            <p class="form-subtitle" *ngIf="member">
+            <p class="page-subtitle" *ngIf="member">
                 {{ member.memberNumber }} • {{ member.name }}
             </p>
         </div>
 
         <div class="header-actions">
-            <button mat-button (click)="navigateBack()">
-                <mat-icon>arrow_back</mat-icon>
+            <button class="btn btn-outline" (click)="navigateBack()">
+                <span class="btn-icon">↩</span>
                 Back to List
             </button>
 
-            <button mat-raised-button color="accent" *ngIf="isReadOnlyMode() && memberId" (click)="editMember()">
-                <mat-icon>edit</mat-icon>
+            <button class="btn btn-primary" *ngIf="isReadOnlyMode() && memberId" (click)="editMember()">
+                <span class="btn-icon">✏️</span>
                 Edit Member
             </button>
         </div>
     </div>
 
     <!-- Loading State -->
-    <div *ngIf="loading$ | async" class="loading-container">
-        <mat-spinner diameter="50"></mat-spinner>
-        <p>Loading member data...</p>
+    <div *ngIf="loading$()" class="loading-container">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading member data...</p>
     </div>
 
     <!-- Error State -->
-    <div *ngIf="error$ | async as error" class="error-container glass-card">
-        <mat-icon color="warn">error</mat-icon>
-        <p>{{ error }}</p>
-        <button mat-raised-button color="primary" (click)="navigateBack()">
-            <mat-icon>arrow_back</mat-icon>
-            Go Back
-        </button>
+    <div *ngIf="error$() as error" class="error-container card">
+        <div class="error-content">
+            <span class="error-icon">⚠️</span>
+            <div class="error-message">
+                <h3>Oops! Something went wrong</h3>
+                <p>{{ error }}</p>
+            </div>
+            <button class="btn btn-primary" (click)="navigateBack()">
+                <span class="btn-icon">↻</span>
+                Go Back
+            </button>
+        </div>
     </div>
 
     <!-- Form Content -->
-    <div class="form-content" *ngIf="!(loading$ | async) && !(error$ | async)">
+    <div class="content-section" *ngIf="!loading$() && !error$()">
 
         <!-- Member Stats Card (View Mode Only) -->
-        <div class="member-stats glass-card" *ngIf="isReadOnlyMode() && member">
+        <div class="member-stats card" *ngIf="isReadOnlyMode() && member">
+            <div class="stats-header">
+                <h3 class="stats-title">
+                    <span class="stats-icon">📊</span>
+                    Member Statistics
+                </h3>
+            </div>
             <div class="stats-grid">
                 <div class="stat-item">
-                    <div class="stat-icon">
-                        <mat-icon>card_membership</mat-icon>
-                    </div>
+                    <div class="stat-icon">🆔</div>
                     <div class="stat-content">
                         <div class="stat-label">Member Since</div>
-                        <div class="stat-value">{{ formatDate(member.joinDate) }}</div>
+                        <div class="stat-value">{{ formatDate(member.createdAt) }}</div>
                     </div>
                 </div>
 
                 <div class="stat-item">
-                    <div class="stat-icon tier-icon" [style.color]="getTierInfo(member.tier).color">
-                        <mat-icon>{{ getTierInfo(member.tier).icon }}</mat-icon>
+                    <div class="stat-icon tier-icon" [attr.data-tier]="member.tier.toLowerCase()">
+                        {{ getTierIcon(member.tier) }}
                     </div>
                     <div class="stat-content">
                         <div class="stat-label">Current Tier</div>
@@ -69,9 +83,7 @@
                 </div>
 
                 <div class="stat-item">
-                    <div class="stat-icon">
-                        <mat-icon>account_balance_wallet</mat-icon>
-                    </div>
+                    <div class="stat-icon">💰</div>
                     <div class="stat-content">
                         <div class="stat-label">Total Spent</div>
                         <div class="stat-value">{{ formatCurrency(member.totalSpent) }}</div>
@@ -79,9 +91,7 @@
                 </div>
 
                 <div class="stat-item">
-                    <div class="stat-icon">
-                        <mat-icon>stars</mat-icon>
-                    </div>
+                    <div class="stat-icon">⭐</div>
                     <div class="stat-content">
                         <div class="stat-label">Available Points</div>
                         <div class="stat-value">{{ formatNumber(member.availablePoints) }}</div>
@@ -89,9 +99,7 @@
                 </div>
 
                 <div class="stat-item">
-                    <div class="stat-icon">
-                        <mat-icon>receipt</mat-icon>
-                    </div>
+                    <div class="stat-icon">🧾</div>
                     <div class="stat-content">
                         <div class="stat-label">Total Transactions</div>
                         <div class="stat-value">{{ formatNumber(member.totalTransactions) }}</div>
@@ -99,9 +107,7 @@
                 </div>
 
                 <div class="stat-item">
-                    <div class="stat-icon">
-                        <mat-icon>schedule</mat-icon>
-                    </div>
+                    <div class="stat-icon">📅</div>
                     <div class="stat-content">
                         <div class="stat-label">Last Transaction</div>
                         <div class="stat-value">{{ formatDate(member.lastTransactionDate) }}</div>
@@ -111,134 +117,146 @@
 
             <!-- Quick Actions -->
             <div class="quick-actions" *ngIf="isReadOnlyMode()">
-                <button mat-raised-button color="primary"
+                <button class="btn btn-primary" 
                     (click)="router.navigate(['/dashboard/membership/points', member.id])">
-                    <mat-icon>stars</mat-icon>
+                    <span class="btn-icon">⭐</span>
                     Manage Points
                 </button>
 
-                <button mat-button (click)="editMember()">
-                    <mat-icon>edit</mat-icon>
+                <button class="btn btn-outline" (click)="editMember()">
+                    <span class="btn-icon">✏️</span>
                     Edit Member
                 </button>
             </div>
         </div>
 
         <!-- Main Form -->
-        <div class="form-container glass-card">
+        <div class="form-container card">
             <form [formGroup]="memberForm" (ngSubmit)="onSubmit()" class="member-form">
 
                 <!-- Personal Information Section -->
                 <div class="form-section">
                     <div class="section-header">
-                        <h3>
-                            <mat-icon>person</mat-icon>
+                        <h3 class="section-title">
+                            <span class="section-icon">👤</span>
                             Personal Information
                         </h3>
                     </div>
 
                     <div class="form-grid">
                         <!-- Full Name -->
-                        <mat-form-field appearance="outline" class="full-width">
-                            <mat-label>Full Name *</mat-label>
-                            <input matInput formControlName="name" placeholder="Enter member's full name"
-                                [readonly]="isReadOnlyMode()">
-                            <mat-icon matSuffix>person</mat-icon>
-                            <mat-error *ngIf="isFieldInvalid('name')">
+                        <div class="form-field full-width">
+                            <label class="field-label">Full Name *</label>
+                            <div class="input-wrapper">
+                                <input class="form-control" type="text" formControlName="name" 
+                                    placeholder="Enter member's full name" [readonly]="isReadOnlyMode()">
+                                <span class="field-icon">👤</span>
+                            </div>
+                            <div class="field-error" *ngIf="isFieldInvalid('name')">
                                 {{ getFieldError('name') }}
-                            </mat-error>
-                        </mat-form-field>
+                            </div>
+                        </div>
 
                         <!-- Phone Number -->
-                        <mat-form-field appearance="outline">
-                            <mat-label>Phone Number *</mat-label>
-                            <input matInput formControlName="phone" placeholder="+62 812 3456 7890"
-                                [readonly]="isReadOnlyMode()">
-                            <mat-icon matSuffix>phone</mat-icon>
-                            <mat-error *ngIf="isFieldInvalid('phone')">
+                        <div class="form-field">
+                            <label class="field-label">Phone Number *</label>
+                            <div class="input-wrapper">
+                                <input class="form-control" type="tel" formControlName="phone" 
+                                    placeholder="+62 812 3456 7890" [readonly]="isReadOnlyMode()">
+                                <span class="field-icon">📞</span>
+                            </div>
+                            <div class="field-error" *ngIf="isFieldInvalid('phone')">
                                 {{ getFieldError('phone') }}
-                            </mat-error>
-                            <mat-hint *ngIf="phoneExists" class="phone-exists-hint">
-                                <mat-icon>warning</mat-icon>
+                            </div>
+                            <div class="field-hint" *ngIf="phoneExists">
+                                <span class="hint-icon">⚠️</span>
                                 This phone number is already registered
-                            </mat-hint>
-                        </mat-form-field>
+                            </div>
+                        </div>
 
                         <!-- Email -->
-                        <mat-form-field appearance="outline">
-                            <mat-label>Email Address *</mat-label>
-                            <input matInput formControlName="email" type="email" placeholder="member@example.com"
-                                [readonly]="isReadOnlyMode()">
-                            <mat-icon matSuffix>email</mat-icon>
-                            <mat-error *ngIf="isFieldInvalid('email')">
+                        <div class="form-field">
+                            <label class="field-label">Email Address *</label>
+                            <div class="input-wrapper">
+                                <input class="form-control" type="email" formControlName="email" 
+                                    placeholder="member@example.com" [readonly]="isReadOnlyMode()">
+                                <span class="field-icon">✉️</span>
+                            </div>
+                            <div class="field-error" *ngIf="isFieldInvalid('email')">
                                 {{ getFieldError('email') }}
-                            </mat-error>
-                        </mat-form-field>
+                            </div>
+                        </div>
 
                         <!-- Gender -->
-                        <mat-form-field appearance="outline">
-                            <mat-label>Gender *</mat-label>
-                            <mat-select formControlName="gender">
-                                <mat-option *ngFor="let option of genderOptions" [value]="option.value">
-                                    <div class="gender-option">
-                                        <mat-icon>{{ option.icon }}</mat-icon>
-                                        {{ option.label }}
-                                    </div>
-                                </mat-option>
-                            </mat-select>
-                            <mat-error *ngIf="isFieldInvalid('gender')">
+                        <div class="form-field">
+                            <label class="field-label">Gender *</label>
+                            <div class="select-wrapper">
+                                <select class="form-control" formControlName="gender" [disabled]="isReadOnlyMode()">
+                                    <option value="" disabled>Select gender</option>
+                                    <option *ngFor="let option of genderOptions" [value]="option.value">
+                                        {{ option.icon }} {{ option.label }}
+                                    </option>
+                                </select>
+                                <span class="select-icon">▼</span>
+                            </div>
+                            <div class="field-error" *ngIf="isFieldInvalid('gender')">
                                 {{ getFieldError('gender') }}
-                            </mat-error>
-                        </mat-form-field>
+                            </div>
+                        </div>
 
                         <!-- Date of Birth -->
-                        <mat-form-field appearance="outline">
-                            <mat-label>Date of Birth *</mat-label>
-                            <input matInput [matDatepicker]="birthDatePicker" formControlName="dateOfBirth"
-                                [min]="minDate" [max]="maxDate" [readonly]="isReadOnlyMode()">
-                            <mat-datepicker-toggle matIconSuffix [for]="birthDatePicker">
-                            </mat-datepicker-toggle>
-                            <mat-datepicker #birthDatePicker></mat-datepicker>
-                            <mat-error *ngIf="isFieldInvalid('dateOfBirth')">
+                        <div class="form-field">
+                            <label class="field-label">Date of Birth *</label>
+                            <div class="input-wrapper">
+                                <input class="form-control" type="date" formControlName="dateOfBirth"
+                                    [readonly]="isReadOnlyMode()">
+                                <span class="field-icon">📅</span>
+                            </div>
+                            <div class="field-error" *ngIf="isFieldInvalid('dateOfBirth')">
                                 {{ getFieldError('dateOfBirth') }}
-                            </mat-error>
-                            <mat-hint *ngIf="member && isReadOnlyMode()">
+                            </div>
+                            <div class="field-hint" *ngIf="member && isReadOnlyMode()">
                                 {{ getDisplayAge() }}
-                            </mat-hint>
-                        </mat-form-field>
+                            </div>
+                        </div>
 
                         <!-- Address -->
-                        <mat-form-field appearance="outline" class="full-width">
-                            <mat-label>Address *</mat-label>
-                            <textarea matInput formControlName="address" rows="3" placeholder="Enter complete address"
-                                [readonly]="isReadOnlyMode()"></textarea>
-                            <mat-icon matSuffix>location_on</mat-icon>
-                            <mat-error *ngIf="isFieldInvalid('address')">
+                        <div class="form-field full-width">
+                            <label class="field-label">Address *</label>
+                            <div class="input-wrapper">
+                                <textarea class="form-control" formControlName="address" rows="3" 
+                                    placeholder="Enter complete address" [readonly]="isReadOnlyMode()"></textarea>
+                                <span class="field-icon">🏠</span>
+                            </div>
+                            <div class="field-error" *ngIf="isFieldInvalid('address')">
                                 {{ getFieldError('address') }}
-                            </mat-error>
-                        </mat-form-field>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Account Status Section (Edit Mode Only) -->
                 <div class="form-section" *ngIf="canShowActiveToggle()">
                     <div class="section-header">
-                        <h3>
-                            <mat-icon>settings</mat-icon>
+                        <h3 class="section-title">
+                            <span class="section-icon">⚙️</span>
                             Account Settings
                         </h3>
                     </div>
 
                     <div class="form-grid">
-                        <div class="status-toggle">
-                            <mat-slide-toggle formControlName="isActive" color="primary">
-                                <div class="toggle-content">
-                                    <div class="toggle-label">Account Status</div>
-                                    <div class="toggle-description">
-                                        {{ memberForm.get('isActive')?.value ? 'Active' : 'Inactive' }}
-                                    </div>
-                                </div>
-                            </mat-slide-toggle>
+                        <div class="form-field">
+                            <label class="field-label">Account Status</label>
+                            <div class="toggle-wrapper">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" formControlName="isActive">
+                                    <span class="toggle-slider">
+                                        <span class="toggle-text">
+                                            {{ memberForm.get('isActive')?.value ? 'Active' : 'Inactive' }}
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -246,8 +264,8 @@
                 <!-- Member Information Display (View Mode) -->
                 <div class="form-section" *ngIf="isReadOnlyMode() && member">
                     <div class="section-header">
-                        <h3>
-                            <mat-icon>info</mat-icon>
+                        <h3 class="section-title">
+                            <span class="section-icon">📋</span>
                             Member Information
                         </h3>
                     </div>
@@ -256,27 +274,26 @@
                         <div class="info-item">
                             <div class="info-label">Member Number</div>
                             <div class="info-value">
-                                <mat-chip color="primary">{{ member.memberNumber }}</mat-chip>
+                                <span class="info-badge primary">{{ member.memberNumber }}</span>
                             </div>
                         </div>
 
                         <div class="info-item">
                             <div class="info-label">Member Tier</div>
                             <div class="info-value">
-                                <mat-chip [style.background-color]="getTierInfo(member.tier).color">
-                                    <mat-icon>{{ getTierInfo(member.tier).icon }}</mat-icon>
-                                    {{ member.tier }}
-                                </mat-chip>
+                                <span class="tier-badge" [attr.data-tier]="member.tier.toLowerCase()">
+                                    {{ getTierIcon(member.tier) }} {{ member.tier }}
+                                </span>
                             </div>
                         </div>
 
                         <div class="info-item">
                             <div class="info-label">Account Status</div>
                             <div class="info-value">
-                                <mat-chip [color]="member.isActive ? 'accent' : 'warn'">
-                                    <mat-icon>{{ member.isActive ? 'check_circle' : 'cancel' }}</mat-icon>
+                                <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
+                                    <span class="status-icon">{{ member.isActive ? '✅' : '❌' }}</span>
                                     {{ member.isActive ? 'Active' : 'Inactive' }}
-                                </mat-chip>
+                                </span>
                             </div>
                         </div>
 
@@ -294,15 +311,14 @@
 
                 <!-- Form Actions -->
                 <div class="form-actions" *ngIf="!isReadOnlyMode()">
-                    <button mat-button type="button" (click)="navigateBack()">
-                        <mat-icon>cancel</mat-icon>
+                    <button class="btn btn-outline" type="button" (click)="navigateBack()">
+                        <span class="btn-icon">✖</span>
                         Cancel
                     </button>
 
-                    <button mat-raised-button color="primary" type="submit"
-                        [disabled]="isSubmitButtonDisabled()">
-                        <mat-spinner diameter="20" *ngIf="isSubmitting"></mat-spinner>
-                        <mat-icon *ngIf="!isSubmitting">save</mat-icon>
+                    <button class="btn btn-primary" type="submit" [disabled]="isSubmitButtonDisabled()">
+                        <div class="loading-spinner" *ngIf="isSubmitting"></div>
+                        <span class="btn-icon" *ngIf="!isSubmitting">💾</span>
                         {{ getSubmitButtonText() }}
                     </button>
                 </div>
@@ -310,4 +326,24 @@
         </div>
     </div>
 
+    <!-- Floating Action Button (Mobile) -->
+    <button class="fab" *ngIf="!isReadOnlyMode()" (click)="onSubmit()" title="Save member" [disabled]="isSubmitButtonDisabled()">
+        <span class="fab-icon" *ngIf="!isSubmitting">💾</span>
+        <div class="loading-spinner" *ngIf="isSubmitting"></div>
+    </button>
+
+</div>
+
+<!-- Real-time Update Toast Notifications -->
+<div class="toast-container">
+    <div class="toast" *ngFor="let toast of realtimeToasts(); trackBy: trackByToast" [class]="'toast-' + toast.type">
+        <div class="toast-content">
+            <span class="toast-icon">{{ getToastIcon(toast.type) }}</span>
+            <div class="toast-message">
+                <div class="toast-title">{{ toast.title }}</div>
+                <div class="toast-text">{{ toast.message }}</div>
+            </div>
+        </div>
+        <button class="toast-close" (click)="dismissToast(toast.id)">×</button>
+    </div>
 </div>

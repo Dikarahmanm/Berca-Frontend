@@ -477,7 +477,21 @@ export class MembershipFormComponent implements OnInit, OnDestroy {
     return new Intl.NumberFormat('id-ID').format(num);
   }
 
+  // ===== TIER UTILITY METHODS =====
   getTierInfo(tier: string): { color: string; icon: string; name: string } {
-    return this.membershipService.getMemberTierInfo(tier);
+    return this.tierInfoMap[tier] || this.tierInfoMap['Bronze'];
   }
+
+  getTierIcon(tier: string): string {
+    return this.getTierInfo(tier).icon;
+  }
+
+  // ===== UTILITY HELPERS =====
+  private generateId(): string {
+    return Math.random().toString(36).substring(2, 15) + 
+           Math.random().toString(36).substring(2, 15);
+  }
+
+  // ===== PERFORMANCE OPTIMIZATION =====
+  trackByMember = (index: number, member: any): number => member.id;
 }

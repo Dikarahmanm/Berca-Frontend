@@ -1,348 +1,692 @@
-<!-- src/app/modules/membership/components/membership-list/membership-list.component.html -->
-<div class="membership-list">
+<!-- membership-list.component.html -->
+<!-- Fixed All Signals Errors - Compatible with TypeScript Component -->
+<div class="membership-container">
 
-    <!-- Header Section -->
-    <div class="list-header">
-        <div class="header-content">
-            <h1 class="page-title">
-                <mat-icon>card_membership</mat-icon>
-                Member Management
-            </h1>
-            <p class="page-subtitle">
-                Kelola data member dan sistem loyalty points
-            </p>
-        </div>
-
-        <div class="header-actions">
-            <button mat-raised-button color="primary" (click)="createMember()">
-                <mat-icon>add</mat-icon>
-                Add Member
-            </button>
-
-            <button mat-button [matMenuTriggerFor]="bulkMenu" [disabled]="selectedMembers.length === 0">
-                <mat-icon>more_vert</mat-icon>
-                Bulk Actions
-                <mat-icon>arrow_drop_down</mat-icon>
-            </button>
-
-            <mat-menu #bulkMenu="matMenu">
-                <button mat-menu-item (click)="bulkActivate()">
-                    <mat-icon>check_circle</mat-icon>
-                    Activate Selected
-                </button>
-                <button mat-menu-item (click)="bulkDeactivate()">
-                    <mat-icon>cancel</mat-icon>
-                    Deactivate Selected
-                </button>
-                <mat-divider></mat-divider>
-                <button mat-menu-item (click)="exportMembers()">
-                    <mat-icon>download</mat-icon>
-                    Export Data
-                </button>
-            </mat-menu>
-        </div>
+  <!-- Header Section with Real-time Status -->
+  <div class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">
+        <span class="title-icon">👥</span>
+        Member Management
+        <span class="realtime-indicator" [class.active]="realtimeConnected()">
+          <span class="indicator-dot"></span>
+          {{ realtimeConnected() ? 'Live' : 'Offline' }}
+        </span>
+      </h1>
+      <p class="page-subtitle">Kelola data member dan sistem loyalty points</p>
     </div>
 
-    <!-- Search & Filter Section -->
-    <div class="search-filters glass-card">
-        <form [formGroup]="searchForm" class="search-form">
-            <mat-form-field appearance="outline" class="search-field">
-                <mat-label>Search members...</mat-label>
-                <input matInput formControlName="search" placeholder="Search by name, phone, or member number">
-                <mat-icon matSuffix>search</mat-icon>
-                @if (searchForm.get('search')?.value) {
-                <button matSuffix mat-icon-button (click)="onSearchClear()">
-                    <mat-icon>clear</mat-icon>
-                </button>
-                }
-            </mat-form-field>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="createMember()">
+        <span class="btn-icon">+</span>
+        Add Member
+      </button>
 
-            <mat-form-field appearance="outline">
-                <mat-label>Status</mat-label>
-                <mat-select formControlName="isActive">
-                    <mat-option value="all">All Status</mat-option>
-                    <mat-option value="true">Active</mat-option>
-                    <mat-option value="false">Inactive</mat-option>
-                </mat-select>
-            </mat-form-field>
+      <button class="btn btn-outline" (click)="toggleAdvancedFilters()">
+        <span class="btn-icon">🔧</span>
+        {{ showAdvancedFilters() ? 'Hide' : 'Advanced' }} Filters
+      </button>
 
-            <mat-form-field appearance="outline">
-                <mat-label>Tier</mat-label>
-                <mat-select formControlName="tier">
-                    <mat-option value="all">All Tiers</mat-option>
-                    <mat-option value="Bronze">Bronze</mat-option>
-                    <mat-option value="Silver">Silver</mat-option>
-                    <mat-option value="Gold">Gold</mat-option>
-                    <mat-option value="Platinum">Platinum</mat-option>
-                    <mat-option value="VIP">VIP</mat-option>
-                </mat-select>
-            </mat-form-field>
+      <button class="btn btn-outline" [disabled]="selectedMembers().length === 0" (click)="toggleBulkMenu()">
+        <span class="btn-icon">⚙</span>
+        Actions ({{selectedMembers().length}})
+      </button>
+    </div>
+  </div>
 
-            <button mat-button type="button" (click)="onFilterReset()">
-                <mat-icon>refresh</mat-icon>
-                Reset
-            </button>
-        </form>
+  <!-- Enhanced Search & Filters -->
+  <div class="search-section card" [formGroup]="searchForm">
+    <!-- Basic Search -->
+    <div class="search-grid">
+      <div class="search-field">
+        <input type="text" placeholder="Search members..." formControlName="search" class="form-control" />
+        <span class="search-icon">🔍</span>
+      </div>
 
-        <!-- Selection Summary -->
-        @if (selectedMembers.length > 0) {
-        <div class="selection-summary">
-            <mat-chip-listbox>
-                <mat-chip color="primary">
-                    {{ selectedMembers.length }} member(s) selected
-                </mat-chip>
-            </mat-chip-listbox>
-            <button mat-button (click)="clearSelection()">
-                <mat-icon>clear</mat-icon>
-                Clear Selection
-            </button>
+      <div class="filter-field">
+        <select class="form-control" formControlName="isActive">
+          <option value="all">All Status</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+
+      <div class="filter-field">
+        <select class="form-control" formControlName="tier">
+          <option value="all">All Tiers</option>
+          <option value="Bronze">Bronze</option>
+          <option value="Silver">Silver</option>
+          <option value="Gold">Gold</option>
+          <option value="Platinum">Platinum</option>
+          <option value="VIP">VIP</option>
+        </select>
+      </div>
+
+      <button class="btn btn-outline" (click)="onFilterReset()">
+        <span class="btn-icon">↻</span>
+        Reset
+      </button>
+    </div>
+
+    <!-- Advanced Filters (Collapsible) -->
+    <div class="advanced-filters" *ngIf="showAdvancedFilters()">
+      <div class="advanced-filters-grid">
+        <!-- Date Range Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Registration Date</label>
+          <div class="date-range">
+            <input type="date" class="form-control" formControlName="registrationStartDate" placeholder="From" />
+            <span class="date-separator">to</span>
+            <input type="date" class="form-control" formControlName="registrationEndDate" placeholder="To" />
+          </div>
         </div>
-        }
-    </div>
 
-    <!-- Loading State -->
-    @if (loading$ | async) {
-    <div class="loading-container">
-        <mat-spinner diameter="50"></mat-spinner>
-        <p>Loading members...</p>
-    </div>
-    }
+        <!-- Spending Range Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Total Spent Range</label>
+          <div class="range-inputs">
+            <input type="number" class="form-control" formControlName="minSpent" placeholder="Min Amount" min="0" />
+            <span class="range-separator">-</span>
+            <input type="number" class="form-control" formControlName="maxSpent" placeholder="Max Amount" min="0" />
+          </div>
+        </div>
 
-    <!-- Error State -->
-    @if (error$ | async; as error) {
-    <div class="error-container glass-card">
-        <mat-icon color="warn">error</mat-icon>
-        <p>{{ error }}</p>
-        <button mat-raised-button color="primary" (click)="loadMembers()">
-            <mat-icon>refresh</mat-icon>
-            Retry
+        <!-- Points Range Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Available Points</label>
+          <div class="range-inputs">
+            <input type="number" class="form-control" formControlName="minPoints" placeholder="Min Points" min="0" />
+            <span class="range-separator">-</span>
+            <input type="number" class="form-control" formControlName="maxPoints" placeholder="Max Points" min="0" />
+          </div>
+        </div>
+
+        <!-- Last Transaction Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Last Transaction</label>
+          <select class="form-control" formControlName="lastTransactionPeriod">
+            <option value="all">Any time</option>
+            <option value="7days">Last 7 days</option>
+            <option value="30days">Last 30 days</option>
+            <option value="90days">Last 3 months</option>
+            <option value="1year">Last year</option>
+            <option value="never">Never transacted</option>
+          </select>
+        </div>
+
+        <!-- Quick Spending Tier Filters -->
+        <div class="filter-group">
+          <label class="filter-label">Spending Tier</label>
+          <div class="spending-tier-filters">
+            <button type="button" class="tier-filter-btn" [class.active]="selectedSpendingTier() === 'low'"
+              (click)="setSpendingTierFilter('low')">
+              💰 Low Spenders (&lt;500K)
+            </button>
+            <button type="button" class="tier-filter-btn" [class.active]="selectedSpendingTier() === 'medium'"
+              (click)="setSpendingTierFilter('medium')">
+              💎 Medium Spenders (500K-2M)
+            </button>
+            <button type="button" class="tier-filter-btn" [class.active]="selectedSpendingTier() === 'high'"
+              (click)="setSpendingTierFilter('high')">
+              👑 High Spenders (&gt;2M)
+            </button>
+          </div>
+        </div>
+
+        <!-- Transaction Frequency Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Transaction Frequency</label>
+          <select class="form-control" formControlName="transactionFrequency">
+            <option value="all">All Members</option>
+            <option value="frequent">Frequent (10+ transactions)</option>
+            <option value="regular">Regular (3-9 transactions)</option>
+            <option value="occasional">Occasional (1-2 transactions)</option>
+            <option value="inactive">No transactions</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Filter Actions -->
+      <div class="advanced-filter-actions">
+        <button class="btn btn-primary" (click)="applyAdvancedFilters()">
+          <span class="btn-icon">🔍</span>
+          Apply Filters
         </button>
+        <button class="btn btn-outline" (click)="clearAdvancedFilters()">
+          <span class="btn-icon">🗑</span>
+          Clear All
+        </button>
+        <button class="btn btn-ghost" (click)="saveFilterPreset()">
+          <span class="btn-icon">💾</span>
+          Save Preset
+        </button>
+      </div>
     </div>
-    }
 
-    <!-- Data Table -->
-    @if (!(loading$ | async) && !(error$ | async)) {
-    <div class="table-container glass-card">
+    <!-- Active Filters Display -->
+    <div class="active-filters" *ngIf="hasActiveFilters()">
+      <div class="filter-tags">
+        <span class="filter-tag" *ngFor="let filter of getActiveFilterTags()" (click)="removeFilter(filter.key)">
+          {{ filter.label }}
+          <span class="remove-filter">×</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Selection Summary -->
+    <div class="selection-summary" *ngIf="selectedMembers().length > 0">
+      <div class="selection-info">
+        <span class="selection-badge">{{selectedMembers().length}} selected</span>
+      </div>
+      <div class="selection-actions">
+        <button class="btn btn-sm btn-success" (click)="bulkActivate()">Activate</button>
+        <button class="btn btn-sm btn-secondary" (click)="bulkDeactivate()">Deactivate</button>
+        <button class="btn btn-sm btn-outline" (click)="exportMembers()">Export</button>
+        <button class="btn btn-sm btn-ghost" (click)="clearSelection()">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="loading$()">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">Loading members...</p>
+  </div>
+
+  <!-- Error State -->
+  <div class="error-container card" *ngIf="error$() as error">
+    <div class="error-content">
+      <span class="error-icon">⚠️</span>
+      <div class="error-message">
+        <h3>Oops! Something went wrong</h3>
+        <p>{{ error }}</p>
+      </div>
+      <button class="btn btn-primary" (click)="loadMembers()">
+        <span class="btn-icon">↻</span>
+        Try Again
+      </button>
+    </div>
+  </div>
+
+  <!-- Content Section -->
+  <div class="content-section" *ngIf="!loading$() && !error$()">
+
+    <!-- Mobile Card View -->
+    <div class="mobile-view">
+      <div class="member-card" *ngFor="let member of dataSource().data; trackBy: trackByMember"
+        [class.selected]="isSelected(member)" (click)="toggleSelection(member)">
+
+        <div class="card-header">
+          <div class="member-info">
+            <div class="member-name">{{ member.name }}</div>
+            <div class="member-number">{{ member.memberNumber }}</div>
+          </div>
+          <div class="member-status">
+            <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
+              {{ member.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="info-row">
+            <span class="info-label">📞 Phone:</span>
+            <span class="info-value">{{ member.phone }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">🏆 Tier:</span>
+            <span class="tier-badge" [attr.data-tier]="member.tier.toLowerCase()">
+              {{ member.tier }}
+            </span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">⭐ Points:</span>
+            <span class="info-value points">{{ formatNumber(member.availablePoints) }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">💰 Total Spent:</span>
+            <span class="info-value amount">{{ formatCurrency(member.totalSpent) }}</span>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button class="action-btn primary" (click)="openMemberDetailModal(member); $event.stopPropagation()">
+            <span class="btn-icon">👁</span>
+            Quick View
+          </button>
+          <button class="action-btn secondary" (click)="editMember(member); $event.stopPropagation()">
+            <span class="btn-icon">✏️</span>
+            Edit
+          </button>
+          <button class="action-btn accent" (click)="managePoints(member); $event.stopPropagation()">
+            <span class="btn-icon">⭐</span>
+            Points
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop Table View with Enhanced Sorting -->
+    <div class="desktop-view">
+      <div class="table-container card">
         <div class="table-header">
-            <div class="table-info">
-                <h3>Members List</h3>
-                <span class="member-count">{{ totalItems }} total members</span>
-            </div>
-
-            <div class="table-actions">
-                <button mat-icon-button (click)="selectAll()" matTooltip="Select All">
-                    <mat-icon>select_all</mat-icon>
-                </button>
-                <button mat-icon-button (click)="loadMembers()" matTooltip="Refresh">
-                    <mat-icon>refresh</mat-icon>
-                </button>
-            </div>
+          <div class="table-info">
+            <h3 class="table-title">Members List</h3>
+            <span class="member-count">{{ totalItems() }} total members</span>
+            <span class="last-updated" *ngIf="lastUpdated()">
+              Last updated: {{ formatDate(lastUpdated()!) }}
+            </span>
+          </div>
+          <div class="table-actions">
+            <button class="btn btn-sm btn-ghost" (click)="selectAll()" title="Select All">
+              <span class="btn-icon">☑️</span>
+            </button>
+            <button class="btn btn-sm btn-ghost" (click)="refreshData()" title="Refresh">
+              <span class="btn-icon">↻</span>
+            </button>
+            <button class="btn btn-sm btn-outline" (click)="exportToExcel()" title="Export to Excel">
+              <span class="btn-icon">📊</span>
+            </button>
+          </div>
         </div>
 
         <div class="table-wrapper">
-            <table mat-table [dataSource]="dataSource" matSort class="members-table">
+          <table class="members-table">
+            <thead>
+              <tr>
+                <th class="checkbox-col">
+                  <input type="checkbox"
+                    [checked]="selectedMembers().length === dataSource().data.length && dataSource().data.length > 0"
+                    [indeterminate]="selectedMembers().length > 0 && selectedMembers().length < dataSource().data.length"
+                    (change)="$any($event.target)?.checked ? selectAll() : clearSelection()"
+                    class="table-checkbox">
+                </th>
 
-                <!-- Selection Column -->
-                <ng-container matColumnDef="select">
-                    <th mat-header-cell *matHeaderCellDef>
-                        <mat-checkbox (change)="$event ? selectAll() : clearSelection()"
-                            [checked]="selectedMembers.length === dataSource.data.length"
-                            [indeterminate]="selectedMembers.length > 0 && selectedMembers.length < dataSource.data.length">
-                        </mat-checkbox>
-                    </th>
-                    <td mat-cell *matCellDef="let member">
-                        <mat-checkbox (click)="$event.stopPropagation()" (change)="toggleSelection(member)"
-                            [checked]="isSelected(member)">
-                        </mat-checkbox>
-                    </td>
-                </ng-container>
+                <!-- Enhanced Sortable Headers -->
+                <th class="sortable-header" (click)="toggleSort('memberNumber')">
+                  Member Number
+                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('memberNumber')">
+                    {{ getSortIcon('memberNumber') }}
+                  </span>
+                </th>
 
-                <!-- Member Number Column -->
-                <ng-container matColumnDef="memberNumber">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Member Number</th>
-                    <td mat-cell *matCellDef="let member">
-                        <div class="member-number">
-                            <mat-icon class="member-icon">card_membership</mat-icon>
-                            <span>{{ member.memberNumber }}</span>
-                        </div>
-                    </td>
-                </ng-container>
+                <th class="sortable-header" (click)="toggleSort('name')">
+                  Name & Contact
+                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('name')">
+                    {{ getSortIcon('name') }}
+                  </span>
+                </th>
 
-                <!-- Name Column -->
-                <ng-container matColumnDef="name">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
-                    <td mat-cell *matCellDef="let member">
-                        <div class="member-info">
-                            <div class="member-name">{{ member.name }}</div>
-                            <div class="member-email">{{ member.email }}</div>
-                        </div>
-                    </td>
-                </ng-container>
+                <th class="sortable-header" (click)="toggleSort('tier')">
+                  Tier
+                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('tier')">
+                    {{ getSortIcon('tier') }}
+                  </span>
+                </th>
 
-                <!-- Phone Column -->
-                <ng-container matColumnDef="phone">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Phone</th>
-                    <td mat-cell *matCellDef="let member">
-                        <div class="phone-info">
-                            <mat-icon class="phone-icon">phone</mat-icon>
-                            <span>{{ member.phone }}</span>
-                        </div>
-                    </td>
-                </ng-container>
+                <th class="sortable-header" (click)="toggleSort('availablePoints')">
+                  Points
+                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('availablePoints')">
+                    {{ getSortIcon('availablePoints') }}
+                  </span>
+                </th>
 
-                <!-- Tier Column -->
-                <ng-container matColumnDef="tier">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tier</th>
-                    <td mat-cell *matCellDef="let member">
-                        <mat-chip-listbox>
-                            <mat-chip [style.background-color]="getTierInfo(member.tier).color">
-                                <mat-icon>{{ getTierInfo(member.tier).icon }}</mat-icon>
-                                {{ member.tier }}
-                            </mat-chip>
-                        </mat-chip-listbox>
-                    </td>
-                </ng-container>
+                <th class="sortable-header" (click)="toggleSort('totalSpent')">
+                  Total Spent
+                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('totalSpent')">
+                    {{ getSortIcon('totalSpent') }}
+                  </span>
+                </th>
 
-                <!-- Total Spent Column -->
-                <ng-container matColumnDef="totalSpent">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Total Spent</th>
-                    <td mat-cell *matCellDef="let member">
-                        <div class="amount">{{ formatCurrency(member.totalSpent) }}</div>
-                        <div class="transactions">{{ member.totalTransactions }} transactions</div>
-                    </td>
-                </ng-container>
+                <th class="sortable-header" (click)="toggleSort('lastTransactionDate')">
+                  Last Transaction
+                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('lastTransactionDate')">
+                    {{ getSortIcon('lastTransactionDate') }}
+                  </span>
+                </th>
 
-                <!-- Points Column -->
-                <ng-container matColumnDef="availablePoints">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Points</th>
-                    <td mat-cell *matCellDef="let member">
-                        <div class="points-info">
-                            <div class="available-points">
-                                <mat-icon class="points-icon">stars</mat-icon>
-                                {{ formatNumber(member.availablePoints) }}
-                            </div>
-                            <div class="total-points">{{ formatNumber(member.totalPoints) }} earned</div>
-                        </div>
-                    </td>
-                </ng-container>
+                <th class="sortable-header" (click)="toggleSort('createdAt')">
+                  Registered
+                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('createdAt')">
+                    {{ getSortIcon('createdAt') }}
+                  </span>
+                </th>
 
-                <!-- Last Transaction Column -->
-                <ng-container matColumnDef="lastTransaction">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Last Transaction</th>
-                    <td mat-cell *matCellDef="let member">
-                        <div class="last-transaction">
-                            <div class="date">{{ formatDate(member.lastTransactionDate) }}</div>
-                            <div class="average" *ngIf="member.averageTransactionValue > 0">
-                                Avg: {{ formatCurrency(member.averageTransactionValue) }}
-                            </div>
-                        </div>
-                    </td>
-                </ng-container>
+                <th class="sortable-header" (click)="toggleSort('isActive')">
+                  Status
+                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('isActive')">
+                    {{ getSortIcon('isActive') }}
+                  </span>
+                </th>
 
-                <!-- Status Column -->
-                <ng-container matColumnDef="status">
-                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
-                    <td mat-cell *matCellDef="let member">
-                        <mat-chip-listbox>
-                            <mat-chip [color]="getStatusColor(member.isActive)">
-                                <mat-icon>{{ member.isActive ? 'check_circle' : 'cancel' }}</mat-icon>
-                                {{ getStatusText(member.isActive) }}
-                            </mat-chip>
-                        </mat-chip-listbox>
-                    </td>
-                </ng-container>
+                <th class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let member of dataSource().data; trackBy: trackByMember" class="member-row"
+                [class.selected]="isSelected(member)" [class.recent-update]="isRecentlyUpdated(member)">
 
-                <!-- Actions Column -->
-                <ng-container matColumnDef="actions">
-                    <th mat-header-cell *matHeaderCellDef>Actions</th>
-                    <td mat-cell *matCellDef="let member">
-                        <div class="actions-cell">
-                            <button mat-icon-button [matMenuTriggerFor]="actionMenu" matTooltip="More actions">
-                                <mat-icon>more_vert</mat-icon>
-                            </button>
+                <td class="checkbox-col">
+                  <input type="checkbox" [checked]="isSelected(member)" (change)="toggleSelection(member)"
+                    (click)="$event.stopPropagation()" class="table-checkbox">
+                </td>
 
-                            <mat-menu #actionMenu="matMenu">
-                                <button mat-menu-item (click)="viewMember(member)">
-                                    <mat-icon>visibility</mat-icon>
-                                    View Details
-                                </button>
-                                <button mat-menu-item (click)="editMember(member)">
-                                    <mat-icon>edit</mat-icon>
-                                    Edit Member
-                                </button>
-                                <button mat-menu-item (click)="managePoints(member)">
-                                    <mat-icon>stars</mat-icon>
-                                    Manage Points
-                                </button>
-                                <mat-divider></mat-divider>
-                                <button mat-menu-item (click)="updateTier(member)">
-                                    <mat-icon>upgrade</mat-icon>
-                                    Update Tier
-                                </button>
-                                <button mat-menu-item (click)="toggleMemberStatus(member)">
-                                    <mat-icon>{{ member.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                                    {{ member.isActive ? 'Deactivate' : 'Activate' }}
-                                </button>
-                                <mat-divider></mat-divider>
-                                <button mat-menu-item (click)="deleteMember(member)" class="danger-action">
-                                    <mat-icon>delete</mat-icon>
-                                    Delete Member
-                                </button>
-                            </mat-menu>
+                <td class="member-number-col">
+                  <div class="member-number-cell">
+                    <span class="member-icon">🆔</span>
+                    <span class="member-number">{{ member.memberNumber }}</span>
+                    <span class="update-indicator" *ngIf="isRecentlyUpdated(member)" title="Recently updated">
+                      🆕
+                    </span>
+                  </div>
+                </td>
 
-                            <button mat-icon-button color="primary" (click)="viewMember(member)"
-                                matTooltip="View member details">
-                                <mat-icon>visibility</mat-icon>
-                            </button>
+                <td class="member-info-col">
+                  <div class="member-info-cell">
+                    <div class="member-name">{{ member.name }}</div>
+                    <div class="member-contact">
+                      <span class="phone">📞 {{ member.phone }}</span>
+                      <span class="email" *ngIf="member.email">✉️ {{ member.email }}</span>
+                    </div>
+                  </div>
+                </td>
 
-                            <button mat-icon-button color="accent" (click)="editMember(member)"
-                                matTooltip="Edit member">
-                                <mat-icon>edit</mat-icon>
-                            </button>
-                        </div>
-                    </td>
-                </ng-container>
+                <td class="tier-col">
+                  <span class="tier-badge" [attr.data-tier]="member.tier.toLowerCase()">
+                    <span class="tier-icon">{{ getTierIcon(member.tier) }}</span>
+                    {{ member.tier }}
+                  </span>
+                </td>
 
-                <!-- Table Row Definitions -->
-                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="member-row"></tr>
-            </table>
+                <td class="points-col">
+                  <div class="points-cell">
+                    <div class="available-points">
+                      <span class="points-icon">⭐</span>
+                      {{ formatNumber(member.availablePoints) }}
+                    </div>
+                    <div class="total-points">{{ formatNumber(member.totalPoints) }} earned</div>
+                  </div>
+                </td>
+
+                <td class="amount-col">
+                  <div class="amount-cell">
+                    <div class="total-spent">{{ formatCurrency(member.totalSpent) }}</div>
+                    <div class="transaction-count">{{ member.totalTransactions }} transactions</div>
+                  </div>
+                </td>
+
+                <td class="date-col">
+                  <div class="date-cell">
+                    <div class="last-date">{{ formatDate(member.lastTransactionDate) }}</div>
+                    <div class="avg-amount" *ngIf="member.averageTransactionValue > 0">
+                      Avg: {{ formatCurrency(member.averageTransactionValue) }}
+                    </div>
+                  </div>
+                </td>
+
+                <td class="date-col">
+                  <div class="date-cell">
+                    <div class="registration-date">{{ formatDate(member.createdAt) }}</div>
+                    <div class="membership-duration">{{ getMembershipDuration(member.createdAt) }}</div>
+                  </div>
+                </td>
+
+                <td class="status-col">
+                  <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
+                    <span class="status-icon">{{ member.isActive ? '✅' : '❌' }}</span>
+                    {{ member.isActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+
+                <td class="actions-col">
+                  <div class="table-actions">
+                    <button class="action-btn small primary" (click)="openMemberDetailModal(member)" title="Quick View">
+                      <span class="btn-icon">👁</span>
+                    </button>
+                    <button class="action-btn small secondary" (click)="editMember(member)" title="Edit Member">
+                      <span class="btn-icon">✏️</span>
+                    </button>
+                    <button class="action-btn small accent" (click)="managePoints(member)" title="Manage Points">
+                      <span class="btn-icon">⭐</span>
+                    </button>
+                    <button class="action-btn small dropdown" (click)="toggleMemberMenu(member)" title="More Actions">
+                      <span class="btn-icon">⋮</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <!-- Empty State -->
-        @if (dataSource.data.length === 0) {
-        <div class="empty-state">
-            <mat-icon class="empty-icon">people_outline</mat-icon>
-            <h3>No Members Found</h3>
-            <p>No members match your current search criteria.</p>
-            <button mat-raised-button color="primary" (click)="createMember()">
-                <mat-icon>add</mat-icon>
-                Add First Member
+        <div class="empty-state" *ngIf="dataSource().data.length === 0">
+          <div class="empty-content">
+            <div class="empty-icon">👥</div>
+            <h3 class="empty-title">No Members Found</h3>
+            <p class="empty-message">No members match your current search criteria.</p>
+            <button class="btn btn-primary" (click)="createMember()">
+              <span class="btn-icon">+</span>
+              Add First Member
             </button>
+          </div>
         </div>
-        }
 
-        <!-- Pagination -->
-        @if (dataSource.data.length > 0) {
-        <div class="pagination-container">
-            <mat-paginator [length]="totalItems" [pageSize]="pageSize" [pageIndex]="currentPage - 1"
-                [pageSizeOptions]="[10, 20, 50, 100]" (page)="onPageChange($event)" showFirstLastButtons>
-            </mat-paginator>
-
-            <div class="pagination-info">
-                Showing {{ (currentPage - 1) * pageSize + 1 }} -
-                {{ getMinValue(currentPage * pageSize, totalItems) }} of {{ totalItems }} members
+        <!-- Enhanced Pagination with Page Size Options -->
+        <div class="pagination-section" *ngIf="dataSource().data.length > 0">
+          <div class="pagination-info">
+            <span class="info-text">
+              Showing {{ (currentPage() - 1) * pageSize() + 1 }} -
+              {{ getMinValue(currentPage() * pageSize(), totalItems()) }} of {{ totalItems() }} members
+            </span>
+            <div class="page-size-selector">
+              <label>Show:</label>
+                <select class="form-control small" [value]="pageSize()"
+                (change)="onPageSizeSelect($event)">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span>per page</span>
             </div>
+          </div>
+          <div class="pagination-controls">
+            <button class="btn btn-sm btn-ghost" [disabled]="currentPage() === 1" (click)="goToFirstPage()">
+              <span class="btn-icon">⏮</span>
+              First
+            </button>
+            <button class="btn btn-sm btn-ghost" [disabled]="currentPage() === 1" (click)="previousPage()">
+              <span class="btn-icon">‹</span>
+              Previous
+            </button>
+
+            <!-- Page Numbers -->
+            <div class="page-numbers">
+              <button *ngFor="let page of getVisiblePages()" class="page-btn" [class.active]="page === currentPage()"
+                [class.disabled]="page === '...'" (click)="goToPage(page)">
+                {{ page }}
+              </button>
+            </div>
+
+            <button class="btn btn-sm btn-ghost" [disabled]="currentPage() >= Math.ceil(totalItems() / pageSize())"
+              (click)="nextPage()">
+              Next
+              <span class="btn-icon">›</span>
+            </button>
+            <button class="btn btn-sm btn-ghost" [disabled]="currentPage() >= Math.ceil(totalItems() / pageSize())"
+              (click)="goToLastPage()">
+              Last
+              <span class="btn-icon">⏭</span>
+            </button>
+          </div>
         </div>
-        }
+      </div>
     </div>
-    }
+  </div>
 
-    <!-- Floating Action Button -->
-    <div class="fab-container">
-        <button mat-fab color="primary" (click)="createMember()" matTooltip="Add new member">
-            <mat-icon>add</mat-icon>
-        </button>
+  <!-- Floating Action Button (Mobile) -->
+  <button class="fab" (click)="createMember()" title="Add new member">
+    <span class="fab-icon">+</span>
+  </button>
+
+</div>
+
+<!-- Member Detail Modal -->
+<div class="modal-overlay" *ngIf="showMemberDetailModal()" (click)="closeMemberDetailModal()">
+  <div class="member-detail-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2 class="modal-title">
+        <span class="member-avatar">👤</span>
+        Member Details
+      </h2>
+      <button class="close-btn" (click)="closeMemberDetailModal()">
+        <span class="close-icon">×</span>
+      </button>
     </div>
 
+    <div class="modal-body" *ngIf="selectedMemberForModal() as member">
+      <!-- Member Summary Card -->
+      <div class="member-summary-card">
+        <div class="summary-header">
+          <div class="member-main-info">
+            <h3 class="member-name">{{ member.name }}</h3>
+            <div class="member-meta">
+              <span class="member-number">{{ member.memberNumber }}</span>
+              <span class="member-tier" [attr.data-tier]="member.tier.toLowerCase()">
+                {{ getTierIcon(member.tier) }} {{ member.tier }}
+              </span>
+              <span class="member-status" [class.active]="member.isActive">
+                {{ member.isActive ? '✅ Active' : '❌ Inactive' }}
+              </span>
+            </div>
+          </div>
+          <div class="quick-actions">
+            <button class="btn btn-sm btn-primary" (click)="editMember(member)">
+              <span class="btn-icon">✏️</span>
+              Edit
+            </button>
+            <button class="btn btn-sm btn-accent" (click)="managePoints(member)">
+              <span class="btn-icon">⭐</span>
+              Points
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistics Grid -->
+      <div class="member-stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ formatNumber(member.availablePoints) }}</div>
+            <div class="stat-label">Available Points</div>
+            <div class="stat-sub">{{ formatNumber(member.totalPoints) }} total earned</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">💰</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ formatCurrency(member.totalSpent) }}</div>
+            <div class="stat-label">Total Spent</div>
+            <div class="stat-sub">{{ member.totalTransactions }} transactions</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">📅</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ formatDate(member.lastTransactionDate) }}</div>
+            <div class="stat-label">Last Transaction</div>
+            <div class="stat-sub">{{ getMembershipDuration(member.createdAt) }} member</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">📊</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ formatCurrency(member.averageTransactionValue) }}</div>
+            <div class="stat-label">Avg Transaction</div>
+            <div class="stat-sub">{{ getTransactionFrequency(member) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contact Information -->
+      <div class="info-section">
+        <h4 class="section-title">
+          <span class="section-icon">📞</span>
+          Contact Information
+        </h4>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Phone:</span>
+            <span class="info-value">{{ member.phone }}</span>
+          </div>
+          <div class="info-item" *ngIf="member.email">
+            <span class="info-label">Email:</span>
+            <span class="info-value">{{ member.email }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Registered:</span>
+            <span class="info-value">{{ formatDate(member.createdAt) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Last Updated:</span>
+            <span class="info-value">{{ formatDate(member.updatedAt) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tier Progress -->
+      <div class="info-section" *ngIf="getTierProgress(member) as progress">
+        <h4 class="section-title">
+          <span class="section-icon">🏆</span>
+          Tier Progress
+        </h4>
+        <div class="tier-progress">
+          <div class="progress-info">
+            <span class="current-tier">{{ member.tier }}</span>
+            <span class="progress-text">
+              {{ progress.nextTier === 'Max Tier' ? 'Maximum tier reached!' :
+              'Spend ' + formatCurrency(progress.amountNeeded) + ' more to reach ' + progress.nextTier }}
+            </span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="progress.percentage"></div>
+          </div>
+          <div class="progress-percentage">{{ progress.percentage }}%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" (click)="closeMemberDetailModal()">
+        Close
+      </button>
+      <button class="btn btn-primary" (click)="editMember(selectedMemberForModal()!)">
+        <span class="btn-icon">✏️</span>
+        Edit Member
+      </button>
+      <button class="btn btn-accent" (click)="managePoints(selectedMemberForModal()!)">
+        <span class="btn-icon">⭐</span>
+        Manage Points
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Real-time Update Toast Notifications -->
+<div class="toast-container">
+  <div class="toast" *ngFor="let toast of realtimeToasts(); trackBy: trackByToast" [class]="'toast-' + toast.type">
+    <div class="toast-content">
+      <span class="toast-icon">{{ getToastIcon(toast.type) }}</span>
+      <div class="toast-message">
+        <div class="toast-title">{{ toast.title }}</div>
+        <div class="toast-text">{{ toast.message }}</div>
+      </div>
+    </div>
+    <button class="toast-close" (click)="dismissToast(toast.id)">×</button>
+  </div>
 </div>

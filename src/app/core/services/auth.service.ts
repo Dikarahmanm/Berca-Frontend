@@ -32,6 +32,10 @@ export interface User {
   role: string;
   isActive: boolean;
   isDeleted?: boolean;
+  email?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string;
 }
 
 export interface UsersResponse {

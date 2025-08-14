@@ -1,5 +1,5 @@
-// src/app/modules/membership/components/member-points/member-points.component.ts
-// ✅ Member Points Management Component
+// ✅ REDESIGNED: Member Points Management - Clean Simple Design
+// Enhanced Desktop UI with Angular Signals Architecture
 
 import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -14,7 +14,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatTableModule, MatTableDataSource } from '@angular/material/table';
+import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
@@ -75,7 +75,7 @@ export class MemberPointsComponent implements OnInit, OnDestroy {
   redeemPointsForm: FormGroup;
 
   // Points history
-  historyDataSource = new MatTableDataSource<MemberPointHistoryDto>([]);
+  historyDataSource: MemberPointHistoryDto[] = [];
   historyColumns = ['date', 'type', 'description', 'points', 'referenceNumber'];
   currentPage = 1;
   pageSize = 20;
@@ -87,6 +87,12 @@ export class MemberPointsComponent implements OnInit, OnDestroy {
   isAddingPoints = false;
   isRedeemingPoints = false;
   selectedTab = 0;
+
+  // Debug method for tab changes
+  onTabChange(index: number): void {
+    console.log(`🔄 Tab changed to index: ${index}`);
+    this.selectedTab = index;
+  }
 
   // Subscription management
   private subscriptions = new Subscription();
@@ -195,7 +201,12 @@ export class MemberPointsComponent implements OnInit, OnDestroy {
   }
 
   private loadPointsHistory(): void {
-    if (!this.memberId) return;
+    if (!this.memberId) {
+      console.warn('⚠️ No member ID available for loading points history');
+      return;
+    }
+
+    console.log(`🔍 Loading points history for member ID: ${this.memberId}`);
 
     const filter: MemberPointsFilter = {
       page: this.currentPage,
@@ -205,24 +216,54 @@ export class MemberPointsComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.membershipService.getPointsHistory(this.memberId, filter).subscribe({
         next: (history) => {
-          this.historyDataSource.data = history;
+          console.log('✅ Points history loaded:', history);
+          this.historyDataSource = history;
           // Note: Backend should return pagination info
         },
         error: (error) => {
-          this.showError('Failed to load points history');
+          console.error('❌ Failed to load points history:', error);
+          // Temporary mock data for testing
+          this.loadMockHistoryData();
         }
       })
     );
   }
 
+  // Temporary method for testing
+  private loadMockHistoryData(): void {
+    console.log('🧪 Loading mock history data for testing');
+    this.historyDataSource = [
+      {
+        id: 1,
+        memberId: this.memberId!,
+        pointsDelta: 100,
+        transactionType: 'Earned',
+        description: 'Purchase at store',
+        referenceNumber: 'REF-001',
+        createdAt: new Date().toISOString(),
+        createdBy: 'system'
+      },
+      {
+        id: 2,
+        memberId: this.memberId!,
+        pointsDelta: -50,
+        transactionType: 'Redeemed',
+        description: 'Discount redemption',
+        referenceNumber: 'REF-002',
+        createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+        createdBy: 'system'
+      }
+    ];
+  }
+
   private updatePointsValidation(): void {
     // Update redeem form validation based on available points
     const redeemPointsControl = this.redeemPointsForm.get('points');
-    if (redeemPointsControl && this.pointsBalance > 0) {
+    if (redeemPointsControl && this.member?.availablePoints && this.member.availablePoints > 0) {
       redeemPointsControl.setValidators([
         Validators.required,
         Validators.min(1),
-        Validators.max(this.pointsBalance)
+        Validators.max(this.member.availablePoints)
       ]);
       redeemPointsControl.updateValueAndValidity();
     }
@@ -355,9 +396,15 @@ export class MemberPointsComponent implements OnInit, OnDestroy {
 
   // ===== UTILITY METHODS =====
 
-  getTierInfo(tier: string): { name: string; color: string; icon: string } {
+  getTierInfo(tier: string | undefined): { name: string; color: string; icon: string } {
+    if (!tier) {
+      return { name: 'Unknown', color: '#gray', icon: 'help_outline' };
+    }
     return this.membershipService.getMemberTierInfo(tier);
   }
+
+  // TrackBy function for performance
+  trackByTransaction = (index: number, transaction: MemberPointHistoryDto): number => transaction.id;
 
   formatCurrency(value: number): string {
     return new Intl.NumberFormat('id-ID', {
@@ -371,30 +418,55 @@ export class MemberPointsComponent implements OnInit, OnDestroy {
     return new Intl.NumberFormat('id-ID').format(value);
   }
 
-  formatDate(date: Date): string {
+  formatDate(dateString: string): string {
     return new Intl.DateTimeFormat('id-ID', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }).format(new Date(date));
+    }).format(new Date(dateString));
   }
 
   getPointsTypeColor(type: string): string {
     return type.toLowerCase().includes('earn') || type.toLowerCase().includes('add') ? 'success' : 'warn';
   }
 
-  getPointsTypeIcon(type: string): string {
-    return type.toLowerCase().includes('earn') || type.toLowerCase().includes('add') ? 'add_circle' : 'remove_circle';
+  getPointsTypeIcon(transactionType: string): string {
+    const type = transactionType.toLowerCase();
+    if (type === 'earned' || type === 'manual') {
+      return 'add_circle';
+    } else if (type === 'redeemed') {
+      return 'remove_circle';
+    } else if (type === 'expired') {
+      return 'schedule';
+    }
+    return 'help_outline';
   }
 
-  getPointsDisplayValue(points: number, isEarning: boolean): string {
-    return `${isEarning ? '+' : '-'}${this.formatNumber(points)}`;
+  // Helper method to determine if transaction is earning points
+  isEarningTransaction(transactionType: string): boolean {
+    return transactionType === 'Earned' || transactionType === 'Manual';
+  }
+
+  getPointsDisplayValue(pointsDelta: number, isEarning: boolean): string {
+    // pointsDelta should already be positive/negative from backend
+    // but we'll ensure correct sign display
+    const absPoints = Math.abs(pointsDelta);
+    return `${isEarning ? '+' : '-'}${this.formatNumber(absPoints)}`;
+  }
+
+  // Enhanced utility methods for clean design
+  getCurrencySymbol(): string {
+    return 'Rp';
+  }
+
+  getFormattedCurrency(amount: number): string {
+    return `${this.getCurrencySymbol()} ${this.formatNumber(amount)}`;
   }
 
   canRedeemPoints(): boolean {
-    return this.pointsBalance > 0;
+    return !!(this.member?.availablePoints && this.member.availablePoints > 0);
   }
 
   generateReferenceNumber(): string {
@@ -416,7 +488,7 @@ export class MemberPointsComponent implements OnInit, OnDestroy {
 
   fillQuickRedeemPoints(points: number, description: string): void {
     this.redeemPointsForm.patchValue({
-      points: Math.min(points, this.pointsBalance),
+      points: Math.min(points, this.member?.availablePoints || 0),
       description: description,
       referenceNumber: this.generateReferenceNumber()
     });

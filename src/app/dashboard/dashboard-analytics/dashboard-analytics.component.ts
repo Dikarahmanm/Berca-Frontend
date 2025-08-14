@@ -14,8 +14,8 @@ import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatBadgeModule } from '@angular/material/badge';
 import { FormsModule } from '@angular/forms';
-import { Observable, Subject, combineLatest } from 'rxjs';
-import { takeUntil, startWith } from 'rxjs/operators';
+import { Observable, Subject, combineLatest, of } from 'rxjs';
+import { takeUntil, startWith, map, catchError } from 'rxjs/operators';
 import { DateRangeUtil } from '../../shared/utils/date-range.util';
 import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -126,8 +126,8 @@ constructor(
 
   loadDashboardData() {
     this.isLoading.set(true);
+    console.log('🔄 Starting dashboard data load...');
     
-    // ✅ SYNCHRONIZED: Use same date range as Reports (current month)
     // ✅ SYNCHRONIZED: Use same date range as Reports (current month)
     const { startDate, endDate } = DateRangeUtil.getCurrentMonthRange();
     
@@ -139,16 +139,44 @@ constructor(
       localEnd: endDate.toString()
     });
 
-    // Load all dashboard data with synchronized date range
-    const kpis$ = this.dashboardService.getDashboardKPIs(startDate, endDate);
-    const quickStats$ = this.dashboardService.getQuickStats();
-    const salesChart$ = this.dashboardService.getSalesChartData(this.selectedChartPeriod(), startDate, endDate);
-    const revenueChart$ = this.dashboardService.getRevenueChartData('monthly', startDate, endDate);
-    const topProducts$ = this.dashboardService.getTopSellingProducts(8, startDate, endDate);
-    const worstProducts$ = this.dashboardService.getWorstPerformingProducts(8, startDate, endDate);
-    const categorySales$ = this.dashboardService.getCategorySales(startDate, endDate);
-    const recentTransactions$ = this.dashboardService.getRecentTransactions(8);
-    const lowStockAlerts$ = this.dashboardService.getLowStockAlerts();
+    // Load all dashboard data with synchronized date range and individual error handling
+    console.log('🔄 Creating observables...');
+    const kpis$ = this.dashboardService.getDashboardKPIs(startDate, endDate).pipe(
+      map((data: any) => { console.log('✅ KPIs loaded:', data); return data; }),
+      catchError((error: any) => { console.error('❌ KPIs error:', error); return of(null); })
+    );
+    const quickStats$ = this.dashboardService.getQuickStats().pipe(
+      map((data: any) => { console.log('✅ Quick stats loaded:', data); return data; }),
+      catchError((error: any) => { console.error('❌ Quick stats error:', error); return of(null); })
+    );
+    const salesChart$ = this.dashboardService.getSalesChartData(this.selectedChartPeriod(), startDate, endDate).pipe(
+      map((data: any) => { console.log('✅ Sales chart loaded:', data); return data; }),
+      catchError((error: any) => { console.error('❌ Sales chart error:', error); return of([]); })
+    );
+    const revenueChart$ = this.dashboardService.getRevenueChartData('monthly', startDate, endDate).pipe(
+      map((data: any) => { console.log('✅ Revenue chart loaded:', data); return data; }),
+      catchError((error: any) => { console.error('❌ Revenue chart error:', error); return of([]); })
+    );
+    const topProducts$ = this.dashboardService.getTopSellingProducts(8, startDate, endDate).pipe(
+      map((data: any) => { console.log('✅ Top products loaded:', data); return data; }),
+      catchError((error: any) => { console.error('❌ Top products error:', error); return of([]); })
+    );
+    const worstProducts$ = this.dashboardService.getWorstPerformingProducts(8, startDate, endDate).pipe(
+      map((data: any) => { console.log('✅ Worst products loaded:', data); return data; }),
+      catchError((error: any) => { console.error('❌ Worst products error:', error); return of([]); })
+    );
+    const categorySales$ = this.dashboardService.getCategorySales(startDate, endDate).pipe(
+      map((data: any) => { console.log('✅ Category sales loaded:', data); return data; }),
+      catchError((error: any) => { console.error('❌ Category sales error:', error); return of([]); })
+    );
+    const recentTransactions$ = this.dashboardService.getRecentTransactions(8).pipe(
+      map((data: any) => { console.log('✅ Recent transactions loaded:', data); return data; }),
+      catchError((error: any) => { console.error('❌ Recent transactions error:', error); return of([]); })
+    );
+    const lowStockAlerts$ = this.dashboardService.getLowStockAlerts().pipe(
+      map((data: any) => { console.log('✅ Low stock alerts loaded:', data); return data; }),
+      catchError((error: any) => { console.error('❌ Low stock alerts error:', error); return of([]); })
+    );
 
     combineLatest([
       kpis$,
@@ -164,30 +192,49 @@ constructor(
       takeUntil(this.destroy$)
     ).subscribe({
       next: ([kpis, quickStats, salesChart, revenueChart, topProducts, worstProducts, categorySales, recentTransactions, lowStockAlerts]) => {
-        console.log('📊 Analytics KPI Data:', kpis);
-        if (kpis) {
-          console.log('📊 Analytics Monthly Revenue:', kpis.monthlyRevenue);
-          console.log('📊 Analytics Monthly Transactions:', kpis.monthlyTransactions);
-          console.log('📊 Analytics Total Profit:', kpis.totalProfit);
-          console.log('📊 Analytics Today Revenue:', kpis.todayRevenue);
-          console.log('📊 Analytics Yearly Revenue:', kpis.yearlyRevenue);
-          console.log('✅ Backend Fix Applied - KPI now includes SaleItems and uses correct date parameters');
-        }
+        console.log('📊 Analytics Data Loaded Successfully');
+        console.log('📊 KPIs:', kpis);
+        console.log('📊 Quick Stats:', quickStats);
+        console.log('📊 Sales Chart:', salesChart);
+        console.log('📊 Top Products:', topProducts);
+        console.log('📊 Category Sales:', categorySales);
         
+        // Set data with proper type checking
         this.currentKPIs.set(kpis);
         this.currentQuickStats.set(quickStats);
-        this.salesChartData.set(salesChart || []);
-        this.revenueChartData.set(revenueChart || []);
-        this.topProducts.set(topProducts || []);
-        this.worstProducts.set(worstProducts || []);
-        this.categorySales.set(categorySales || []);
-        this.recentTransactions.set(recentTransactions || []);
-        this.lowStockAlerts.set(lowStockAlerts || []);
+        this.salesChartData.set(Array.isArray(salesChart) ? salesChart : []);
+        this.revenueChartData.set(Array.isArray(revenueChart) ? revenueChart : []);
+        this.topProducts.set(Array.isArray(topProducts) ? topProducts : []);
+        this.worstProducts.set(Array.isArray(worstProducts) ? worstProducts : []);
+        this.categorySales.set(Array.isArray(categorySales) ? categorySales : []);
+        this.recentTransactions.set(Array.isArray(recentTransactions) ? recentTransactions : []);
+        this.lowStockAlerts.set(Array.isArray(lowStockAlerts) ? lowStockAlerts : []);
+        
+        // Always set loading to false, even if data is null/empty
         this.isLoading.set(false);
+        
+        // Log final state
+        console.log('📊 Final loading state:', this.isLoading());
+        console.log('📊 Final KPIs state:', this.currentKPIs());
       },
       error: (error) => {
-        console.error('Error loading dashboard data:', error);
+        console.error('❌ Error loading dashboard data:', error);
+        console.error('❌ Error details:', error.message, error.status);
+        
+        // Set empty data and stop loading
+        this.currentKPIs.set(null);
+        this.currentQuickStats.set(null);
+        this.salesChartData.set([]);
+        this.revenueChartData.set([]);
+        this.topProducts.set([]);
+        this.worstProducts.set([]);
+        this.categorySales.set([]);
+        this.recentTransactions.set([]);
+        this.lowStockAlerts.set([]);
         this.isLoading.set(false);
+        
+        // Show user-friendly error
+        this.showError('Gagal memuat data analytics. Silakan coba refresh halaman.');
       }
     });
   }

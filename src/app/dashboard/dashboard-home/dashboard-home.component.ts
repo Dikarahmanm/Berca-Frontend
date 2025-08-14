@@ -1,14 +1,15 @@
 // src/app/dashboard/dashboard-home/dashboard-home.component.ts
-// ✅ REDESIGNED: Clean Simple Design - High Contrast, No Transparency
+// ✅ ENHANCED: Using Angular Signals for Real-time Dashboard Data
 
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { Subject, interval, timer } from 'rxjs';
+import { takeUntil, switchMap, startWith, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationService, NotificationDto } from '../../core/services/notification.service';
@@ -71,8 +72,8 @@ interface QuickAction {
         <div class="welcome-card">
           <div class="welcome-content">
             <div class="welcome-text">
-              <h1 class="welcome-greeting">{{ getGreeting() }}, {{ username }}!</h1>
-              <p class="welcome-date">{{ getCurrentDate() }}</p>
+              <h1 class="welcome-greeting">{{ greeting() }}, {{ username() }}!</h1>
+              <p class="welcome-date">{{ currentDate() }}</p>
               <p class="welcome-subtitle">Selamat datang di sistem POS Toko Eniwan</p>
             </div>
             
@@ -101,11 +102,11 @@ interface QuickAction {
             <button 
               class="refresh-btn" 
               (click)="refreshDashboardData()"
-              [disabled]="isLoading"
+              [disabled]="isLoading()"
               title="Refresh Data">
-              <mat-icon [class.spinning]="isLoading">refresh</mat-icon>
-              <span *ngIf="!isLoading">Refresh</span>
-              <span *ngIf="isLoading">Loading...</span>
+              <mat-icon [class.spinning]="isLoading()">refresh</mat-icon>
+              <span *ngIf="!isLoading()">Refresh</span>
+              <span *ngIf="isLoading()">Loading...</span>
             </button>
           </div>
         </div>
@@ -117,10 +118,10 @@ interface QuickAction {
               <mat-icon>people</mat-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">{{ formatNumber(userStats.total) }}</div>
+              <div class="stat-value">{{ formatNumber(userStats().total) }}</div>
               <div class="stat-label">Total Users</div>
               <div class="stat-meta">
-                <span class="stat-detail">{{ userStats.active }} active</span>
+                <span class="stat-detail">{{ userStats().active }} active</span>
               </div>
             </div>
           </div>
@@ -131,13 +132,13 @@ interface QuickAction {
               <mat-icon>inventory_2</mat-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">{{ formatNumber(dashboardStats.totalProducts) }}</div>
+              <div class="stat-value">{{ formatNumber(dashboardStats().totalProducts) }}</div>
               <div class="stat-label">Total Products</div>
               <div class="stat-meta">
-                <span class="stat-detail warning" *ngIf="dashboardStats.lowStockCount > 0">
-                  {{ dashboardStats.lowStockCount }} stok rendah
+                <span class="stat-detail warning" *ngIf="dashboardStats().lowStockCount > 0">
+                  {{ dashboardStats().lowStockCount }} stok rendah
                 </span>
-                <span class="stat-detail success" *ngIf="dashboardStats.lowStockCount === 0">
+                <span class="stat-detail success" *ngIf="dashboardStats().lowStockCount === 0">
                   Stok mencukupi
                 </span>
               </div>
@@ -150,7 +151,7 @@ interface QuickAction {
               <mat-icon>card_membership</mat-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">{{ formatNumber(dashboardStats.totalMembers) }}</div>
+              <div class="stat-value">{{ formatNumber(dashboardStats().totalMembers) }}</div>
               <div class="stat-label">Total Members</div>
               <div class="stat-meta">
                 <span class="stat-detail">Member terdaftar</span>
@@ -164,10 +165,10 @@ interface QuickAction {
               <mat-icon>trending_up</mat-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">{{ formatCurrency(dashboardStats.todayRevenue) }}</div>
+              <div class="stat-value">{{ formatCurrency(dashboardStats().todayRevenue) }}</div>
               <div class="stat-label">Pendapatan Hari Ini</div>
               <div class="stat-meta">
-                <span class="stat-detail">{{ dashboardStats.todayTransactions }} transaksi</span>
+                <span class="stat-detail">{{ dashboardStats().todayTransactions }} transaksi</span>
               </div>
             </div>
           </div>
@@ -178,7 +179,7 @@ interface QuickAction {
               <mat-icon>notifications</mat-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">{{ recentNotifications.length }}</div>
+              <div class="stat-value">{{ recentNotifications().length }}</div>
               <div class="stat-label">Notifikasi</div>
               <div class="stat-meta">
                 <span class="stat-detail">Lihat semua</span>
@@ -192,7 +193,7 @@ interface QuickAction {
               <mat-icon>bar_chart</mat-icon>
             </div>
             <div class="stat-content">
-              <div class="stat-value">{{ formatCurrency(dashboardStats.monthlyRevenue) }}</div>
+              <div class="stat-value">{{ formatCurrency(dashboardStats().monthlyRevenue) }}</div>
               <div class="stat-label">Pendapatan Bulanan</div>
               <div class="stat-meta">
                 <span class="stat-detail">Bulan ini</span>
@@ -212,7 +213,7 @@ interface QuickAction {
         <div class="actions-grid">
           <div 
             class="action-card" 
-            *ngFor="let action of quickActions"
+            *ngFor="let action of quickActions()"
             [ngClass]="action.color"
             (click)="executeQuickAction(action)">
             
@@ -239,50 +240,116 @@ interface QuickAction {
 export class DashboardHomeComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  username: string = '';
-  role: string = '';
+  // ===== ENHANCED: SIGNAL-BASED STATE MANAGEMENT =====
+  // Inject services using new Angular pattern
+  private router = inject(Router);
+  private authService = inject(AuthService);
+  private notificationService = inject(NotificationService);
+  private dashboardService = inject(DashboardService);
+  private userService = inject(UserService);
 
-  userStats: UserStats = {
+  // Core signals for reactive state
+  private dashboardKPIs = signal<DashboardKPIDto | null>(null);
+  private quickStats = signal<QuickStatsDto | null>(null);
+  private userStatsData = signal<UserStats>({
     total: 0,
     active: 0,
     inactive: 0,
     deleted: 0
-  };
+  });
+  private notifications = signal<NotificationDto[]>([]);
+  private loadingState = signal<boolean>(true);
+  private lastUpdated = signal<Date>(new Date());
 
-  dashboardStats: DashboardStats = {
-    todayRevenue: 0,
-    monthlyRevenue: 0,
-    totalProducts: 0,
-    lowStockCount: 0,
-    totalMembers: 0,
-    todayTransactions: 0,
-    lastUpdated: new Date().toISOString()
-  };
+  // User information signals
+  readonly username = signal<string>('');
+  readonly role = signal<string>('');
 
-  recentNotifications: NotificationDto[] = [];
-  quickActions: QuickAction[] = [];
+  // Quick actions (static for now, could be dynamic)
+  readonly quickActions = signal<QuickAction[]>([]);
 
-  // Observables for real-time data
-  dashboardKPIs: DashboardKPIDto | null = null;
-  quickStats: QuickStatsDto | null = null;
-  isLoading = true;
+  // ===== COMPUTED PROPERTIES FOR REACTIVE UI =====
+  readonly isLoading = computed(() => this.loadingState());
+  
+  readonly userStats = computed(() => this.userStatsData());
+  
+  readonly recentNotifications = computed(() => 
+    this.notifications().slice(0, 5)
+  );
 
-  constructor(
-    private router: Router,
-    private authService: AuthService,
-    private notificationService: NotificationService,
-    private dashboardService: DashboardService,
-    private userService: UserService
-  ) {}
+  readonly dashboardStats = computed((): DashboardStats => {
+    const kpis = this.dashboardKPIs();
+    const stats = this.quickStats();
+    
+    return {
+      todayRevenue: stats?.todayRevenue || kpis?.todayRevenue || 0,
+      monthlyRevenue: kpis?.monthlyRevenue || 0,
+      totalProducts: kpis?.totalProducts || 0,
+      lowStockCount: kpis?.lowStockProducts || 0,
+      totalMembers: kpis?.totalMembers || 0,
+      todayTransactions: stats?.todayTransactions || kpis?.todayTransactions || 0,
+      lastUpdated: this.lastUpdated().toISOString()
+    };
+  });
+
+  // Real-time greeting that updates automatically
+  readonly greeting = computed(() => {
+    // This will automatically update when the component reruns
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Selamat Pagi';
+    if (hour < 17) return 'Selamat Siang';
+    return 'Selamat Malam';
+  });
+
+  readonly currentDate = computed(() => {
+    // Updates automatically with lastUpdated signal
+    this.lastUpdated(); // Read signal to create dependency
+    const now = new Date();
+    const day = now.getUTCDate().toString().padStart(2, '0');
+    const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
+    const year = now.getUTCFullYear();
+    const time = toJakartaTime(now);
+    return `${day}/${month}/${year} ${time} WIB`;
+  });
+
+  constructor() {
+    // Initialize real-time effects after component initialization
+    this.setupRealTimeEffects();
+  }
+  
+  private setupRealTimeEffects(): void {
+    // ===== REAL-TIME DATA EFFECTS =====
+    // Auto-refresh every 30 seconds
+    timer(30000, 30000).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      this.refreshAllData().catch(error => {
+        console.error('Auto-refresh error:', error);
+      });
+    });
+
+    // Update time display every minute
+    interval(60000).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      this.lastUpdated.set(new Date());
+    });
+
+    // Subscribe to real-time notifications
+    this.notificationService.notifications$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(notifications => {
+        this.notifications.set(notifications);
+      });
+  }
 
   ngOnInit() {
-    console.log('🏠 Dashboard Home Component initialized');
+    console.log('🏠 Dashboard Home Component initialized with Signals');
     
+    // Initialize data - signals will handle real-time updates
     this.loadUserData();
     this.setupQuickActions();
-    this.subscribeToNotifications();
-    this.loadDashboardData();
-    this.loadUserStatistics();
+    this.loadInitialData();
   }
 
   ngOnDestroy() {
@@ -290,99 +357,89 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private loadDashboardData(): void {
-    this.isLoading = true;
+  // ===== SIGNAL-BASED DATA LOADING =====
+  private loadInitialData(): void {
+    // Initial load - auto-refresh is handled by effects
+    this.refreshAllData();
+  }
+
+  private refreshAllData() {
+    this.loadingState.set(true);
     
-    // Load KPIs
-    this.dashboardService.getDashboardKPIs()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (kpis) => {
-          if (kpis) {
-            this.dashboardKPIs = kpis;
-            this.updateDashboardStats(kpis);
-          }
-          this.isLoading = false;
-        },
-        error: (error) => {
-          console.error('Error loading dashboard KPIs:', error);
-          this.isLoading = false;
-        }
+    return new Promise((resolve) => {
+      Promise.all([
+        this.loadDashboardData(),
+        this.loadUserStatistics()
+      ]).then(() => {
+        this.loadingState.set(false);
+        this.lastUpdated.set(new Date());
+        resolve(true);
+      }).catch(error => {
+        console.error('Error refreshing data:', error);
+        this.loadingState.set(false);
+        resolve(false);
       });
-
-    // Load Quick Stats
-    this.dashboardService.getQuickStats()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (stats) => {
-          if (stats) {
-            this.quickStats = stats;
-            this.updateQuickStats(stats);
-          }
-        },
-        error: (error) => {
-          console.error('Error loading quick stats:', error);
-        }
-      });
+    });
   }
 
-  private updateDashboardStats(kpis: DashboardKPIDto): void {
-    this.dashboardStats = {
-      todayRevenue: kpis.todayRevenue,
-      monthlyRevenue: kpis.monthlyRevenue,
-      totalProducts: kpis.totalProducts,
-      lowStockCount: kpis.lowStockProducts,
-      totalMembers: kpis.totalMembers,
-      todayTransactions: kpis.todayTransactions,
-      lastUpdated: new Date().toISOString()
-    };
+  private async loadDashboardData(): Promise<void> {
+    try {
+      // Load KPIs
+      const kpis = await this.dashboardService.getDashboardKPIs().toPromise();
+      if (kpis) {
+        this.dashboardKPIs.set(kpis);
+        console.log('📊 Dashboard KPIs updated:', kpis);
+      }
+
+      // Load Quick Stats
+      const stats = await this.dashboardService.getQuickStats().toPromise();
+      if (stats) {
+        this.quickStats.set(stats);
+        console.log('⚡ Quick stats updated:', stats);
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    }
   }
 
-  private updateQuickStats(stats: QuickStatsDto): void {
-    // Update additional stats from quick stats if needed
-    this.dashboardStats.todayRevenue = stats.todayRevenue;
-    this.dashboardStats.todayTransactions = stats.todayTransactions;
-  }
-
-  private loadUserStatistics(): void {
-    // Load user statistics by getting first page with large pageSize to get total
-    this.userService.getUsers(1, 1000)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response) => {
-          const users = response.users || [];
-          this.userStats = {
-            total: response.total || users.length,
-            active: users.filter(user => user.isActive).length,
-            inactive: users.filter(user => !user.isActive).length,
-            deleted: 0 // This might need to be tracked differently if supported by backend
-          };
-          console.log('👥 User statistics loaded:', this.userStats);
-        },
-        error: (error) => {
-          console.error('Error loading user statistics:', error);
-          // Keep default values if error occurs
-        }
-      });
+  private async loadUserStatistics(): Promise<void> {
+    try {
+      const response = await this.userService.getUsers(1, 1000).toPromise();
+      if (response) {
+        const users = response.users || [];
+        const userStats: UserStats = {
+          total: response.total || users.length,
+          active: users.filter(user => user.isActive).length,
+          inactive: users.filter(user => !user.isActive).length,
+          deleted: 0
+        };
+        
+        this.userStatsData.set(userStats);
+        console.log('👥 User statistics updated:', userStats);
+      }
+    } catch (error) {
+      console.error('Error loading user statistics:', error);
+    }
   }
 
   private loadUserData(): void {
     try {
       const currentUser = this.authService.getCurrentUser();
       if (currentUser) {
-        this.username = currentUser.username || '';
-        this.role = currentUser.role || '';
+        this.username.set(currentUser.username || '');
+        this.role.set(currentUser.role || '');
       } else {
-        this.username = localStorage.getItem('username') || '';
-        this.role = localStorage.getItem('role') || '';
+        this.username.set(localStorage.getItem('username') || '');
+        this.role.set(localStorage.getItem('role') || '');
       }
+      console.log('👤 User data loaded:', { username: this.username(), role: this.role() });
     } catch (error) {
       console.error('Error loading user data:', error);
     }
   }
 
   private setupQuickActions(): void {
-    this.quickActions = [
+    const actions: QuickAction[] = [
       {
         id: 'pos',
         title: 'Point of Sale',
@@ -438,47 +495,31 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
         enabled: true
       }
     ];
+    
+    this.quickActions.set(actions);
   }
 
-  private subscribeToNotifications(): void {
-    this.notificationService.notifications$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(notifications => {
-        this.recentNotifications = notifications.slice(0, 5);
-      });
-  }
-
+  // ===== PUBLIC METHODS =====
   navigateTo(route: string): void {
-    console.log('Navigating to:', route);
+    console.log('🧭 Navigating to:', route);
     this.router.navigate([route]);
   }
 
   executeQuickAction(action: QuickAction): void {
+    console.log('⚡ Executing quick action:', action.title);
     this.navigateTo(action.route);
   }
 
   refreshDashboardData(): void {
-    console.log('🔄 Refreshing dashboard data...');
-    this.loadDashboardData();
-    this.loadUserStatistics();
+    console.log('🔄 Manual refresh triggered...');
+    this.refreshAllData().then(() => {
+      console.log('✅ Dashboard data refreshed successfully');
+    }).catch(error => {
+      console.error('❌ Manual refresh failed:', error);
+    });
   }
 
-  getGreeting(): string {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Selamat Pagi';
-    if (hour < 17) return 'Selamat Siang';
-    return 'Selamat Malam';
-  }
-
-  getCurrentDate(): string {
-    const now = new Date();
-    const day = now.getUTCDate().toString().padStart(2, '0');
-    const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
-    const year = now.getUTCFullYear();
-    const time = toJakartaTime(now);
-    return `${day}/${month}/${year} ${time} WIB`;
-  }
-
+  // ===== UTILITY METHODS =====
   formatNumber(num: number): string {
     return num.toLocaleString('id-ID');
   }
@@ -486,7 +527,8 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
   formatCurrency(amount: number): string {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
-      currency: 'IDR'
+      currency: 'IDR',
+      minimumFractionDigits: 0
     }).format(amount);
   }
 }

@@ -1,43 +1,43 @@
 // styles/variables.scss - Eye-Friendly Design System
 :root {
-  // ===== PRIMARY ORANGE PALETTE - GENTLE & WARM =====
-  --primary: #FF914D;                    // Main orange (unchanged)
-  --primary-hover: #E07A3B;              // Hover state
-  --primary-light: #FFE5D1;              // Very light orange (SOLID, no transparency)
-  --primary-soft: #FFD3B3;               // Soft orange
-  --primary-pale: #FFF8F3;               // Palest orange tint
+  // ===== PRIMARY ORANGE PALETTE - SOFTER & WARMER =====
+  --primary: #e47a3f;                    // Softer main orange (from CLAUDE.md)
+  --primary-hover: #d66b2a;              // Deeper warm orange hover
+  --primary-light: #fef2ed;              // Softer light orange tint
+  --primary-soft: #f7e5d6;               // Soft orange variant
+  --primary-pale: #fef8f4;               // Palest orange tint
   
-  // ===== SEMANTIC COLORS - SOFTENED =====
-  --success: #48BB78;                    // Softer green
-  --success-light: #F0FFF4;              // Very light green
-  --warning: #ED8936;                    // Softer orange-yellow
-  --warning-light: #FFFAF0;              // Very light yellow
-  --error: #E53E3E;                      // Softer red
-  --error-light: #FED7D7;                // Very light red
-  --info: #4299E1;                       // Softer blue
-  --info-light: #EBF8FF;                 // Very light blue
+  // ===== SEMANTIC COLORS - MODERN & SOFT =====
+  --success: #22c55e;                    // Fresh modern green
+  --success-light: #f0fdf4;              // Very light green
+  --warning: #f59e0b;                    // Warm amber
+  --warning-light: #fffbeb;              // Very light amber
+  --error: #ef4444;                      // Modern red
+  --error-light: #fef2f2;                // Very light red
+  --info: #3b82f6;                       // Modern blue
+  --info-light: #eff6ff;                 // Very light blue
   
-  // ===== WARM NEUTRAL SURFACES - NO PURE WHITE =====
-  --surface: #FEFCFB;                    // Warm off-white (main surface)
-  --surface-elevated: #FFFFFF;           // Pure white for elevated cards
-  --surface-soft: #FAF9F8;               // Softer surface variant
-  --bg-primary: #FDFCFB;                 // Main page background (warm)
-  --bg-secondary: #F7F6F5;               // Secondary background
-  --bg-tertiary: #F2F1F0;                // Tertiary background
+  // ===== CLEAN NEUTRAL SURFACES - SOFTER APPROACH =====
+  --surface: #fefefe;                    // Clean off-white surface (from CLAUDE.md)
+  --surface-elevated: #ffffff;           // Pure white for elevated cards
+  --surface-soft: #f9fafb;               // Softer surface variant
+  --bg-primary: #f6f7f8;                 // Softer main background (from CLAUDE.md)
+  --bg-secondary: #f1f3f4;               // Secondary background
+  --bg-tertiary: #eceff1;                // Tertiary background
   
-  // ===== SOFT TEXT COLORS - GENTLE ON EYES =====
-  --text-primary: #2D3748;               // Soft dark (not black)
-  --text-secondary: #4A5568;             // Medium gray
-  --text-tertiary: #718096;              // Light gray
-  --text-muted: #A0AEC0;                 // Very light gray
-  --text-on-primary: #FFFFFF;            // White on colored backgrounds
-  --text-on-surface: #2D3748;            // Dark on light surfaces
+  // ===== REFINED TEXT COLORS - SOFTER & READABLE =====
+  --text-primary: #2a2b2e;               // Softer dark text (from CLAUDE.md)
+  --text-secondary: #6b7280;             // Refined gray (from CLAUDE.md)
+  --text-tertiary: #9ca3af;              // Light gray
+  --text-muted: #d1d5db;                 // Very light gray
+  --text-on-primary: #ffffff;            // White on colored backgrounds
+  --text-on-surface: #2a2b2e;            // Dark on light surfaces
   
-  // ===== GENTLE BORDERS - SOFT DEFINITION =====
-  --border-light: #E2E8F0;               // Very light border
-  --border-medium: #CBD5E0;              // Medium border
-  --border-focus: #FF914D;               // Focus border (orange)
-  --border-subtle: #F1F5F9;              // Barely visible border
+  // ===== SUBTLE BORDERS - CLEAN DEFINITION =====
+  --border-light: #e5e7eb;               // Refined light border (from CLAUDE.md)
+  --border-medium: #d1d5db;              // Medium border
+  --border-focus: #e47a3f;               // Focus border (softer orange)
+  --border-subtle: #f3f4f6;              // Barely visible border
   
   // ===== SOFT SHADOWS - GENTLE DEPTH =====
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -47,9 +47,9 @@
   --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.12);
   --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.14);
   
-  // Orange-tinted shadows for warm feel
-  --shadow-primary: 0 4px 12px rgba(255, 145, 77, 0.15);
-  --shadow-primary-lg: 0 8px 24px rgba(255, 145, 77, 0.20);
+  // Softer orange-tinted shadows for warm feel
+  --shadow-primary: 0 4px 12px rgba(228, 122, 63, 0.12);
+  --shadow-primary-lg: 0 8px 24px rgba(228, 122, 63, 0.16);
   
   // ===== SPACING SYSTEM (8px grid) =====
   --s1: 4px;   --s2: 8px;   --s3: 12px;  --s4: 16px;

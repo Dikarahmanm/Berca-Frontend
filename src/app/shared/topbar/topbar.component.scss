@@ -10,18 +10,18 @@
   top: 0;
   z-index: 1000;
 
-  // ⚠️ IMPORTANT: Override global transparent variables with SOLID colors
-  --surface: #FFFFFF !important;           // Pure white, NO transparency
-  --bg: #F8F9FA !important;               // Light gray, NO transparency  
-  --primary: #FF914D !important;          // Orange solid
-  --primary-hover: #E07A3B !important;    // Dark orange solid
-  --primary-light: #FFF4EF !important;    // Light orange solid, NO rgba
-  --text: #212529 !important;             // Dark text solid
-  --text-secondary: #6C757D !important;   // Gray text solid
-  --border: #DEE2E6 !important;           // Border solid
-  --error: #E15A4F !important;            // Error red solid
-  --warning: #FFB84D !important;          // Warning orange solid
-  --success: #4BBF7B !important;          // Success green solid
+  // Softer color palette from CLAUDE.md design guidelines
+  --surface: #fefefe !important;           // Clean off-white surface
+  --bg: #f6f7f8 !important;               // Softer gray background
+  --primary: #e47a3f !important;          // Warmer orange
+  --primary-hover: #d66b2a !important;    // Deeper warm orange
+  --primary-light: #fef2ed !important;    // Softer orange tint
+  --text: #2a2b2e !important;             // Softer dark text
+  --text-secondary: #6b7280 !important;   // Refined gray text
+  --border: #e5e7eb !important;           // Subtle border
+  --error: #ef4444 !important;            // Modern red
+  --warning: #f59e0b !important;          // Warm amber
+  --success: #22c55e !important;          // Fresh green
   
   // Spacing & sizing
   --radius: 6px;
@@ -34,10 +34,10 @@
 
 // ===== MAIN TOPBAR CONTAINER =====
 .topbar {
-  background: #FFFFFF !important;  // ⚠️ FORCE solid white, override any transparency
-  border-bottom: 2px solid #DEE2E6;
+  background: var(--surface) !important;  // Clean off-white surface
+  border-bottom: 1px solid var(--border);
   height: 64px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
   transition: 150ms ease;
   
   // ❌ REMOVE these glass morphism effects:
@@ -150,31 +150,33 @@
 }
 
 .brand-logo {
-  width: 36px;
-  height: 36px;
-  background: var(--primary);
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
   border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: white !important;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(228, 122, 63, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 
   mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-    color: white;
+    font-size: 22px !important;
+    width: 22px !important;
+    height: 22px !important;
+    color: white !important;
   }
 
   @media (max-width: 640px) {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
 
     mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      font-size: 20px !important;
+      width: 20px !important;
+      height: 20px !important;
     }
   }
 }

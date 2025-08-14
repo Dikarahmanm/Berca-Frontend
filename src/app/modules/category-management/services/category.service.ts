@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError } from 'rxjs';
 import { map, catchError, tap } from 'rxjs/operators';
+import { environment } from '../../../../environment/environment';
 import { 
   Category, 
   CategoryListResponse, 
@@ -16,7 +17,7 @@ import {
   providedIn: 'root'
 })
 export class CategoryService {
-  private readonly apiUrl = 'http://localhost:5171/api/Category';
+  private readonly apiUrl = `${environment.apiUrl}/Category`;
   
   // State management dengan BehaviorSubject
   private categoriesSubject = new BehaviorSubject<Category[]>([]);
@@ -51,12 +52,47 @@ export class CategoryService {
       params = params.set('color', filter.color.trim());
     }
 
+    console.log('🔄 Fetching categories from:', this.apiUrl);
+    console.log('📊 Filter params:', filter);
+
     // ✅ FIX: Add withCredentials for cookie authentication
-    return this.http.get<CategoryListResponse>(this.apiUrl, { 
+    return this.http.get<any>(this.apiUrl, { 
       params,
       withCredentials: true 
     }).pipe(
+      map(response => {
+        console.log('📥 Raw API response:', response);
+        
+        // Handle both direct array response and wrapped response
+        if (Array.isArray(response)) {
+          console.log('📋 Direct array response detected');
+          return {
+            categories: response,
+            totalCount: response.length,
+            page: filter.page,
+            pageSize: filter.pageSize,
+            totalPages: Math.ceil(response.length / filter.pageSize)
+          } as CategoryListResponse;
+        }
+        
+        // Handle wrapped response (success: true, data: [...])
+        if (response.success && response.data) {
+          console.log('📦 Wrapped response detected');
+          return {
+            categories: response.data,
+            totalCount: response.totalCount || response.data.length,
+            page: response.page || filter.page,
+            pageSize: response.pageSize || filter.pageSize,
+            totalPages: response.totalPages || Math.ceil((response.totalCount || response.data.length) / filter.pageSize)
+          } as CategoryListResponse;
+        }
+        
+        // Handle standard response structure
+        console.log('📋 Standard response structure');
+        return response as CategoryListResponse;
+      }),
       tap(response => {
+        console.log('✅ Processed categories response:', response);
         this.categoriesSubject.next(response.categories);
         this.setLoading(false);
       }),

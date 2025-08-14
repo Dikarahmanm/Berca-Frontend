@@ -6,18 +6,33 @@
   display: block;
   height: 100%;
   
-  // Override any inherited transparency
-  --surface: #FFFFFF !important;
-  --bg: #F8F9FA !important;
-  --primary: #FF914D !important;
-  --primary-hover: #E07A3B !important;
-  --primary-light: #FFF4EF !important;
-  --text: #212529 !important;
-  --text-secondary: #6C757D !important;
-  --border: #DEE2E6 !important;
-  --success: #4BBF7B !important;
-  --error: #E15A4F !important;
-  --warning: #FFB84D !important;
+  // Softer color palette from CLAUDE.md design guidelines
+  --surface: #fefefe !important;
+  --bg: #f6f7f8 !important;
+  --primary: #e47a3f !important;
+  --primary-hover: #d66b2a !important;
+  --primary-light: #fef2ed !important;
+  --text: #2a2b2e !important;
+  --text-secondary: #6b7280 !important;
+  --border: #e5e7eb !important;
+  --success: #22c55e !important;
+  --error: #ef4444 !important;
+  --warning: #f59e0b !important;
+  
+  // Global override to prevent white background issues in collapsed state
+  &.collapsed {
+    .nav-link {
+      mat-icon {
+        background: transparent !important;
+        color: var(--text-secondary) !important;
+        
+        &:hover {
+          background: transparent !important;
+          color: var(--primary) !important;
+        }
+      }
+    }
+  }
   
   // Spacing
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
@@ -44,16 +59,16 @@
   left: 0;
   height: 100vh;
   width: var(--sidebar-width);
-  background: #FFFFFF; // Solid white, NO transparency
-  border-right: 2px solid var(--border);
+  background: var(--surface); // Clean off-white surface
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   transition: width var(--transition), transform var(--transition);
   z-index: 999;
   overflow: hidden;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   
-  // Collapsed state - Desktop only
+  // Collapsed state - Desktop only - FIXED HOVER ISSUE
   &.collapsed:not(.mobile) {
     width: var(--sidebar-collapsed-width);
     
@@ -70,6 +85,67 @@
     .nav-link {
       justify-content: center;
       padding: var(--s3);
+      background: transparent !important;
+      border-left: 3px solid transparent !important;
+      
+      // Completely override any conflicting styles with maximum specificity
+      &:hover {
+        background: var(--primary-light) !important;
+        color: var(--primary) !important;
+        border-left-color: var(--primary) !important;
+        transform: none !important;
+        
+        .nav-icon {
+          color: var(--primary) !important;
+          background: transparent !important;
+        }
+        
+        mat-icon {
+          color: var(--primary) !important;
+          background: transparent !important;
+        }
+        
+        .nav-text {
+          color: var(--primary) !important;
+          background: transparent !important;
+        }
+        
+        .nav-badge-dot {
+          background: var(--primary) !important;
+        }
+      }
+      
+      &.active {
+        background: var(--primary-light) !important;
+        color: var(--primary) !important;
+        border-left-color: var(--primary) !important;
+        
+        .nav-icon {
+          color: var(--primary) !important;
+          background: transparent !important;
+        }
+        
+        mat-icon {
+          color: var(--primary) !important;
+          background: transparent !important;
+        }
+        
+        .nav-text {
+          color: var(--primary) !important;
+          background: transparent !important;
+        }
+      }
+      
+      // Override any global mat-icon or other conflicting styles
+      .nav-icon {
+        background: transparent !important;
+        color: var(--text-secondary) !important;
+      }
+      
+      mat-icon {
+        background: transparent !important;
+        color: var(--text-secondary) !important;
+      }
     }
     
     .nav-badge {
@@ -118,29 +194,34 @@
   .mobile-close-btn {
     width: 40px;
     height: 40px;
-    background: var(--surface);
-    border: 2px solid var(--border);
+    background: var(--surface) !important;
+    border: 2px solid var(--border) !important;
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    color: var(--text) !important;
     transition: var(--transition-fast);
-    color: var(--text);
     
     &:hover {
-      background: var(--primary-light);
-      border-color: var(--primary);
-      color: var(--primary);
+      background: var(--primary-light) !important;
+      border-color: var(--primary) !important;
+      color: var(--primary) !important;
       transform: translateY(-1px);
     }
     
     &:active {
+      background: var(--primary-light) !important;
+      border-color: var(--primary) !important;
+      color: var(--primary) !important;
       transform: translateY(0);
     }
     
     mat-icon {
-      font-size: 20px;
+      font-size: 20px !important;
+      color: inherit !important;
+      background: transparent !important;
     }
   }
   
@@ -585,5 +666,52 @@
 @media print {
   .sidebar {
     display: none !important;
+  }
+}
+
+// ===== CRITICAL FIX FOR COLLAPSED SIDEBAR ICON HOVER =====
+// Force icon visibility in collapsed state with maximum specificity
+:host.collapsed .sidebar .nav-link {
+  mat-icon {
+    color: var(--text-secondary) !important;
+    background: transparent !important;
+    
+    &:hover {
+      color: var(--primary) !important;
+      background: transparent !important;
+    }
+  }
+  
+  &:hover mat-icon {
+    color: var(--primary) !important;
+    background: transparent !important;
+  }
+  
+  &.active mat-icon {
+    color: var(--primary) !important;
+    background: transparent !important;
+  }
+}
+
+// Additional fix for any other potential conflicts
+:host(.collapsed) {
+  .nav-link {
+    * {
+      background: transparent !important;
+    }
+    
+    mat-icon {
+      color: var(--text-secondary) !important;
+      
+      &:hover {
+        color: var(--primary) !important;
+      }
+    }
+    
+    &:hover {
+      mat-icon {
+        color: var(--primary) !important;
+      }
+    }
   }
 }

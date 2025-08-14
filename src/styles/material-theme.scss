@@ -28,11 +28,6 @@ $theme: mat.m2-define-light-theme((
 
 @include mat.all-component-themes($theme);
 
-// Override Material background and surface colors
-div, mat-card, .mat-mdc-card, .mat-mdc-dialog-container {
-  background-color: var(--surface, #FEFCFB) !important;
-  color: var(--text-primary, #2D3748) !important;
-}
 
 .mat-mdc-button, .mat-mdc-raised-button, .mat-mdc-fab, .mat-mdc-mini-fab {
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%) !important;

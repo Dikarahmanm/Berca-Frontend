@@ -27,7 +27,7 @@
           </select>
         </div>
 
-        <button class="btn btn-primary refresh-btn" (click)="refreshData()" [disabled]="isLoading" type="button"
+        <button class="btn btn-primary refresh-btn" (click)="refreshData()" [disabled]="isLoading()" type="button"
           title="Refresh dashboard data (Ctrl+R)" aria-label="Refresh analytics data">
           <mat-icon>refresh</mat-icon>
           <span>🔄 Refresh</span>
@@ -51,16 +51,16 @@
   </header>
 
   <!-- Clean Loading State -->
-  <div class="loading-overlay" *ngIf="isLoading" role="status" aria-live="polite">
+  <div class="loading-overlay" *ngIf="isLoading()" role="status" aria-live="polite">
     <div class="loading-spinner"></div>
     <p>🔄 Memuat data analytics...</p>
   </div>
 
   <!-- Main Content -->
-  <main class="analytics-content" *ngIf="!isLoading && currentKPIs">
+  <main class="analytics-content" *ngIf="!isLoading()">
 
     <!-- Quick Stats Section -->
-    <section class="quick-stats-section" *ngIf="currentQuickStats" aria-labelledby="quick-stats-title">
+    <section class="quick-stats-section" *ngIf="currentQuickStats()" aria-labelledby="quick-stats-title">
       <div class="section-header">
         <h2 id="quick-stats-title">Quick Stats</h2>
         <p>Ringkasan performa hari ini</p>
@@ -518,7 +518,7 @@
   </main>
 
   <!-- Empty State -->
-  <div class="empty-dashboard" *ngIf="!isLoading && !currentKPIs" role="status">
+  <div class="empty-dashboard" *ngIf="!isLoading() && !currentKPIs()" role="status">
     <div class="empty-icon">📊</div>
     <h2>Belum Ada Data Analytics</h2>
     <p>Data analytics akan muncul setelah ada transaksi dan aktivitas bisnis</p>

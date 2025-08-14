@@ -6,6 +6,7 @@
       "Bash(sed:*)",
       "Bash(grep:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

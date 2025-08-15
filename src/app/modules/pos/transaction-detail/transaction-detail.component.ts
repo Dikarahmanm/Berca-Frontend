@@ -1,98 +1,88 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MaterialModule } from '../../../shared/material.module';
 import { POSService } from '../../../core/services/pos.service';
 import { TransactionDetail, TransactionItem } from '../interfaces/transaction-detail.interface';
-import { Subject, takeUntil, timer } from 'rxjs';
 
 @Component({
   selector: 'app-transaction-detail',
   standalone: true,
-  imports: [CommonModule, MaterialModule],
+  imports: [CommonModule],
   templateUrl: './transaction-detail.component.html',
-  styleUrls: ['./transaction-detail.component.scss']
+  styleUrls: ['./transaction-detail.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TransactionDetailComponent implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>();
+export class TransactionDetailComponent implements OnInit {
+  // Inject services
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private posService = inject(POSService);
   
-  transaction: TransactionDetail | null = null;
-  loading = true;
-  error: string | null = null;
-  printingReceipt = false;
-  
-  // Minimum loading time for better UX
-  private minLoadingTime = 800; // ms
-  private loadingStartTime = 0;
+  // Signal-based state
+  transaction = signal<TransactionDetail | null>(null);
+  loading = signal<boolean>(true);
+  error = signal<string | null>(null);
 
-  displayedColumns: string[] = ['productName', 'quantity', 'unitPrice', 'subtotal'];
+  // Computed properties
+  totalProfit = computed(() => {
+    const trans = this.transaction();
+    return trans?.items.reduce((sum, item) => sum + item.totalProfit, 0) || 0;
+  });
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private posService: POSService
-  ) {}
+  profitMargin = computed(() => {
+    const trans = this.transaction();
+    const profit = this.totalProfit();
+    if (!trans || trans.total === 0) return 0;
+    return (profit / trans.total) * 100;
+  });
 
   ngOnInit(): void {
     this.loadTransactionDetail();
   }
 
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
-
-  private loadTransactionDetail(): void {
-    this.loadingStartTime = Date.now();
+  // Data loading method
+  private async loadTransactionDetail(): Promise<void> {
     const id = this.route.snapshot.params['id'];
     
-    console.log('🔍 TransactionDetailComponent - Route params:', this.route.snapshot.params);
-    console.log('🔍 TransactionDetailComponent - Current URL:', this.router.url);
-    
     if (!id || isNaN(Number(id))) {
-      console.error('❌ Invalid transaction ID:', id);
-      this.error = 'ID transaksi tidak valid';
-      this.finishLoading();
+      this.error.set('ID transaksi tidak valid');
+      this.loading.set(false);
       return;
     }
 
-    console.log('🔍 Loading transaction detail for ID:', id);
-    
-    this.posService.getTransactionDetail(Number(id))
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (transaction) => {
-          console.log('✅ Transaction loaded:', transaction);
-          this.transaction = transaction;
-          this.finishLoading();
-        },
-        error: (error) => {
-          console.error('❌ Error loading transaction:', error);
-          this.error = 'Gagal memuat detail transaksi: ' + (error.message || 'Unknown error');
-          this.finishLoading();
-        }
-      });
+    try {
+      this.loading.set(true);
+      this.error.set(null);
+
+      const transaction = await this.posService.getTransactionDetail(Number(id)).toPromise();
+      
+      if (transaction) {
+        this.transaction.set(transaction);
+      } else {
+        this.error.set('Transaksi tidak ditemukan');
+      }
+    } catch (error: any) {
+      console.error('Error loading transaction:', error);
+      this.error.set('Gagal memuat detail transaksi');
+    } finally {
+      this.loading.set(false);
+    }
   }
 
-  private finishLoading(): void {
-    const elapsed = Date.now() - this.loadingStartTime;
-    const remainingTime = Math.max(0, this.minLoadingTime - elapsed);
-    
-    // Ensure minimum loading time for better UX
-    timer(remainingTime).subscribe(() => {
-      this.loading = false;
-    });
-  }
-
+  // Event handlers
   onPrintReceipt(): void {
-    if (!this.transaction) return;
-
-    console.log('🧾 Redirecting to receipt preview for transaction:', this.transaction.id);
+    const trans = this.transaction();
+    if (!trans) return;
     
     // Navigate to receipt preview instead of printing directly
-    this.router.navigate(['/dashboard/pos/receipt', this.transaction.id]);
+    this.router.navigate(['/dashboard/pos/receipt', trans.id]);
   }
 
+  goBack(): void {
+    this.router.navigate(['/dashboard/pos']);
+  }
+
+  // Utility methods
   formatCurrency(amount: number): string {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -103,19 +93,28 @@ export class TransactionDetailComponent implements OnInit, OnDestroy {
   }
 
   formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleString('id-ID');
+    return new Date(dateString).toLocaleString('id-ID', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
-  goBack(): void {
-    this.router.navigate(['/dashboard/pos']);
+  getStatusInfo(status: string): { text: string; icon: string; color: string } {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return { text: 'Selesai', icon: '✓', color: 'success' };
+      case 'pending':
+        return { text: 'Pending', icon: '⏱', color: 'warning' };
+      case 'cancelled':
+        return { text: 'Dibatalkan', icon: '✗', color: 'error' };
+      default:
+        return { text: status, icon: '?', color: 'secondary' };
+    }
   }
 
-  get totalProfit(): number {
-    return this.transaction?.items.reduce((sum, item) => sum + item.totalProfit, 0) || 0;
-  }
-
-  get profitMargin(): number {
-    if (!this.transaction || this.transaction.total === 0) return 0;
-    return (this.totalProfit / this.transaction.total) * 100;
-  }
+  // TrackBy function for performance
+  trackByItem = (index: number, item: TransactionItem): number => item.id;
 }

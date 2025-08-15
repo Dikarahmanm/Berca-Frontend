@@ -20,7 +20,7 @@ export class ReceiptService {
   /**
    * Print receipt - MENGGUNAKAN HTML DARI PREVIEW COMPONENT
    */
-  async printReceipt(saleId: number): Promise<void> {
+  async printReceipt(saleId: number, receiptConfig?: any, printOptions?: any): Promise<void> {
     try {
       console.log('🖨️ Printing receipt for sale:', saleId);
 
@@ -33,7 +33,7 @@ export class ReceiptService {
       const sale = saleResponse.data;
 
       // Gunakan HTML yang sama dengan preview component
-      const printContent = this.generateReceiptHTML(sale);
+      const printContent = this.generateReceiptHTML(sale, receiptConfig, printOptions);
 
       const printWindow = window.open('', '_blank', 'width=480,height=650');
       if (printWindow) {
@@ -71,7 +71,7 @@ export class ReceiptService {
   /**
    * Download PDF - MENGGUNAKAN HTML DARI PREVIEW COMPONENT
    */
-  async downloadReceiptPDF(saleId: number): Promise<void> {
+  async downloadReceiptPDF(saleId: number, receiptConfig?: any, printOptions?: any): Promise<void> {
     try {
       console.log('📄 Downloading PDF for sale:', saleId);
 
@@ -84,7 +84,7 @@ export class ReceiptService {
       const sale = saleResponse.data;
 
       // Generate PDF menggunakan method terpisah
-      const pdfBlob = await this.generateReceiptPDF(sale);
+      const pdfBlob = await this.generateReceiptPDF(sale, receiptConfig, printOptions);
 
       // Download PDF
       const url = URL.createObjectURL(pdfBlob);
@@ -105,7 +105,7 @@ export class ReceiptService {
   /**
    * Share receipt - MENGGUNAKAN PDF YANG SAMA DENGAN DOWNLOAD
    */
-  async shareReceipt(saleId: number, method: 'native' | 'whatsapp' = 'native'): Promise<void> {
+  async shareReceipt(saleId: number, method: 'native' | 'whatsapp' = 'native', receiptConfig?: any, printOptions?: any): Promise<void> {
     try {
       console.log('📤 Sharing receipt for sale:', saleId);
 
@@ -119,17 +119,17 @@ export class ReceiptService {
 
       if (method === 'whatsapp') {
         // Untuk WhatsApp, buat PDF kecil untuk sharing
-        const pdfBlob = await this.generateReceiptPDF(sale);
+        const pdfBlob = await this.generateReceiptPDF(sale, receiptConfig, printOptions);
         const pdfUrl = URL.createObjectURL(pdfBlob);
 
         // Buat text summary + link download PDF
-        const receiptText = this.generateReceiptTextSummary(sale);
+        const receiptText = this.generateReceiptTextSummary(sale, receiptConfig);
         const whatsappText = `${receiptText}\n\n📎 PDF Struk: ${pdfUrl}`;
         const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
         window.open(whatsappUrl, '_blank');
       } else {
         // Untuk native share gunakan PDF yang sama dengan download
-        const pdfBlob = await this.generateReceiptPDF(sale);
+        const pdfBlob = await this.generateReceiptPDF(sale, receiptConfig, printOptions);
         const file = new File([pdfBlob], `struk-${sale.saleNumber}.pdf`, { type: 'application/pdf' });
 
         if (navigator.share) {
@@ -160,9 +160,9 @@ export class ReceiptService {
   /**
    * Generate Receipt PDF - UNTUK DOWNLOAD DAN SHARE
    */
-  private async generateReceiptPDF(sale: any): Promise<Blob> {
+  private async generateReceiptPDF(sale: any, receiptConfig?: any, printOptions?: any): Promise<Blob> {
     // Gunakan HTML yang sama dengan preview component
-    const pdfContent = this.generateReceiptHTML(sale);
+    const pdfContent = this.generateReceiptHTML(sale, receiptConfig, printOptions);
 
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = pdfContent;
@@ -205,8 +205,8 @@ export class ReceiptService {
   /**
    * Generate Receipt Text Summary - UNTUK SHARE YANG RINGKAS
    */
-  private generateReceiptTextSummary(sale: any): string {
-    const storeInfo = environment.pos?.receiptSettings || {
+  private generateReceiptTextSummary(sale: any, receiptConfig?: any): string {
+    const storeInfo = receiptConfig || environment.pos?.receiptSettings || {
       storeName: 'Toko Eniwan',
       storeAddress: 'Bekasi, West Java',
       storePhone: '+62 xxx-xxxx-xxxx',
@@ -222,10 +222,17 @@ export class ReceiptService {
 
     receiptText += `🧾 STRUK PEMBELIAN\n`;
     receiptText += `================================\n`;
-    receiptText += `No. Transaksi: ${sale.saleNumber || 'N/A'}\n`;
-    receiptText += `Tanggal: ${formattedDate}\n`;
-    receiptText += `Waktu: ${formattedTime}\n`;
-    receiptText += `Kasir: ${sale.cashierName || 'N/A'}\n`;
+    
+    if (receiptConfig?.showTransactionNumber !== false) {
+      receiptText += `No. Transaksi: ${sale.saleNumber || 'N/A'}\n`;
+    }
+    if (receiptConfig?.showDateTime !== false) {
+      receiptText += `Tanggal: ${formattedDate}\n`;
+      receiptText += `Waktu: ${formattedTime}\n`;
+    }
+    if (receiptConfig?.showCashier !== false) {
+      receiptText += `Kasir: ${sale.cashierName || 'N/A'}\n`;
+    }
 
     if (sale.customerName) {
       receiptText += `Pelanggan: ${sale.customerName}\n`;
@@ -274,14 +281,21 @@ export class ReceiptService {
   /**
    * Generate Receipt HTML - PERSIS SEPERTI PREVIEW COMPONENT
    */
-  private generateReceiptHTML(sale: any): string {
-    const storeInfo = environment.pos?.receiptSettings || {
+  private generateReceiptHTML(sale: any, receiptConfig?: any, printOptions?: any): string {
+    const storeInfo = receiptConfig || environment.pos?.receiptSettings || {
       storeName: 'Toko Eniwan',
       storeAddress: 'Bekasi, West Java',
       storePhone: '+62 xxx-xxxx-xxxx',
       storeEmail: 'info@tokoeniwan.com',
       footerMessage: 'Terima kasih atas kunjungan Anda!'
     };
+    
+    // Get theme and font size settings
+    const theme = receiptConfig?.theme || 'classic';
+    const fontSize = receiptConfig?.fontSize || 'medium';
+    const includeFooter = printOptions?.includeFooter !== false;
+    const includeQR = printOptions?.includeQR !== false;
+    const includeLogo = printOptions?.includeLogo !== false;
 
     const formattedDate = this.formatDate(sale.saleDate);
     const formattedTime = this.formatTime(sale.saleDate);
@@ -631,6 +645,11 @@ export class ReceiptService {
         <div class="receipt-paper">
             <!-- Store Header -->
             <div class="store-header">
+                ${(storeInfo.logoUrl && includeLogo) ? `
+                <div class="store-logo">
+                    <img src="${storeInfo.logoUrl}" alt="${storeInfo.storeName}" style="max-width: 120px; max-height: 60px; object-fit: contain; margin-bottom: 12px;">
+                </div>` : ''}
+                
                 <h1 class="store-name">${storeInfo.storeName}</h1>
                 <p class="store-address">${storeInfo.storeAddress}</p>
                 <p class="store-contact">${storeInfo.storePhone}</p>
@@ -642,10 +661,12 @@ export class ReceiptService {
 
             <!-- Transaction Info -->
             <div class="transaction-info">
+                ${(receiptConfig?.showTransactionNumber !== false) ? `
                 <div class="info-row">
                     <span class="label">No. Transaksi:</span>
                     <span class="value">${sale.saleNumber || 'N/A'}</span>
-                </div>
+                </div>` : ''}
+                ${(receiptConfig?.showDateTime !== false) ? `
                 <div class="info-row">
                     <span class="label">Tanggal:</span>
                     <span class="value">${formattedDate}</span>
@@ -653,11 +674,12 @@ export class ReceiptService {
                 <div class="info-row">
                     <span class="label">Waktu:</span>
                     <span class="value">${formattedTime}</span>
-                </div>
+                </div>` : ''}
+                ${(receiptConfig?.showCashier !== false) ? `
                 <div class="info-row">
                     <span class="label">Kasir:</span>
                     <span class="value">${sale.cashierName || 'N/A'}</span>
-                </div>
+                </div>` : ''}
                 ${sale.customerName ? `
                 <div class="info-row">
                     <span class="label">Pelanggan:</span>
@@ -756,19 +778,22 @@ export class ReceiptService {
             </div>
 
             <!-- Footer -->
+            ${includeFooter ? `
             <div class="receipt-footer">
                 <div class="divider">================================</div>
-                <p class="thank-you">Terima kasih atas kunjungan Anda!</p>
+                <p class="thank-you">${storeInfo.footerMessage || 'Terima kasih atas kunjungan Anda!'}</p>
                 <p class="footer-note">Barang yang sudah dibeli tidak dapat dikembalikan</p>
 
+                ${includeQR ? `
                 <!-- QR Code for digital receipt -->
                 <div class="qr-section">
                     <p class="qr-label">Scan untuk struk digital:</p>
                     <div class="qr-placeholder">
                         <span class="qr-text">QR Code</span>
+                        <small>${sale.saleNumber || ''}</small>
                     </div>
-                </div>
-            </div>
+                </div>` : ''}
+            </div>` : ''}
         </div>
     </div>
 </body>

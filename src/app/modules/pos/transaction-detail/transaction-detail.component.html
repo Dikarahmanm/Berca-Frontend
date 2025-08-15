@@ -1,284 +1,290 @@
 <div class="transaction-detail-container">
   <!-- Loading State -->
-  @if (loading) {
+  @if (loading()) {
   <div class="loading-container">
-    <div class="loading-content">
-      <div class="loading-spinner">
-        <mat-spinner diameter="60" strokeWidth="4"></mat-spinner>
-        <div class="spinner-overlay">
-          <svg class="orange-spinner" viewBox="0 0 50 50">
-            <circle 
-              cx="25" cy="25" r="20" 
-              fill="none" 
-              stroke="#ff7f27" 
-              stroke-width="3"
-              stroke-dasharray="31.416" 
-              stroke-dashoffset="31.416">
-              <animate 
-                attributeName="stroke-dasharray" 
-                dur="2s" 
-                values="0 31.416;15.708 15.708;0 31.416" 
-                repeatCount="indefinite"/>
-              <animate 
-                attributeName="stroke-dashoffset" 
-                dur="2s" 
-                values="0;-15.708;-31.416" 
-                repeatCount="indefinite"/>
-            </circle>
-          </svg>
-        </div>
-      </div>
-      <div class="loading-text">
-        <h3>Memuat Detail Transaksi</h3>
-        <p>Mengambil informasi transaksi...</p>
-      </div>
-    </div>
+    <div class="loading-spinner"></div>
+    <h3>Memuat Detail Transaksi</h3>
+    <p>Mengambil informasi transaksi...</p>
   </div>
   }
 
   <!-- Error State -->
-  @if (error && !loading) {
+  @if (error() && !loading()) {
   <div class="error-container">
-    <mat-icon color="warn">error</mat-icon>
-    <h3>Error</h3>
-    <p>{{ error }}</p>
-    <button mat-raised-button color="primary" (click)="goBack()">
-      <mat-icon>arrow_back</mat-icon>
-      Kembali
+    <div class="error-icon">⚠️</div>
+    <h3>Terjadi Kesalahan</h3>
+    <p>{{ error() }}</p>
+    <button class="btn btn-primary" (click)="goBack()">
+      ← Kembali ke POS
     </button>
   </div>
   }
 
   <!-- Transaction Detail Content -->
-  @if (transaction && !loading && !error) {
-  <div class="detail-content fade-in">
+  @if (transaction() && !loading() && !error()) {
+  <div class="detail-content">
     <!-- Header -->
     <div class="detail-header">
       <div class="header-left">
-        <button mat-icon-button (click)="goBack()" class="back-button">
-          <mat-icon>arrow_back</mat-icon>
+        <button class="btn btn-outline back-button" (click)="goBack()">
+          ← Kembali
         </button>
         <div class="header-info">
           <h1>Detail Transaksi</h1>
-          <p class="transaction-number">{{ transaction.saleNumber }}</p>
+          <p class="transaction-number">{{ transaction()!.saleNumber }}</p>
         </div>
       </div>
       <div class="header-actions">
-        <button 
-          mat-raised-button 
-          color="primary" 
-          (click)="onPrintReceipt()"
-          class="print-button">
-          <mat-icon>receipt</mat-icon>
-          Lihat Receipt
+        <button class="btn btn-primary print-button" (click)="onPrintReceipt()">
+          🧾 Lihat Receipt
         </button>
       </div>
     </div>
 
-    <!-- Status Badge -->
+    <!-- Status Section -->
     <div class="status-section">
-      <mat-chip-set>
-        <mat-chip [ngClass]="'status-' + transaction.status.toLowerCase()">
-          <mat-icon>{{ transaction.status === 'Completed' ? 'check_circle' : 'pending' }}</mat-icon>
-          {{ transaction.status }}
-        </mat-chip>
-        <mat-chip *ngIf="transaction.receiptPrinted" class="printed-chip">
-          <mat-icon>print</mat-icon>
-          Receipt Dicetak
-        </mat-chip>
-      </mat-chip-set>
+      @let statusInfo = getStatusInfo(transaction()!.status);
+      <div class="status-badge status-{{ statusInfo.color }}">
+        <span class="status-icon">{{ statusInfo.icon }}</span>
+        <span class="status-text">{{ statusInfo.text }}</span>
+      </div>
+      
+      @if (transaction()!.receiptPrinted) {
+      <div class="status-badge status-info">
+        <span class="status-icon">🖨️</span>
+        <span class="status-text">Receipt Dicetak</span>
+      </div>
+      }
     </div>
 
-    <!-- Transaction Info Cards -->
-    <div class="info-cards">
-      <!-- Basic Info -->
-      <mat-card class="info-card">
-        <mat-card-header>
-          <mat-card-title>Informasi Transaksi</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="info-grid">
+    <!-- Information Cards Grid -->
+    <div class="info-grid">
+      <!-- Basic Transaction Info -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Informasi Transaksi</h3>
+        </div>
+        <div class="card-content">
+          <div class="info-list">
             <div class="info-item">
               <span class="label">Tanggal & Waktu:</span>
-              <span class="value">{{ formatDate(transaction.saleDate) }}</span>
+              <span class="value">{{ formatDate(transaction()!.saleDate) }}</span>
             </div>
             <div class="info-item">
               <span class="label">Kasir:</span>
-              <span class="value">{{ transaction.cashierName }}</span>
+              <span class="value">{{ transaction()!.cashierName }}</span>
             </div>
-            @if (transaction.customerName) {
+            @if (transaction()!.customerName) {
             <div class="info-item">
               <span class="label">Customer:</span>
-              <span class="value">{{ transaction.customerName }}</span>
+              <span class="value">{{ transaction()!.customerName }}</span>
             </div>
             }
-            @if (transaction.memberName) {
+            @if (transaction()!.memberName) {
             <div class="info-item">
               <span class="label">Member:</span>
-              <span class="value">{{ transaction.memberName }} ({{ transaction.memberNumber }})</span>
+              <span class="value">{{ transaction()!.memberName }} ({{ transaction()!.memberNumber }})</span>
             </div>
             }
             <div class="info-item">
               <span class="label">Metode Pembayaran:</span>
-              <span class="value">{{ transaction.paymentMethod }}</span>
+              <span class="value">{{ transaction()!.paymentMethod }}</span>
             </div>
-            @if (transaction.paymentReference) {
+            @if (transaction()!.paymentReference) {
             <div class="info-item">
-              <span class="label">Referensi Pembayaran:</span>
-              <span class="value">{{ transaction.paymentReference }}</span>
+              <span class="label">Referensi:</span>
+              <span class="value">{{ transaction()!.paymentReference }}</span>
             </div>
             }
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+      </div>
 
       <!-- Financial Summary -->
-      <mat-card class="info-card">
-        <mat-card-header>
-          <mat-card-title>Ringkasan Keuangan</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="financial-grid">
+      <div class="card">
+        <div class="card-header">
+          <h3>Ringkasan Keuangan</h3>
+        </div>
+        <div class="card-content">
+          <div class="financial-list">
             <div class="financial-item">
               <span class="label">Total Items:</span>
-              <span class="value">{{ transaction.totalItems }} items</span>
+              <span class="value">{{ transaction()!.totalItems }} items</span>
             </div>
             <div class="financial-item">
               <span class="label">Subtotal:</span>
-              <span class="value">{{ formatCurrency(transaction.subtotal) }}</span>
+              <span class="value">{{ formatCurrency(transaction()!.subtotal) }}</span>
             </div>
-            @if (transaction.discountAmount > 0) {
+            @if (transaction()!.discountAmount > 0) {
             <div class="financial-item">
               <span class="label">Diskon:</span>
-              <span class="value discount">-{{ formatCurrency(transaction.discountAmount) }}</span>
+              <span class="value discount">-{{ formatCurrency(transaction()!.discountAmount) }}</span>
             </div>
             }
-            @if (transaction.taxAmount > 0) {
+            @if (transaction()!.taxAmount > 0) {
             <div class="financial-item">
               <span class="label">Pajak:</span>
-              <span class="value">{{ formatCurrency(transaction.taxAmount) }}</span>
+              <span class="value">{{ formatCurrency(transaction()!.taxAmount) }}</span>
             </div>
             }
             <div class="financial-item total">
               <span class="label">TOTAL:</span>
-              <span class="value">{{ formatCurrency(transaction.total) }}</span>
+              <span class="value">{{ formatCurrency(transaction()!.total) }}</span>
             </div>
             <div class="financial-item">
               <span class="label">Dibayar:</span>
-              <span class="value">{{ formatCurrency(transaction.amountPaid) }}</span>
+              <span class="value">{{ formatCurrency(transaction()!.amountPaid) }}</span>
             </div>
-            @if (transaction.changeAmount > 0) {
+            @if (transaction()!.changeAmount > 0) {
             <div class="financial-item">
               <span class="label">Kembalian:</span>
-              <span class="value">{{ formatCurrency(transaction.changeAmount) }}</span>
+              <span class="value">{{ formatCurrency(transaction()!.changeAmount) }}</span>
             </div>
             }
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+      </div>
 
       <!-- Profit Analysis -->
-      <mat-card class="info-card">
-        <mat-card-header>
-          <mat-card-title>Analisis Keuntungan</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="profit-grid">
+      <div class="card">
+        <div class="card-header">
+          <h3>Analisis Keuntungan</h3>
+        </div>
+        <div class="card-content">
+          <div class="profit-summary">
             <div class="profit-item">
               <span class="label">Total Keuntungan:</span>
-              <span class="value profit">{{ formatCurrency(totalProfit) }}</span>
+              <span class="value profit">{{ formatCurrency(totalProfit()) }}</span>
             </div>
             <div class="profit-item">
               <span class="label">Margin Keuntungan:</span>
-              <span class="value">{{ profitMargin.toFixed(2) }}%</span>
+              <span class="value">{{ profitMargin().toFixed(2) }}%</span>
             </div>
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+      </div>
     </div>
 
     <!-- Items Table -->
-    <mat-card class="items-card">
-      <mat-card-header>
-        <mat-card-title>Daftar Item ({{ transaction.items.length }} items)</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="table-container">
-          <table mat-table [dataSource]="transaction.items" class="items-table">
-            <!-- Product Name Column -->
-            <ng-container matColumnDef="productName">
-              <th mat-header-cell *matHeaderCellDef>Produk</th>
-              <td mat-cell *matCellDef="let item">
-                <div class="product-info">
-                  <div class="product-name">{{ item.productName }}</div>
-                  <div class="product-barcode">{{ item.productBarcode }}</div>
-                  @if (item.notes) {
-                  <div class="product-notes">{{ item.notes }}</div>
-                  }
+    <div class="card items-card">
+      <div class="card-header">
+        <h3>Daftar Item ({{ transaction()!.items.length }} items)</h3>
+      </div>
+      <div class="card-content">
+        <!-- Mobile View (Card Layout) -->
+        <div class="mobile-view">
+          @for (item of transaction()!.items; track trackByItem($index, item)) {
+          <div class="item-card">
+            <div class="item-header">
+              <div class="product-info">
+                <h4 class="product-name">{{ item.productName }}</h4>
+                <p class="product-barcode">{{ item.productBarcode }}</p>
+                @if (item.notes) {
+                <p class="product-notes">{{ item.notes }}</p>
+                }
+              </div>
+              <div class="item-quantity">
+                <span class="qty">{{ item.quantity }}</span>
+                <span class="unit">{{ item.unit }}</span>
+              </div>
+            </div>
+            
+            <div class="item-details">
+              <div class="price-info">
+                <div class="price-row">
+                  <span class="label">Harga Satuan:</span>
+                  <span class="value">{{ formatCurrency(item.unitPrice) }}</span>
                 </div>
-              </td>
-            </ng-container>
+                <div class="price-row">
+                  <span class="label">HPP:</span>
+                  <span class="value secondary">{{ formatCurrency(item.unitCost) }}</span>
+                </div>
+                @if (item.discountPercentage > 0) {
+                <div class="price-row">
+                  <span class="label">Diskon:</span>
+                  <span class="value discount">{{ item.discountPercentage }}%</span>
+                </div>
+                }
+              </div>
+              
+              <div class="subtotal-info">
+                <div class="subtotal-row total">
+                  <span class="label">Subtotal:</span>
+                  <span class="value">{{ formatCurrency(item.subtotal) }}</span>
+                </div>
+                <div class="subtotal-row">
+                  <span class="label">Profit:</span>
+                  <span class="value profit">{{ formatCurrency(item.totalProfit) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          }
+        </div>
 
-            <!-- Quantity Column -->
-            <ng-container matColumnDef="quantity">
-              <th mat-header-cell *matHeaderCellDef>Qty</th>
-              <td mat-cell *matCellDef="let item">
-                <div class="quantity-info">
+        <!-- Desktop View (Table Layout) -->
+        <div class="desktop-view">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Produk</th>
+                <th>Qty</th>
+                <th>Harga Satuan</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of transaction()!.items; track trackByItem($index, item)) {
+              <tr>
+                <td>
+                  <div class="product-cell">
+                    <div class="product-name">{{ item.productName }}</div>
+                    <div class="product-barcode">{{ item.productBarcode }}</div>
+                    @if (item.notes) {
+                    <div class="product-notes">{{ item.notes }}</div>
+                    }
+                  </div>
+                </td>
+                <td class="qty-cell">
                   <span class="qty">{{ item.quantity }}</span>
                   <span class="unit">{{ item.unit }}</span>
-                </div>
-              </td>
-            </ng-container>
-
-            <!-- Unit Price Column -->
-            <ng-container matColumnDef="unitPrice">
-              <th mat-header-cell *matHeaderCellDef>Harga Satuan</th>
-              <td mat-cell *matCellDef="let item">
-                <div class="price-info">
-                  <div class="selling-price">{{ formatCurrency(item.unitPrice) }}</div>
-                  <div class="cost-price">(HPP: {{ formatCurrency(item.unitCost) }})</div>
-                  @if (item.discountPercentage > 0) {
-                  <div class="discount-info">
-                    Diskon: {{ item.discountPercentage }}%
+                </td>
+                <td>
+                  <div class="price-cell">
+                    <div class="selling-price">{{ formatCurrency(item.unitPrice) }}</div>
+                    <div class="cost-price">HPP: {{ formatCurrency(item.unitCost) }}</div>
+                    @if (item.discountPercentage > 0) {
+                    <div class="discount-info">Diskon: {{ item.discountPercentage }}%</div>
+                    }
                   </div>
-                  }
-                </div>
-              </td>
-            </ng-container>
-
-            <!-- Subtotal Column -->
-            <ng-container matColumnDef="subtotal">
-              <th mat-header-cell *matHeaderCellDef>Subtotal</th>
-              <td mat-cell *matCellDef="let item">
-                <div class="subtotal-info">
-                  <div class="subtotal">{{ formatCurrency(item.subtotal) }}</div>
-                  <div class="profit">Profit: {{ formatCurrency(item.totalProfit) }}</div>
-                  @if (item.discountAmount > 0) {
-                  <div class="discount">
-                    -{{ formatCurrency(item.discountAmount) }}
+                </td>
+                <td>
+                  <div class="subtotal-cell">
+                    <div class="subtotal">{{ formatCurrency(item.subtotal) }}</div>
+                    <div class="profit">Profit: {{ formatCurrency(item.totalProfit) }}</div>
+                    @if (item.discountAmount > 0) {
+                    <div class="discount">-{{ formatCurrency(item.discountAmount) }}</div>
+                    }
                   </div>
-                  }
-                </div>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                </td>
+              </tr>
+              }
+            </tbody>
           </table>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
 
     <!-- Notes Section -->
-    @if (transaction.notes) {
-    <mat-card class="notes-card">
-      <mat-card-header>
-        <mat-card-title>Catatan</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <p>{{ transaction.notes }}</p>
-      </mat-card-content>
-    </mat-card>
+    @if (transaction()!.notes) {
+    <div class="card notes-card">
+      <div class="card-header">
+        <h3>Catatan</h3>
+      </div>
+      <div class="card-content">
+        <p class="notes-text">{{ transaction()!.notes }}</p>
+      </div>
+    </div>
     }
   </div>
   }

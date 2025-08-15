@@ -1,271 +1,370 @@
-<!-- src/app/modules/user-profile/user-profile.component.html -->
-<div class="profile-container">
-    <!-- Header Section -->
-    <div class="profile-header">
-        <button class="back-button glass-button" (click)="goBack()" [disabled]="isSaving">
-            <svg class="back-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z" />
-            </svg>
-            Kembali ke Dashboard
+<!-- ✅ REDESIGNED: User Profile - Clean Simple Design -->
+<div class="user-profile-container">
+  
+  <!-- Enhanced Header Section -->
+  <div class="profile-header">
+    <div class="header-content">
+      <div class="header-text">
+        <h1 class="page-title">
+          <mat-icon class="title-icon">account_circle</mat-icon>
+          User Profile
+        </h1>
+        <p class="page-subtitle">Manage your account information and preferences</p>
+      </div>
+      
+      <div class="header-actions">
+        <button class="btn btn-outline" (click)="goBack()" [disabled]="isLoading()">
+          <mat-icon>arrow_back</mat-icon>
+          Back to Dashboard
         </button>
-
-        <div class="header-content">
-            <h1 class="page-title">
-                <svg class="title-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path
-                        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                </svg>
-                Profil Saya
-            </h1>
-            <p class="page-subtitle">Kelola informasi pribadi Toko Eniwan</p>
-        </div>
+        
+        <button 
+          class="btn btn-primary" 
+          (click)="refreshProfile()"
+          [disabled]="isLoading()">
+          <mat-icon [class.spinning]="isLoading()">refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
     </div>
+  </div>
 
-    <!-- Loading State -->
-    <div *ngIf="isLoading" class="loading-container">
-        <div class="loading-spinner"></div>
-        <p>Memuat profil...</p>
+  <!-- Profile Stats Cards -->
+  <section class="profile-stats-section">
+    <div class="stats-grid">
+      <div class="stat-card completeness">
+        <div class="stat-icon">
+          <mat-icon>trending_up</mat-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ profileStats().profileCompleteness }}%</div>
+          <div class="stat-label">Profile Complete</div>
+          <div class="stat-meta">{{ getCompletenessMessage() }}</div>
+        </div>
+      </div>
+      
+      <div class="stat-card updated">
+        <div class="stat-icon">
+          <mat-icon>schedule</mat-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ formatRelativeTime(profileStats().lastUpdated) }}</div>
+          <div class="stat-label">Last Updated</div>
+          <div class="stat-meta">Profile information</div>
+        </div>
+      </div>
+      
+      <div class="stat-card role">
+        <div class="stat-icon">
+          <mat-icon>{{ getRoleIcon() }}</mat-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ getRoleDisplayName() }}</div>
+          <div class="stat-label">Current Role</div>
+          <div class="stat-meta">System access level</div>
+        </div>
+      </div>
+      
+      <div class="stat-card account-age">
+        <div class="stat-icon">
+          <mat-icon>cake</mat-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-value">{{ profileStats().accountAge }}</div>
+          <div class="stat-label">Days Active</div>
+          <div class="stat-meta">Since registration</div>
+        </div>
+      </div>
     </div>
+  </section>
 
-    <!-- Main Content -->
-    <div *ngIf="!isLoading" class="profile-content">
+  <!-- Success/Error Messages -->
+  <div class="message-container" *ngIf="successMessage() || errorMessage()">
+    <div class="alert alert-success" *ngIf="successMessage()">
+      <mat-icon class="alert-icon">check_circle</mat-icon>
+      <span>{{ successMessage() }}</span>
+      <button class="close-btn" (click)="clearMessages()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    
+    <div class="alert alert-error" *ngIf="errorMessage()">
+      <mat-icon class="alert-icon">error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+      <button class="close-btn" (click)="clearMessages()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </div>
 
-        <!-- Success/Error Messages -->
-        <div *ngIf="successMessage" class="alert alert-success">
-            <svg class="alert-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-            </svg>
-            {{ successMessage }}
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="isLoading() && !currentProfile()">
+    <div class="loading-spinner"></div>
+    <p>Loading profile...</p>
+  </div>
+
+  <!-- Main Profile Content -->
+  <div class="profile-content" *ngIf="!isLoading() || currentProfile()">
+    
+    <div class="profile-grid">
+      
+      <!-- Photo Section -->
+      <div class="photo-section glass-card">
+        <h3 class="section-title">
+          <mat-icon class="section-icon">photo_camera</mat-icon>
+          Profile Photo
+        </h3>
+
+        <div class="avatar-section">
+          <div class="avatar-container"
+               (dragover)="onDragOver($event)"
+               (dragleave)="onDragLeave($event)"
+               (drop)="onDrop($event)"
+               [class.drag-over]="isDragOver()">
+            
+            <div class="avatar-wrapper">
+              <img [src]="currentAvatarUrl()" 
+                   alt="Profile Photo"
+                   class="profile-avatar">
+              <div class="avatar-overlay" (click)="triggerFileInput()">
+                <mat-icon class="camera-icon">camera_alt</mat-icon>
+                <span>Change Photo</span>
+                <small>Drag & drop or click</small>
+              </div>
+            </div>
+            
+            <input #fileInput 
+                   type="file" 
+                   accept="image/*" 
+                   (change)="onPhotoSelect($event)"
+                   class="file-input">
+          </div>
+
+          <div class="photo-actions" *ngIf="selectedFile() || hasCustomPhoto()">
+            <button *ngIf="selectedFile()" 
+                    class="btn btn-primary btn-sm" 
+                    (click)="uploadPhoto()"
+                    [disabled]="isUploading()">
+              <mat-icon [class.spinning]="isUploading()">cloud_upload</mat-icon>
+              {{ isUploading() ? 'Uploading...' : 'Save Photo' }}
+            </button>
+
+            <button *ngIf="hasCustomPhoto() && !selectedFile()" 
+                    class="btn btn-outline btn-sm"
+                    (click)="deletePhoto()" 
+                    [disabled]="isUploading()">
+              <mat-icon>delete</mat-icon>
+              Remove Photo
+            </button>
+          </div>
+
+          <div class="photo-info">
+            <div class="info-item">
+              <mat-icon class="info-icon">info</mat-icon>
+              <span>Max 2MB • JPG, PNG, WEBP • 400x400 recommended</span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div *ngIf="errorMessage" class="alert alert-error">
-            <svg class="alert-icon" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-            </svg>
-            {{ errorMessage }}
-        </div>
+      <!-- Form Section -->
+      <div class="form-section glass-card">
+        <h3 class="section-title">
+          <mat-icon class="section-icon">person</mat-icon>
+          Personal Information
+        </h3>
 
-        <div class="profile-grid">
+        <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="profile-form">
+          
+          <!-- Personal Information -->
+          <div class="form-group-section">
+            <div class="form-row">
+              <!-- Full Name -->
+              <div class="form-group">
+                <label for="fullName" class="form-label required">Full Name</label>
+                <input 
+                  id="fullName"
+                  type="text" 
+                  formControlName="fullName"
+                  class="form-input"
+                  [class.error]="isFieldInvalid('fullName')"
+                  placeholder="Enter your full name">
+                <span *ngIf="isFieldInvalid('fullName')" class="error-message">
+                  {{ getFieldError('fullName') }}
+                </span>
+              </div>
 
-            <!-- Left Column: Photo Section -->
-            <div class="photo-section glass-card">
-                <h2 class="section-title">
-                    <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M12 15.5c1.93 0 3.5-1.57 3.5-3.5S13.93 8.5 12 8.5 8.5 10.07 8.5 12s1.57 3.5 3.5 3.5zM17.5 9c.28 0 .5-.22.5-.5s-.22-.5-.5-.5-.5.22-.5.5.22.5.5.5zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z" />
-                    </svg>
-                    Foto Profil
-                </h2>
-
-                <div class="avatar-section">
-                    <div class="avatar-container" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)"
-                        (drop)="onDrop($event)">
-                        <img [src]="currentAvatarUrl" alt="Profile Picture" class="profile-avatar">
-                        <div class="avatar-overlay" (click)="triggerFileInput()">
-                            <svg class="camera-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M12 15.5c1.93 0 3.5-1.57 3.5-3.5S13.93 8.5 12 8.5 8.5 10.07 8.5 12s1.57 3.5 3.5 3.5zM17.5 9c.28 0 .5-.22.5-.5s-.22-.5-.5-.5-.5.22-.5.5.22.5.5.5zM20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z" />
-                            </svg>
-                            <span>Ganti Foto</span>
-                            <small>Drag & drop atau klik</small>
-                        </div>
-                    </div>
-
-                    <input #fileInput type="file" accept="image/*" (change)="onPhotoSelect($event)"
-                        style="display: none;">
-                </div>
-
-                <div class="photo-actions" *ngIf="selectedFile || currentProfile?.photoUrl">
-                    <button *ngIf="selectedFile" class="upload-btn primary-button" (click)="uploadPhoto()"
-                        [disabled]="isUploading">
-                        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                        </svg>
-                        <span *ngIf="!isUploading">Upload Foto</span>
-                        <span *ngIf="isUploading" class="loading-text">
-                            <span class="loading-dots"></span>
-                            Uploading...
-                        </span>
-                    </button>
-
-                    <button *ngIf="currentProfile?.photoUrl && !selectedFile" class="delete-btn danger-button"
-                        (click)="deletePhoto()" [disabled]="isUploading">
-                        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z" />
-                        </svg>
-                        Hapus Foto
-                    </button>
-                </div>
-
-                <div class="photo-info">
-                    <div class="info-item">
-                        <svg class="info-icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-                        </svg>
-                        <span>Maksimal 500KB</span>
-                    </div>
-                    <div class="info-item">
-                        <svg class="info-icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                        </svg>
-                        <span>Format: JPEG, PNG, GIF</span>
-                    </div>
-                </div>
+              <!-- Gender -->
+              <div class="form-group">
+                <label for="gender" class="form-label required">Gender</label>
+                <select 
+                  id="gender"
+                  formControlName="gender"
+                  class="form-select"
+                  [class.error]="isFieldInvalid('gender')">
+                  <option value="">Select gender</option>
+                  <option *ngFor="let option of genderOptions()" [value]="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+                <span *ngIf="isFieldInvalid('gender')" class="error-message">
+                  {{ getFieldError('gender') }}
+                </span>
+              </div>
             </div>
 
-            <!-- Right Column: Form Section -->
-            <div class="form-section glass-card">
-                <h2 class="section-title">
-                    <svg class="section-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21A2 2 0 0 0 5 23H19A2 2 0 0 0 21 21V9H21ZM19 21H5V3H13V9H19V21Z" />
-                    </svg>
-                    Informasi Pribadi
-                </h2>
+            <!-- Contact Information -->
+            <div class="form-row">
+              <!-- Email -->
+              <div class="form-group">
+                <label for="email" class="form-label required">Email Address</label>
+                <input 
+                  id="email"
+                  type="email" 
+                  formControlName="email"
+                  class="form-input"
+                  [class.error]="isFieldInvalid('email')"
+                  placeholder="Enter your email address">
+                <span *ngIf="isFieldInvalid('email')" class="error-message">
+                  {{ getFieldError('email') }}
+                </span>
+              </div>
 
-                <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="profile-form">
-
-                    <!-- Basic Info Row -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="fullName" class="form-label required">Nama Lengkap</label>
-                            <input id="fullName" type="text" formControlName="fullName" class="form-input"
-                                [class.error]="isFieldInvalid('fullName')" placeholder="Masukkan nama lengkap">
-                            <span *ngIf="isFieldInvalid('fullName')" class="error-message">
-                                {{ getFieldError('fullName') }}
-                            </span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="gender" class="form-label required">Jenis Kelamin</label>
-                            <select id="gender" formControlName="gender" class="form-select"
-                                [class.error]="isFieldInvalid('gender')">
-                                <option value="">Pilih jenis kelamin</option>
-                                <option *ngFor="let option of genderOptions" [value]="option.value">
-                                    {{ option.label }}
-                                </option>
-                            </select>
-                            <span *ngIf="isFieldInvalid('gender')" class="error-message">
-                                {{ getFieldError('gender') }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Contact Info -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="email" class="form-label required">Email</label>
-                            <input id="email" type="email" formControlName="email" class="form-input"
-                                [class.error]="isFieldInvalid('email')" placeholder="nama@email.com">
-                            <span *ngIf="isFieldInvalid('email')" class="error-message">
-                                {{ getFieldError('email') }}
-                            </span>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="phoneNumber" class="form-label">Nomor Telepon</label>
-                            <input id="phoneNumber" type="tel" formControlName="phoneNumber" class="form-input"
-                                [class.error]="isFieldInvalid('phoneNumber')" placeholder="0812-3456-7890">
-                            <span *ngIf="isFieldInvalid('phoneNumber')" class="error-message">
-                                {{ getFieldError('phoneNumber') }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Work Info -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="department" class="form-label">Departemen</label>
-                            <select id="department" formControlName="department" class="form-select">
-                                <option value="">Pilih departemen</option>
-                                <option *ngFor="let option of departmentOptions" [value]="option.value">
-                                    {{ option.label }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="position" class="form-label">Jabatan</label>
-                            <select id="position" formControlName="position" class="form-select">
-                                <option value="">Pilih jabatan</option>
-                                <option *ngFor="let option of positionOptions" [value]="option.value">
-                                    {{ option.label }}
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Division -->
-                    <div class="form-group">
-                        <label for="division" class="form-label">Divisi/Shift</label>
-                        <input id="division" type="text" formControlName="division" class="form-input"
-                            placeholder="Contoh: Shift Pagi, Shift Malam">
-                    </div>
-
-                    <!-- Bio -->
-                    <div class="form-group">
-                        <label for="bio" class="form-label">Bio/Catatan</label>
-                        <textarea id="bio" formControlName="bio" class="form-textarea" rows="4"
-                            placeholder="Ceritakan sedikit tentang pengalaman kerja Anda..." maxlength="500"></textarea>
-                        <div class="char-counter">
-                            <span [class.warning]="charCount > 450">{{ charCount }}/500</span>
-                        </div>
-                    </div>
-
-                    <!-- User Info Display -->
-                    <div class="user-info-display" *ngIf="currentProfile">
-                        <div class="info-grid">
-                            <div class="info-item">
-                                <span class="info-label">Username:</span>
-                                <span class="info-value">{{ currentProfile.username }}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Role:</span>
-                                <span class="info-value role-badge" [attr.data-role]="currentProfile.role">
-                                    {{ getRoleDisplayName() }}
-                                </span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Bergabung:</span>
-                                <span class="info-value">{{ currentProfile.createdAt | date:'dd MMM yyyy' }}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">Terakhir Update:</span>
-                                <span class="info-value">{{ currentProfile.updatedAt | date:'dd MMM yyyy, HH:mm'
-                                    }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Form Actions -->
-                    <div class="form-actions">
-                        <button type="button" class="cancel-button" (click)="goBack()" [disabled]="isSaving">
-                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.42-1.41L7.83 13H20v-2z" />
-                            </svg>
-                            Batal
-                        </button>
-
-                        <button type="submit" class="save-button primary-button"
-                            [disabled]="!hasChanges || isSaving || profileForm.invalid">
-                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z" />
-                            </svg>
-                            <span *ngIf="!isSaving">Simpan Perubahan</span>
-                            <span *ngIf="isSaving" class="loading-text">
-                                <span class="loading-dots"></span>
-                                Menyimpan...
-                            </span>
-                        </button>
-                    </div>
-                </form>
+              <!-- Phone -->
+              <div class="form-group">
+                <label for="phoneNumber" class="form-label">Phone Number</label>
+                <input 
+                  id="phoneNumber"
+                  type="tel" 
+                  formControlName="phoneNumber"
+                  class="form-input"
+                  [class.error]="isFieldInvalid('phoneNumber')"
+                  placeholder="Enter your phone number">
+                <span *ngIf="isFieldInvalid('phoneNumber')" class="error-message">
+                  {{ getFieldError('phoneNumber') }}
+                </span>
+              </div>
             </div>
-        </div>
+          </div>
+
+          <!-- Work Information -->
+          <div class="form-group-section">
+            <h4 class="section-subtitle">
+              <mat-icon>business</mat-icon>
+              Work Information
+            </h4>
+            
+            <div class="form-row">
+              <!-- Department -->
+              <div class="form-group">
+                <label for="department" class="form-label">Department</label>
+                <select 
+                  id="department"
+                  formControlName="department"
+                  class="form-select">
+                  <option value="">Select department</option>
+                  <option *ngFor="let option of departmentOptions()" [value]="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Position -->
+              <div class="form-group">
+                <label for="position" class="form-label">Position</label>
+                <select 
+                  id="position"
+                  formControlName="position"
+                  class="form-select">
+                  <option value="">Select position</option>
+                  <option *ngFor="let option of positionOptions()" [value]="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Division -->
+            <div class="form-group">
+              <label for="division" class="form-label">Division</label>
+              <input 
+                id="division"
+                type="text" 
+                formControlName="division"
+                class="form-input"
+                placeholder="Enter your division">
+            </div>
+          </div>
+
+          <!-- Bio Section -->
+          <div class="form-group-section">
+            <h4 class="section-subtitle">
+              <mat-icon>description</mat-icon>
+              About Me
+            </h4>
+            
+            <div class="form-group">
+              <label for="bio" class="form-label">Bio</label>
+              <textarea 
+                id="bio"
+                formControlName="bio"
+                class="form-textarea"
+                rows="4"
+                maxlength="500"
+                placeholder="Tell us about yourself..."></textarea>
+              <div class="char-counter">
+                <span [class.warning]="charCount() > 450">{{ charCount() }}/500 characters</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- User Info Display -->
+          <div class="user-info-display" *ngIf="currentProfile()">
+            <h4 class="section-subtitle">
+              <mat-icon>info</mat-icon>
+              Account Information
+            </h4>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">Username:</span>
+                <span class="info-value">{{ currentProfile()?.username }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Role:</span>
+                <span class="info-value role-badge" [attr.data-role]="currentProfile()?.role">
+                  {{ getRoleDisplayName() }}
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Joined:</span>
+                <span class="info-value">{{ currentProfile()?.createdAt | date:'dd MMM yyyy' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Last Updated:</span>
+                <span class="info-value">{{ currentProfile()?.updatedAt | date:'dd MMM yyyy, HH:mm' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Actions -->
+          <div class="form-actions">
+            <button type="button" 
+                    class="btn btn-outline" 
+                    (click)="resetForm()"
+                    [disabled]="isSaving() || !hasChanges()">
+              <mat-icon>refresh</mat-icon>
+              Reset Changes
+            </button>
+            
+            <button type="submit" 
+                    class="btn btn-primary" 
+                    [disabled]="profileForm.invalid || isSaving() || !hasChanges()">
+              <mat-icon [class.spinning]="isSaving()">save</mat-icon>
+              {{ isSaving() ? 'Saving...' : 'Save Profile' }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
+  </div>
 </div>

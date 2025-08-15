@@ -1,94 +1,143 @@
-// ✅ CLEAN VERSION: src/app/modules/pos/pos/receipt-preview/receipt-preview.component.ts
-
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
 
 import { POSService, SaleDto } from '../../../../core/services/pos.service';
 import { ReceiptService } from '../../../../core/services/receipt.service';
 import { environment } from '../../../../../environment/environment';
+
+// Enhanced Receipt Header Interface
+export interface ReceiptHeader {
+  storeName: string;
+  storeAddress: string;
+  storePhone: string;
+  storeEmail?: string;
+  logoUrl?: string;
+  footerMessage: string;
+  showDateTime: boolean;
+  showTransactionNumber: boolean;
+  showCashier: boolean;
+  theme: 'classic' | 'modern' | 'minimal';
+  fontSize: 'small' | 'medium' | 'large';
+}
+
+export interface ReceiptPrintOptions {
+  copies: number;
+  includeLogo: boolean;
+  includeFooter: boolean;
+  includeQR: boolean;
+  paperSize: '58mm' | '80mm' | 'A4';
+}
 
 @Component({
   selector: 'app-receipt-preview',
   templateUrl: './receipt-preview.component.html',
   styleUrls: ['./receipt-preview.component.scss'],
   standalone: true,
-  imports: [CommonModule, RouterModule]
+  imports: [CommonModule, RouterModule, FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ReceiptPreviewComponent implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>();
+export class ReceiptPreviewComponent implements OnInit {
+  // Inject services
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private posService = inject(POSService);
+  private receiptService = inject(ReceiptService);
 
-  // Data
-  sale: SaleDto | null = null;
-  saleId: number = 0;
-  
-  // UI State
-  isLoading = true;
-  errorMessage = '';
-  successMessage = '';
-  digitalReceiptUrl = '';
+  // Signal-based state
+  sale = signal<SaleDto | null>(null);
+  loading = signal<boolean>(true);
+  error = signal<string | null>(null);
+  successMessage = signal<string>('');
+  digitalReceiptUrl = signal<string>('');
 
-  // Store Information
-  storeInfo = environment.pos?.receiptSettings || {
-    storeName: 'Toko Eniwan',
-    storeAddress: 'Bekasi, West Java',
-    storePhone: '+62 xxx-xxxx-xxxx',
-    storeEmail: 'info@tokoeniwan.com',
-    footerMessage: 'Terima kasih atas kunjungan Anda!'
-  };
+  // Receipt Header Configuration (Enhanced)
+  receiptHeader = signal<ReceiptHeader>({
+    storeName: environment.pos?.receiptSettings?.storeName || 'Toko Eniwan',
+    storeAddress: environment.pos?.receiptSettings?.storeAddress || 'Bekasi, West Java',
+    storePhone: environment.pos?.receiptSettings?.storePhone || '+62 xxx-xxxx-xxxx',
+    storeEmail: environment.pos?.receiptSettings?.storeEmail || 'info@tokoeniwan.com',
+    logoUrl: environment.pos?.receiptSettings?.logoUrl,
+    footerMessage: environment.pos?.receiptSettings?.footerMessage || 'Terima kasih atas kunjungan Anda!',
+    showDateTime: true,
+    showTransactionNumber: true,
+    showCashier: true,
+    theme: 'classic',
+    fontSize: 'medium'
+  });
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private posService: POSService,
-    private receiptService: ReceiptService
-  ) {}
+  // Print options
+  printOptions = signal<ReceiptPrintOptions>({
+    copies: 1,
+    includeLogo: true,
+    includeFooter: true,
+    includeQR: true,
+    paperSize: '80mm'
+  });
 
-  ngOnInit() {
-    this.route.params
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((params: any) => {
-        this.saleId = +params['transactionId'];
-        if (this.saleId) {
-          this.loadSale();
-        } else {
-          this.errorMessage = 'ID transaksi tidak valid';
-          this.isLoading = false;
-        }
-      });
+  // Computed properties
+  receiptThemeClass = computed(() => {
+    const header = this.receiptHeader();
+    return `receipt-theme-${header.theme} receipt-size-${header.fontSize}`;
+  });
+
+  totalItems = computed(() => {
+    const saleData = this.sale();
+    if (!saleData?.items || !Array.isArray(saleData.items)) return 0;
+    
+    return saleData.items.reduce((sum: number, item: any) => {
+      return sum + this.getItemQuantity(item);
+    }, 0);
+  });
+
+  pointsEarned = computed(() => {
+    const saleData = this.sale();
+    if (!saleData?.memberId || !saleData?.total) return 0;
+    return Math.floor(saleData.total / 1000);
+  });
+
+  canPrint = computed(() => {
+    return this.sale() !== null && !this.loading();
+  });
+
+  ngOnInit(): void {
+    this.loadTransactionFromRoute();
   }
 
-  ngOnDestroy() {
-    this.destroy$.next();
-    this.destroy$.complete();
+  // Enhanced data loading with route parameter handling
+  private async loadTransactionFromRoute(): Promise<void> {
+    const transactionId = this.route.snapshot.params['transactionId'];
+    
+    if (!transactionId || isNaN(Number(transactionId))) {
+      this.error.set('ID transaksi tidak valid');
+      this.loading.set(false);
+      return;
+    }
+
+    await this.loadSale(Number(transactionId));
   }
 
-  // ===== DATA LOADING =====
+  // Enhanced sale loading with better error handling
+  private async loadSale(saleId: number): Promise<void> {
+    try {
+      this.loading.set(true);
+      this.error.set(null);
 
-  loadSale() {
-    this.isLoading = true;
-    this.errorMessage = '';
-
-    this.posService.getSaleById(this.saleId)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response: any) => {
-          if (response.success && response.data) {
-            this.sale = response.data;
-            this.generateDigitalReceiptUrl();
-          } else {
-            this.errorMessage = response.message || 'Transaksi tidak ditemukan';
-          }
-          this.isLoading = false;
-        },
-        error: (error: any) => {
-          this.isLoading = false;
-          this.errorMessage = error.message || 'Gagal memuat data transaksi';
-          console.error('❌ Error loading sale:', error);
-        }
-      });
+      const response = await this.posService.getSaleById(saleId).toPromise();
+      
+      if (response?.success && response.data) {
+        this.sale.set(response.data);
+        this.generateDigitalReceiptUrl();
+      } else {
+        this.error.set(response?.message || 'Transaksi tidak ditemukan');
+      }
+    } catch (error: any) {
+      console.error('Error loading sale:', error);
+      this.error.set('Gagal memuat data transaksi');
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   // ===== FIELD MAPPING WITH COMPREHENSIVE FALLBACKS =====
@@ -106,8 +155,9 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
     }
     
     // Fallback: Calculate from sale total if only one item
-    if (this.sale && this.sale.items && this.sale.items.length === 1) {
-      return this.toNumber(this.sale.total || this.sale.subtotal || 0);
+    const saleData = this.sale();
+    if (saleData && saleData.items && saleData.items.length === 1) {
+      return this.toNumber(saleData.total || saleData.subtotal || 0);
     }
     
     return 0;
@@ -137,8 +187,9 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
     }
     
     // Ultimate fallback: Use sale total if single item
-    if (this.sale && this.sale.items && this.sale.items.length === 1) {
-      return this.toNumber(this.sale.total || this.sale.subtotal || 0);
+    const saleData = this.sale();
+    if (saleData && saleData.items && saleData.items.length === 1) {
+      return this.toNumber(saleData.total || saleData.subtotal || 0);
     }
     
     return 0;
@@ -235,20 +286,10 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
     return methods[method?.toLowerCase()] || method || 'Tidak diketahui';
   }
 
-  // ===== CALCULATIONS =====
+  // ===== CALCULATIONS (Legacy wrapper methods) =====
 
-  getPointsEarned(): number {
-    if (!this.sale || !this.sale.memberId || !this.sale.total) return 0;
-    return Math.floor(this.sale.total / 1000);
-  }
-
-  getTotalItems(): number {
-    if (!this.sale || !this.sale.items || !Array.isArray(this.sale.items)) return 0;
-    
-    return this.sale.items.reduce((sum: number, item: any) => {
-      return sum + this.getItemQuantity(item);
-    }, 0);
-  }
+  // These methods are kept for backward compatibility with template
+  // They delegate to the computed signals
 
   // ===== HELPER METHODS =====
 
@@ -263,95 +304,190 @@ export class ReceiptPreviewComponent implements OnInit, OnDestroy {
     return 0;
   }
 
-  // ===== ACTIONS =====
+  // ===== RECEIPT HEADER CONFIGURATION METHODS =====
 
-  async printReceipt() {
-    if (!this.sale) {
-      this.errorMessage = 'Tidak ada data struk untuk dicetak';
-      this.clearMessages();
+  updateReceiptHeader(headerUpdate: Partial<ReceiptHeader>): void {
+    this.receiptHeader.update(current => ({ ...current, ...headerUpdate }));
+  }
+
+  updatePrintOptions(optionsUpdate: Partial<ReceiptPrintOptions>): void {
+    this.printOptions.update(current => ({ ...current, ...optionsUpdate }));
+  }
+
+  previewReceiptTheme(theme: ReceiptHeader['theme']): void {
+    this.updateReceiptHeader({ theme });
+  }
+
+  adjustReceiptFontSize(fontSize: ReceiptHeader['fontSize']): void {
+    this.updateReceiptHeader({ fontSize });
+  }
+
+  // ===== ENHANCED ACTIONS =====
+
+  async printReceipt(): Promise<void> {
+    const saleData = this.sale();
+    if (!saleData) {
+      this.showErrorMessage('Tidak ada data struk untuk dicetak');
       return;
     }
 
     try {
-      console.log('🖨️ Starting print process for sale:', this.sale.id);
-      await this.receiptService.printReceipt(this.sale.id);
+      this.loading.set(true);
+      console.log('🖨️ Starting print process for sale:', saleData.id);
+      
+      // Pass both receipt configuration and print options
+      const receiptConfig = this.receiptHeader();
+      const printOptions = this.printOptions();
+      await this.receiptService.printReceipt(saleData.id, receiptConfig, printOptions);
       this.showSuccessMessage('Struk berhasil dicetak');
     } catch (error: any) {
       console.error('❌ Print failed:', error);
-      this.errorMessage = error.message || 'Gagal mencetak struk';
-      this.clearMessages();
+      this.showErrorMessage(error.message || 'Gagal mencetak struk');
+    } finally {
+      this.loading.set(false);
     }
   }
 
-  async downloadPDF() {
-    if (!this.sale) {
-      this.errorMessage = 'Tidak ada data struk untuk diunduh';
-      this.clearMessages();
+  async downloadPDF(): Promise<void> {
+    const saleData = this.sale();
+    if (!saleData) {
+      this.showErrorMessage('Tidak ada data struk untuk diunduh');
       return;
     }
 
     try {
-      console.log('📄 Starting PDF download for sale:', this.sale.id);
-      this.isLoading = true;
+      this.loading.set(true);
+      console.log('📄 Starting PDF download for sale:', saleData.id);
       
-      // Use the enhanced PDF generation service
-      await this.receiptService.downloadReceiptPDF(this.sale.id);
-      
+      // Pass both receipt configuration and print options
+      const receiptConfig = this.receiptHeader();
+      const printOptions = this.printOptions();
+      await this.receiptService.downloadReceiptPDF(saleData.id, receiptConfig, printOptions);
       this.showSuccessMessage('PDF struk berhasil didownload!');
-      this.isLoading = false;
-      
     } catch (error: any) {
       console.error('❌ Download PDF error:', error);
-      this.errorMessage = error.message || 'Gagal mengunduh PDF';
-      this.clearMessages();
-      this.isLoading = false;
+      this.showErrorMessage(error.message || 'Gagal mengunduh PDF');
+    } finally {
+      this.loading.set(false);
     }
   }
 
-  async shareReceipt() {
-    if (!this.sale) {
-      this.errorMessage = 'Tidak ada data struk untuk dibagikan';
-      this.clearMessages();
+  async shareReceipt(): Promise<void> {
+    const saleData = this.sale();
+    if (!saleData) {
+      this.showErrorMessage('Tidak ada data struk untuk dibagikan');
       return;
     }
 
     try {
-      await this.receiptService.shareReceipt(this.sale.id, 'native');
+      // Pass both receipt configuration and print options
+      const receiptConfig = this.receiptHeader();
+      const printOptions = this.printOptions();
+      await this.receiptService.shareReceipt(saleData.id, 'native', receiptConfig, printOptions);
       this.showSuccessMessage('Struk berhasil dibagikan');
     } catch (error: any) {
       console.error('❌ Share failed:', error);
       // If native share fails, try WhatsApp fallback
       try {
-        await this.receiptService.shareReceipt(this.sale.id, 'whatsapp');
+        const receiptConfig = this.receiptHeader();
+        const printOptions = this.printOptions();
+        await this.receiptService.shareReceipt(saleData.id, 'whatsapp', receiptConfig, printOptions);
         this.showSuccessMessage('Struk dibagikan via WhatsApp');
       } catch (fallbackError: any) {
-        this.errorMessage = fallbackError.message || 'Gagal membagikan struk';
-        this.clearMessages();
+        this.showErrorMessage(fallbackError.message || 'Gagal membagikan struk');
       }
     }
   }
 
-  goBackToPOS() {
-    this.router.navigate(['/pos']);
+  goBackToPOS(): void {
+    this.router.navigate(['/dashboard/pos']);
+  }
+
+  // Retry loading sale data
+  retryLoadSale(): void {
+    const transactionId = this.route.snapshot.params['transactionId'];
+    if (transactionId && !isNaN(Number(transactionId))) {
+      this.loadSale(Number(transactionId));
+    }
+  }
+
+  // ===== COMPUTED GETTERS (Convert legacy methods) =====
+
+  getTotalItems(): number {
+    return this.totalItems();
+  }
+
+  getPointsEarned(): number {
+    return this.pointsEarned();
   }
 
   // ===== HELPERS =====
 
-  private generateDigitalReceiptUrl() {
-    if (this.sale) {
-      this.digitalReceiptUrl = `${window.location.origin}/receipt/digital/${this.sale.saleNumber}`;
+  private generateDigitalReceiptUrl(): void {
+    const saleData = this.sale();
+    if (saleData) {
+      this.digitalReceiptUrl.set(
+        `${window.location.origin}/receipt/digital/${saleData.saleNumber}`
+      );
     }
   }
 
-  private showSuccessMessage(message: string) {
-    this.successMessage = message;
+  private showSuccessMessage(message: string): void {
+    this.successMessage.set(message);
     this.clearMessages();
   }
 
-  private clearMessages() {
+  private showErrorMessage(message: string): void {
+    this.error.set(message);
+    this.clearMessages();
+  }
+
+  private clearMessages(): void {
     setTimeout(() => {
-      this.errorMessage = '';
-      this.successMessage = '';
+      this.error.set(null);
+      this.successMessage.set('');
     }, 3000);
+  }
+
+  // ===== UTILITY METHODS =====
+
+  // TrackBy function for performance
+  trackByItem = (index: number, item: any): number => item.id || index;
+
+  // Enhanced receipt header validation
+  validateReceiptHeader(): { isValid: boolean; errors: string[] } {
+    const header = this.receiptHeader();
+    const errors: string[] = [];
+
+    if (!header.storeName.trim()) {
+      errors.push('Nama toko tidak boleh kosong');
+    }
+    if (!header.storeAddress.trim()) {
+      errors.push('Alamat toko tidak boleh kosong');
+    }
+    if (!header.storePhone.trim()) {
+      errors.push('Telepon toko tidak boleh kosong');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  // Reset receipt header to default
+  resetReceiptHeader(): void {
+    this.receiptHeader.set({
+      storeName: 'Toko Eniwan',
+      storeAddress: 'Bekasi, West Java',
+      storePhone: '+62 xxx-xxxx-xxxx',
+      storeEmail: 'info@tokoeniwan.com',
+      footerMessage: 'Terima kasih atas kunjungan Anda!',
+      showDateTime: true,
+      showTransactionNumber: true,
+      showCashier: true,
+      theme: 'classic',
+      fontSize: 'medium'
+    });
   }
 }

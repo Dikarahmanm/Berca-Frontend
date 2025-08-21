@@ -1,0 +1,220 @@
+// Expiry Status Styles for Inventory List Component
+// Clean Simple Design - High Contrast, Light Theme Only
+
+// Expiry status color variables (override any transparency)
+:host {
+  // Expiry status colors - solid, high contrast
+  --expiry-good: #4BBF7B !important;      // Green - good status
+  --expiry-warning: #FFB84D !important;   // Yellow - warning status
+  --expiry-critical: #FF914D !important;  // Orange - critical status
+  --expiry-expired: #E15A4F !important;   // Red - expired status
+  --expiry-neutral: #6C757D !important;   // Gray - no expiry/neutral
+}
+
+// ===== EXPIRY STATUS INDICATORS =====
+.expiry-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 2px solid;
+  
+  .status-icon {
+    font-size: 14px;
+  }
+  
+  // Status color variants
+  &.status-good {
+    background: white;
+    color: var(--expiry-good);
+    border-color: var(--expiry-good);
+  }
+  
+  &.status-warning {
+    background: white;
+    color: var(--expiry-warning);
+    border-color: var(--expiry-warning);
+  }
+  
+  &.status-critical {
+    background: white;
+    color: var(--expiry-critical);
+    border-color: var(--expiry-critical);
+  }
+  
+  &.status-expired {
+    background: white;
+    color: var(--expiry-expired);
+    border-color: var(--expiry-expired);
+  }
+  
+  &.status-neutral {
+    background: white;
+    color: var(--expiry-neutral);
+    border-color: var(--expiry-neutral);
+  }
+}
+
+// ===== TABLE COLUMN STYLING =====
+.expiry-column {
+  text-align: center;
+  width: 120px;
+  
+  .expiry-date {
+    font-size: 11px;
+    color: #6C757D;
+    margin-top: 2px;
+  }
+}
+
+// ===== EXPIRY FILTER SECTION =====
+.expiry-filter {
+  .filter-label {
+    font-weight: 500;
+    font-size: 14px;
+    color: #212529;
+    margin-bottom: 8px;
+  }
+  
+  .filter-select {
+    width: 100%;
+    min-width: 160px;
+  }
+}
+
+// ===== EXPIRY ANALYTICS CARDS =====
+.expiry-analytics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+  
+  .analytics-card {
+    background: white;
+    border: 2px solid #DEE2E6;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    
+    .card-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    
+    .card-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #212529;
+    }
+    
+    .card-label {
+      font-size: 12px;
+      color: #6C757D;
+      margin-top: 4px;
+    }
+    
+    // Color variants for different analytics
+    &.card-expiring {
+      border-color: var(--expiry-warning);
+      .card-icon, .card-value {
+        color: var(--expiry-warning);
+      }
+    }
+    
+    &.card-expired {
+      border-color: var(--expiry-expired);
+      .card-icon, .card-value {
+        color: var(--expiry-expired);
+      }
+    }
+    
+    &.card-total {
+      border-color: var(--expiry-neutral);
+      .card-icon, .card-value {
+        color: var(--expiry-neutral);
+      }
+    }
+  }
+}
+
+// ===== MOBILE RESPONSIVE =====
+@media (max-width: 640px) {
+  .expiry-status {
+    font-size: 11px;
+    padding: 2px 6px;
+    gap: 4px;
+    
+    .status-text {
+      display: none; // Hide text on mobile, show only icon
+    }
+  }
+  
+  .expiry-column {
+    width: 80px;
+  }
+  
+  .expiry-analytics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    
+    .analytics-card {
+      padding: 12px;
+      
+      .card-value {
+        font-size: 18px;
+      }
+    }
+  }
+}
+
+// ===== HIGH CONTRAST MODE =====
+@media (prefers-contrast: high) {
+  .expiry-status {
+    border-width: 3px;
+    font-weight: 600;
+    
+    &.status-good {
+      background: #E8F5E8;
+      color: #2D5A2D;
+      border-color: #2D5A2D;
+    }
+    
+    &.status-warning {
+      background: #FFF7E6;
+      color: #8B4513;
+      border-color: #8B4513;
+    }
+    
+    &.status-critical {
+      background: #FFF0E6;
+      color: #A0522D;
+      border-color: #A0522D;
+    }
+    
+    &.status-expired {
+      background: #FFEBEE;
+      color: #8B0000;
+      border-color: #8B0000;
+    }
+  }
+}
+
+// ===== PRINT STYLES =====
+@media print {
+  .expiry-status {
+    background: white !important;
+    border: 2px solid black !important;
+    color: black !important;
+    
+    &::before {
+      content: attr(data-status) ' - ';
+    }
+  }
+  
+  .expiry-analytics {
+    display: none;
+  }
+}

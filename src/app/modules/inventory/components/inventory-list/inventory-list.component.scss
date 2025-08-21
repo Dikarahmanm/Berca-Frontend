@@ -2,6 +2,9 @@
 /* src/app/modules/inventory/components/inventory-list/inventory-list.component.scss */
 /* Desktop-first with full table width and smooth modern styling */
 
+// Use expiry management styles
+@use 'expiry-styles.scss';
+
 .inventory-container {
   padding: var(--s4);
   max-width: 100%;
@@ -335,6 +338,28 @@
           min-width: 100%;
           table-layout: fixed; // Force equal column distribution
         }
+
+        /* ===== ENHANCED: Expiry Columns Always Visible ===== */
+        .mat-column-expiry,
+        .mat-column-expiryStatus,
+        .mat-column-daysLeft {
+          display: table-cell !important;
+          visibility: visible !important;
+        }
+
+        /* ===== COLUMN WIDTH OPTIMIZATION ===== */
+        .mat-column-name { width: 20%; min-width: 150px; }
+        .mat-column-barcode { width: 12%; min-width: 100px; }
+        .mat-column-category { width: 12%; min-width: 100px; }
+        .mat-column-stock { width: 8%; min-width: 70px; }
+        .mat-column-minimumStock { width: 8%; min-width: 70px; }
+        .mat-column-buyPrice { width: 10%; min-width: 80px; }
+        .mat-column-sellPrice { width: 10%; min-width: 80px; }
+        .mat-column-expiry { width: 12%; min-width: 100px; }
+        .mat-column-daysLeft { width: 8%; min-width: 70px; }
+        .mat-column-expiryStatus { width: 10%; min-width: 80px; }
+        .mat-column-status { width: 8%; min-width: 70px; }
+        .mat-column-actions { width: 12%; min-width: 100px; }
 
         /* ===== SORTABLE HEADERS - Interactive Design ===== */
         .mat-mdc-header-cell {
@@ -1041,4 +1066,333 @@
   background: linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
   color: white !important;
   border-radius: 8px !important;
+}
+
+/* ===== ENHANCED EXPIRY MANAGEMENT STYLING ===== */
+
+// Expiry filter buttons section
+.expiry-filters {
+  margin-bottom: var(--s6);
+  padding: var(--s5);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+
+  .filter-header {
+    margin-bottom: var(--s4);
+
+    h3 {
+      margin: 0 0 var(--s2) 0;
+      color: var(--text);
+      font-size: var(--text-xl);
+      font-weight: var(--font-bold);
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+    }
+
+    .filter-info {
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+    }
+  }
+
+  .filter-buttons {
+    display: flex;
+    gap: var(--s3);
+    flex-wrap: wrap;
+
+    @media (max-width: 768px) {
+      gap: var(--s2);
+    }
+
+    .filter-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      padding: var(--s3) var(--s4);
+      border: 2px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      min-height: 44px; // Touch target
+      
+      .icon {
+        font-size: var(--text-lg);
+      }
+      
+      .label {
+        white-space: nowrap;
+        
+        @media (max-width: 480px) {
+          display: none; // Hide labels on very small screens
+        }
+      }
+      
+      .count {
+        background: var(--bg);
+        color: var(--text-secondary);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        font-size: var(--text-xs);
+        font-weight: var(--font-semibold);
+        min-width: 20px;
+        text-align: center;
+      }
+
+      &:hover {
+        border-color: var(--primary);
+        transform: translateY(-1px);
+      }
+
+      &.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+        
+        .count {
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
+        }
+      }
+
+      // Status-specific styling
+      &.good.active {
+        background: #4BBF7B;
+        border-color: #4BBF7B;
+      }
+
+      &.warning.active {
+        background: #FFB84D;
+        border-color: #FFB84D;
+      }
+
+      &.critical.active {
+        background: #FF914D;
+        border-color: #FF914D;
+      }
+
+      &.expired.active {
+        background: #E15A4F;
+        border-color: #E15A4F;
+      }
+
+      &.missing.active {
+        background: #6C757D;
+        border-color: #6C757D;
+      }
+    }
+  }
+}
+
+// Enhanced table cell styling for expiry
+.expiry-date-cell {
+  .expiry-date {
+    font-weight: var(--font-semibold);
+    font-size: var(--text-sm);
+    margin-bottom: var(--s1);
+    
+    &.good { color: #4BBF7B; }
+    &.warning { color: #FFB84D; }
+    &.critical { color: #FF914D; }
+    &.expired { color: #E15A4F; }
+    &.missing { color: #6C757D; }
+  }
+
+  .add-expiry-action {
+    .add-expiry-btn {
+      padding: var(--s1) var(--s2);
+      background: var(--warning);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: var(--text-xs);
+      cursor: pointer;
+      transition: var(--transition);
+      
+      &:hover {
+        background: #E6A042;
+        transform: translateY(-1px);
+      }
+    }
+  }
+}
+
+.days-left-cell {
+  .days-left {
+    font-weight: var(--font-bold);
+    font-size: var(--text-sm);
+    text-align: center;
+  }
+}
+
+.status-cell {
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s1);
+    padding: var(--s1) var(--s2);
+    border-radius: var(--radius);
+    color: white;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    // Ensure high contrast
+    &.good { background: #4BBF7B !important; }
+    &.warning { background: #FFB84D !important; }
+    &.critical { background: #FF914D !important; }
+    &.expired { background: #E15A4F !important; }
+    &.missing { background: #6C757D !important; }
+  }
+}
+
+// Product form expiry section styling
+.info-message {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  padding: var(--s4);
+  border: 2px solid;
+  border-radius: var(--radius);
+  margin: var(--s4) 0;
+  
+  .icon {
+    font-size: var(--text-xl);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  
+  .message-content {
+    flex: 1;
+    
+    p {
+      margin: 0 0 var(--s1) 0;
+      
+      &:last-child {
+        margin-bottom: 0;
+      }
+      
+      &.small {
+        font-size: var(--text-sm);
+        opacity: 0.8;
+      }
+    }
+    
+    strong {
+      font-weight: var(--font-bold);
+    }
+  }
+  
+  &.success {
+    background: #f0f9f0;
+    border-color: #4BBF7B;
+    color: #2d5a2d;
+    
+    .icon {
+      color: #4BBF7B;
+    }
+  }
+  
+  &.warning {
+    background: #fff8f1;
+    border-color: #FFB84D;
+    color: #8B4513;
+    
+    .icon {
+      color: #FFB84D;
+    }
+  }
+}
+
+.expiry-status-preview {
+  margin-top: var(--s2);
+  
+  .status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s1);
+    padding: var(--s2) var(--s3);
+    border-radius: var(--radius);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    
+    .status-icon {
+      font-size: var(--text-base);
+    }
+    
+    &.status-good {
+      background: #f0f9f0;
+      color: #4BBF7B;
+      border: 1px solid #4BBF7B;
+    }
+    
+    &.status-warning {
+      background: #fff8f1;
+      color: #FFB84D;
+      border: 1px solid #FFB84D;
+    }
+    
+    &.status-critical {
+      background: #fff0e6;
+      color: #FF914D;
+      border: 1px solid #FF914D;
+    }
+    
+    &.status-expired {
+      background: #fef7f7;
+      color: #E15A4F;
+      border: 1px solid #E15A4F;
+    }
+  }
+}
+
+.category-option {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  
+  .category-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+}
+
+// Mobile responsiveness for expiry features
+@media (max-width: 768px) {
+  .expiry-filters {
+    padding: var(--s4);
+    
+    .filter-buttons {
+      justify-content: space-between;
+      
+      .filter-btn {
+        flex: 1;
+        min-width: 0;
+        padding: var(--s2) var(--s3);
+        
+        .label {
+          display: none;
+        }
+        
+        .count {
+          margin-left: auto;
+        }
+      }
+    }
+  }
+  
+  .expiry-date-cell,
+  .days-left-cell,
+  .status-cell {
+    font-size: var(--text-xs);
+  }
 }

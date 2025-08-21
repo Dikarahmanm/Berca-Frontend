@@ -14,6 +14,8 @@ export interface Product {
   categoryColor?: string;
   createdAt: Date;
   updatedAt: Date;
+  // ✅ NEW: Add expiry date property
+  expiryDate?: string;
   // Computed properties
   profitMargin?: number;
   isLowStock?: boolean;
@@ -31,6 +33,8 @@ export interface CreateProductRequest {
   unit: string;
   categoryId: number;
   isActive: boolean;
+  // ✅ NEW: Add expiry date property
+  expiryDate?: string;
 }
 
 export interface UpdateProductRequest {
@@ -44,6 +48,8 @@ export interface UpdateProductRequest {
   unit: string;
   categoryId: number;
   isActive: boolean;
+  // ✅ NEW: Add expiry date property
+  expiryDate?: string;
 }
 
 export interface StockUpdateRequest {

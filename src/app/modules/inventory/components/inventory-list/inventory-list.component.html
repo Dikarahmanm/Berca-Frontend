@@ -30,7 +30,7 @@
     </div>
   </div>
 
-  <!-- ===== QUICK STATS CARDS ===== -->
+  <!-- ===== ENHANCED QUICK STATS CARDS WITH EXPIRY DATA ===== -->
   <div class="stats-cards">
     <mat-card class="stat-card total-products">
       <mat-card-content>
@@ -38,20 +38,59 @@
           <mat-icon>inventory_2</mat-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ formatNumber(statsData.totalProducts) }}</div>
+          <div class="stat-value">{{ formatNumber(comprehensiveStats.totalProducts) }}</div>
           <div class="stat-label">Total Products</div>
         </div>
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="stat-card low-stock" *ngIf="statsData.lowStockCount > 0">
+    <mat-card class="stat-card low-stock" *ngIf="comprehensiveStats.lowStockCount > 0">
       <mat-card-content>
         <div class="stat-icon warning">
           <mat-icon>warning</mat-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ statsData.lowStockCount }}</div>
+          <div class="stat-value">{{ comprehensiveStats.lowStockCount }}</div>
           <div class="stat-label">Low Stock Items</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ✅ NEW: Expiry Tracking Card -->
+    <mat-card class="stat-card expiry-tracked" *ngIf="comprehensiveStats.expiryTrackedProducts > 0">
+      <mat-card-content>
+        <div class="stat-icon expiry">
+          <mat-icon>schedule</mat-icon>
+        </div>
+        <div class="stat-info">
+          <div class="stat-value">{{ comprehensiveStats.expiryTrackedProducts }}</div>
+          <div class="stat-label">Expiry Tracked</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ✅ NEW: Expiring Products Card -->
+    <mat-card class="stat-card expiring-products" *ngIf="comprehensiveStats.expiringProducts > 0">
+      <mat-card-content>
+        <div class="stat-icon critical">
+          <mat-icon>schedule_alert</mat-icon>
+        </div>
+        <div class="stat-info">
+          <div class="stat-value">{{ comprehensiveStats.expiringProducts }}</div>
+          <div class="stat-label">Expiring Soon</div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ✅ NEW: FIFO Recommendations Card -->
+    <mat-card class="stat-card fifo-recommendations" *ngIf="comprehensiveStats.fifoRecommendations > 0">
+      <mat-card-content>
+        <div class="stat-icon fifo">
+          <mat-icon>trending_down</mat-icon>
+        </div>
+        <div class="stat-info">
+          <div class="stat-value">{{ comprehensiveStats.fifoRecommendations }}</div>
+          <div class="stat-label">FIFO Actions</div>
         </div>
       </mat-card-content>
     </mat-card>
@@ -62,12 +101,47 @@
           <mat-icon>trending_up</mat-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ formatPercentage(statsData.averageMargin) }}</div>
+          <div class="stat-value">{{ formatPercentage(comprehensiveStats.averageMargin) }}</div>
           <div class="stat-label">Avg. Margin</div>
         </div>
       </mat-card-content>
     </mat-card>
   </div>
+
+  <!-- ✅ NEW: Expiry Analytics Toggle -->
+  <div class="expiry-analytics-toggle" *ngIf="expiryAnalytics()">
+    <button mat-button (click)="toggleExpiryAnalytics()" class="analytics-toggle-btn">
+      <mat-icon>{{ showExpiryAnalytics() ? 'keyboard_arrow_up' : 'keyboard_arrow_down' }}</mat-icon>
+      {{ showExpiryAnalytics() ? 'Hide' : 'Show' }} Expiry Analytics
+    </button>
+  </div>
+
+  <!-- ✅ NEW: Expiry Analytics Panel -->
+  <mat-card class="expiry-analytics-panel" *ngIf="showExpiryAnalytics() && expiryAnalytics()">
+    <mat-card-header>
+      <mat-card-title>Expiry Analytics Overview</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="analytics-grid">
+        <div class="analytics-item">
+          <div class="analytics-label">Total Stock Value</div>
+          <div class="analytics-value">{{ formatIDRCurrency(expiryAnalytics()!.totalStockValue) }}</div>
+        </div>
+        <div class="analytics-item">
+          <div class="analytics-label">Expiring Stock Value</div>
+          <div class="analytics-value warning">{{ formatIDRCurrency(expiryAnalytics()!.expiringStockValue) }}</div>
+        </div>
+        <div class="analytics-item">
+          <div class="analytics-label">Potential Loss</div>
+          <div class="analytics-value critical">{{ formatIDRCurrency(expiryAnalytics()!.potentialLossValue) }}</div>
+        </div>
+        <div class="analytics-item">
+          <div class="analytics-label">Waste Percentage</div>
+          <div class="analytics-value">{{ formatPercentage(expiryAnalytics()!.wastePercentage) }}</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
 
   <!-- ===== FILTERS SECTION ===== -->
   <mat-card class="filters-card">
@@ -88,7 +162,7 @@
             <mat-select formControlName="categoryId" (click)="$event.stopPropagation()"
               (selectionChange)="onCategoryFilterChange($event)">
               <mat-option value="">All Categories</mat-option>
-              <mat-option *ngFor="let category of categories; trackBy: trackCategoryById" [value]="category.id">
+              <mat-option *ngFor="let category of categories(); trackBy: trackCategoryById" [value]="category.id">
                 <span class="category-option">
                   <span class="category-color" [style.background-color]="category.color"></span>
                   {{ category.name }}
@@ -102,6 +176,16 @@
             <mat-label>Stock Status</mat-label>
             <mat-select formControlName="stockFilter">
               <mat-option *ngFor="let option of stockFilterOptions" [value]="option.value">
+                {{ option.label }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- ✅ NEW: Expiry Filter -->
+          <mat-form-field class="expiry-filter" appearance="outline">
+            <mat-label>Expiry Status</mat-label>
+            <mat-select formControlName="expiryFilter">
+              <mat-option *ngFor="let option of expiryFilterOptions" [value]="option.value">
                 {{ option.label }}
               </mat-option>
             </mat-select>
@@ -132,6 +216,26 @@
     <span *ngIf="isMobileView">Mobile view: Essential columns only</span>
     <span *ngIf="isTabletView">Tablet view: Core columns shown</span>
     <small>Switch to desktop for full table view</small>
+  </div>
+
+  <!-- ✅ NEW: Expiry Status Filter Buttons -->
+  <div class="expiry-filters">
+    <div class="filter-header">
+      <h3>🕒 Expiry Status Filters</h3>
+      <span class="filter-info">Filter products by expiry status to manage inventory effectively</span>
+    </div>
+    <div class="filter-buttons">
+      <button 
+        *ngFor="let option of expiryFilterOptions"
+        class="filter-btn"
+        [class.active]="expiryFilter() === option.value"
+        [class]="option.value"
+        (click)="onExpiryFilterChange(option.value)">
+        <span class="icon">{{ option.icon }}</span>
+        <span class="label">{{ option.label.split('(')[0].trim() }}</span>
+        <span class="count" *ngIf="option.count > 0">({{ option.count }})</span>
+      </button>
+    </div>
   </div>
 
   <!-- ===== PRODUCTS TABLE ===== -->
@@ -166,7 +270,7 @@
                   {{ product.description }}
                 </div>
 
-                <!-- ✅ Mobile: Show additional info in product card -->
+                <!-- ✅ ENHANCED: Mobile additional info with expiry data -->
                 <div class="mobile-additional-info" *ngIf="isMobileView">
                   <div class="mobile-info-row">
                     <span class="mobile-label">Category:</span>
@@ -182,6 +286,25 @@
                   <div class="mobile-info-row" *ngIf="isColumnVisible('sellPrice')">
                     <span class="mobile-label">Sell:</span>
                     <span class="mobile-value">{{ formatCurrency(product.sellPrice) }}</span>
+                  </div>
+                  <!-- ✅ NEW: Mobile expiry info -->
+                  <div class="mobile-info-row" *ngIf="hasExpiryDate(product)">
+                    <span class="mobile-label">Expiry:</span>
+                    <div class="mobile-expiry-info">
+                      <span class="mobile-expiry-status" [style.color]="getExpiryStatusColor(product)">
+                        {{ getExpiryStatusIcon(product) }} {{ getExpiryStatusText(product) }}
+                      </span>
+                    </div>
+                  </div>
+                  <!-- ✅ NEW: Mobile FIFO recommendation -->
+                  <div class="mobile-info-row" *ngIf="getFifoRecommendation(product) as recommendation">
+                    <span class="mobile-label">FIFO:</span>
+                    <mat-chip class="mobile-fifo-chip"
+                      [style.background-color]="getFifoRecommendationColor(recommendation)"
+                      [style.color]="'white'"
+                      (click)="applyFifoRecommendation(recommendation)">
+                      {{ getFifoActionText(recommendation) }}
+                    </mat-chip>
                   </div>
                 </div>
               </div>
@@ -224,10 +347,16 @@
                 </mat-chip>
               </div>
 
-              <!-- ✅ Mobile: Show minimum stock info -->
+              <!-- ✅ ENHANCED: Mobile minimum stock and expiry info -->
               <div class="mobile-minimum-info" *ngIf="isMobileView && product.stock <= product.minimumStock">
                 <mat-icon class="warning-icon" color="warn">warning</mat-icon>
                 <span class="warning-text">Min: {{ formatNumber(product.minimumStock) }}</span>
+              </div>
+              
+              <!-- ✅ NEW: Mobile expiry alert -->
+              <div class="mobile-expiry-alert" *ngIf="isMobileView && hasExpiryDate(product) && getDaysUntilExpiry(product) !== null && getDaysUntilExpiry(product)! <= 7">
+                <mat-icon class="alert-icon" [color]="getDaysUntilExpiry(product)! < 0 ? 'warn' : 'accent'">schedule</mat-icon>
+                <span class="alert-text" [style.color]="getExpiryStatusColor(product)">{{ getExpiryStatusText(product) }}</span>
               </div>
             </td>
           </ng-container>
@@ -279,6 +408,79 @@
             </td>
           </ng-container>
 
+          <!-- ✅ ENHANCED: Expiry Date Column - Always Visible -->
+          <ng-container matColumnDef="expiry">
+            <th mat-header-cell *matHeaderCellDef class="expiry-col">📅 Expiry Date</th>
+            <td mat-cell *matCellDef="let product" class="expiry-date-cell">
+              <div class="expiry-date" [class]="product.expiryStatus">
+                {{ formatExpiryDisplay(product) }}
+              </div>
+              <div *ngIf="product.needsExpiryData" class="add-expiry-action">
+                <button class="add-expiry-btn" (click)="addExpiryDate(product)">
+                  📝 Add Expiry
+                </button>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- ✅ ENHANCED: Expiry Status Column - Tablet+ -->
+          <ng-container matColumnDef="expiryStatus">
+            <th mat-header-cell *matHeaderCellDef class="expiry-status-col">🚦 Status</th>
+            <td mat-cell *matCellDef="let product" class="status-cell">
+              <span 
+                class="status-badge" 
+                [class]="product.expiryStatus"
+                [style.background-color]="getExpiryStatusColor(product.expiryStatus)">
+                {{ getExpiryStatusIcon(product.expiryStatus) }} 
+                {{ product.expiryStatus | titlecase }}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- ✅ NEW: Days Until Expiry Column - Desktop Only -->
+          <ng-container matColumnDef="daysLeft">
+            <th mat-header-cell *matHeaderCellDef class="days-left-col">⏰ Days Left</th>
+            <td mat-cell *matCellDef="let product" class="days-left-cell">
+              <div class="days-left" [style.color]="getExpiryStatusColor(product.expiryStatus)">
+                {{ formatDaysUntilExpiry(product) }}
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- ✅ NEW: Batches Column - Desktop Only -->
+          <ng-container matColumnDef="batches">
+            <th mat-header-cell *matHeaderCellDef class="batches-col">Batches</th>
+            <td mat-cell *matCellDef="let product" class="batches-column">
+              <div *ngIf="supportsBatchManagement(product)" class="batch-info">
+                <button mat-button class="batch-btn" (click)="loadProductBatches(product)">
+                  <mat-icon>layers</mat-icon>
+                  <span>{{ getProductBatchCount(product) || 'View' }}</span>
+                </button>
+              </div>
+              <div *ngIf="!supportsBatchManagement(product)" class="no-batches">
+                <span class="no-batches-text">N/A</span>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- ✅ NEW: FIFO Recommendation Column - Desktop Only -->
+          <ng-container matColumnDef="fifoRecommendation">
+            <th mat-header-cell *matHeaderCellDef class="fifo-col">FIFO</th>
+            <td mat-cell *matCellDef="let product" class="fifo-column">
+              <div *ngIf="getFifoRecommendation(product) as recommendation" class="fifo-recommendation">
+                <mat-chip class="fifo-chip"
+                  [style.background-color]="getFifoRecommendationColor(recommendation)"
+                  [style.color]="'white'"
+                  (click)="applyFifoRecommendation(recommendation)">
+                  {{ getFifoActionText(recommendation) }}
+                </mat-chip>
+              </div>
+              <div *ngIf="!getFifoRecommendation(product)" class="no-fifo">
+                <span class="no-fifo-text">OK</span>
+              </div>
+            </td>
+          </ng-container>
+
           <!-- Status Column - Tablet+ -->
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="isActive">Status</th>
@@ -309,6 +511,20 @@
                       <mat-icon>inventory</mat-icon>
                       <span>Manage Stock</span>
                     </button>
+
+                    <!-- ✅ NEW: Expiry Management -->
+                    <button mat-menu-item (click)="manageProductExpiry(product)" *ngIf="hasExpiryDate(product)">
+                      <mat-icon>schedule</mat-icon>
+                      <span>Manage Expiry</span>
+                    </button>
+
+                    <!-- ✅ NEW: Batch Management -->
+                    <button mat-menu-item (click)="manageBatches(product)" *ngIf="supportsBatchManagement(product)">
+                      <mat-icon>layers</mat-icon>
+                      <span>Manage Batches</span>
+                    </button>
+
+                    <mat-divider *ngIf="hasExpiryDate(product) || supportsBatchManagement(product)"></mat-divider>
 
                     <button mat-menu-item (click)="toggleProductStatus(product)" [class.activate]="!product.isActive"
                       [class.deactivate]="product.isActive">
@@ -353,6 +569,27 @@
                       <span>Manage Stock</span>
                     </button>
 
+                    <!-- ✅ NEW: Expiry & Batch Management Section -->
+                    <mat-divider *ngIf="hasExpiryDate(product) || supportsBatchManagement(product)"></mat-divider>
+                    
+                    <button mat-menu-item (click)="manageProductExpiry(product)" *ngIf="hasExpiryDate(product)">
+                      <mat-icon>schedule</mat-icon>
+                      <span>Manage Expiry</span>
+                    </button>
+
+                    <button mat-menu-item (click)="manageBatches(product)" *ngIf="supportsBatchManagement(product)">
+                      <mat-icon>layers</mat-icon>
+                      <span>Manage Batches</span>
+                    </button>
+
+                    <!-- ✅ NEW: FIFO Actions -->
+                    <button mat-menu-item (click)="applyFifoRecommendation(recommendation!)" 
+                      *ngIf="getFifoRecommendation(product) as recommendation"
+                      [style.color]="getFifoRecommendationColor(recommendation)">
+                      <mat-icon>trending_down</mat-icon>
+                      <span>{{ getFifoActionText(recommendation) }}</span>
+                    </button>
+
                     <mat-divider></mat-divider>
 
                     <button mat-menu-item (click)="toggleProductStatus(product)" [class.activate]="!product.isActive"
@@ -372,8 +609,8 @@
           </ng-container>
 
           <!-- ✅ FIXED: Dynamic table header and rows based on responsive columns -->
-          <tr mat-header-row *matHeaderRowDef="currentDisplayedColumns; sticky: true"></tr>
-          <tr mat-row *matRowDef="let product; columns: currentDisplayedColumns;"
+          <tr mat-header-row *matHeaderRowDef="currentDisplayedColumns(); sticky: true"></tr>
+          <tr mat-row *matRowDef="let product; columns: currentDisplayedColumns();"
             [class.low-stock-row]="product.isLowStock" [class.out-of-stock-row]="product.isOutOfStock"
             [class.inactive-row]="!product.isActive">
           </tr>
@@ -415,10 +652,107 @@
           <span *ngIf="isTabletView">Tablet</span>
           <span *ngIf="isDesktopView">Desktop</span>
         </p>
-        <p><strong>Displayed Columns:</strong> {{ currentDisplayedColumns.join(', ') }}</p>
+        <p><strong>Displayed Columns:</strong> {{ currentDisplayedColumns().join(', ') }}</p>
         <p><strong>Total Products:</strong> {{ totalItems() }}</p>
         <p><strong>Low Stock Count:</strong> {{ statsData.lowStockCount }}</p>
       </mat-card-content>
     </mat-card>
   </div>
+
+  <!-- ===== BATCH MANAGEMENT MODAL ===== -->
+  <div class="batch-management-modal" *ngIf="selectedProductForBatches">
+    <mat-card class="batch-modal-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>layers</mat-icon>
+          Batch Management: {{ selectedProductForBatches.name }}
+        </mat-card-title>
+        <button mat-icon-button (click)="selectedProductForBatches = null" class="close-modal-btn">
+          <mat-icon>close</mat-icon>
+        </button>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="batch-list" *ngIf="productBatches().length > 0; else noBatches">
+          <div class="batch-item" *ngFor="let batch of productBatches()" 
+               [class.batch-expired]="batch.status === 'EXPIRED'"
+               [class.batch-blocked]="batch.isBlocked"
+               [class.batch-active]="batch.status === 'ACTIVE'">
+            <div class="batch-header">
+              <div class="batch-info">
+                <h4 class="batch-number">{{ batch.batchNumber }}</h4>
+                <div class="batch-meta">
+                  <span class="batch-stock">Stock: {{ batch.currentStock }}</span>
+                  <span class="batch-status" [style.color]="getBatchStatusColor(batch.status)">
+                    {{ batch.status }}
+                  </span>
+                </div>
+              </div>
+              <div class="batch-actions">
+                <button mat-button color="primary" size="small">
+                  <mat-icon>edit</mat-icon>
+                  Edit
+                </button>
+              </div>
+            </div>
+            
+            <div class="batch-details">
+              <div class="batch-detail-row" *ngIf="batch.expiryDate">
+                <span class="detail-label">Expiry:</span>
+                <span class="detail-value" [style.color]="getExpiryStatusColor(batch)">
+                  {{ formatExpiryDate(batch) }}
+                  ({{ getDaysUntilExpiry(batch) }} days)
+                </span>
+              </div>
+              
+              <div class="batch-detail-row" *ngIf="batch.productionDate">
+                <span class="detail-label">Production:</span>
+                <span class="detail-value">{{ batch.productionDate | date:'mediumDate' }}</span>
+              </div>
+              
+              <div class="batch-detail-row">
+                <span class="detail-label">Cost/Unit:</span>
+                <span class="detail-value">{{ formatIDRCurrency(batch.costPerUnit) }}</span>
+              </div>
+              
+              <div class="batch-detail-row" *ngIf="batch.supplierName">
+                <span class="detail-label">Supplier:</span>
+                <span class="detail-value">{{ batch.supplierName }}</span>
+              </div>
+              
+              <div class="batch-detail-row" *ngIf="batch.notes">
+                <span class="detail-label">Notes:</span>
+                <span class="detail-value">{{ batch.notes }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <ng-template #noBatches>
+          <div class="no-batches-state">
+            <mat-icon class="no-batches-icon">layers</mat-icon>
+            <h3>No batches found</h3>
+            <p>This product doesn't have any batch records yet.</p>
+            <button mat-raised-button color="primary" (click)="manageBatches(selectedProductForBatches!)">
+              <mat-icon>add</mat-icon>
+              Create First Batch
+            </button>
+          </div>
+        </ng-template>
+      </mat-card-content>
+      
+      <mat-card-actions>
+        <button mat-button (click)="manageBatches(selectedProductForBatches!)">
+          <mat-icon>settings</mat-icon>
+          Manage Batches
+        </button>
+        <button mat-button (click)="selectedProductForBatches = null">
+          Close
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+
+  <!-- Modal Backdrop -->
+  <div class="modal-backdrop" *ngIf="selectedProductForBatches" (click)="selectedProductForBatches = null"></div>
 </div>

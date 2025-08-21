@@ -4,7 +4,8 @@
       "Bash(npm run build:*)",
       "Bash(npm start)",
       "Bash(sed:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(ng build:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

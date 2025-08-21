@@ -11,8 +11,8 @@
                     <span class="icon">←</span>
                 </button>
                 <div class="title-content">
-                    <h1 class="page-title">{{ pageTitle }}</h1>
-                    <p class="page-subtitle">{{ pageSubtitle }}</p>
+                    <h1 class="page-title">{{ pageTitle() }}</h1>
+                    <p class="page-subtitle">{{ pageSubtitle() }}</p>
                 </div>
             </div>
 
@@ -20,28 +20,29 @@
                 <button class="btn btn-secondary" type="button" (click)="goBack()" [disabled]="saving">
                     Cancel
                 </button>
-                <button class="btn btn-primary" type="submit" form="productForm" [disabled]="!canSubmit">
+                <button class="btn btn-primary" type="submit" form="productForm" [disabled]="!canSubmit()">
                     <span *ngIf="saving" class="spinner"></span>
-                    <span *ngIf="!saving">{{ submitButtonText }}</span>
+                    <span *ngIf="!saving">{{ submitButtonText() }}</span>
                 </button>
             </div>
         </div>
 
         <!-- Unsaved Changes Warning -->
-        <div *ngIf="hasUnsavedChanges && !saving" class="unsaved-warning">
+        <div *ngIf="hasUnsavedChanges() && !saving" class="unsaved-warning">
             <span class="icon">ℹ</span>
             <span>You have unsaved changes</span>
         </div>
     </div>
 
+
     <!-- Loading State -->
-    <div *ngIf="loading" class="loading-container">
+    <div *ngIf="loading()" class="loading-container">
         <div class="spinner large"></div>
         <p>Loading product details...</p>
     </div>
 
     <!-- Product Form -->
-    <form *ngIf="!loading" id="productForm" [formGroup]="productForm" (ngSubmit)="onSubmit()" class="product-form">
+    <form *ngIf="!loading()" id="productForm" [formGroup]="productForm" (ngSubmit)="onSubmit()" class="product-form">
 
         <!-- Basic Information Section -->
         <div class="form-section">
@@ -83,17 +84,45 @@
 
                 <!-- Category -->
                 <div class="form-field">
-                    <label for="category">Category *</label>
+                    <label for="category">📂 Category *</label>
                     <select id="category" formControlName="categoryId" [class.error]="isFieldInvalid('categoryId')">
                         <option value="" disabled>Select category</option>
-                        <option *ngFor="let category of categories" [value]="category.id">
-                            {{ category.name }}
+                        <option *ngFor="let category of categories()" [value]="category.id">
+                            <div class="category-option">
+                                <span class="category-color" [style.background-color]="category.color"></span>
+                                {{ category.name }}
+                            </div>
                         </option>
                     </select>
                     <div *ngIf="isFieldInvalid('categoryId')" class="error-message">
                         {{ getFieldError('categoryId') }}
                     </div>
                 </div>
+
+                <!-- ✅ ENHANCED: Category Information Panel with Clearer Messaging -->
+                @if (selectedCategory() && !showExpiryField()) {
+                    <div class="info-message success">
+                        <span class="icon">✅</span>
+                        <div class="message-content">
+                            <p><strong>{{ selectedCategory()?.name }}</strong> - Tidak memerlukan tanggal kadaluarsa</p>
+                            <p class="small">Produk dalam kategori ini dapat disimpan tanpa perlu melacak masa kadaluarsa.</p>
+                        </div>
+                    </div>
+                }
+
+                @if (selectedCategory() && showExpiryField()) {
+                    <div class="info-message warning">
+                        <span class="icon">⚠️</span>
+                        <div class="message-content">
+                            <p><strong>{{ selectedCategory()?.name }}</strong> - Wajib mencantumkan tanggal kadaluarsa</p>
+                            <p class="small">
+                                Produk dalam kategori ini harus dilengkapi dengan:
+                                <br>• Tanggal kadaluarsa untuk monitoring masa simpan
+                                <br>• Informasi batch untuk pelacakan yang akurat
+                            </p>
+                        </div>
+                    </div>
+                }
 
                 <!-- Unit -->
                 <div class="form-field">
@@ -118,6 +147,66 @@
                     </div>
                 </div>
 
+                <!-- ✅ ENHANCED: Simplified Expiry Date Field with Batch Modal -->
+                <div *ngIf="showExpiryField()" class="form-field full-width">
+                    <label for="expiryDate">
+                        📅 Tanggal Kadaluarsa {{ expiryFieldRequired() ? '*' : '' }}
+                        <span *ngIf="expiryValidating()" class="validating-spinner">⏳</span>
+                    </label>
+                    
+                    <div class="expiry-input-group">
+                        <input 
+                            id="expiryDate" 
+                            type="date" 
+                            formControlName="expiryDate" 
+                            [min]="getMinExpiryDate()"
+                            [class.error]="isFieldInvalid('expiryDate')"
+                            [class.validating]="expiryValidating()"
+                            placeholder="Pilih tanggal kadaluarsa">
+                        
+                        <button type="button" class="btn btn-outline" 
+                                [disabled]="!productForm.get('expiryDate')?.value"
+                                (click)="openBatchManagementModal()">
+                            <span class="icon">📦</span>
+                            {{ productForm.get('batchNumber')?.value ? 'Edit Batch' : 'Atur Batch' }}
+                        </button>
+                    </div>
+                    
+                    <!-- Enhanced Expiry Status Preview -->
+                    <div *ngIf="productForm.get('expiryDate')?.value" class="expiry-status-preview">
+                        <div class="status-indicator" [ngClass]="'status-' + currentExpiryStatus()">
+                            <span class="status-icon">
+                                {{ currentExpiryStatus() === 'expired' ? '❌' : 
+                                   currentExpiryStatus() === 'critical' ? '🚨' : 
+                                   currentExpiryStatus() === 'warning' ? '⚠️' : '✅' }}
+                            </span>
+                            <span class="status-text">{{ expiryStatusText() }}</span>
+                            <span *ngIf="productForm.get('batchNumber')?.value" class="batch-info">
+                                • Batch: {{ productForm.get('batchNumber')?.value }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="field-footer">
+                        <span class="hint">
+                            {{ expiryFieldRequired() ? 'Wajib untuk kategori ini' : 'Opsional' }} - 
+                            Setelah mengisi tanggal, klik "Atur Batch" untuk melengkapi informasi batch
+                        </span>
+                    </div>
+                    
+                    <!-- Enhanced Expiry Validation Errors -->
+                    <div *ngIf="expiryValidationErrors().length > 0" class="error-message">
+                        <div *ngFor="let error of expiryValidationErrors()">
+                            {{ error }}
+                        </div>
+                    </div>
+                    
+                    <div *ngIf="isFieldInvalid('expiryDate')" class="error-message">
+                        {{ getFieldError('expiryDate') }}
+                    </div>
+                </div>
+
+
                 <!-- Barcode Section -->
                 <div class="form-field full-width">
                     <label for="barcode">Barcode *</label>
@@ -126,9 +215,9 @@
                             maxlength="50" [class.error]="isFieldInvalid('barcode')">
 
                         <button type="button" class="btn btn-outline" (click)="startBarcodeScanner()"
-                            [disabled]="scannerActive">
+                            [disabled]="scannerActive()">
                             <span class="icon">📷</span>
-                            {{ scannerActive ? 'Scanning...' : 'Scan' }}
+                            {{ scannerActive() ? 'Scanning...' : 'Scan' }}
                         </button>
 
                         <button type="button" class="btn btn-outline" (click)="generateBarcode()">
@@ -137,9 +226,9 @@
                         </button>
                     </div>
 
-                    <div *ngIf="barcodeError" class="error-message">
+                    <div *ngIf="barcodeError()" class="error-message">
                         <span class="icon">⚠</span>
-                        {{ barcodeError }}
+                        {{ barcodeError() }}
                     </div>
                     <div *ngIf="isFieldInvalid('barcode')" class="error-message">
                         {{ getFieldError('barcode') }}
@@ -343,17 +432,143 @@
                         <button class="btn btn-secondary" type="button" (click)="goBack()" [disabled]="saving">
                             Cancel
                         </button>
-                        <button class="btn btn-primary" type="submit" [disabled]="!canSubmit">
+                        <button class="btn btn-primary" type="submit" [disabled]="!canSubmit()">
                             <span *ngIf="saving" class="spinner"></span>
-                            <span *ngIf="!saving">{{ submitButtonText }}</span>
+                            <span *ngIf="!saving">{{ submitButtonText() }}</span>
                         </button>
                     </div>
                 </div>
             </div>
     </form>
 
+    <!-- ✅ NEW: Batch Management Modal -->
+    <div *ngIf="batchModalActive()" class="batch-modal">
+        <div class="modal-backdrop" (click)="closeBatchManagementModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📦 Batch Management</h3>
+                <p class="modal-subtitle">Kelola informasi batch untuk produk dengan tanggal kadaluarsa</p>
+                <button class="close-button" (click)="closeBatchManagementModal()">×</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Batch Information Form -->
+                <div class="batch-form">
+                    <!-- Batch Number -->
+                    <div class="form-field">
+                        <label for="modalBatchNumber">Nomor Batch *</label>
+                        <div class="input-group">
+                            <input id="modalBatchNumber" type="text" formControlName="batchNumber" 
+                                   placeholder="Contoh: B20240315001" maxlength="50"
+                                   [class.error]="isFieldInvalid('batchNumber')">
+                            <button type="button" class="btn btn-outline" (click)="generateBatchNumber()">
+                                <span class="icon">✨</span>
+                                Generate
+                            </button>
+                        </div>
+                        <div class="field-footer">
+                            <span class="hint">Identifier unik untuk batch produk ini</span>
+                        </div>
+                        <div *ngIf="isFieldInvalid('batchNumber')" class="error-message">
+                            {{ getFieldError('batchNumber') }}
+                        </div>
+                    </div>
+
+                    <!-- Production Date -->
+                    <div class="form-field">
+                        <label for="modalProductionDate">Tanggal Produksi</label>
+                        <input id="modalProductionDate" type="date" formControlName="productionDate"
+                               [max]="getMinExpiryDate()"
+                               [class.error]="isFieldInvalid('productionDate')">
+                        <div class="field-footer">
+                            <span class="hint">Opsional - Kapan batch ini diproduksi</span>
+                        </div>
+                    </div>
+
+                    <!-- Supplier Name -->
+                    <div class="form-field">
+                        <label for="modalSupplierName">Supplier</label>
+                        <input id="modalSupplierName" type="text" formControlName="supplierName" 
+                               placeholder="Nama supplier" maxlength="200"
+                               [class.error]="isFieldInvalid('supplierName')">
+                        <div class="field-footer">
+                            <span class="hint">Opsional - Supplier untuk batch ini</span>
+                        </div>
+                    </div>
+
+                    <!-- Purchase Order Number -->
+                    <div class="form-field">
+                        <label for="modalPurchaseOrderNumber">Nomor PO</label>
+                        <input id="modalPurchaseOrderNumber" type="text" formControlName="purchaseOrderNumber" 
+                               placeholder="Nomor purchase order" maxlength="50"
+                               [class.error]="isFieldInvalid('purchaseOrderNumber')">
+                        <div class="field-footer">
+                            <span class="hint">Opsional - Referensi purchase order</span>
+                        </div>
+                    </div>
+
+                    <!-- Batch Notes -->
+                    <div class="form-field">
+                        <label for="modalBatchNotes">Catatan Batch</label>
+                        <textarea id="modalBatchNotes" formControlName="batchNotes" 
+                                  placeholder="Catatan tambahan untuk batch ini..." 
+                                  rows="3" maxlength="500"
+                                  [class.error]="isFieldInvalid('batchNotes')"></textarea>
+                        <div class="field-footer">
+                            <span class="hint">{{productForm.get('batchNotes')?.value?.length || 0}}/500 - Informasi tambahan tentang batch</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Batch Summary -->
+                <div class="batch-summary">
+                    <div class="summary-header">
+                        <span class="icon">📋</span>
+                        <span>Ringkasan Batch</span>
+                    </div>
+                    <div class="summary-content">
+                        <div class="summary-item">
+                            <span class="label">Tanggal Kadaluarsa:</span>
+                            <span class="value">{{ (productForm.get('expiryDate')?.value | date:'mediumDate') || 'Belum diatur' }}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">Nomor Batch:</span>
+                            <span class="value">{{ productForm.get('batchNumber')?.value || 'Belum diatur' }}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="label">Status:</span>
+                            <span class="value" [ngClass]="getBatchValidationStatus()">
+                                {{ getBatchValidationMessage() }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Batch Validation Errors -->
+                <div *ngIf="batchValidationErrors().length > 0" class="error-message">
+                    <div *ngFor="let error of batchValidationErrors()">
+                        <span class="icon">⚠</span>
+                        {{ error }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-secondary" (click)="closeBatchManagementModal()">
+                    Batal
+                </button>
+                <button class="btn btn-primary" 
+                        [disabled]="!isBatchFormValid()"
+                        (click)="saveBatchInformation()">
+                    <span class="icon">✅</span>
+                    Simpan Batch
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Barcode Scanner Modal -->
-    <div *ngIf="scannerActive" class="scanner-modal">
+    <div *ngIf="scannerActive()" class="scanner-modal">
         <div class="scanner-backdrop" (click)="stopBarcodeScanner()"></div>
         <div class="scanner-content">
             <div class="scanner-header">
@@ -362,10 +577,10 @@
             </div>
 
             <div class="scanner-body">
-                <div id="barcode-scanner" class="scanner-target" [style.display]="scannerActive ? 'block' : 'none'">
+                <div id="barcode-scanner" class="scanner-target" [style.display]="scannerActive() ? 'block' : 'none'">
                 </div>
 
-                <div class="scanner-placeholder" [style.display]="scannerActive ? 'none' : 'flex'">
+                <div class="scanner-placeholder" [style.display]="scannerActive() ? 'none' : 'flex'">
                     <span class="icon">📷</span>
                     <p>Position barcode within the frame</p>
                     <div class="spinner"></div>

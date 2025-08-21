@@ -17,12 +17,14 @@
             </div>
 
             <div class="header-actions">
-                <button class="btn btn-secondary" type="button" (click)="goBack()" [disabled]="saving">
+                <button class="btn btn-secondary" type="button" (click)="goBack()" [disabled]="saving()">
                     Cancel
                 </button>
-                <button class="btn btn-primary" type="submit" form="productForm" [disabled]="!canSubmit()">
-                    <span *ngIf="saving" class="spinner"></span>
-                    <span *ngIf="!saving">{{ submitButtonText() }}</span>
+                <button class="btn btn-primary" type="submit" form="productForm" 
+                        [disabled]="!validationStatus().canSubmit"
+                        [title]="validationStatus().canSubmit ? 'Klik untuk menyimpan' : 'Form belum valid: ' + validationStatus().reasons.join(', ')">
+                    <span *ngIf="saving()" class="spinner"></span>
+                    <span *ngIf="!saving()">{{ submitButtonText() }}</span>
                 </button>
             </div>
         </div>
@@ -415,26 +417,69 @@
                 </div>
             </div>
 
+            <!-- ✅ ENHANCED: Real-time Validation Status -->
+            <div class="validation-status-panel" [ngClass]="{
+                'validation-success': validationStatus().canSubmit,
+                'validation-error': !validationStatus().canSubmit && !validationStatus().isLoading,
+                'validation-loading': validationStatus().isLoading
+            }">
+                <div class="status-header">
+                    <span class="icon">
+                        {{ validationStatus().canSubmit ? '✅' : (validationStatus().isLoading ? '⏳' : '⚠️') }}
+                    </span>
+                    <span class="status-title">
+                        {{ validationStatus().canSubmit ? 'Siap untuk disimpan!' : (validationStatus().isLoading ? 'Memvalidasi...' : 'Belum bisa disimpan') }}
+                    </span>
+                </div>
+                
+                <div *ngIf="!validationStatus().canSubmit && !validationStatus().isLoading" class="status-reasons">
+                    <ul class="reasons-list">
+                        <li *ngFor="let reason of validationStatus().reasons">
+                            {{ reason }}
+                        </li>
+                    </ul>
+                </div>
+                
+                <div *ngIf="validationStatus().canSubmit" class="status-success">
+                    <div class="validation-hint hint-success">
+                        <span class="hint-icon">🎉</span>
+                        <span class="hint-text">Semua data sudah lengkap dan valid. Klik tombol di bawah untuk menyimpan produk.</span>
+                    </div>
+                </div>
+                
+                <div *ngIf="validationStatus().isLoading" class="status-loading">
+                    <div class="validation-hint hint-warning">
+                        <span class="hint-icon">⏳</span>
+                        <span class="hint-text">Sedang memvalidasi data...</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Form Actions -->
             <div class="form-actions">
                 <div class="actions-content">
                     <div class="form-summary">
-                        <span class="icon">ℹ</span>
+                        <span class="icon">💾</span>
                         <div class="summary-text">
-                            <span class="summary-title">Form Summary</span>
+                            <span class="summary-title">Status Penyimpanan</span>
                             <span class="summary-details">
-                                {{ productForm.valid ? 'All fields are valid' : 'Please complete required fields' }}
+                                {{ validationStatus().canSubmit ? 'Semua validasi berhasil' : 'Ada field yang belum valid' }}
                             </span>
                         </div>
                     </div>
 
                     <div class="action-buttons">
-                        <button class="btn btn-secondary" type="button" (click)="goBack()" [disabled]="saving">
+                        <button class="btn btn-secondary" type="button" (click)="goBack()" [disabled]="saving()">
                             Cancel
                         </button>
-                        <button class="btn btn-primary" type="submit" [disabled]="!canSubmit()">
-                            <span *ngIf="saving" class="spinner"></span>
-                            <span *ngIf="!saving">{{ submitButtonText() }}</span>
+                        <button class="btn btn-primary" type="submit" 
+                                [disabled]="!validationStatus().canSubmit"
+                                [title]="validationStatus().canSubmit ? 'Klik untuk menyimpan' : 'Form belum valid: ' + validationStatus().reasons.join(', ')">
+                            <span *ngIf="saving()" class="spinner"></span>
+                            <span *ngIf="!saving()">{{ submitButtonText() }}</span>
+                            <span *ngIf="!validationStatus().canSubmit && !saving()" class="button-hint">
+                                ({{ validationStatus().reasons.length }} masalah)
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -453,7 +498,7 @@
 
             <div class="modal-body">
                 <!-- Batch Information Form -->
-                <div class="batch-form">
+                <div class="batch-form" [formGroup]="productForm">
                     <!-- Batch Number -->
                     <div class="form-field">
                         <label for="modalBatchNumber">Nomor Batch *</label>
@@ -559,7 +604,7 @@
                 </button>
                 <button class="btn btn-primary" 
                         [disabled]="!isBatchFormValid()"
-                        (click)="saveBatchInformation()">
+                        (click)="saveBatchData()">
                     <span class="icon">✅</span>
                     Simpan Batch
                 </button>

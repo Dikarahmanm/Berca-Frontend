@@ -118,12 +118,58 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     return this.isEdit() ? 'Update Product' : 'Create Product';
   });
   
-  canSubmit = computed(() => 
-    this.productForm?.valid && 
-    !this.saving() && 
-    !this.expiryValidating() && 
-    this.validateExpiryRequirements()
-  );
+  canSubmit = computed(() => {
+    // ✅ SIMPLIFIED: Basic checks only for computed property performance
+    const basicChecks = this.productForm?.valid && 
+                       !this.saving() && 
+                       !this.expiryValidating();
+    
+    return basicChecks;
+  });
+
+  // ✅ NEW: Detailed validation status for UI feedback
+  validationStatus = computed(() => {
+    if (!this.productForm) {
+      return {
+        canSubmit: false,
+        reasons: ['Form belum diinisialisasi'],
+        isLoading: true
+      };
+    }
+
+    const reasons: string[] = [];
+    
+    // Check loading states
+    if (this.saving()) reasons.push('Sedang menyimpan produk...');
+    if (this.expiryValidating()) reasons.push('Sedang memvalidasi kategori...');
+    
+    // Check required fields
+    const formValidation = this.validateFormWithDetails();
+    if (!formValidation.isValid) {
+      reasons.push(`Field wajib belum diisi: ${formValidation.missingFields.join(', ')}`);
+    }
+    
+    // Check expiry requirements
+    if (this.categoryRequiresExpiry()) {
+      const expiryValidation = (this as any).validateExpiryRequirements();
+      if (!expiryValidation.isValid) {
+        reasons.push(...expiryValidation.errors);
+      }
+    }
+    
+    // Check form errors
+    if (this.productForm.errors) {
+      if (this.productForm.errors['sellPriceTooLow']) {
+        reasons.push('Harga jual harus lebih besar atau sama dengan harga beli');
+      }
+    }
+    
+    return {
+      canSubmit: reasons.length === 0,
+      reasons: reasons,
+      isLoading: this.saving() || this.expiryValidating()
+    };
+  });
   
   hasUnsavedChanges = computed(() => 
     this.productForm?.dirty && !this.saving()
@@ -254,6 +300,30 @@ export class ProductFormComponent implements OnInit, OnDestroy {
         }
       })
     );
+    
+    // ✅ NEW: Watch expiry date changes for validation
+    this.subscriptions.add(
+      this.productForm.get('expiryDate')?.valueChanges.subscribe(() => {
+        // Trigger validation when expiry date changes
+        this.productForm.updateValueAndValidity();
+      })
+    );
+    
+    // ✅ NEW: Watch batch number changes for validation  
+    this.subscriptions.add(
+      this.productForm.get('batchNumber')?.valueChanges.subscribe(() => {
+        // Trigger validation when batch number changes
+        this.productForm.updateValueAndValidity();
+      })
+    );
+    
+    // ✅ NEW: Watch all form changes to trigger validation status update
+    this.subscriptions.add(
+      this.productForm.valueChanges.subscribe(() => {
+        // Force validation status recomputation
+        // This ensures the UI updates when any field changes
+      })
+    );
   }
 
   private checkForDuplicateData(): void {
@@ -329,21 +399,60 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.subscriptions.add(
       this.inventoryService.getProduct(id).subscribe({
-        next: (product) => {
-          const productData = product as any; // Type assertion for expiryDate
-          this.productForm.patchValue({
-            ...product,
-            expiryDate: productData.expiryDate ? new Date(productData.expiryDate).toISOString().split('T')[0] : null
-          });
+        next: async (product) => {
+          console.log('📥 Loading product data:', product);
+          
+          const productData = product as any; // Type assertion for additional fields
+          
+          // ✅ FIXED: Preserve ALL form data including expiry and batch fields
+          const formPayload = {
+            // Basic product fields
+            name: product.name || '',
+            barcode: product.barcode || '',
+            description: product.description || '',
+            categoryId: product.categoryId || null,
+            unit: product.unit || 'pcs',
+            isActive: product.isActive !== undefined ? product.isActive : true,
+            
+            // Pricing fields
+            buyPrice: product.buyPrice || 0,
+            sellPrice: product.sellPrice || 0,
+            
+            // Stock fields
+            stock: product.stock || 0,
+            minimumStock: product.minimumStock || 5,
+            
+            // ✅ IMPORTANT: Preserve expiry and batch data
+            expiryDate: productData.expiryDate ? new Date(productData.expiryDate).toISOString().split('T')[0] : null,
+            batchNumber: productData.batchNumber || '',
+            productionDate: productData.productionDate ? new Date(productData.productionDate).toISOString().split('T')[0] : null,
+            batchInitialStock: productData.batchInitialStock || 0,
+            batchCostPerUnit: productData.batchCostPerUnit || 0,
+            supplierName: productData.supplierName || '',
+            purchaseOrderNumber: productData.purchaseOrderNumber || '',
+            batchNotes: productData.batchNotes || '',
+            createNewBatch: false, // Default for editing
+            selectedExistingBatch: null
+          };
+          
+          console.log('📝 Form payload to patch:', formPayload);
+          this.productForm.patchValue(formPayload);
+          
+          // Handle category change after form is populated
           if (product.categoryId) {
-            this.onCategoryChange(product.categoryId);
+            await this.onCategoryChange(product.categoryId);
           }
+          
+          // Load related batch data
           if (this.isEdit()) {
             this.loadProductBatches(id);
           }
+          
+          console.log('✅ Product loaded and form populated');
           this.loading.set(false);
         },
         error: (error) => {
+          console.error('❌ Failed to load product:', error);
           this.showError('Failed to load product: ' + error.message);
           this.loading.set(false);
         }
@@ -363,52 +472,104 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   // ===== FORM SUBMISSION =====
 
   async onSubmit(): Promise<void> {
-    if (this.productForm.invalid) {
+    console.log('🚀 onSubmit called');
+    console.log('📋 Form valid:', this.productForm.valid);
+    console.log('💾 Currently saving:', this.saving());
+    
+    // ✅ ENHANCED: Validate form with detailed feedback
+    const validationResult = this.validateFormWithDetails();
+    if (!validationResult.isValid) {
       this.productForm.markAllAsTouched();
-      this.showError('Please correct the errors on the form.');
+      this.showError(`Form tidak lengkap: ${validationResult.missingFields.join(', ')}`);
+      console.log('❌ Validation failed:', validationResult.missingFields);
       return;
     }
 
+    // ✅ ENHANCED: Check expiry requirements
+    const expiryValidation = (this as any).validateExpiryRequirements();
+    if (!expiryValidation.isValid) {
+      this.showError(`Validasi expiry gagal: ${expiryValidation.errors.join(', ')}`);
+      console.log('❌ Expiry validation failed:', expiryValidation.errors);
+      return;
+    }
+
+    console.log('✅ All validations passed, starting save...');
     this.saving.set(true);
-    const formData = this.productForm.value;
-
-    const request: CreateProductRequest | UpdateProductRequest = {
-      name: formData.name.trim(),
-      barcode: formData.barcode.trim(),
-      description: formData.description?.trim() || '',
-      categoryId: formData.categoryId,
-      buyPrice: parseFloat(formData.buyPrice),
-      sellPrice: parseFloat(formData.sellPrice),
-      stock: parseInt(formData.stock),
-      minimumStock: parseInt(formData.minimumStock),
-      unit: formData.unit?.trim() || 'pcs',
-      isActive: formData.isActive,
-      expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : undefined
-    };
-
+    
     try {
+      const formData = this.productForm.value;
+      console.log('📄 Form data:', formData);
+
+      const request: CreateProductRequest | UpdateProductRequest = {
+        name: formData.name.trim(),
+        barcode: formData.barcode.trim(),
+        description: formData.description?.trim() || '',
+        categoryId: formData.categoryId,
+        buyPrice: parseFloat(formData.buyPrice),
+        sellPrice: parseFloat(formData.sellPrice),
+        stock: parseInt(formData.stock),
+        minimumStock: parseInt(formData.minimumStock),
+        unit: formData.unit?.trim() || 'pcs',
+        isActive: formData.isActive,
+        expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : undefined
+      };
+
+      console.log('📤 Request payload:', request);
+
       if (this.isEdit() && this.productId()) {
+        console.log('🔄 Updating product...');
         await this.handleProductUpdate(this.productId()!, request as UpdateProductRequest, formData);
       } else {
+        console.log('➕ Creating new product...');
         await this.handleProductCreation(request as CreateProductRequest, formData);
       }
+      
+      console.log('✅ Save operation completed successfully');
     } catch (error: any) {
-      this.showError(error.message || 'An unexpected error occurred.');
+      console.error('❌ Save operation failed:', error);
+      this.showError(error.message || 'Terjadi kesalahan yang tidak terduga.');
     } finally {
+      console.log('🏁 Setting saving to false');
       this.saving.set(false);
     }
   }
 
   private async handleProductCreation(request: CreateProductRequest, formData: any): Promise<void> {
-    const createdProduct = await firstValueFrom(this.inventoryService.createProduct(request));
-    if (!createdProduct) throw new Error('Failed to create product.');
+    console.log('➕ Creating product with request:', request);
+    
+    try {
+      const createdProduct = await firstValueFrom(this.inventoryService.createProduct(request));
+      console.log('✅ Product created:', createdProduct);
+      
+      if (!createdProduct) {
+        throw new Error('API returned empty response');
+      }
 
-    if (this.showBatchFields() && this.creatingNewBatch() && formData.batchNumber?.trim()) {
-      await this.createProductBatch(createdProduct.id, formData);
+      // Only create batch if expiry is required and batch data exists
+      if (this.categoryRequiresExpiry() && formData.batchNumber?.trim()) {
+        console.log('📦 Creating batch for product...');
+        await this.createProductBatch(createdProduct.id, formData);
+        console.log('✅ Batch created successfully');
+      }
+
+      this.showSuccess('Produk berhasil dibuat');
+      await this.router.navigate(['/dashboard/inventory']);
+      console.log('🏠 Navigated back to inventory');
+      
+    } catch (error: any) {
+      console.error('❌ Product creation failed:', error);
+      
+      // Enhanced error handling
+      if (error.status === 400) {
+        throw new Error('Data produk tidak valid: ' + (error.error?.message || error.message));
+      } else if (error.status === 409) {
+        throw new Error('Barcode sudah digunakan oleh produk lain');
+      } else if (error.status === 500) {
+        throw new Error('Terjadi kesalahan server. Silakan coba lagi.');
+      } else {
+        throw new Error('Gagal membuat produk: ' + (error.message || 'Unknown error'));
+      }
     }
-
-    this.showSuccess('Product created successfully');
-    this.router.navigate(['/dashboard/inventory']);
   }
 
   private async handleProductUpdate(productId: number, request: UpdateProductRequest, formData: any): Promise<void> {
@@ -439,6 +600,7 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     }
 
     try {
+      console.log('🔄 Category changed to:', categoryId);
       this.expiryValidating.set(true);
       
       // Get category details and expiry requirements
@@ -446,6 +608,9 @@ export class ProductFormComponent implements OnInit, OnDestroy {
         firstValueFrom(this.categoryService.getCategoryById(categoryId)),
         this.expiryService.checkCategoryRequiresExpiry(categoryId)
       ]);
+      
+      console.log('📋 Category response:', categoryResponse);
+      console.log('📅 Expiry response:', expiryResponse);
       
       // Update signals with category information
       this.selectedCategory.set(categoryResponse);
@@ -458,16 +623,22 @@ export class ProductFormComponent implements OnInit, OnDestroy {
       // Update form validators
       this.updateConditionalValidators(expiryResponse.requiresExpiry);
       
+      // ✅ FIXED: Force validation status update after category change
+      setTimeout(() => {
+        this.productForm.updateValueAndValidity();
+        console.log('🔄 Form validation triggered after category change');
+      }, 100);
+      
       // Show user feedback about expiry requirements
       if (expiryResponse.requiresExpiry) {
-        this.showInfo(`Products in "${categoryResponse.name}" category require expiry date tracking`);
+        this.showInfo(`Produk dalam kategori "${categoryResponse.name}" wajib mencantumkan tanggal kadaluarsa`);
       } else {
-        this.showInfo(`Products in "${categoryResponse.name}" category do not require expiry date tracking`);
+        this.showInfo(`Produk dalam kategori "${categoryResponse.name}" tidak perlu tanggal kadaluarsa`);
       }
       
     } catch (error) {
-      console.error('Error checking category expiry requirements:', error);
-      this.showError("Could not verify category's expiry requirements.");
+      console.error('❌ Error checking category expiry requirements:', error);
+      this.showError("Tidak dapat memverifikasi persyaratan tanggal kadaluarsa kategori.");
       this.updateConditionalValidators(false);
       this.resetExpiryFields();
     } finally {
@@ -480,16 +651,27 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     const batchNumberControl = this.productForm.get('batchNumber');
 
     if (isRequired) {
+      // Always require expiry date for categories that need it
       expiryControl?.setValidators([Validators.required]);
-      if (this.creatingNewBatch()) {
+      
+      // ✅ FIXED: Only require batch number if user chooses to create a new batch
+      // Don't force batch number for all expiry-enabled products
+      if (this.creatingNewBatch() && this.batchModalActive()) {
         batchNumberControl?.setValidators([Validators.required, Validators.maxLength(50)]);
+      } else {
+        // Batch number is optional unless explicitly creating new batch
+        batchNumberControl?.setValidators([Validators.maxLength(50)]);
       }
     } else {
+      // Clear all validators for categories that don't need expiry
       expiryControl?.clearValidators();
       batchNumberControl?.clearValidators();
     }
+    
     expiryControl?.updateValueAndValidity();
     batchNumberControl?.updateValueAndValidity();
+    
+    console.log('🔧 Validators updated - Expiry required:', isRequired, 'Batch required:', this.creatingNewBatch() && this.batchModalActive());
   }
 
   private loadProductBatches(productId: number): void {
@@ -754,37 +936,6 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Enhanced validation for expiry requirements
-   */
-  private validateExpiryRequirements(): boolean {
-    if (!this.categoryRequiresExpiry()) return true;
-    
-    const expiryDate = this.productForm.get('expiryDate')?.value;
-    const batchNumber = this.productForm.get('batchNumber')?.value;
-    
-    const errors: string[] = [];
-    
-    if (!expiryDate) {
-      errors.push('Expiry date is required for this category');
-    } else {
-      // Validate expiry date is in the future
-      const expiryDateObj = new Date(expiryDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (expiryDateObj <= today) {
-        errors.push('Expiry date must be in the future');
-      }
-    }
-    
-    if (!batchNumber?.trim()) {
-      errors.push('Batch number is required for products with expiry dates');
-    }
-    
-    this.expiryValidationErrors.set(errors);
-    return errors.length === 0;
-  }
 
   /**
    * Calculate days until expiry
@@ -795,6 +946,88 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     today.setHours(0, 0, 0, 0);
     const diffTime = expiry.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  // ===== ENHANCED VALIDATION METHODS =====
+
+  /**
+   * Validate form with detailed feedback about missing fields
+   */
+  private validateFormWithDetails(): { isValid: boolean; missingFields: string[] } {
+    const missingFields: string[] = [];
+    
+    // Check required fields
+    if (!this.productForm.get('name')?.value?.trim()) {
+      missingFields.push('Nama Produk');
+    }
+    
+    if (!this.productForm.get('barcode')?.value?.trim()) {
+      missingFields.push('Barcode');
+    }
+    
+    if (!this.productForm.get('categoryId')?.value) {
+      missingFields.push('Kategori');
+    }
+    
+    if (!this.productForm.get('buyPrice')?.value || this.productForm.get('buyPrice')?.value <= 0) {
+      missingFields.push('Harga Beli');
+    }
+    
+    if (!this.productForm.get('sellPrice')?.value || this.productForm.get('sellPrice')?.value <= 0) {
+      missingFields.push('Harga Jual');
+    }
+    
+    if (this.productForm.get('stock')?.value === null || this.productForm.get('stock')?.value < 0) {
+      missingFields.push('Stok');
+    }
+    
+    if (this.productForm.get('minimumStock')?.value === null || this.productForm.get('minimumStock')?.value < 0) {
+      missingFields.push('Stok Minimum');
+    }
+    
+    return {
+      isValid: missingFields.length === 0,
+      missingFields
+    };
+  }
+
+  /**
+   * Enhanced expiry validation with detailed feedback
+   */
+  private validateExpiryRequirements(): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    
+    // Only validate if category requires expiry
+    if (!this.categoryRequiresExpiry()) {
+      return { isValid: true, errors: [] };
+    }
+    
+    const expiryDate = this.productForm.get('expiryDate')?.value;
+    const batchNumber = this.productForm.get('batchNumber')?.value;
+    
+    if (!expiryDate) {
+      errors.push('Tanggal kadaluarsa wajib diisi untuk kategori ini');
+    } else {
+      // Validate expiry date is in the future
+      const expiryDateObj = new Date(expiryDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (expiryDateObj <= today) {
+        errors.push('Tanggal kadaluarsa harus di masa depan');
+      }
+    }
+    
+    // ✅ FIXED: Only require batch number if user is explicitly creating a new batch
+    // This gives users flexibility - they can save product with expiry but without batch initially
+    if (this.creatingNewBatch() && this.batchModalActive() && !batchNumber?.trim()) {
+      errors.push('Nomor batch wajib diisi jika membuat batch baru');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
   }
 
   // ===== BATCH MANAGEMENT MODAL METHODS =====
@@ -812,10 +1045,8 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     console.log('📦 Opening batch management modal...');
     this.batchModalActive.set(true);
     
-    // Auto-generate batch number if not exists
-    if (!this.productForm.get('batchNumber')?.value) {
-      this.generateBatchNumber();
-    }
+    // ✅ FIXED: Don't auto-generate batch number - let user decide
+    // User can click the generate button if they want
   }
 
   /**
@@ -827,18 +1058,36 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Save batch information and close modal
+   * ✅ NEW: Save batch data and close modal
    */
-  saveBatchInformation(): void {
+  saveBatchData(): void {
     if (!this.isBatchFormValid()) {
-      this.showError('Silakan lengkapi informasi batch yang diperlukan');
+      this.showError('Silakan lengkapi informasi batch terlebih dahulu');
       return;
     }
 
-    console.log('📦 Saving batch information...');
-    this.batchModalActive.set(false);
-    this.showSuccess('Informasi batch berhasil disimpan');
+    console.log('💾 Saving batch data...');
+    const batchData = {
+      batchNumber: this.productForm.get('batchNumber')?.value,
+      productionDate: this.productForm.get('productionDate')?.value,
+      supplierName: this.productForm.get('supplierName')?.value,
+      purchaseOrderNumber: this.productForm.get('purchaseOrderNumber')?.value,
+      batchNotes: this.productForm.get('batchNotes')?.value
+    };
+
+    console.log('📦 Batch data saved:', batchData);
+    this.showSuccess('Informasi batch telah disimpan');
+    this.closeBatchManagementModal();
+    
+    // Update the form to mark it as having batch data
+    this.creatingNewBatch.set(true);
+    
+    // Trigger validation update
+    setTimeout(() => {
+      this.productForm.updateValueAndValidity();
+    }, 100);
   }
+
 
   /**
    * Check if batch form is valid

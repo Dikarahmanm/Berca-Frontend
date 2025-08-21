@@ -1216,13 +1216,223 @@ textarea:focus {
   }
 }
 
+// ===== VALIDATION STATUS PANEL =====
+.validation-status-panel {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--s5);
+  margin: var(--s4) 0;
+  
+  .status-header {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    margin-bottom: var(--s3);
+    
+    .icon {
+      font-size: var(--text-2xl);
+      flex-shrink: 0;
+    }
+    
+    .status-title {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--text);
+    }
+  }
+  
+  .status-reasons {
+    border-top: 2px solid var(--border);
+    padding-top: var(--s3);
+    
+    .reasons-list {
+      margin: 0;
+      padding-left: var(--s4);
+      list-style-type: none;
+      
+      li {
+        position: relative;
+        padding: var(--s2) 0;
+        color: var(--text);
+        font-size: var(--text-sm);
+        border-bottom: 1px solid var(--border);
+        
+        &:before {
+          content: '⚠️';
+          position: absolute;
+          left: calc(-1 * var(--s4));
+          top: var(--s2);
+          font-size: var(--text-sm);
+        }
+        
+        &:last-child {
+          border-bottom: none;
+        }
+      }
+    }
+  }
+  
+  // Success state
+  &.validation-success {
+    border-color: var(--success);
+    background: var(--surface);
+    
+    .status-header {
+      .status-title {
+        color: var(--success);
+      }
+    }
+  }
+  
+  // Error state  
+  &.validation-error {
+    border-color: var(--error);
+    background: var(--surface);
+    
+    .status-header {
+      .status-title {
+        color: var(--error);
+      }
+    }
+    
+    .status-reasons .reasons-list li {
+      color: var(--error);
+      
+      &:before {
+        content: '❌';
+      }
+    }
+  }
+  
+  // Loading state
+  &.validation-loading {
+    border-color: var(--warning);
+    background: var(--surface);
+    
+    .status-header {
+      .status-title {
+        color: var(--warning);
+      }
+      
+      .icon {
+        animation: spin 1s linear infinite;
+      }
+    }
+  }
+  
+  @media (max-width: 640px) {
+    padding: var(--s4);
+    margin: var(--s3) 0;
+    
+    .status-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--s2);
+      
+      .icon {
+        font-size: var(--text-xl);
+      }
+      
+      .status-title {
+        font-size: var(--text-base);
+      }
+    }
+    
+    .status-reasons .reasons-list {
+      padding-left: var(--s3);
+      
+      li {
+        font-size: var(--text-xs);
+        
+        &:before {
+          left: calc(-1 * var(--s3));
+          font-size: var(--text-xs);
+        }
+      }
+    }
+  }
+}
+
+// Enhanced button tooltips
+.btn {
+  position: relative;
+  
+  &[title]:hover:after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text);
+    color: var(--surface);
+    padding: var(--s2) var(--s3);
+    border-radius: var(--radius);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+    z-index: 1000;
+    margin-bottom: var(--s1);
+    
+    @media (max-width: 640px) {
+      display: none; // Hide tooltips on mobile
+    }
+  }
+  
+  &:disabled[title]:hover:after {
+    background: var(--error);
+    color: white;
+  }
+}
+
+// Hint text styling for validation
+.validation-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  margin-top: var(--s2);
+  padding: var(--s2) var(--s3);
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  
+  .hint-icon {
+    font-size: var(--text-sm);
+    flex-shrink: 0;
+  }
+  
+  .hint-text {
+    flex: 1;
+  }
+  
+  &.hint-error {
+    background: var(--surface);
+    border-color: var(--error);
+    color: var(--error);
+  }
+  
+  &.hint-warning {
+    background: var(--surface);
+    border-color: var(--warning);
+    color: var(--warning);
+  }
+  
+  &.hint-success {
+    background: var(--surface);
+    border-color: var(--success);
+    color: var(--success);
+  }
+}
+
 // ===== PRINT STYLES =====
 @media print {
   .product-form-container {
     .form-header,
     .form-actions,
     .scanner-modal,
-    .batch-modal {
+    .batch-modal,
+    .validation-status-panel {
       display: none;
     }
     

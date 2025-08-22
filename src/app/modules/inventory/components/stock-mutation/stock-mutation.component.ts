@@ -304,22 +304,14 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     if (!this.productId) return;
 
     try {
-      console.log('🔄 Loading recent mutations for product:', this.productId);
-      
       const mutations = await firstValueFrom(
         this.inventoryService.getInventoryHistory(this.productId)
       );
       
-      console.log('📊 Mutations loaded:', mutations.length, 'items');
-      
       // Keep only recent 5 mutations for context
       this._recentMutations.set(mutations.slice(0, 5));
-      
-      console.log('✅ Recent mutations set:', this._recentMutations().length, 'items');
     } catch (error) {
       console.error('❌ Failed to load recent mutations:', error);
-      // Set empty array on error to prevent UI issues
-      this._recentMutations.set([]);
     }
   }
 
@@ -543,48 +535,9 @@ export class StockMutationComponent implements OnInit, OnDestroy {
       referenceNumber: formData.referenceNumber
     };
 
-    console.log('🔄 Executing add stock:', { batch: batch.batchNumber, quantity: formData.quantity });
-
-    try {
-      await firstValueFrom(
-        this.inventoryService.addStockToBatch(batch.id, request)
-      );
-      console.log('✅ Add stock to batch completed');
-      
-      // Update local batch data immediately for UI responsiveness
-      this._productBatches.update(batches => 
-        batches.map(b => 
-          b.id === batch.id 
-            ? { ...b, currentQuantity: b.currentQuantity + parseInt(formData.quantity) }
-            : b
-        )
-      );
-    } catch (error: any) {
-      console.log('⚠️ Batch-specific API not available, using general stock update');
-      
-      // Fallback to general stock update API
-      const stockRequest: StockUpdateRequest = {
-        mutationType: MutationType.StockIn,
-        quantity: parseInt(formData.quantity),
-        notes: `Add to batch ${batch.batchNumber}: ${formData.notes}`,
-        referenceNumber: formData.referenceNumber,
-        unitCost: formData.unitCost || batch.unitCost
-      };
-
-      await firstValueFrom(
-        this.inventoryService.updateStock(this.productId!, stockRequest)
-      );
-      console.log('✅ Add stock completed via fallback');
-      
-      // Update local batch data immediately for UI responsiveness
-      this._productBatches.update(batches => 
-        batches.map(b => 
-          b.id === batch.id 
-            ? { ...b, currentQuantity: b.currentQuantity + parseInt(formData.quantity) }
-            : b
-        )
-      );
-    }
+    await firstValueFrom(
+      this.inventoryService.addStockToBatch(batch.id, request)
+    );
   }
 
   private async executeRemoveStock(batch: ProductBatch, formData: any): Promise<void> {
@@ -592,26 +545,13 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     const request: StockUpdateRequest = {
       mutationType: MutationType.StockOut,
       quantity: -parseInt(formData.quantity),
-      notes: `Remove from batch ${batch.batchNumber}: ${formData.notes}`,
+      notes: formData.notes,
       referenceNumber: formData.referenceNumber
     };
 
-    console.log('🔄 Executing remove stock:', { batch: batch.batchNumber, quantity: formData.quantity });
-    
     await firstValueFrom(
       this.inventoryService.updateStock(this.productId!, request)
     );
-    
-    // Update local batch data immediately for UI responsiveness
-    this._productBatches.update(batches => 
-      batches.map(b => 
-        b.id === batch.id 
-          ? { ...b, currentQuantity: Math.max(0, b.currentQuantity - parseInt(formData.quantity)) }
-          : b
-      )
-    );
-    
-    console.log('✅ Remove stock completed');
   }
 
   private async executeDispose(batch: ProductBatch, formData: any): Promise<void> {
@@ -619,26 +559,13 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     const request: StockUpdateRequest = {
       mutationType: MutationType.Expired,
       quantity: -parseInt(formData.quantity),
-      notes: `Disposed batch ${batch.batchNumber}: ${formData.notes}`,
+      notes: `Disposed: ${formData.notes}`,
       referenceNumber: formData.referenceNumber
     };
-
-    console.log('🔄 Executing dispose:', { batch: batch.batchNumber, quantity: formData.quantity });
 
     await firstValueFrom(
       this.inventoryService.updateStock(this.productId!, request)
     );
-    
-    // Mark batch as disposed in local data
-    this._productBatches.update(batches => 
-      batches.map(b => 
-        b.id === batch.id 
-          ? { ...b, currentQuantity: 0, status: 'Expired' as const }
-          : b
-      )
-    );
-    
-    console.log('✅ Dispose completed');
   }
 
   private async executeTransfer(batch: ProductBatch, formData: any): Promise<void> {
@@ -646,34 +573,26 @@ export class StockMutationComponent implements OnInit, OnDestroy {
     const request: StockUpdateRequest = {
       mutationType: MutationType.Transfer,
       quantity: -parseInt(formData.quantity),
-      notes: `Transfer from batch ${batch.batchNumber}: ${formData.notes}`,
+      notes: `Transfer: ${formData.notes}`,
       referenceNumber: formData.referenceNumber
     };
-
-    console.log('🔄 Executing transfer:', { batch: batch.batchNumber, quantity: formData.quantity });
 
     await firstValueFrom(
       this.inventoryService.updateStock(this.productId!, request)
     );
-    
-    console.log('✅ Transfer completed');
   }
 
   private async executeAdjust(batch: ProductBatch, formData: any): Promise<void> {
     const request: StockUpdateRequest = {
       mutationType: MutationType.Adjustment,
       quantity: parseInt(formData.quantity),
-      notes: `Adjustment for batch ${batch.batchNumber}: ${formData.notes}`,
+      notes: `Adjustment: ${formData.notes}`,
       referenceNumber: formData.referenceNumber
     };
-
-    console.log('🔄 Executing adjustment:', { batch: batch.batchNumber, quantity: formData.quantity });
 
     await firstValueFrom(
       this.inventoryService.updateStock(this.productId!, request)
     );
-    
-    console.log('✅ Adjustment completed');
   }
 
   // ✅ UI HELPER METHODS
@@ -685,39 +604,7 @@ export class StockMutationComponent implements OnInit, OnDestroy {
   }
 
   private async refreshData(): Promise<void> {
-    console.log('🔄 Refreshing all data after mutation...');
-    
-    try {
-      // Force re-load all data to reflect real-time changes
-      if (this.productId) {
-        const [updatedProduct, updatedBatches] = await Promise.all([
-          firstValueFrom(this.inventoryService.getProduct(this.productId)),
-          this.loadProductBatches(this.productId)
-        ]);
-        
-        // Update signals with fresh data
-        this._product.set(updatedProduct);
-        this._productBatches.set(updatedBatches);
-        
-        // Clear selected batch if it no longer exists or has no stock
-        const selectedBatch = this._selectedBatch();
-        if (selectedBatch) {
-          const updatedSelectedBatch = updatedBatches.find(b => b.id === selectedBatch.id);
-          if (!updatedSelectedBatch || updatedSelectedBatch.currentQuantity <= 0) {
-            this.clearBatchSelection();
-          } else {
-            this._selectedBatch.set(updatedSelectedBatch);
-          }
-        }
-        
-        // Reload recent mutations
-        await this.loadRecentMutations();
-      }
-      
-      console.log('✅ Real-time data refreshed successfully');
-    } catch (error) {
-      console.error('❌ Failed to refresh data:', error);
-    }
+    await this.loadProductData();
   }
 
   getBatchStatusClass(batch: ProductBatch): string {

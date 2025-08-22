@@ -2,6 +2,7 @@
 // src/app/modules/inventory/components/product-form/product-form.component.ts
 
 import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
+import { trigger, state, style, transition, animate } from '@angular/animations';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, ValidatorFn, AbstractControl } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
@@ -50,7 +51,18 @@ import { ExpiryStatus, ExpiryValidationResult, CreateProductBatch, ProductBatch,
     MatDividerModule
   ],
   templateUrl: './product-form.component.html',
-  styleUrls: ['./product-form.component.scss']
+  styleUrls: ['./product-form.component.scss'],
+  animations: [
+    trigger('slideIn', [
+      transition(':enter', [
+        style({ transform: 'translateX(100%)', opacity: 0 }),
+        animate('300ms ease-in', style({ transform: 'translateX(0%)', opacity: 1 }))
+      ]),
+      transition(':leave', [
+        animate('300ms ease-out', style({ transform: 'translateX(-100%)', opacity: 0 }))
+      ])
+    ])
+  ]
 })
 export class ProductFormComponent implements OnInit, OnDestroy {
   
@@ -103,16 +115,27 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   barcodeError = signal('');
   scannerActive = signal(false);
   
-  // ✅ NEW: Batch management modal signals
+  // ✅ NEW: UI Modal signals
   batchModalActive = signal(false);
+  showHelpModal = false;
   
   // ===== NEW: Enhanced Batch Detection & Registration Flow =====
   scannedBarcodeForRegistration = signal<string>('');
   isNewProduct = signal(true);
   existingProductForBatch = signal<Product | null>(null);
   
-  // ===== NEW: Multi-step registration flow =====
-  registrationStep = signal<'scan' | 'product' | 'batch' | 'complete'>('product'); // Default to product for existing flow
+  // ✅ NEW: Multi-step progressive disclosure pattern
+  currentStep = signal<'basic' | 'category-check' | 'batch-creation'>('basic');
+  completedSteps = signal<string[]>([]);
+  
+  // User choices
+  skipBatchCreation = signal(false);
+  showBatchCreationPrompt = signal(false);
+  
+  // Form validation per step
+  basicFormValid = signal(false);
+  categorySelected = signal(false);
+  batchFormValid = signal(false);
   
   // ===== NEW: Existing batch management =====
   availableExistingBatches = signal<ProductBatch[]>([]);
@@ -122,6 +145,9 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   // ===== NEW: Enhanced barcode detection =====
   barcodeCheckLoading = signal(false);
   barcodeCheckError = signal<string | null>(null);
+
+  // ✅ Registration workflow step
+  registrationStep = signal<'scan' | 'product' | 'batch' | 'complete'>('product');
   
   // Computed properties for better UX
   pageTitle = computed(() => this.isEdit() ? 'Edit Product' : 'Add New Product');
@@ -191,6 +217,78 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   hasUnsavedChanges = computed(() => 
     this.productForm?.dirty && !this.saving()
   );
+  
+  // ✅ NEW: Step-based validation computed properties
+  canContinueToNextStep = computed(() => {
+    const step = this.currentStep();
+    
+    console.log('🔍 canContinueToNextStep check:', {
+      step,
+      isBasicStepValid: this.isBasicStepValid(),
+      categoryRequiresExpiry: this.categoryRequiresExpiry(),
+      isBatchStepValid: step === 'batch-creation' ? this.isBatchStepValid() : 'N/A'
+    });
+    
+    switch (step) {
+      case 'basic':
+        const basicValid = this.isBasicStepValid();
+        console.log('✅ Basic step validation result:', basicValid);
+        return basicValid;
+        
+      case 'category-check':
+        // If category requires expiry, user must go to batch step
+        if (this.categoryRequiresExpiry()) {
+          console.log('✅ Category requires expiry - allowing continue to batch step');
+          return true; // Always allow continue to batch step
+        }
+        console.log('✅ Category optional - allowing continue based on user choice');
+        return true; // Just user choice, no validation needed
+        
+      case 'batch-creation':
+        // Validate batch step based on requirements
+        const batchValid = this.isBatchStepValid();
+        console.log('✅ Batch step validation result:', batchValid);
+        return batchValid;
+        
+      default:
+        console.log('❌ Unknown step:', step);
+        return false;
+    }
+  });
+  
+  stepProgress = computed(() => {
+    const steps = ['basic', 'category-check', 'batch-creation'];
+    const currentIndex = steps.indexOf(this.currentStep());
+    return ((currentIndex + 1) / steps.length) * 100;
+  });
+  
+  currentStepTitle = computed(() => {
+    switch (this.currentStep()) {
+      case 'basic':
+        return 'Basic Product Information';
+      case 'category-check':
+        return 'Batch Creation Option';
+      case 'batch-creation':
+        return 'Batch Details';
+      default:
+        return 'Product Form';
+    }
+  });
+  
+  currentStepDescription = computed(() => {
+    switch (this.currentStep()) {
+      case 'basic':
+        return 'Enter essential product details to get started';
+      case 'category-check':
+        return this.categoryRequiresExpiry() ? 
+          'This category requires expiry tracking. Create a batch?' : 
+          'Add batch tracking to this product?';
+      case 'batch-creation':
+        return 'Set up batch tracking with expiry date and batch number';
+      default:
+        return '';
+    }
+  });
   
   // Enhanced expiry status computation
   currentExpiryStatus = computed(() => {
@@ -275,8 +373,8 @@ export class ProductFormComponent implements OnInit, OnDestroy {
       isActive: [true],
       
       // Pricing
-      buyPrice: [0, [Validators.required, Validators.min(0)]],
-      sellPrice: [0, [Validators.required, Validators.min(0)]],
+      buyPrice: [0, [Validators.required, Validators.min(1)]], // Changed from min(0) to min(1)
+      sellPrice: [0, [Validators.required, Validators.min(1)]], // Changed from min(0) to min(1)
       
       // Stock
       stock: [0, [Validators.required, Validators.min(0)]],
@@ -330,6 +428,21 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.productForm.get('batchNumber')?.valueChanges.subscribe(() => {
         // Trigger validation when batch number changes
+        this.productForm.updateValueAndValidity();
+      })
+    );
+    
+    // ✅ NEW: Watch price field changes specifically  
+    this.subscriptions.add(
+      this.productForm.get('buyPrice')?.valueChanges.subscribe((value) => {
+        console.log('💰 Buy Price changed to:', value, 'type:', typeof value);
+        this.productForm.updateValueAndValidity();
+      })
+    );
+    
+    this.subscriptions.add(
+      this.productForm.get('sellPrice')?.valueChanges.subscribe((value) => {
+        console.log('💰 Sell Price changed to:', value, 'type:', typeof value);
         this.productForm.updateValueAndValidity();
       })
     );
@@ -636,6 +749,12 @@ export class ProductFormComponent implements OnInit, OnDestroy {
       this.expiryFieldRequired.set(expiryResponse.requiresExpiry);
       this.showBatchFields.set(expiryResponse.requiresExpiry);
       this.batchFieldsRequired.set(expiryResponse.requiresExpiry);
+      
+      // ✅ FIXED: If category requires expiry, force batch creation
+      if (expiryResponse.requiresExpiry) {
+        this.skipBatchCreation.set(false); // Force batch creation
+        console.log('✅ Category requires expiry - forcing batch creation');
+      }
       
       // Update form validators
       this.updateConditionalValidators(expiryResponse.requiresExpiry);
@@ -1143,7 +1262,317 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     return 'Informasi batch lengkap';
   }
 
-  // ===== NEW: ENHANCED BARCODE DETECTION & MULTI-STEP REGISTRATION =====
+  // ===== NEW: PROGRESSIVE DISCLOSURE STEP NAVIGATION =====
+  
+  /**
+   * Navigate to next step in the form workflow
+   */
+  goToNextStep(): void {
+    const currentStep = this.currentStep();
+    
+    switch (currentStep) {
+      case 'basic':
+        if (this.isBasicStepValid()) {
+          this.markStepComplete('basic');
+          this.currentStep.set('category-check');
+          this.showBatchCreationPrompt.set(true);
+        } else {
+          this.showError('Please complete all required basic information first');
+          this.markRequiredFields();
+        }
+        break;
+        
+      case 'category-check':
+        this.markStepComplete('category-check');
+        
+        // If category requires expiry, force batch creation
+        if (this.categoryRequiresExpiry()) {
+          this.skipBatchCreation.set(false);
+          this.currentStep.set('batch-creation');
+          this.setupBatchCreationStep();
+          console.log('✅ Moving to batch creation (required by category)');
+        } else if (this.skipBatchCreation()) {
+          // Skip batch creation, go directly to save
+          this.submitProduct();
+        } else {
+          // Continue to batch creation
+          this.currentStep.set('batch-creation');
+          this.setupBatchCreationStep();
+        }
+        break;
+        
+      case 'batch-creation':
+        if (this.isBatchStepValid()) {
+          this.markStepComplete('batch-creation');
+          this.submitProduct();
+        } else {
+          this.showError('Please complete batch information first');
+        }
+        break;
+    }
+  }
+  
+  /**
+   * Navigate to previous step
+   */
+  goToPreviousStep(): void {
+    const currentStep = this.currentStep();
+    
+    switch (currentStep) {
+      case 'category-check':
+        this.currentStep.set('basic');
+        this.showBatchCreationPrompt.set(false);
+        break;
+        
+      case 'batch-creation':
+        this.currentStep.set('category-check');
+        this.showBatchCreationPrompt.set(true);
+        break;
+    }
+  }
+  
+  /**
+   * Mark step as completed
+   */
+  private markStepComplete(stepName: string): void {
+    this.completedSteps.update(steps => [...steps, stepName]);
+    console.log('✅ Step completed:', stepName);
+  }
+  
+  /**
+   * Check if basic step is valid
+   */
+  private isBasicStepValid(): boolean {
+    // Ensure form exists
+    if (!this.productForm) {
+      console.log('❌ Basic step validation failed: Form not initialized');
+      return false;
+    }
+    
+    const name = this.productForm.get('name')?.value?.trim();
+    const barcode = this.productForm.get('barcode')?.value?.trim();
+    const categoryId = this.productForm.get('categoryId')?.value;
+    const buyPrice = this.productForm.get('buyPrice')?.value;
+    const sellPrice = this.productForm.get('sellPrice')?.value;
+    const unit = this.productForm.get('unit')?.value?.trim();
+    const stock = this.productForm.get('stock')?.value;
+    const minimumStock = this.productForm.get('minimumStock')?.value;
+    
+    // Debug all values first
+    console.log('🔍 Basic step validation - checking values:');
+    console.log('  - Name:', name, '(type:', typeof name, ')');
+    console.log('  - Barcode:', barcode, '(type:', typeof barcode, ')');
+    console.log('  - Category:', categoryId, '(type:', typeof categoryId, ')');
+    console.log('  - Buy Price:', buyPrice, '(type:', typeof buyPrice, ')');
+    console.log('  - Sell Price:', sellPrice, '(type:', typeof sellPrice, ')');
+    console.log('  - Unit:', unit, '(type:', typeof unit, ')');
+    console.log('  - Stock:', stock, '(type:', typeof stock, ')');
+    console.log('  - Min Stock:', minimumStock, '(type:', typeof minimumStock, ')');
+    
+    // Check each field individually for detailed debugging
+    const checks = {
+      name: !!(name && name.length > 0),
+      barcode: !!(barcode && barcode.length > 0), 
+      categoryId: !!(categoryId && (typeof categoryId === 'number' ? categoryId > 0 : categoryId !== '')),
+      buyPrice: !!(buyPrice !== null && buyPrice !== undefined && buyPrice !== '' && Number(buyPrice) > 0),
+      sellPrice: !!(sellPrice !== null && sellPrice !== undefined && sellPrice !== '' && Number(sellPrice) > 0),
+      unit: !!(unit && unit.length > 0),
+      stock: !!(stock !== null && stock !== undefined && Number(stock) >= 0),
+      minimumStock: !!(minimumStock !== null && minimumStock !== undefined && Number(minimumStock) >= 0)
+    };
+    
+    // Enhanced debugging for price fields specifically
+    const buyPriceControl = this.productForm.get('buyPrice');
+    const sellPriceControl = this.productForm.get('sellPrice');
+    
+    console.log('💰 Price field debugging:');
+    console.log('  - buyPrice raw value:', buyPrice, 'type:', typeof buyPrice);
+    console.log('  - buyPrice control valid:', buyPriceControl?.valid);
+    console.log('  - buyPrice control errors:', buyPriceControl?.errors);
+    console.log('  - buyPrice as Number:', Number(buyPrice), 'isNaN:', isNaN(Number(buyPrice)));
+    console.log('  - buyPrice > 0:', Number(buyPrice) > 0);
+    console.log('  - sellPrice raw value:', sellPrice, 'type:', typeof sellPrice);
+    console.log('  - sellPrice control valid:', sellPriceControl?.valid);
+    console.log('  - sellPrice control errors:', sellPriceControl?.errors);
+    console.log('  - sellPrice as Number:', Number(sellPrice), 'isNaN:', isNaN(Number(sellPrice)));
+    console.log('  - sellPrice > 0:', Number(sellPrice) > 0);
+    
+    console.log('🔍 Field validation checks:', checks);
+    
+    // All required fields must be present and valid
+    const isValid = Object.values(checks).every(check => check === true);
+    
+    if (!isValid) {
+      console.log('❌ Basic step validation failed - missing fields:');
+      Object.entries(checks).forEach(([field, valid]) => {
+        console.log(`  - ${field}: ${valid ? '✅' : '❌'}`);
+      });
+      
+      // Also check form validity
+      console.log('📋 Form validity:', this.productForm.valid);
+      console.log('📋 Form errors:', this.productForm.errors);
+    } else {
+      console.log('✅ Basic step validation PASSED - all required fields filled correctly');
+    }
+    
+    return isValid;
+  }
+
+  /**
+   * Get missing required fields for user feedback
+   */
+  getMissingRequiredFields(): string[] {
+    const missing: string[] = [];
+    
+    const name = this.productForm.get('name')?.value?.trim();
+    const barcode = this.productForm.get('barcode')?.value?.trim();
+    const categoryId = this.productForm.get('categoryId')?.value;
+    const buyPrice = this.productForm.get('buyPrice')?.value;
+    const sellPrice = this.productForm.get('sellPrice')?.value;
+    const unit = this.productForm.get('unit')?.value?.trim();
+    const stock = this.productForm.get('stock')?.value;
+    const minimumStock = this.productForm.get('minimumStock')?.value;
+    
+    if (!name) missing.push('Product Name');
+    if (!barcode) missing.push('Barcode');
+    if (!categoryId) missing.push('Category');
+    if (!buyPrice || buyPrice <= 0) missing.push('Buy Price');
+    if (!sellPrice || sellPrice <= 0) missing.push('Sell Price');
+    if (!unit) missing.push('Unit');
+    if (stock === null || stock === undefined || stock < 0) missing.push('Initial Stock');
+    if (minimumStock === null || minimumStock === undefined || minimumStock < 0) missing.push('Minimum Stock');
+    
+    return missing;
+  }
+  
+  /**
+   * Check if batch step is valid (only if creating batch)
+   */
+  private isBatchStepValid(): boolean {
+    // If category requires expiry, batch creation is mandatory
+    if (this.categoryRequiresExpiry()) {
+      const expiryDate = this.productForm.get('expiryDate')?.value;
+      const batchNumber = this.productForm.get('batchNumber')?.value?.trim();
+      
+      console.log('🔍 Batch validation (required):', {
+        expiryDate: expiryDate ? '✅' : '❌',
+        batchNumber: batchNumber ? '✅' : '❌'
+      });
+      
+      return !!(expiryDate && batchNumber);
+    }
+    
+    // If user chose to skip batch creation and it's optional
+    if (this.skipBatchCreation()) return true;
+    
+    // If user chose to create batch (optional), validate fields
+    const expiryDate = this.productForm.get('expiryDate')?.value;
+    const batchNumber = this.productForm.get('batchNumber')?.value?.trim();
+    
+    console.log('🔍 Batch validation (optional):', {
+      expiryDate: expiryDate ? '✅' : '❌',
+      batchNumber: batchNumber ? '✅' : '❌'
+    });
+    
+    return !!(expiryDate && batchNumber);
+  }
+  
+  /**
+   * Setup batch creation step
+   */
+  private setupBatchCreationStep(): void {
+    // Auto-generate batch number if not provided
+    if (!this.productForm.get('batchNumber')?.value?.trim()) {
+      this.generateBatchNumber();
+    }
+    
+    // Set minimum expiry date to today
+    const today = new Date().toISOString().split('T')[0];
+    const expiryControl = this.productForm.get('expiryDate');
+    if (!expiryControl?.value) {
+      // Set default expiry to 30 days from now for new products
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 30);
+      expiryControl?.setValue(futureDate.toISOString().split('T')[0]);
+    }
+  }
+  
+  /**
+   * Handle user choice for batch creation
+   */
+  chooseBatchCreation(createBatch: boolean): void {
+    this.skipBatchCreation.set(!createBatch);
+    
+    if (createBatch) {
+      console.log('👍 User chose to create batch');
+      this.showInfo('Great! Let\'s set up batch tracking for this product.');
+      
+      // Set required validators for batch fields
+      const batchNumberControl = this.productForm.get('batchNumber');
+      const expiryDateControl = this.productForm.get('expiryDate');
+      
+      batchNumberControl?.setValidators([Validators.required, Validators.maxLength(50)]);
+      expiryDateControl?.setValidators([Validators.required]);
+      
+      batchNumberControl?.updateValueAndValidity();
+      expiryDateControl?.updateValueAndValidity();
+      
+      // Auto-generate batch number if empty
+      if (!batchNumberControl?.value?.trim()) {
+        this.generateBatchNumber();
+      }
+      
+    } else {
+      console.log('👎 User chose to skip batch creation');
+      this.showInfo('Product will be saved without batch tracking.');
+      
+      // Clear validators for batch fields
+      const batchNumberControl = this.productForm.get('batchNumber');
+      const expiryDateControl = this.productForm.get('expiryDate');
+      
+      batchNumberControl?.clearValidators();
+      expiryDateControl?.clearValidators();
+      
+      batchNumberControl?.updateValueAndValidity();
+      expiryDateControl?.updateValueAndValidity();
+    }
+  }
+  
+  /**
+   * Submit product with current step data
+   */
+  private async submitProduct(): Promise<void> {
+    console.log('💾 Submitting product with step data...');
+    
+    // Use existing onSubmit logic but with step-aware validation
+    if (this.skipBatchCreation()) {
+      // Clear batch-related fields for non-batch products
+      this.productForm.patchValue({
+        expiryDate: null,
+        batchNumber: '',
+        productionDate: null,
+        batchCostPerUnit: 0,
+        supplierName: '',
+        purchaseOrderNumber: '',
+        batchNotes: ''
+      });
+    }
+    
+    // Call existing submit method
+    await this.onSubmit();
+  }
+  
+  /**
+   * Mark required fields as touched for validation display
+   */
+  private markRequiredFields(): void {
+    const requiredFields = ['name', 'barcode', 'categoryId', 'buyPrice', 'sellPrice', 'unit'];
+    requiredFields.forEach(field => {
+      this.productForm.get(field)?.markAsTouched();
+    });
+  }
+  
+  // ===== ENHANCED BARCODE DETECTION & PRODUCT LOOKUP =====
 
   /**
    * Enhanced barcode detection for registration flow

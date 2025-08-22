@@ -85,14 +85,17 @@ export interface InventoryMutation {
   id: number;
   productId: number;
   productName: string;
+  mutationType: string;
   type: string;
   quantity: number;
+  quantityChange: number;
   stockBefore: number;
   stockAfter: number;
   notes: string;
   referenceNumber?: string;
   unitCost?: number;
   totalCost?: number;
+  mutationDate: string;
   createdAt: Date;
   createdBy?: string;
 }

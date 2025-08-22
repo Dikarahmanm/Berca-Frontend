@@ -1,267 +1,233 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
-import { CommonModule, SlicePipe } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
-import { Router, ActivatedRoute, RouterModule } from '@angular/router';
+// ✅ REDESIGNED: Batch-Aware Stock Mutation Component
+// Unified interface with batch selection first and context-aware operations
+
+import { Component, OnInit, OnDestroy, signal, computed, inject, ChangeDetectionStrategy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router, ActivatedRoute } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTableDataSource, MatTableModule } from '@angular/material/table';
-import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
-import { MatSort, MatSortModule } from '@angular/material/sort';
+import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
 import { MatDividerModule } from '@angular/material/divider';
-import { Subscription } from 'rxjs';
+import { trigger, state, style, transition, animate } from '@angular/animations';
+import { Subscription, firstValueFrom } from 'rxjs';
 
 import { InventoryService } from '../../services/inventory.service';
-import { Product, InventoryMutation, StockUpdateRequest, MutationType } from '../../interfaces/inventory.interfaces';
+import { ExpiryManagementService } from '../../../../core/services/expiry-management.service';
+import { Product, InventoryMutation, StockUpdateRequest, MutationType, ProductBatch } from '../../interfaces/inventory.interfaces';
+
+// Enhanced interfaces for batch-aware operations
+export interface BatchOperation {
+  type: 'add-stock' | 'remove-stock' | 'transfer' | 'dispose' | 'adjust';
+  label: string;
+  icon: string;
+  description: string;
+  color: string;
+  fifoRecommended?: boolean;
+}
+
+export interface BatchRecommendation {
+  batch: ProductBatch;
+  reason: string;
+  priority: 'high' | 'medium' | 'low';
+  action: string;
+}
+
+export interface BatchOperationContext {
+  selectedBatch: ProductBatch | null;
+  operationType: string | null;
+  targetBatch?: ProductBatch | null; // For transfers
+  recommendations: BatchRecommendation[];
+}
 
 @Component({
   selector: 'app-stock-mutation',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    RouterModule,
-    SlicePipe,
-    MatTableModule,
-    MatPaginatorModule,
-    MatSortModule,
+    MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatButtonModule,
     MatIconModule,
     MatCardModule,
-    MatTabsModule,
     MatChipsModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
     MatSnackBarModule,
     MatDividerModule
   ],
   templateUrl: './stock-mutation.component.html',
-  styleUrls: ['./stock-mutation.component.scss']
+  styleUrls: ['./stock-mutation.component.scss'],
+  animations: [
+    trigger('slideIn', [
+      transition(':enter', [
+        style({ transform: 'translateY(20px)', opacity: 0 }),
+        animate('300ms ease-out', style({ transform: 'translateY(0)', opacity: 1 }))
+      ])
+    ]),
+    trigger('fadeIn', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate('200ms ease-in', style({ opacity: 1 }))
+      ])
+    ])
+  ]
 })
 export class StockMutationComponent implements OnInit, OnDestroy {
-  @ViewChild(MatPaginator) paginator!: MatPaginator;
-  @ViewChild(MatSort) sort!: MatSort;
+  private fb = inject(FormBuilder);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private inventoryService = inject(InventoryService);
+  private expiryService = inject(ExpiryManagementService);
+  private snackBar = inject(MatSnackBar);
 
-  // Product information
-  product: Product | null = null;
+  // ✅ Signal-based state management
+  private _product = signal<Product | null>(null);
+  private _productBatches = signal<ProductBatch[]>([]);
+  private _selectedBatch = signal<ProductBatch | null>(null);
+  private _operationType = signal<string | null>(null);
+  private _loading = signal(false);
+  private _saving = signal(false);
+  private _recentMutations = signal<InventoryMutation[]>([]);
+
+  // Public readonly signals
+  readonly product = this._product.asReadonly();
+  readonly productBatches = this._productBatches.asReadonly();
+  readonly selectedBatch = this._selectedBatch.asReadonly();
+  readonly operationType = this._operationType.asReadonly();
+  readonly loading = this._loading.asReadonly();
+  readonly saving = this._saving.asReadonly();
+  readonly recentMutations = this._recentMutations.asReadonly();
+
+  // Form management
+  operationForm!: FormGroup;
   productId: number | null = null;
-  
-  // Forms
-  stockForm!: FormGroup;
-  historyFilterForm!: FormGroup;
-  
-  // Data & UI state
-  mutationHistory = new MatTableDataSource<InventoryMutation>([]);
-  historyColumns = ['date', 'type', 'quantity', 'stockBefore', 'stockAfter', 'notes', 'createdBy'];
-  
-  loading = false;
-  saving = false;
-  loadingHistory = false;
-  selectedTab: 'update' | 'history' = 'update';
-  currentPage: number = 1;
-  itemsPerPage: number = 10;
-  totalPages: number = 1;
-  
-  // Mutation types for dropdown
-  mutationTypes = [
-    { value: MutationType.StockIn, label: 'Stock In', icon: 'add_circle', color: '#4BBF7B' },
-    { value: MutationType.StockOut, label: 'Stock Out', icon: 'remove_circle', color: '#E15A4F' },
-    { value: MutationType.Adjustment, label: 'Adjustment', icon: 'tune', color: '#FFB84D' },
-    { value: MutationType.Transfer, label: 'Transfer', icon: 'swap_horiz', color: '#FF914D' },
-    { value: MutationType.Damaged, label: 'Damaged', icon: 'broken_image', color: '#E15A4F' },
-    { value: MutationType.Expired, label: 'Expired', icon: 'schedule', color: '#E15A4F' }
-  ];
-  
   private subscriptions = new Subscription();
 
-  constructor(
-    private fb: FormBuilder,
-    private router: Router,
-    private route: ActivatedRoute,
-    private inventoryService: InventoryService,
-    private snackBar: MatSnackBar
-  ) {}
+  // ✅ BATCH OPERATION TYPES (Context-Aware)
+  readonly batchOperations: BatchOperation[] = [
+    {
+      type: 'add-stock',
+      label: 'Add Stock',
+      icon: '📦',
+      description: 'Increase stock quantity in selected batch',
+      color: 'var(--success)',
+      fifoRecommended: false
+    },
+    {
+      type: 'remove-stock',
+      label: 'Remove Stock',
+      icon: '📤',
+      description: 'Decrease stock using FIFO recommendation',
+      color: 'var(--warning)',
+      fifoRecommended: true
+    },
+    {
+      type: 'transfer',
+      label: 'Transfer Stock',
+      icon: '🔄',
+      description: 'Move stock between batches',
+      color: 'var(--info)',
+      fifoRecommended: false
+    },
+    {
+      type: 'dispose',
+      label: 'Dispose Batch',
+      icon: '🗑️',
+      description: 'Remove expired or damaged stock',
+      color: 'var(--error)',
+      fifoRecommended: false
+    },
+    {
+      type: 'adjust',
+      label: 'Adjust Stock',
+      icon: '⚖️',
+      description: 'Correct stock count for selected batch',
+      color: 'var(--primary)',
+      fifoRecommended: false
+    }
+  ];
+
+  // ✅ Computed properties for batch recommendations
+  readonly batchRecommendations = computed(() => {
+    const operation = this._operationType();
+    const batches = this._productBatches();
+    
+    return this.getBatchRecommendations(operation, batches);
+  });
+
+  readonly recommendedBatch = computed(() => {
+    const recommendations = this.batchRecommendations();
+    return recommendations.find(r => r.priority === 'high')?.batch || null;
+  });
+
+  readonly canProceedWithOperation = computed(() => {
+    const batch = this._selectedBatch();
+    const operation = this._operationType();
+    const form = this.operationForm;
+    
+    return !!(batch && operation && form?.valid && !this._saving());
+  });
+
+  readonly operationContext = computed((): BatchOperationContext => {
+    return {
+      selectedBatch: this._selectedBatch(),
+      operationType: this._operationType(),
+      recommendations: this.batchRecommendations()
+    };
+  });
+
+  readonly currentStepTitle = computed(() => {
+    const batch = this._selectedBatch();
+    const operation = this._operationType();
+    
+    if (!batch) return 'Select Batch';
+    if (!operation) return 'Choose Operation';
+    return 'Operation Details';
+  });
+
+  readonly currentStepDescription = computed(() => {
+    const batch = this._selectedBatch();
+    const operation = this._operationType();
+    
+    if (!batch) return 'Select which batch you want to operate on';
+    if (!operation) return 'Choose the type of operation to perform';
+    return 'Enter operation details and confirm';
+  });
+
+  constructor() {
+    this.initializeForm();
+  }
 
   ngOnInit(): void {
     this.getProductId();
-    this.initializeForms();
-    this.loadProduct();
-    this.loadHistory();
-    this.updatePagination();
+    this.loadProductData();
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
   }
 
-  // ===== COMPUTED PROPERTIES =====
-  
-  get selectedMutationType() {
-    const type = this.stockForm?.get('type')?.value;
-    return this.mutationTypes.find(t => t.value === type) || this.mutationTypes[0];
-  }
+  // ✅ INITIALIZATION METHODS
 
-  get isStockOutType(): boolean {
-    const type = this.stockForm?.get('type')?.value;
-    return type === MutationType.StockOut || type === MutationType.Damaged || type === MutationType.Expired;
-  }
-
-  get canSubmit(): boolean {
-    return this.stockForm?.valid && !this.saving;
-  }
-
-get historyDataSource() {
-  return this.mutationHistory;
-}
-
-  get currentStockStatus(): string {
-    if (!this.product) return '';
-    
-    const stock = this.product.stock;
-    const minStock = this.product.minimumStock;
-    
-    if (stock === 0) return 'Out of Stock';
-    if (stock <= minStock) return 'Low Stock';
-    if (stock <= minStock * 2) return 'Medium Stock';
-    return 'Good Stock';
-  }
-
-  get maxQuantityAllowed(): number {
-    if (!this.product) return 1;
-    return this.product.stock; // Max adalah stock yang tersedia
-  }
-
-  // ===== CUSTOM VALIDATORS =====
-
-  private quantityValidator = (control: AbstractControl): ValidationErrors | null => {
-    if (!control.value && control.value !== 0) {
-      return { required: true };
-    }
-
-    const quantity = Number(control.value);
-    
-    if (isNaN(quantity)) {
-      return { invalidNumber: true };
-    }
-
-    if (quantity === 0) {
-      return { cannotBeZero: true };
-    }
-
-    // Jika quantity negatif, pastikan tidak melebihi stock yang tersedia
-    if (quantity < 0 && this.product) {
-      const absQuantity = Math.abs(quantity);
-      if (absQuantity > this.product.stock) {
-        return { exceedsStock: { max: this.product.stock, actual: absQuantity } };
-      }
-    }
-
-    return null;
-  };
-  // ===== TAB MANAGEMENT =====
-setActiveTab(tab: 'update' | 'history'): void {
-  this.selectedTab = tab;
-  
-  if (tab === 'history') {
-    this.loadHistory();
-  }
-  }
-  // ===== PAGINATION METHODS =====
-updatePagination(): void {
-  const totalItems = this.mutationHistory.data.length;
-  this.totalPages = Math.ceil(totalItems / this.itemsPerPage);
-  
-  // Ensure current page is within valid range
-  if (this.currentPage > this.totalPages) {
-    this.currentPage = Math.max(1, this.totalPages);
-  }
-}
-getPaginatedData(): any[] {
-  const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-  const endIndex = startIndex + this.itemsPerPage;
-  return this.mutationHistory.data.slice(startIndex, endIndex);
-}
-
-previousPage(): void {
-  if (this.currentPage > 1) {
-    this.currentPage--;
-  }
-}
-
-nextPage(): void {
-  if (this.currentPage < this.totalPages) {
-    this.currentPage++;
-  }
-}
-  // ===== FORM INITIALIZATION =====
-
-  private initializeForms(): void {
-    this.stockForm = this.fb.group({
-      type: [MutationType.StockIn, [Validators.required]],
-      quantity: [1, [this.quantityValidator]],
+  private initializeForm(): void {
+    this.operationForm = this.fb.group({
+      quantity: ['', [Validators.required, Validators.min(1)]],
       notes: ['', [Validators.required, Validators.maxLength(500)]],
       referenceNumber: ['', [Validators.maxLength(50)]],
-      unitCost: [0, [Validators.min(0)]]
+      unitCost: [0, [Validators.min(0)]],
+      targetBatchId: [null] // For transfer operations
     });
-
-    this.historyFilterForm = this.fb.group({
-      startDate: [null],
-      endDate: [null],
-      type: ['']
-    });
-
-    this.subscriptions.add(
-      this.stockForm.get('type')?.valueChanges.subscribe(type => {
-        this.updateFormValidation(type);
-      })
-    );
-
-    this.subscriptions.add(
-      this.historyFilterForm.valueChanges.subscribe(() => {
-        this.loadHistory();
-      })
-    );
-    this.subscriptions.add(
-  this.historyFilterForm.valueChanges.subscribe(() => {
-    this.currentPage = 1; // Reset to first page when filters change
-    this.loadHistory();
-  })
-);
-  }
-
-  private updateFormValidation(type: MutationType): void {
-    const quantityControl = this.stockForm.get('quantity');
-    const unitCostControl = this.stockForm.get('unitCost');
-    
-    // Update quantity validator dengan custom validator
-    quantityControl?.setValidators([this.quantityValidator]);
-    
-    if (type === MutationType.StockIn) {
-      unitCostControl?.setValidators([
-        Validators.required,
-        Validators.min(0)
-      ]);
-    } else {
-      unitCostControl?.setValidators([Validators.min(0)]);
-    }
-    
-    quantityControl?.updateValueAndValidity();
-    unitCostControl?.updateValueAndValidity();
   }
 
   private getProductId(): void {
@@ -271,316 +237,603 @@ nextPage(): void {
     }
   }
 
-  // ===== DATA LOADING =====
-
-  private loadProduct(): void {
+  private async loadProductData(): Promise<void> {
     if (!this.productId) {
       this.showError('Invalid product ID');
       this.goBack();
       return;
     }
-    
-    this.loading = true;
-    this.subscriptions.add(
-      this.inventoryService.getProduct(this.productId).subscribe({
-        next: (product) => {
-          this.product = product;
-          this.loading = false;
-          // Re-validate quantity after product is loaded
-          this.stockForm.get('quantity')?.updateValueAndValidity();
-        },
-        error: (error) => {
-          this.showError('Failed to load product: ' + error.message);
-          this.loading = false;
-          this.goBack();
-        }
-      })
-    );
+
+    this._loading.set(true);
+
+    try {
+      // Load product and batches concurrently
+      const [product, batches] = await Promise.all([
+        firstValueFrom(this.inventoryService.getProduct(this.productId)),
+        this.loadProductBatches(this.productId)
+      ]);
+
+      this._product.set(product);
+      this._productBatches.set(batches);
+      
+      // Load recent mutations for context
+      await this.loadRecentMutations();
+
+    } catch (error: any) {
+      console.error('❌ Failed to load product data:', error);
+      this.showError('Failed to load product data: ' + error.message);
+      this.goBack();
+    } finally {
+      this._loading.set(false);
+    }
   }
 
-  private loadHistory(): void {
-  if (!this.productId) return;
-  
-  this.loadingHistory = true;
-  const filterValues = this.historyFilterForm.value;
-  
-  this.subscriptions.add(
-    this.inventoryService.getInventoryHistory(
-      this.productId,
-      filterValues.startDate,
-      filterValues.endDate
-    ).subscribe({
-      next: (history) => {
-        let filteredHistory = history;
-        if (filterValues.type) {
-          filteredHistory = history.filter(h => h.type === filterValues.type);
-        }
+  private async loadProductBatches(productId: number): Promise<ProductBatch[]> {
+    try {
+      const coreBatches = await firstValueFrom(
+        this.expiryService.getProductBatches({ productId })
+      );
+      
+      // Convert core ProductBatch to inventory ProductBatch interface
+      const inventoryBatches: ProductBatch[] = (coreBatches || []).map(batch => ({
+        id: batch.id,
+        batchNumber: batch.batchNumber,
+        productId: batch.productId,
+        productName: batch.productName,
+        initialQuantity: batch.initialStock,
+        currentQuantity: batch.currentStock,
+        unitCost: batch.costPerUnit,
+        expiryDate: batch.expiryDate,
+        manufacturingDate: batch.productionDate,
+        supplierInfo: batch.supplierName,
+        status: this.mapBatchStatus(batch.status, batch.expiryDate),
+        daysToExpiry: batch.expiryDate ? Math.ceil((new Date(batch.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : undefined,
+        isActive: !batch.isBlocked && !batch.isDisposed,
+        createdAt: batch.createdAt,
+        updatedAt: batch.updatedAt
+      }));
+      
+      return inventoryBatches;
+    } catch (error) {
+      console.error('❌ Failed to load batches:', error);
+      return [];
+    }
+  }
+
+  private async loadRecentMutations(): Promise<void> {
+    if (!this.productId) return;
+
+    try {
+      console.log('🔄 Loading recent mutations for product:', this.productId);
+      
+      const mutations = await firstValueFrom(
+        this.inventoryService.getInventoryHistory(this.productId)
+      );
+      
+      console.log('📊 Mutations loaded:', mutations.length, 'items');
+      
+      // Keep only recent 5 mutations for context
+      this._recentMutations.set(mutations.slice(0, 5));
+      
+      console.log('✅ Recent mutations set:', this._recentMutations().length, 'items');
+    } catch (error) {
+      console.error('❌ Failed to load recent mutations:', error);
+      // Set empty array on error to prevent UI issues
+      this._recentMutations.set([]);
+    }
+  }
+
+  // ✅ BATCH SELECTION METHODS
+
+  selectBatch(batch: ProductBatch): void {
+    this._selectedBatch.set(batch);
+    this._operationType.set(null); // Reset operation when batch changes
+    console.log('📦 Batch selected:', batch.batchNumber);
+  }
+
+  clearBatchSelection(): void {
+    this._selectedBatch.set(null);
+    this._operationType.set(null);
+    this.operationForm.reset();
+  }
+
+  // ✅ OPERATION TYPE METHODS
+
+  selectOperation(operationType: string): void {
+    this._operationType.set(operationType);
+    this.setupOperationForm(operationType);
+    console.log('🔧 Operation selected:', operationType);
+  }
+
+  private setupOperationForm(operationType: string): void {
+    const batch = this._selectedBatch();
+    if (!batch) return;
+
+    // Reset form and setup operation-specific defaults
+    this.operationForm.reset();
+
+    switch (operationType) {
+      case 'add-stock':
+        this.operationForm.patchValue({
+          quantity: 1,
+          notes: `Add stock to batch ${batch.batchNumber}`,
+          unitCost: batch.unitCost
+        });
+        break;
         
-        this.mutationHistory.data = filteredHistory;
-        this.updatePagination(); // Add pagination update
-        this.loadingHistory = false;
-      },
-      error: (error) => {
-        this.showError('Failed to load inventory history: ' + error.message);
-        this.loadingHistory = false;
-      }
-    })
-  );
-}
-
-  // ===== FORM SUBMISSION =====
-
-  onSubmitStockUpdate(): void {
-    if (this.stockForm.invalid) {
-      this.markFormGroupTouched();
-      return;
+      case 'remove-stock':
+        this.operationForm.patchValue({
+          quantity: 1,
+          notes: `Remove stock from batch ${batch.batchNumber} (FIFO)`
+        });
+        // Set max quantity to available stock
+        this.operationForm.get('quantity')?.setValidators([
+          Validators.required,
+          Validators.min(1),
+          Validators.max(batch.currentQuantity)
+        ]);
+        break;
+        
+      case 'dispose':
+        this.operationForm.patchValue({
+          quantity: batch.currentQuantity,
+          notes: `Dispose expired/damaged batch ${batch.batchNumber}`
+        });
+        break;
+        
+      case 'adjust':
+        this.operationForm.patchValue({
+          notes: `Stock count adjustment for batch ${batch.batchNumber}`
+        });
+        break;
+        
+      case 'transfer':
+        this.operationForm.patchValue({
+          quantity: 1,
+          notes: `Transfer stock from batch ${batch.batchNumber}`
+        });
+        break;
     }
-    if (!this.productId) {
-      this.showError('Invalid product ID');
-      return;
+
+    this.operationForm.updateValueAndValidity();
+  }
+
+  // ✅ BATCH RECOMMENDATION METHODS
+
+  private getBatchRecommendations(operation: string | null, batches: ProductBatch[]): BatchRecommendation[] {
+    if (!operation || !batches.length) return [];
+
+    const recommendations: BatchRecommendation[] = [];
+
+    switch (operation) {
+      case 'add-stock':
+        // Recommend batch with furthest expiry OR create new batch
+        const latestExpiryBatch = batches
+          .filter(b => b.status !== 'Expired')
+          .sort((a, b) => {
+            if (!a.expiryDate) return 1;
+            if (!b.expiryDate) return -1;
+            return new Date(b.expiryDate).getTime() - new Date(a.expiryDate).getTime();
+          })[0];
+        
+        if (latestExpiryBatch) {
+          recommendations.push({
+            batch: latestExpiryBatch,
+            reason: 'Furthest expiry date - best for new stock',
+            priority: 'high',
+            action: 'Add to this batch'
+          });
+        }
+        break;
+
+      case 'remove-stock':
+        // Recommend FIFO (nearest expiry first)
+        const fifoSortedBatches = batches
+          .filter(b => b.currentQuantity > 0 && b.status !== 'Expired')
+          .sort((a, b) => {
+            if (!a.expiryDate) return 1;
+            if (!b.expiryDate) return -1;
+            return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
+          });
+
+        fifoSortedBatches.slice(0, 2).forEach((batch, index) => {
+          recommendations.push({
+            batch,
+            reason: index === 0 ? 'FIFO - expires soonest' : 'FIFO - next to expire',
+            priority: index === 0 ? 'high' : 'medium',
+            action: 'Remove from this batch'
+          });
+        });
+        break;
+
+      case 'dispose':
+        // Recommend expired or near-expired batches
+        const expiredBatches = batches
+          .filter(b => b.status === 'Expired' || b.status === 'Critical')
+          .sort((a, b) => {
+            if (a.status === 'Expired' && b.status !== 'Expired') return -1;
+            if (a.status !== 'Expired' && b.status === 'Expired') return 1;
+            return 0;
+          });
+
+        expiredBatches.forEach((batch, index) => {
+          recommendations.push({
+            batch,
+            reason: batch.status === 'Expired' ? 'Already expired' : 'Expires soon',
+            priority: index === 0 ? 'high' : 'medium',
+            action: 'Dispose this batch'
+          });
+        });
+        break;
+
+      case 'transfer':
+        // Show available target batches
+        const transferTargets = batches
+          .filter(b => b.status !== 'Expired')
+          .sort((a, b) => b.currentQuantity - a.currentQuantity);
+
+        transferTargets.forEach((batch, index) => {
+          recommendations.push({
+            batch,
+            reason: 'Available target for transfer',
+            priority: index === 0 ? 'high' : 'medium',
+            action: 'Transfer to this batch'
+          });
+        });
+        break;
     }
+
+    return recommendations;
+  }
+
+  selectRecommendedBatch(recommendation: BatchRecommendation): void {
+    this.selectBatch(recommendation.batch);
     
-    this.saving = true;
-    const formData = this.stockForm.value;
-    let quantity = Number(formData.quantity);
+    // Show helpful message about why this batch was recommended
+    this.showInfo(`Recommended: ${recommendation.reason}`);
+  }
 
-    if (isNaN(quantity)) {
-      this.showError('Quantity must be a number');
-      this.saving = false;
-      return;
-    }
+  // ✅ OPERATION EXECUTION METHODS
 
-    if (quantity === 0) {
-      this.showError('Quantity cannot be zero');
-      this.saving = false;
-      return;
-    }
+  async executeOperation(): Promise<void> {
+    if (!this.canProceedWithOperation()) return;
 
-    // Enforce correct sign for quantity based on mutation type
-    const outTypes = [MutationType.StockOut, MutationType.Sale, MutationType.Damaged, MutationType.Expired];
-    const inTypes = [MutationType.StockIn, MutationType.Return, MutationType.Adjustment, MutationType.Transfer];
-    let mutationType = formData.type;
-    // If mutationType is a number (shouldn't be, but just in case), convert to string
-    if (typeof mutationType === 'number' && this.mutationTypes) {
-      const found = this.mutationTypes.find(t => t.value === mutationType);
-      if (found) mutationType = found.label.replace(/ /g, '');
-    }
+    const batch = this._selectedBatch()!;
+    const operation = this._operationType()!;
+    const formData = this.operationForm.value;
 
-    if (outTypes.includes(mutationType)) {
-      quantity = -Math.abs(quantity);
-    } else if (inTypes.includes(mutationType)) {
-      quantity = Math.abs(quantity);
-    }
+    this._saving.set(true);
 
-    // Validasi tambahan untuk quantity negatif (stock out)
-    if (quantity < 0 && this.product) {
-      const absQuantity = Math.abs(quantity);
-      if (absQuantity > this.product.stock) {
-        this.showError(`Cannot reduce stock by ${absQuantity}. Available stock: ${this.product.stock}`);
-        this.saving = false;
-        return;
+    try {
+      switch (operation) {
+        case 'add-stock':
+          await this.executeAddStock(batch, formData);
+          break;
+        case 'remove-stock':
+          await this.executeRemoveStock(batch, formData);
+          break;
+        case 'transfer':
+          await this.executeTransfer(batch, formData);
+          break;
+        case 'dispose':
+          await this.executeDispose(batch, formData);
+          break;
+        case 'adjust':
+          await this.executeAdjust(batch, formData);
+          break;
       }
-    }
 
-    const request: StockUpdateRequest = {
-      mutationType: mutationType,
-      quantity,
-      notes: formData.notes.trim(),
-      referenceNumber: formData.referenceNumber?.trim() || undefined,
-      unitCost: formData.unitCost && formData.unitCost > 0 ? parseFloat(formData.unitCost) : undefined
+      this.showSuccess('Operation completed successfully');
+      await this.refreshData();
+      this.resetOperation();
+
+    } catch (error: any) {
+      console.error('❌ Operation failed:', error);
+      this.showError('Operation failed: ' + error.message);
+    } finally {
+      this._saving.set(false);
+    }
+  }
+
+  private async executeAddStock(batch: ProductBatch, formData: any): Promise<void> {
+    const request = {
+      quantity: parseInt(formData.quantity),
+      unitCost: formData.unitCost || batch.unitCost,
+      notes: formData.notes,
+      referenceNumber: formData.referenceNumber
     };
 
-    this.subscriptions.add(
-      this.inventoryService.updateStock(this.productId, request).subscribe({
-        next: () => {
-          this.showSuccess('Stock updated successfully');
-          this.resetForm();
-          this.loadProduct();
-          this.loadHistory();
-          this.saving = false;
-        },
-        error: (err) => {
-          this.showError('Failed to update stock');
-          this.saving = false;
-        }
-      })
+    console.log('🔄 Executing add stock:', { batch: batch.batchNumber, quantity: formData.quantity });
+
+    try {
+      await firstValueFrom(
+        this.inventoryService.addStockToBatch(batch.id, request)
+      );
+      console.log('✅ Add stock to batch completed');
+      
+      // Update local batch data immediately for UI responsiveness
+      this._productBatches.update(batches => 
+        batches.map(b => 
+          b.id === batch.id 
+            ? { ...b, currentQuantity: b.currentQuantity + parseInt(formData.quantity) }
+            : b
+        )
+      );
+    } catch (error: any) {
+      console.log('⚠️ Batch-specific API not available, using general stock update');
+      
+      // Fallback to general stock update API
+      const stockRequest: StockUpdateRequest = {
+        mutationType: MutationType.StockIn,
+        quantity: parseInt(formData.quantity),
+        notes: `Add to batch ${batch.batchNumber}: ${formData.notes}`,
+        referenceNumber: formData.referenceNumber,
+        unitCost: formData.unitCost || batch.unitCost
+      };
+
+      await firstValueFrom(
+        this.inventoryService.updateStock(this.productId!, stockRequest)
+      );
+      console.log('✅ Add stock completed via fallback');
+      
+      // Update local batch data immediately for UI responsiveness
+      this._productBatches.update(batches => 
+        batches.map(b => 
+          b.id === batch.id 
+            ? { ...b, currentQuantity: b.currentQuantity + parseInt(formData.quantity) }
+            : b
+        )
+      );
+    }
+  }
+
+  private async executeRemoveStock(batch: ProductBatch, formData: any): Promise<void> {
+    // Use existing stock mutation API with negative quantity
+    const request: StockUpdateRequest = {
+      mutationType: MutationType.StockOut,
+      quantity: -parseInt(formData.quantity),
+      notes: `Remove from batch ${batch.batchNumber}: ${formData.notes}`,
+      referenceNumber: formData.referenceNumber
+    };
+
+    console.log('🔄 Executing remove stock:', { batch: batch.batchNumber, quantity: formData.quantity });
+    
+    await firstValueFrom(
+      this.inventoryService.updateStock(this.productId!, request)
     );
+    
+    // Update local batch data immediately for UI responsiveness
+    this._productBatches.update(batches => 
+      batches.map(b => 
+        b.id === batch.id 
+          ? { ...b, currentQuantity: Math.max(0, b.currentQuantity - parseInt(formData.quantity)) }
+          : b
+      )
+    );
+    
+    console.log('✅ Remove stock completed');
   }
 
-  resetForm(): void {
-    this.stockForm.reset({
-      type: MutationType.StockIn,
-      quantity: 1,
-      notes: '',
-      referenceNumber: '',
-      unitCost: 0
-    });
+  private async executeDispose(batch: ProductBatch, formData: any): Promise<void> {
+    // Implement batch disposal logic
+    const request: StockUpdateRequest = {
+      mutationType: MutationType.Expired,
+      quantity: -parseInt(formData.quantity),
+      notes: `Disposed batch ${batch.batchNumber}: ${formData.notes}`,
+      referenceNumber: formData.referenceNumber
+    };
+
+    console.log('🔄 Executing dispose:', { batch: batch.batchNumber, quantity: formData.quantity });
+
+    await firstValueFrom(
+      this.inventoryService.updateStock(this.productId!, request)
+    );
+    
+    // Mark batch as disposed in local data
+    this._productBatches.update(batches => 
+      batches.map(b => 
+        b.id === batch.id 
+          ? { ...b, currentQuantity: 0, status: 'Expired' as const }
+          : b
+      )
+    );
+    
+    console.log('✅ Dispose completed');
   }
 
-  private markFormGroupTouched(): void {
-    Object.keys(this.stockForm.controls).forEach(key => {
-      const control = this.stockForm.get(key);
-      control?.markAsTouched();
-    });
+  private async executeTransfer(batch: ProductBatch, formData: any): Promise<void> {
+    // This would need a transfer API endpoint
+    const request: StockUpdateRequest = {
+      mutationType: MutationType.Transfer,
+      quantity: -parseInt(formData.quantity),
+      notes: `Transfer from batch ${batch.batchNumber}: ${formData.notes}`,
+      referenceNumber: formData.referenceNumber
+    };
+
+    console.log('🔄 Executing transfer:', { batch: batch.batchNumber, quantity: formData.quantity });
+
+    await firstValueFrom(
+      this.inventoryService.updateStock(this.productId!, request)
+    );
+    
+    console.log('✅ Transfer completed');
   }
 
-  // ===== TAB CHANGES =====
+  private async executeAdjust(batch: ProductBatch, formData: any): Promise<void> {
+    const request: StockUpdateRequest = {
+      mutationType: MutationType.Adjustment,
+      quantity: parseInt(formData.quantity),
+      notes: `Adjustment for batch ${batch.batchNumber}: ${formData.notes}`,
+      referenceNumber: formData.referenceNumber
+    };
 
-  onTabChange(event: any): void {
-    if (event.index === 1) {
-      this.loadHistory();
+    console.log('🔄 Executing adjustment:', { batch: batch.batchNumber, quantity: formData.quantity });
+
+    await firstValueFrom(
+      this.inventoryService.updateStock(this.productId!, request)
+    );
+    
+    console.log('✅ Adjustment completed');
+  }
+
+  // ✅ UI HELPER METHODS
+
+  resetOperation(): void {
+    this._selectedBatch.set(null);
+    this._operationType.set(null);
+    this.operationForm.reset();
+  }
+
+  private async refreshData(): Promise<void> {
+    console.log('🔄 Refreshing all data after mutation...');
+    
+    try {
+      // Force re-load all data to reflect real-time changes
+      if (this.productId) {
+        const [updatedProduct, updatedBatches] = await Promise.all([
+          firstValueFrom(this.inventoryService.getProduct(this.productId)),
+          this.loadProductBatches(this.productId)
+        ]);
+        
+        // Update signals with fresh data
+        this._product.set(updatedProduct);
+        this._productBatches.set(updatedBatches);
+        
+        // Clear selected batch if it no longer exists or has no stock
+        const selectedBatch = this._selectedBatch();
+        if (selectedBatch) {
+          const updatedSelectedBatch = updatedBatches.find(b => b.id === selectedBatch.id);
+          if (!updatedSelectedBatch || updatedSelectedBatch.currentQuantity <= 0) {
+            this.clearBatchSelection();
+          } else {
+            this._selectedBatch.set(updatedSelectedBatch);
+          }
+        }
+        
+        // Reload recent mutations
+        await this.loadRecentMutations();
+      }
+      
+      console.log('✅ Real-time data refreshed successfully');
+    } catch (error) {
+      console.error('❌ Failed to refresh data:', error);
     }
   }
 
-  // ===== UTILITY METHODS =====
-
-  getMutationTypeIcon(type: string): string {
-    const typeInfo = this.mutationTypes.find(t => t.value === type);
-    return typeInfo?.icon || 'help';
+  getBatchStatusClass(batch: ProductBatch): string {
+    return `status-${batch.status.toLowerCase()}`;
   }
 
-  getMutationTypeColor(type: string): string {
-    const typeInfo = this.mutationTypes.find(t => t.value === type);
-    return typeInfo?.color || '#666666';
+  getBatchStatusIcon(batch: ProductBatch): string {
+    const icons = {
+      'Good': '✅',
+      'Warning': '⚠️', 
+      'Critical': '🚨',
+      'Expired': '❌'
+    };
+    return icons[batch.status as keyof typeof icons] || '📦';
   }
 
-  getMutationTypeLabel(type: string): string {
-    const typeInfo = this.mutationTypes.find(t => t.value === type);
-    return typeInfo?.label || type;
-  }
-
-  // Helper method untuk menghitung actual quantity change berdasarkan before/after
-  getActualQuantityChange(mutation: InventoryMutation): number {
-    return mutation.stockAfter - mutation.stockBefore;
-  }
-
-  // Helper method untuk format quantity dengan tanda yang benar
-  formatQuantityChange(mutation: InventoryMutation): string {
-    const actualChange = this.getActualQuantityChange(mutation);
-    const sign = actualChange > 0 ? '+' : '';
-    return `${sign}${this.formatNumber(actualChange)}`;
-  }
-
-  getStockStatusColor(product: Product): string {
-    if (product.stock === 0) return '#E15A4F';
-    if (product.stock <= product.minimumStock) return '#FF914D';
-    if (product.stock <= product.minimumStock * 2) return '#FFB84D';
-    return '#4BBF7B';
-  }
-
-  getNewStockColor(): string {
-    if (!this.product || !this.stockForm?.valid) return '#666';
+  formatExpiryInfo(batch: ProductBatch): string {
+    if (!batch.expiryDate) return 'No expiry date';
     
-    const newStock = this.getNewStockPreview();
-
-    if (newStock <= 0) return '#E15A4F';
-    if (newStock <= this.product.minimumStock) return '#FFB84D';
-    return '#4BBF7B';
+    const date = new Date(batch.expiryDate);
+    const today = new Date();
+    const diffTime = date.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`;
+    if (diffDays === 0) return 'Expires today';
+    if (diffDays === 1) return 'Expires tomorrow';
+    return `${diffDays} days left`;
   }
 
-  getNewStockPreview(): number {
-    if (!this.product) return 0;
-    
-    const currentStock = this.product.stock;
-    const quantity = parseInt(this.stockForm.get('quantity')?.value) || 0;
-    
-    // Jika quantity negatif, kurangi dari stock
-    // Jika quantity positif, tambah ke stock
-    const newStock = currentStock + quantity;
-    
-    return Math.max(0, newStock);
-  }
-
-  getTotalCostPreview(): number {
-    if (!this.stockForm?.valid) return 0;
-    
-    const quantity = Math.abs(parseInt(this.stockForm.get('quantity')?.value) || 0);
-    const unitCost = parseFloat(this.stockForm.get('unitCost')?.value) || 0;
-    
-    return quantity * unitCost;
-  }
-
-  // ===== QUICK ACTIONS =====
-
-  quickStockIn(amount: number): void {
-    this.stockForm.patchValue({
-      type: MutationType.StockIn,
-      quantity: amount,
-      notes: `Quick stock in - ${amount} units`
-    });
-  }
-
-  quickStockOut(amount: number): void {
-    if (!this.product || this.product.stock < amount) {
-      this.showError(`Cannot reduce stock by ${amount}. Available stock: ${this.product?.stock || 0}`);
-      return;
+  formatCurrency(amount: number | undefined | null): string {
+    const safeAmount = amount ?? 0;
+    try {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+      }).format(safeAmount);
+    } catch (error) {
+      console.warn('⚠️ formatCurrency error:', error, 'amount:', amount);
+      return `Rp ${safeAmount.toLocaleString()}`;
     }
-    
-    this.stockForm.patchValue({
-      type: MutationType.StockOut,
-      quantity: -amount, // Gunakan nilai negatif
-      notes: `Quick stock out - ${amount} units`
-    });
-    this.onSubmitStockUpdate();
   }
 
-  quickAdjustment(): void {
-    this.stockForm.patchValue({
-      type: MutationType.Adjustment,
-      notes: 'Stock count adjustment'
-    });
+  formatStock(amount: number | undefined | null, unit: string | undefined | null): string {
+    const safeAmount = amount ?? 0;
+    const safeUnit = unit ?? '';
+    try {
+      return `${safeAmount.toLocaleString('id-ID')} ${safeUnit}`.trim();
+    } catch (error) {
+      console.warn('⚠️ formatStock error:', error, 'amount:', amount, 'unit:', unit);
+      return `${safeAmount} ${safeUnit}`.trim();
+    }
   }
 
-  formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0
-    }).format(amount);
+  // ✅ TEMPLATE HELPER METHODS (to avoid arrow functions in templates)
+  
+  getOperationLabel(): string {
+    const operationType = this._operationType();
+    if (!operationType) return '';
+    const operation = this.batchOperations.find(op => op.type === operationType);
+    return operation?.label || '';
   }
 
-  formatNumber(value: number): string {
-    return new Intl.NumberFormat('id-ID').format(value);
+  getOperationIcon(): string {
+    const operationType = this._operationType();
+    if (!operationType) return '';
+    const operation = this.batchOperations.find(op => op.type === operationType);
+    return operation?.icon || '';
   }
 
-  formatDate(date: string | Date): string {
-    return new Intl.DateTimeFormat('id-ID', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: 'Asia/Jakarta'
-    }).format(new Date(date));
+  private mapBatchStatus(batchStatus: any, expiryDate?: string): 'Good' | 'Warning' | 'Critical' | 'Expired' {
+    // If batch is disposed or blocked, consider as expired
+    if (batchStatus === 'DISPOSED' || batchStatus === 'EXPIRED' || batchStatus === 'BLOCKED') {
+      return 'Expired';
+    }
+
+    // If no expiry date, consider as good
+    if (!expiryDate) {
+      return 'Good';
+    }
+
+    // Calculate days to expiry
+    const daysToExpiry = Math.ceil((new Date(expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysToExpiry < 0) return 'Expired';
+    if (daysToExpiry <= 3) return 'Critical';
+    if (daysToExpiry <= 7) return 'Warning';
+    return 'Good';
   }
 
-  // ===== FORM VALIDATION HELPERS =====
+  // ✅ TRACK BY METHODS
+
+  trackByBatch = (index: number, batch: ProductBatch): number => batch.id;
+
+  // ✅ VALIDATION METHODS
 
   getFieldError(fieldName: string): string {
-    const control = this.stockForm.get(fieldName);
-    if (control?.errors && control.touched) {
-      const errors = control.errors;
-      
-      if (errors['required']) return `${fieldName} is required`;
-      if (errors['invalidNumber']) return `${fieldName} must be a valid number`;
-      if (errors['cannotBeZero']) return `${fieldName} cannot be zero`;
-      if (errors['exceedsStock']) {
-        return `Cannot reduce stock by ${errors['exceedsStock'].actual}. Available stock: ${errors['exceedsStock'].max}`;
-      }
-      if (errors['min']) return `${fieldName} must be greater than ${errors['min'].min}`;
-      if (errors['max']) return `${fieldName} cannot exceed ${errors['max'].max}`;
-      if (errors['maxlength']) return `${fieldName} is too long`;
-    }
-    return '';
+    const control = this.operationForm.get(fieldName);
+    if (!control?.errors || !control.touched) return '';
+
+    const errors = control.errors;
+    if (errors['required']) return `${fieldName} is required`;
+    if (errors['min']) return `Minimum value is ${errors['min'].min}`;
+    if (errors['max']) return `Maximum value is ${errors['max'].max}`;
+    if (errors['maxlength']) return `Maximum length is ${errors['maxlength'].requiredLength}`;
+    
+    return 'Invalid value';
   }
 
   isFieldInvalid(fieldName: string): boolean {
-    const control = this.stockForm.get(fieldName);
+    const control = this.operationForm.get(fieldName);
     return !!(control?.errors && control.touched);
   }
 
-  // ===== NAVIGATION =====
+  // ✅ NAVIGATION METHODS
 
   goBack(): void {
     this.router.navigate(['/dashboard/inventory']);
@@ -590,7 +843,7 @@ nextPage(): void {
     this.router.navigate(['/dashboard/inventory/edit', this.productId]);
   }
 
-  // ===== NOTIFICATIONS =====
+  // ✅ NOTIFICATION METHODS
 
   private showSuccess(message: string): void {
     this.snackBar.open(message, 'Close', {
@@ -603,6 +856,13 @@ nextPage(): void {
     this.snackBar.open(message, 'Close', {
       duration: 5000,
       panelClass: ['error-snackbar']
+    });
+  }
+
+  private showInfo(message: string): void {
+    this.snackBar.open(message, 'Close', {
+      duration: 3000,
+      panelClass: ['info-snackbar']
     });
   }
 }

@@ -13,11 +13,13 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
 // Components
 import { TransactionSuccessModalComponent, TransactionSuccessData } from '../transaction-success-modal/transaction-success-modal.component';
+import { AddStockToBatchModalComponent, AddStockToBatchModalData, AddStockToBatchResult } from '../../inventory/components/add-stock-to-batch-modal/add-stock-to-batch-modal.component';
+import { BatchSelectionModalComponent, BatchSelectionModalData, BatchSelectionResult } from '../../inventory/components/batch-selection-modal/batch-selection-modal.component';
 
 // Services
 import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData, ProductListResponseApiResponse } from '../../../core/services/pos.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
-import { CreateProductRequest } from '../../inventory/interfaces/inventory.interfaces';
+import { CreateProductRequest, BatchForPOSDto, ProductBatch } from '../../inventory/interfaces/inventory.interfaces';
 import { AuthService } from '../../../core/services/auth.service';
 import { MembershipService } from '../../membership/services/membership.service';
 import { MemberDto } from '../../membership/interfaces/membership.interfaces';
@@ -118,6 +120,13 @@ export class POSComponent implements OnInit, OnDestroy {
   selectedFilter = signal<'all' | 'category' | 'discount' | 'hot'>('all');
   selectedCategoryId = signal<number | null>(null);
   showClearCartModal = signal(false);
+  
+  // ✅ NEW: Batch selection state
+  showBatchSelection = signal(false);
+  selectedProductForBatch = signal<Product | null>(null);
+  requestedQuantity = signal(1);
+  availableBatches = signal<BatchForPOSDto[]>([]);
+  selectedBatches = signal<{ batch: BatchForPOSDto, quantity: number }[]>([]);
   
   // SIGNALS: Infinite scrolling and pagination
   isLoadingMore = signal(false);
@@ -503,7 +512,13 @@ clearSearch(): void {
   addToCart(product: Product, quantity: number = 1): void {
     console.log('🛒 Adding to cart:', product.name, 'quantity:', quantity);
     
-    // Check stock availability
+    // ✅ ENHANCED: Check if product supports batch management
+    if (this.supportsBatchManagement(product)) {
+      this.openBatchSelection(product, quantity);
+      return;
+    }
+    
+    // Regular stock check for non-batch products
     if (product.stock < quantity) {
       this.errorMessage.set(`Stok tidak mencukupi. Tersedia: ${product.stock}`);
       this.clearMessages();
@@ -1667,5 +1682,211 @@ focusMemberSearch(): void {
 
   printReceipt(saleId: number) {
     this.router.navigate(['/dashboard/pos/receipt', saleId]);
+  }
+
+  // ===== NEW: BATCH MANAGEMENT METHODS =====
+
+  /**
+   * Check if product supports batch management
+   */
+  supportsBatchManagement(product: Product): boolean {
+    // Check if product has expiry tracking or batch information
+    return !!(product as any).expiryDate || !!(product as any).batchNumber;
+  }
+
+  /**
+   * Open batch selection modal for a product
+   */
+  async openBatchSelection(product: Product, quantity: number = 1): Promise<void> {
+    this.selectedProductForBatch.set(product);
+    this.requestedQuantity.set(quantity);
+
+    const modalData: BatchSelectionModalData = {
+      productId: product.id,
+      productName: product.name,
+      requestedQuantity: quantity,
+      sellPrice: product.sellPrice,
+      unit: (product as any).unit || 'units'
+    };
+
+    console.log('🎯 Opening batch selection modal:', modalData);
+
+    const dialogRef = this.dialog.open(BatchSelectionModalComponent, {
+      width: '800px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+      data: modalData,
+      disableClose: true,
+      panelClass: ['batch-selection-modal']
+    });
+
+    dialogRef.afterClosed().subscribe((result: BatchSelectionResult | undefined) => {
+      if (result && result.success) {
+        console.log('✅ Batch selection completed:', result);
+        this.processBatchSelection(product, result);
+      } else {
+        console.log('❌ Batch selection cancelled or failed');
+      }
+
+      // Reset batch selection state
+      this.selectedProductForBatch.set(null);
+      this.requestedQuantity.set(1);
+    });
+  }
+
+  /**
+   * Process selected batches and add to cart
+   */
+  private processBatchSelection(product: Product, result: BatchSelectionResult): void {
+    try {
+      // For each selected batch, create a cart item with batch information
+      result.selectedBatches.forEach((batchInfo) => {
+        const batchProduct = {
+          ...product,
+          // Add batch-specific pricing
+          buyPrice: batchInfo.batch.unitCost,
+          // Keep sell price from product
+          sellPrice: product.sellPrice,
+          // Add batch metadata
+          batchId: batchInfo.batch.id,
+          batchNumber: batchInfo.batch.batchNumber,
+          expiryDate: batchInfo.batch.expiryDate ? new Date(batchInfo.batch.expiryDate) : undefined,
+          availableQuantity: batchInfo.batch.availableQuantity
+        } as Product;
+
+        // Add to cart with batch information
+        this.posService.addToCart(batchProduct, batchInfo.quantitySelected, 0);
+      });
+
+      // Update cart display
+      this.posService.cart$.pipe(take(1)).subscribe(cart => {
+        this.cart.set([...cart]);
+        console.log('✅ Cart updated with batch selections:', this.cart().length, 'items');
+      });
+
+      // Show success message
+      const totalQuantity = result.totalQuantity;
+      const batchCount = result.selectedBatches.length;
+      this.successMessage.set(
+        `${product.name}: ${totalQuantity} units from ${batchCount} batch${batchCount > 1 ? 'es' : ''} added to cart`
+      );
+      this.clearMessages();
+
+    } catch (error: any) {
+      console.error('❌ Error processing batch selection:', error);
+      this.errorMessage.set('Failed to add selected batches to cart');
+      this.clearMessages();
+    }
+  }
+
+  /**
+   * Get batch information for cart display
+   */
+  getBatchInfo(cartItem: CartItem): string {
+    const product = cartItem.product as any;
+    if (product.batchNumber) {
+      const parts = [product.batchNumber];
+      
+      if (product.expiryDate) {
+        const expiryDate = new Date(product.expiryDate);
+        const daysToExpiry = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysToExpiry < 0) {
+          parts.push(`Expired ${Math.abs(daysToExpiry)} days ago`);
+        } else if (daysToExpiry === 0) {
+          parts.push('Expires today');
+        } else if (daysToExpiry === 1) {
+          parts.push('Expires tomorrow');
+        } else {
+          parts.push(`${daysToExpiry} days left`);
+        }
+      }
+      
+      return parts.join(' • ');
+    }
+    
+    return '';
+  }
+
+  /**
+   * Get batch status color for cart display
+   */
+  getBatchStatusColor(cartItem: CartItem): string {
+    const product = cartItem.product as any;
+    if (product.expiryDate) {
+      const expiryDate = new Date(product.expiryDate);
+      const daysToExpiry = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysToExpiry < 0) return '#E15A4F'; // Red - Expired
+      if (daysToExpiry <= 3) return '#FF914D'; // Orange - Critical
+      if (daysToExpiry <= 7) return '#FFB84D'; // Yellow - Warning
+      return '#4BBF7B'; // Green - Good
+    }
+    
+    return '#666666'; // Gray - No batch info
+  }
+
+  /**
+   * Check if cart item has batch information
+   */
+  hasBatchInfo(cartItem: CartItem): boolean {
+    return !!(cartItem.product as any).batchNumber;
+  }
+
+  /**
+   * Format batch expiry status
+   */
+  formatBatchExpiryStatus(cartItem: CartItem): string {
+    const product = cartItem.product as any;
+    if (product.expiryDate) {
+      const expiryDate = new Date(product.expiryDate);
+      const daysToExpiry = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysToExpiry < 0) return 'expired';
+      if (daysToExpiry <= 3) return 'critical';
+      if (daysToExpiry <= 7) return 'warning';
+      return 'good';
+    }
+    
+    return 'unknown';
+  }
+
+  /**
+   * Show batch details in a quick view
+   */
+  showBatchDetails(cartItem: CartItem): void {
+    const product = cartItem.product as any;
+    if (product.batchNumber) {
+      const batchInfo = this.getBatchInfo(cartItem);
+      alert(`Batch Details:\n\n${batchInfo}\n\nUnit Cost: ${this.formatCurrency(product.buyPrice || 0)}\nSell Price: ${this.formatCurrency(product.sellPrice)}`);
+    }
+  }
+
+  /**
+   * Check if a product with batch tracking has available stock
+   */
+  hasAvailableBatches(product: Product): boolean {
+    // This would typically check the available batches from the server
+    // For now, we'll use the stock information
+    return product.stock > 0;
+  }
+
+  /**
+   * Get batch availability message
+   */
+  getBatchAvailabilityMessage(product: Product): string {
+    if (!this.supportsBatchManagement(product)) {
+      return `${product.stock} units available`;
+    }
+    
+    if (product.stock === 0) {
+      return 'No batches available';
+    }
+    
+    if (product.stock === 1) {
+      return '1 unit available (batch managed)';
+    }
+    
+    return `${product.stock} units available (batch managed)`;
   }
 }

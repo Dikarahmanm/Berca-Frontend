@@ -106,6 +106,23 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   // ✅ NEW: Batch management modal signals
   batchModalActive = signal(false);
   
+  // ===== NEW: Enhanced Batch Detection & Registration Flow =====
+  scannedBarcodeForRegistration = signal<string>('');
+  isNewProduct = signal(true);
+  existingProductForBatch = signal<Product | null>(null);
+  
+  // ===== NEW: Multi-step registration flow =====
+  registrationStep = signal<'scan' | 'product' | 'batch' | 'complete'>('product'); // Default to product for existing flow
+  
+  // ===== NEW: Existing batch management =====
+  availableExistingBatches = signal<ProductBatch[]>([]);
+  selectedExistingBatch = signal<ProductBatch | null>(null);
+  addToExistingBatch = signal(false);
+  
+  // ===== NEW: Enhanced barcode detection =====
+  barcodeCheckLoading = signal(false);
+  barcodeCheckError = signal<string | null>(null);
+  
   // Computed properties for better UX
   pageTitle = computed(() => this.isEdit() ? 'Edit Product' : 'Add New Product');
   pageSubtitle = computed(() => {
@@ -1124,6 +1141,250 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     if (!batchNumber?.trim()) return 'Nomor batch belum diatur';
     
     return 'Informasi batch lengkap';
+  }
+
+  // ===== NEW: ENHANCED BARCODE DETECTION & MULTI-STEP REGISTRATION =====
+
+  /**
+   * Enhanced barcode detection for registration flow
+   */
+  async checkProductByBarcode(barcode: string): Promise<void> {
+    if (!barcode?.trim()) {
+      this.showError('Silakan masukkan barcode produk');
+      return;
+    }
+
+    console.log('🔍 Checking product existence for barcode:', barcode);
+    this.barcodeCheckLoading.set(true);
+    this.barcodeCheckError.set(null);
+
+    try {
+      // Use HEAD request or check product existence endpoint
+      const existingProduct = await firstValueFrom(
+        this.inventoryService.getProductByBarcode(barcode.trim())
+      );
+
+      if (existingProduct) {
+        // Existing product - show add batch flow
+        console.log('📦 Existing product found:', existingProduct.name);
+        this.isNewProduct.set(false);
+        this.existingProductForBatch.set(existingProduct);
+        this.scannedBarcodeForRegistration.set(barcode.trim());
+        
+        // Pre-populate some form data from existing product
+        this.productForm.patchValue({
+          name: existingProduct.name,
+          barcode: existingProduct.barcode,
+          categoryId: existingProduct.categoryId,
+          unit: existingProduct.unit,
+          buyPrice: existingProduct.buyPrice,
+          sellPrice: existingProduct.sellPrice
+        });
+
+        // Load existing batches for this product
+        await this.loadExistingBatchesForProduct(existingProduct.id);
+        
+        // Check if product category requires expiry
+        if (existingProduct.categoryId) {
+          await this.onCategoryChange(existingProduct.categoryId);
+        }
+
+        // Move to batch step if category requires expiry
+        if (this.categoryRequiresExpiry()) {
+          this.registrationStep.set('batch');
+          this.showInfo(`Produk "${existingProduct.name}" ditemukan. Tambah batch baru untuk produk ini.`);
+        } else {
+          this.registrationStep.set('product'); // Stay in product form for simple stock addition
+          this.showInfo(`Produk "${existingProduct.name}" ditemukan. Tambah stock ke produk ini.`);
+        }
+      } else {
+        // New product - show create flow  
+        console.log('✨ New product detected for barcode:', barcode);
+        this.isNewProduct.set(true);
+        this.existingProductForBatch.set(null);
+        this.registrationStep.set('product');
+        this.scannedBarcodeForRegistration.set(barcode.trim());
+        
+        // Pre-fill barcode in form
+        this.productForm.patchValue({ 
+          barcode: barcode.trim(),
+          stock: 0, // Start with 0, will be set in batch or later
+          minimumStock: 5
+        });
+        
+        this.showInfo('Produk baru terdeteksi. Silakan lengkapi informasi produk.');
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error checking product:', error);
+      
+      // If API call fails, assume it's a new product
+      console.log('🔄 API check failed, assuming new product');
+      this.isNewProduct.set(true);
+      this.existingProductForBatch.set(null);
+      this.registrationStep.set('product');
+      this.scannedBarcodeForRegistration.set(barcode.trim());
+      
+      this.productForm.patchValue({ 
+        barcode: barcode.trim(),
+        stock: 0,
+        minimumStock: 5
+      });
+      
+      this.showInfo('Sistem mendeteksi ini sebagai produk baru. Silakan lengkapi informasi produk.');
+    } finally {
+      this.barcodeCheckLoading.set(false);
+    }
+  }
+
+  /**
+   * Load existing batches for a product
+   */
+  private async loadExistingBatchesForProduct(productId: number): Promise<void> {
+    try {
+      console.log('📦 Loading existing batches for product:', productId);
+      const batches = await firstValueFrom(
+        this.expiryService.getProductBatches({ productId })
+      );
+      
+      this.availableExistingBatches.set(batches || []);
+      console.log('✅ Loaded existing batches:', batches?.length || 0);
+    } catch (error) {
+      console.error('❌ Error loading existing batches:', error);
+      this.availableExistingBatches.set([]);
+      this.showError('Gagal memuat data batch yang ada. Lanjutkan dengan membuat batch baru.');
+    }
+  }
+
+  /**
+   * Enhanced batch creation for existing products
+   */
+  async createBatchForExistingProduct(): Promise<void> {
+    const product = this.existingProductForBatch();
+    if (!product) {
+      this.showError('Data produk tidak ditemukan');
+      return;
+    }
+
+    console.log('📦 Creating batch for existing product:', product.name);
+
+    // Validate batch form
+    if (!this.isBatchFormValid()) {
+      this.showError('Silakan lengkapi informasi batch yang diperlukan');
+      return;
+    }
+
+    this.saving.set(true);
+
+    try {
+      const formData = this.productForm.value;
+      
+      const batchData: CreateProductBatch = {
+        productId: product.id,
+        batchNumber: formData.batchNumber || await this.generateBatchNumberForProduct(product.id),
+        expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : undefined,
+        productionDate: formData.productionDate ? new Date(formData.productionDate).toISOString() : undefined,
+        initialStock: parseInt(formData.stock) || 0,
+        costPerUnit: parseFloat(formData.buyPrice) || 0,
+        supplierName: formData.supplierName || '',
+        purchaseOrderNumber: formData.purchaseOrderNumber || '',
+        notes: formData.batchNotes || ''
+      };
+
+      console.log('📤 Creating batch with data:', batchData);
+
+      const response = await firstValueFrom(this.expiryService.createProductBatch(batchData));
+      
+      if (response.success) {
+        this.showSuccess(`Batch berhasil ditambahkan ke produk "${product.name}"`);
+        this.registrationStep.set('complete');
+        
+        // Navigate back to inventory after a brief delay
+        setTimeout(() => {
+          this.router.navigate(['/dashboard/inventory']);
+        }, 2000);
+      } else {
+        throw new Error(response.message || 'Gagal membuat batch');
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error creating batch:', error);
+      this.showError('Gagal membuat batch: ' + (error.message || 'Terjadi kesalahan'));
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  /**
+   * Auto batch number generation for product
+   */
+  private async generateBatchNumberForProduct(productId: number): Promise<string> {
+    try {
+      // Try to use API endpoint if available
+      const response = await firstValueFrom(
+        this.inventoryService.generateBatchNumber(productId)
+      );
+      return response.batchNumber;
+    } catch (error) {
+      // Fallback to local generation
+      console.log('🔄 Using fallback batch number generation');
+      const existingBatches = this.availableExistingBatches();
+      const sequence = existingBatches.length + 1;
+      const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      
+      const product = this.existingProductForBatch();
+      const productCode = product ? 
+        product.name.substring(0, 3).toUpperCase() : 'PRD';
+      
+      return `${productCode}-${today}-${sequence.toString().padStart(3, '0')}`;
+    }
+  }
+
+  /**
+   * Navigate to barcode scan step
+   */
+  startBarcodeRegistrationFlow(): void {
+    this.registrationStep.set('scan');
+    this.resetFormForNewRegistration();
+  }
+
+  /**
+   * Reset form for new registration
+   */
+  private resetFormForNewRegistration(): void {
+    this.isNewProduct.set(true);
+    this.existingProductForBatch.set(null);
+    this.availableExistingBatches.set([]);
+    this.scannedBarcodeForRegistration.set('');
+    this.barcodeCheckError.set(null);
+    this.selectedCategory.set(null);
+    this.categoryRequiresExpiry.set(false);
+    
+    // Reset form to initial state
+    this.productForm.reset();
+    this.initializeForm();
+  }
+
+  /**
+   * Skip barcode scan and go directly to product creation
+   */
+  skipBarcodeAndCreateNew(): void {
+    this.isNewProduct.set(true);
+    this.existingProductForBatch.set(null);
+    this.registrationStep.set('product');
+    this.showInfo('Membuat produk baru tanpa scan barcode.');
+  }
+
+  /**
+   * Continue to stock/batch step based on category requirements
+   */
+  continueToNextStep(): void {
+    if (this.categoryRequiresExpiry()) {
+      this.registrationStep.set('batch');
+    } else {
+      // For non-expiry products, complete the flow
+      this.onSubmit(); // Use existing submit logic
+    }
   }
 
 }

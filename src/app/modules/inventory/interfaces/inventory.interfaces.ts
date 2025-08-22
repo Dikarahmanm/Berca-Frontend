@@ -105,11 +105,102 @@ export enum MutationType {
   Adjustment = 'Adjustment',
   Transfer = 'Transfer',
   Damaged = 'Damaged',
-  Expired = 'Expired'
+  Expired = 'Expired',
+  BatchCreation = 'BatchCreation', // ✅ NEW: For batch creation
+  BatchStockIn = 'BatchStockIn'    // ✅ NEW: For adding stock to batch
 }
 
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
   message: string;
+}
+
+// ===== NEW: BATCH MANAGEMENT INTERFACES =====
+
+export interface ProductBatch {
+  id: number;
+  batchNumber: string;
+  productId: number;
+  productName?: string;
+  initialQuantity: number;
+  currentQuantity: number;
+  unitCost: number;
+  expiryDate?: string;
+  manufacturingDate?: string;
+  supplierInfo?: string;
+  status: 'Good' | 'Warning' | 'Critical' | 'Expired';
+  daysToExpiry?: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductWithBatchSummaryDto {
+  id: number;
+  name: string;
+  barcode: string;
+  description?: string;
+  categoryName?: string;
+  categoryColor?: string;
+  unit: string;
+  isActive: boolean;
+  
+  // Stock summary
+  totalStock: number;
+  minimumStock: number;
+  isLowStock: boolean;
+  
+  // Batch summary
+  totalBatches: number;
+  batchesGood: number;
+  batchesWarning: number;
+  batchesCritical: number;
+  batchesExpired: number;
+  
+  // Expiry info
+  nearestExpiryDate?: string;
+  daysToNearestExpiry?: number;
+  expiryStatus: 'Good' | 'Warning' | 'Critical' | 'Expired';
+  
+  // Recent batch info
+  latestBatch?: {
+    batchNumber: string;
+    quantity: number;
+    expiryDate?: string;
+    status: string;
+  };
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBatchRequest {
+  batchNumber?: string; // Optional - can be auto-generated
+  initialQuantity: number;
+  unitCost: number;
+  expiryDate?: string;
+  manufacturingDate?: string;
+  supplierInfo?: string;
+  notes?: string;
+}
+
+export interface AddStockToBatchRequest {
+  quantity: number;
+  unitCost?: number;
+  notes?: string;
+  referenceNumber?: string;
+}
+
+export interface BatchForPOSDto {
+  id: number;
+  batchNumber: string;
+  availableQuantity: number;
+  unitCost: number;
+  sellPrice: number;
+  expiryDate?: string;
+  daysToExpiry?: number;
+  status: 'Good' | 'Warning' | 'Critical' | 'Expired';
+  isFifoRecommended: boolean; // True if this should be sold first
+  priority: number; // 1 = highest priority (sell first)
 }

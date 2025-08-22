@@ -17,7 +17,12 @@ import {
   ProductFilter, 
   InventoryMutation, 
   MutationType, 
-  ApiResponse 
+  ApiResponse,
+  ProductBatch,
+  ProductWithBatchSummaryDto,
+  CreateBatchRequest,
+  AddStockToBatchRequest,
+  BatchForPOSDto
 } from '../interfaces/inventory.interfaces';
 
 @Injectable({
@@ -87,19 +92,26 @@ export class InventoryService {
   }
 
   /**
-   * ✅ FIXED: Get product by barcode
+   * ✅ ENHANCED: Get product by barcode for batch management
    * Backend: GET /api/Product/barcode/{barcode}
+   * Returns null if product not found (non-throwing version)
    */
-  getProductByBarcode(barcode: string): Observable<Product> {
+  getProductByBarcode(barcode: string): Observable<Product | null> {
     return this.http.get<ApiResponse<Product>>(`${this.apiUrl}/barcode/${barcode}`)
       .pipe(
         map(response => {
           if (response.success) {
             return response.data;
           }
-          throw new Error(response.message || 'Product not found');
+          return null;
         }),
-        catchError(error => this.handleError(error))
+        catchError(error => {
+          console.log('Product not found by barcode, returning null');
+          return new Observable<Product | null>(observer => {
+            observer.next(null);
+            observer.complete();
+          });
+        })
       );
   }
 
@@ -349,6 +361,150 @@ export class InventoryService {
    */
   clearError(): void {
     this.errorSubject.next(null);
+  }
+
+  // ===== NEW: BATCH MANAGEMENT METHODS =====
+
+  /**
+   * ✅ NEW: Generate batch number for a product
+   * Backend: GET /api/Product/{productId}/batch/generate
+   */
+  generateBatchNumber(productId: number): Observable<{ batchNumber: string }> {
+    return this.http.get<ApiResponse<{ batchNumber: string }>>(`${this.apiUrl}/${productId}/batch/generate`)
+      .pipe(
+        map(response => {
+          if (response.success) {
+            return response.data;
+          }
+          // Fallback: Generate local batch number
+          const fallbackBatch = `BATCH-${productId}-${Date.now()}`;
+          console.log('🔄 API failed, using fallback batch number:', fallbackBatch);
+          return { batchNumber: fallbackBatch };
+        }),
+        catchError(error => {
+          // Fallback: Generate local batch number
+          const fallbackBatch = `BATCH-${productId}-${Date.now()}`;
+          console.log('🔄 Error generating batch, using fallback:', fallbackBatch);
+          return new Observable<{ batchNumber: string }>(observer => {
+            observer.next({ batchNumber: fallbackBatch });
+            observer.complete();
+          });
+        })
+      );
+  }
+
+  /**
+   * ✅ FIXED: Get products with batch summary for enhanced inventory view
+   * Backend: GET /api/Product/with-batch-summary
+   */
+  getProductsWithBatchSummary(categoryId?: number): Observable<ProductWithBatchSummaryDto[]> {
+    let params = new HttpParams();
+    
+    // Only pass categoryId if provided
+    if (categoryId) {
+      params = params.set('categoryId', categoryId.toString());
+    }
+
+    return this.http.get<ApiResponse<ProductWithBatchSummaryDto[]>>(`${this.apiUrl}/with-batch-summary`, { params })
+      .pipe(
+        map(response => {
+          if (response.success) {
+            return response.data;
+          }
+          throw new Error(response.message || 'Failed to fetch products with batches');
+        }),
+        catchError(error => this.handleError(error))
+      );
+  }
+
+  /**
+   * ✅ NEW: Get batches for a specific product
+   * Backend: GET /api/Product/{productId}/batches
+   */
+  getProductBatches(productId: number): Observable<ProductBatch[]> {
+    return this.http.get<ApiResponse<ProductBatch[]>>(`${this.apiUrl}/${productId}/batches`)
+      .pipe(
+        map(response => {
+          if (response.success) {
+            return response.data;
+          }
+          throw new Error(response.message || 'Failed to fetch product batches');
+        }),
+        catchError(error => this.handleError(error))
+      );
+  }
+
+  /**
+   * ✅ NEW: Create batch for existing product
+   * Backend: POST /api/Product/{productId}/batches
+   */
+  createBatchForProduct(productId: number, batchData: CreateBatchRequest): Observable<ProductBatch> {
+    console.log('🆕 Creating Batch for Product:', { productId, batchData });
+    
+    return this.http.post<ApiResponse<ProductBatch>>(`${this.apiUrl}/${productId}/batches`, batchData)
+      .pipe(
+        map(response => {
+          console.log('✅ Batch Created:', response);
+          if (response.success) {
+            this.refreshProducts();
+            return response.data;
+          }
+          throw new Error(response.message || 'Failed to create batch');
+        }),
+        catchError(error => {
+          console.error('❌ Create Batch Error:', error);
+          if (error.status === 400) {
+            const message = error.error?.message || error.error?.errors || 'Invalid batch data';
+            throw new Error(message);
+          }
+          return this.handleError(error);
+        })
+      );
+  }
+
+  /**
+   * ✅ NEW: Add stock to existing batch
+   * Backend: POST /api/Product/batches/{batchId}/add-stock
+   */
+  addStockToBatch(batchId: number, request: AddStockToBatchRequest): Observable<ProductBatch> {
+    console.log('📦 Adding Stock to Batch:', { batchId, request });
+    
+    return this.http.post<ApiResponse<ProductBatch>>(`${this.apiUrl}/batches/${batchId}/add-stock`, request)
+      .pipe(
+        map(response => {
+          console.log('✅ Stock Added to Batch:', response);
+          if (response.success) {
+            this.refreshProducts();
+            return response.data;
+          }
+          throw new Error(response.message || 'Failed to add stock to batch');
+        }),
+        catchError(error => {
+          console.error('❌ Add Stock to Batch Error:', error);
+          if (error.status === 400) {
+            const message = error.error?.message || error.error?.errors || 'Invalid stock data';
+            throw new Error(message);
+          }
+          return this.handleError(error);
+        })
+      );
+  }
+
+  /**
+   * ✅ NEW: Get batches for POS selection with FIFO ordering
+   * Backend: GET /api/Product/{productId}/batches/for-pos
+   */
+  getBatchesForPOS(productId: number): Observable<BatchForPOSDto[]> {
+    return this.http.get<ApiResponse<BatchForPOSDto[]>>(`${this.apiUrl}/${productId}/batches/for-pos`)
+      .pipe(
+        map(response => {
+          if (response.success) {
+            return response.data;
+          }
+          throw new Error(response.message || 'Failed to fetch batches for POS');
+        }),
+        catchError(error => this.handleError(error))
+      );
   }
 
   /**

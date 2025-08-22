@@ -400,9 +400,31 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   private sellPriceValidator(control: AbstractControl): { [key: string]: boolean } | null {
     const buyPrice = control.get('buyPrice')?.value;
     const sellPrice = control.get('sellPrice')?.value;
-    if (buyPrice !== null && sellPrice !== null && sellPrice < buyPrice) {
-      return { sellPriceTooLow: true };
+    
+    console.log('💰 sellPriceValidator called:', {
+      buyPrice,
+      sellPrice,
+      buyPriceType: typeof buyPrice,
+      sellPriceType: typeof sellPrice,
+      buyPriceNum: Number(buyPrice),
+      sellPriceNum: Number(sellPrice),
+      comparison: Number(sellPrice) < Number(buyPrice)
+    });
+    
+    // Enhanced validation with proper number conversion and null checking
+    if (buyPrice !== null && buyPrice !== undefined && buyPrice !== '' &&
+        sellPrice !== null && sellPrice !== undefined && sellPrice !== '') {
+      
+      const buyPriceNum = Number(buyPrice);
+      const sellPriceNum = Number(sellPrice);
+      
+      if (!isNaN(buyPriceNum) && !isNaN(sellPriceNum) && sellPriceNum < buyPriceNum) {
+        console.log('❌ sellPriceValidator: Sell price too low');
+        return { sellPriceTooLow: true };
+      }
     }
+    
+    console.log('✅ sellPriceValidator: Valid');
     return null;
   }
 
@@ -1369,8 +1391,21 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     console.log('  - Stock:', stock, '(type:', typeof stock, ')');
     console.log('  - Min Stock:', minimumStock, '(type:', typeof minimumStock, ')');
     
-    // Check each field individually for detailed debugging
+    // ✅ FIXED: Use manual value checks for basic step validation
+    // Don't rely on form control validity which is affected by form-level validators
     const checks = {
+      name: !!(name && name.length > 0),
+      barcode: !!(barcode && barcode.length > 0), 
+      categoryId: !!(categoryId && (typeof categoryId === 'number' ? categoryId > 0 : categoryId !== '')),
+      buyPrice: !!(buyPrice !== null && buyPrice !== undefined && buyPrice !== '' && Number(buyPrice) >= 0),
+      sellPrice: !!(sellPrice !== null && sellPrice !== undefined && sellPrice !== '' && Number(sellPrice) >= 0),
+      unit: !!(unit && unit.length > 0),
+      stock: !!(stock !== null && stock !== undefined && Number(stock) >= 0),
+      minimumStock: !!(minimumStock !== null && minimumStock !== undefined && Number(minimumStock) >= 0)
+    };
+    
+    // Alternative check using form control values and validity
+    const alternativeChecks = {
       name: !!(name && name.length > 0),
       barcode: !!(barcode && barcode.length > 0), 
       categoryId: !!(categoryId && (typeof categoryId === 'number' ? categoryId > 0 : categoryId !== '')),
@@ -1381,6 +1416,9 @@ export class ProductFormComponent implements OnInit, OnDestroy {
       minimumStock: !!(minimumStock !== null && minimumStock !== undefined && Number(minimumStock) >= 0)
     };
     
+    console.log('🔍 Form Control Validity Checks:', checks);
+    console.log('🔍 Manual Value Checks:', alternativeChecks);
+    
     // Enhanced debugging for price fields specifically
     const buyPriceControl = this.productForm.get('buyPrice');
     const sellPriceControl = this.productForm.get('sellPrice');
@@ -1389,13 +1427,26 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     console.log('  - buyPrice raw value:', buyPrice, 'type:', typeof buyPrice);
     console.log('  - buyPrice control valid:', buyPriceControl?.valid);
     console.log('  - buyPrice control errors:', buyPriceControl?.errors);
+    console.log('  - buyPrice control touched:', buyPriceControl?.touched);
+    console.log('  - buyPrice control dirty:', buyPriceControl?.dirty);
     console.log('  - buyPrice as Number:', Number(buyPrice), 'isNaN:', isNaN(Number(buyPrice)));
     console.log('  - buyPrice > 0:', Number(buyPrice) > 0);
     console.log('  - sellPrice raw value:', sellPrice, 'type:', typeof sellPrice);
     console.log('  - sellPrice control valid:', sellPriceControl?.valid);
     console.log('  - sellPrice control errors:', sellPriceControl?.errors);
+    console.log('  - sellPrice control touched:', sellPriceControl?.touched);
+    console.log('  - sellPrice control dirty:', sellPriceControl?.dirty);
     console.log('  - sellPrice as Number:', Number(sellPrice), 'isNaN:', isNaN(Number(sellPrice)));
     console.log('  - sellPrice > 0:', Number(sellPrice) > 0);
+    
+    // Debug all form controls for comprehensive view
+    console.log('📋 All Form Controls Debug:');
+    Object.keys(this.productForm.controls).forEach(key => {
+      const control = this.productForm.get(key);
+      if (control && !control.valid) {
+        console.log(`  ❌ ${key}: value=${control.value}, valid=${control.valid}, errors=${JSON.stringify(control.errors)}`);
+      }
+    });
     
     console.log('🔍 Field validation checks:', checks);
     
@@ -1407,12 +1458,16 @@ export class ProductFormComponent implements OnInit, OnDestroy {
       Object.entries(checks).forEach(([field, valid]) => {
         console.log(`  - ${field}: ${valid ? '✅' : '❌'}`);
       });
-      
-      // Also check form validity
-      console.log('📋 Form validity:', this.productForm.valid);
-      console.log('📋 Form errors:', this.productForm.errors);
     } else {
       console.log('✅ Basic step validation PASSED - all required fields filled correctly');
+      
+      // ✅ FIXED: Check for form-level validation warnings (but don't block progression)
+      if (this.productForm.errors) {
+        console.log('⚠️ Form has warnings but basic step can continue:', this.productForm.errors);
+        if (this.productForm.errors['sellPriceTooLow']) {
+          console.log('⚠️ Warning: Sell price is lower than buy price (will be validated at submit)');
+        }
+      }
     }
     
     return isValid;

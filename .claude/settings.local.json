@@ -5,7 +5,8 @@
       "Bash(npm start)",
       "Bash(sed:*)",
       "Bash(grep:*)",
-      "Bash(ng build:*)"
+      "Bash(ng build:*)",
+      "Bash(ng serve:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

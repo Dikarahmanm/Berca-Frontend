@@ -21,12 +21,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
-import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subscription, debounceTime, distinctUntilChanged, firstValueFrom } from 'rxjs';
 
 import { InventoryService } from '../../services/inventory.service';
 import { CategoryService } from '../../../category-management/services/category.service';
 import { ExpiryManagementService } from '../../../../core/services/expiry-management.service';
-import { Product, ProductFilter } from '../../interfaces/inventory.interfaces';
+import { Product, ProductFilter, ProductWithBatchSummaryDto } from '../../interfaces/inventory.interfaces';
 import { Category, CategoryFilter } from '../../../category-management/models/category.models';
 import { ExpiryStatus, ExpiryAnalytics, ExpiringProduct, FifoRecommendationDto, ProductBatch, ExpiringProductsFilter, BatchStatus, ExpiryUrgency } from '../../../../core/interfaces/expiry.interfaces';
 import { AfterViewInit } from '@angular/core'; // ✅ Add this import
@@ -49,8 +49,8 @@ export enum ExpiryFilterType {
   MISSING = 'missing'
 }
 
-// ✅ NEW: Enhanced interface for product with expiry information
-export interface ProductWithExpiry extends Product {
+// ✅ ENHANCED: Interface for product with both expiry and batch information
+export interface ProductWithExpiryAndBatch extends Product {
   expiryDate?: string;
   batchNumber?: string;
   daysUntilExpiry?: number;
@@ -58,6 +58,47 @@ export interface ProductWithExpiry extends Product {
   categoryRequiresExpiry: boolean;
   needsExpiryData: boolean;
   expiryStatusText?: string;
+  
+  // ✅ NEW: Batch summary properties
+  totalBatches?: number;
+  batchesGood?: number;
+  batchesWarning?: number;
+  batchesCritical?: number;
+  batchesExpired?: number;
+  nearestExpiryDate?: string;
+  daysToNearestExpiry?: number;
+  latestBatch?: {
+    batchNumber: string;
+    quantity: number;
+    expiryDate?: string;
+    status: string;
+  };
+}
+
+// ✅ NEW: Interfaces for batch view mode
+export interface ProductWithBatchesGroup {
+  productId: number;
+  productName: string;
+  barcode: string;
+  categoryName: string;
+  categoryColor: string;
+  unit: string;
+  totalStock: number;        // ✅ Calculated from batches
+  databaseStock: number;     // ✅ Original database value
+  minimumStock: number;
+  isLowStock: boolean;
+  hasStockDiscrepancy: boolean; // ✅ Flag for discrepancy warning
+  batches: ProductBatchWithDetails[];
+}
+
+export interface ProductBatchWithDetails extends ProductBatch {
+  fifoOrder: number;
+  expiryStatus: 'good' | 'warning' | 'critical' | 'expired';
+  daysUntilExpiry: number;
+  stockPercentage: number;
+  // Computed properties
+  isExpired: boolean;
+  categoryId?: number;
 }
 
 @Component({
@@ -98,11 +139,16 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   private isTablet = computed(() => this.screenWidth() >= 768 && this.screenWidth() < 1024);
   private isDesktop = computed(() => this.screenWidth() >= 1024);
 
-  // Enhanced data sources
-  products = new MatTableDataSource<ProductWithExpiry>([]);
+  // Enhanced data sources with batch support
+  products = new MatTableDataSource<ProductWithExpiryAndBatch>([]);
   rawProducts = signal<Product[]>([]);
+  batchProducts = signal<ProductWithBatchSummaryDto[]>([]);
   categories = signal<Category[]>([]);
   lowStockProducts = signal<Product[]>([]);
+  
+  // ✅ NEW: Batch view state
+  showBatchView = signal(false);
+  loadingBatchData = signal(false);
   
   // ✅ ENHANCED: Expiry management signals
   expiryAnalytics = signal<ExpiryAnalytics | null>(null);
@@ -113,7 +159,7 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   // Enhanced expiry filter state
   expiryFilter = signal<ExpiryFilterType>(ExpiryFilterType.ALL);
   showExpiryColumn = signal(true);
-  productsRequiringExpiry = signal<ProductWithExpiry[]>([]);
+  productsRequiringExpiry = signal<ProductWithExpiryAndBatch[]>([]);
   
   // Enhanced computed properties
   enhancedProducts = computed(() => this.enhanceProductsWithExpiryInfo(this.rawProducts()));
@@ -140,14 +186,38 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
     };
   });
   
+  // ✅ NEW: Batch statistics
+  batchStats = computed(() => {
+    const products = this.batchProducts();
+    const totalBatches = products.reduce((sum, p) => sum + (p.totalBatches || 0), 0);
+    const goodBatches = products.reduce((sum, p) => sum + (p.batchesGood || 0), 0);
+    const warningBatches = products.reduce((sum, p) => sum + (p.batchesWarning || 0), 0);
+    const criticalBatches = products.reduce((sum, p) => sum + (p.batchesCritical || 0), 0);
+    const expiredBatches = products.reduce((sum, p) => sum + (p.batchesExpired || 0), 0);
+    
+    return {
+      totalProducts: products.length,
+      totalBatches,
+      goodBatches,
+      warningBatches,
+      criticalBatches,
+      expiredBatches
+    };
+  });
+  
   // ✅ NEW: Expiry view state
   showExpiryAnalytics = signal(false);
   selectedProductForBatches: Product | null = null;
+
+  // ✅ NEW: Batch view data structures
+  productsWithDetailedBatches = signal<ProductWithBatchesGroup[]>([]);
+  batchViewMode = signal(false);
+  loadingBatchDetails = signal(false);
   
-  // All possible table columns (enhanced with expiry columns)
+  // All possible table columns (enhanced with batch columns)
   private allColumns = [
     'name', 'barcode', 'category', 'stock', 'minimumStock',
-    'buyPrice', 'sellPrice', 'expiry', 'daysLeft', 'expiryStatus', 'status', 'actions'
+    'buyPrice', 'sellPrice', 'expiry', 'daysLeft', 'expiryStatus', 'batches', 'batchSummary', 'status', 'actions'
   ];
   
   // Responsive column configuration (enhanced with expiry columns - always include expiry)
@@ -1223,9 +1293,9 @@ onCategoryFilterChange(event: any): void {
   }
 
   /**
-   * Get batch status color class
+   * Get batch status color class (by BatchStatus)
    */
-  getBatchStatusColor(status: BatchStatus): string {
+  getBatchStatusColorByStatus(status: BatchStatus): string {
     const statusColors = {
       [BatchStatus.ACTIVE]: '#4BBF7B',
       [BatchStatus.BLOCKED]: '#FFB84D', 
@@ -1260,15 +1330,15 @@ onCategoryFilterChange(event: any): void {
   /**
    * Enhance products with expiry information
    */
-  private enhanceProductsWithExpiryInfo(products: Product[]): ProductWithExpiry[] {
+  private enhanceProductsWithExpiryInfo(products: Product[]): ProductWithExpiryAndBatch[] {
     return products.map(product => this.enhanceProductWithExpiry(product));
   }
 
   /**
    * Enhance single product with expiry information
    */
-  private enhanceProductWithExpiry(product: Product): ProductWithExpiry {
-    const enhanced: ProductWithExpiry = {
+  private enhanceProductWithExpiry(product: Product): ProductWithExpiryAndBatch {
+    const enhanced: ProductWithExpiryAndBatch = {
       ...product,
       expiryStatus: 'good',
       categoryRequiresExpiry: false,
@@ -1321,7 +1391,7 @@ onCategoryFilterChange(event: any): void {
   /**
    * Format expiry date display
    */
-  formatExpiryDisplay(product: ProductWithExpiry): string {
+  formatExpiryDisplay(product: ProductWithExpiryAndBatch): string {
     if (!product.categoryRequiresExpiry) return 'Not Required';
     if (!product.expiryDate) return 'Not Set';
     return this.formatDate(product.expiryDate);
@@ -1330,7 +1400,7 @@ onCategoryFilterChange(event: any): void {
   /**
    * Format days until expiry
    */
-  formatDaysUntilExpiry(product: ProductWithExpiry): string {
+  formatDaysUntilExpiry(product: ProductWithExpiryAndBatch): string {
     if (!product.categoryRequiresExpiry) return '-';
     if (!product.expiryDate) return 'Missing';
     
@@ -1344,7 +1414,7 @@ onCategoryFilterChange(event: any): void {
   /**
    * Action to add expiry date
    */
-  addExpiryDate(product: ProductWithExpiry): void {
+  addExpiryDate(product: ProductWithExpiryAndBatch): void {
     this.router.navigate(['/dashboard/inventory/product/edit', product.id], {
       queryParams: { focus: 'expiry' }
     });
@@ -1376,13 +1446,793 @@ onCategoryFilterChange(event: any): void {
   /**
    * Format date for display
    */
-  private formatDate(dateString: string): string {
+  formatDate(dateString: string): string {
     const date = new Date(dateString);
     return date.toLocaleDateString('id-ID', {
       day: '2-digit',
       month: 'short',
       year: 'numeric'
     });
+  }
+
+  /**
+   * Format days to expiry for batch summary - use existing method
+   */
+  formatDaysToExpiry(days?: number): string {
+    if (days === undefined || days === null) return 'Unknown';
+    if (days < 0) return `${Math.abs(days)} days overdue`;
+    if (days === 0) return 'Expires today';
+    if (days === 1) return '1 day left';
+    return `${days} days left`;
+  }
+
+  // ===== NEW: BATCH MANAGEMENT METHODS =====
+
+  /**
+   * Toggle between regular product view and detailed batch view
+   */
+  toggleBatchView(): void {
+    const currentMode = this.batchViewMode();
+    this.batchViewMode.set(!currentMode);
+    
+    if (!currentMode) {
+      // Switching to batch view - load detailed batch data
+      console.log('🔄 Switching to detailed batch view...');
+      this.loadDetailedBatchView();
+    } else {
+      // Switching back to regular view
+      console.log('🔄 Switching to regular product view...');
+      this.loadProducts();
+    }
+  }
+
+  /**
+   * Load detailed batch view data - showing individual batches grouped by product
+   */
+  private async loadDetailedBatchView(): Promise<void> {
+    this.loadingBatchDetails.set(true);
+    
+    try {
+      console.log('📦 Loading detailed batch view...');
+      
+      // Get products with batch summary first
+      const productsWithBatches = await firstValueFrom(
+        this.inventoryService.getProductsWithBatchSummary()
+      );
+      
+      // Filter only products that have batches
+      const productsHavingBatches = productsWithBatches.filter(p => p.totalBatches > 0);
+      console.log('📊 Found', productsHavingBatches.length, 'products with batches');
+      
+      // Load detailed batch data for each product
+      const batchGroups: ProductWithBatchesGroup[] = [];
+      
+      for (const product of productsHavingBatches) {
+        try {
+          // Get detailed batches for this product
+          const batches = await firstValueFrom(
+            this.expiryService.getProductBatches({ 
+              productId: product.id,
+              sortBy: 'expiryDate',
+              sortOrder: 'asc'
+            })
+          );
+          
+          // ✅ CALCULATE ACTUAL TOTAL STOCK from all active batches
+          const actualTotalStock = batches
+            .filter(batch => !batch.isDisposed && batch.currentStock > 0)
+            .reduce((total, batch) => total + (batch.currentStock || 0), 0);
+
+          console.log(`📊 Product ${product.name}: 
+            DB stock = ${product.totalStock}, 
+            Calculated from batches = ${actualTotalStock}, 
+            Batch count = ${batches.length}`);
+          
+          // Get category information
+          const category = this.categories().find(c => c.name === product.categoryName) || 
+                          this.categories().find(c => c.name === 'Uncategorized');
+          
+          // Process and enhance batch data with category context
+          const processedBatches = this.processBatchesForDisplay(batches, category?.id);
+          
+          // Check for stock discrepancy
+          const hasDiscrepancy = Math.abs(actualTotalStock - product.totalStock) > 0;
+          
+          if (hasDiscrepancy) {
+            console.warn(`⚠️ Stock discrepancy for ${product.name}: 
+              Database = ${product.totalStock}, 
+              Batches total = ${actualTotalStock}`);
+          }
+          
+          batchGroups.push({
+            productId: product.id,
+            productName: product.name,
+            barcode: product.barcode,
+            categoryName: category?.name || 'Uncategorized',
+            categoryColor: category?.color || '#666666',
+            unit: product.unit || 'pcs',
+            totalStock: actualTotalStock, // ✅ Use calculated total from batches
+            databaseStock: product.totalStock, // Keep original for comparison
+            minimumStock: product.minimumStock,
+            isLowStock: actualTotalStock <= product.minimumStock, // ✅ Use actual stock for low stock check
+            hasStockDiscrepancy: hasDiscrepancy,
+            batches: processedBatches
+          });
+          
+        } catch (error) {
+          console.error(`❌ Failed to load batches for product ${product.id}:`, error);
+        }
+      }
+      
+      this.productsWithDetailedBatches.set(batchGroups);
+      console.log('✅ Detailed batch view loaded:', batchGroups.length, 'product groups');
+      
+      // Check and report stock discrepancies
+      this.checkStockDiscrepancies();
+      
+    } catch (error) {
+      console.error('❌ Failed to load detailed batch view:', error);
+      this.showError('Failed to load batch details. Switching back to regular view.');
+      
+      // Fallback to regular view
+      this.batchViewMode.set(false);
+      this.loadProducts();
+    } finally {
+      this.loadingBatchDetails.set(false);
+    }
+  }
+
+  /**
+   * Process batches for display with FIFO ordering and enhanced information
+   */
+  private processBatchesForDisplay(batches: ProductBatch[], categoryId?: number): ProductBatchWithDetails[] {
+    // Sort batches by FIFO order (expiry date first, then creation date)
+    const sortedBatches = [...batches].sort((a, b) => {
+      // Active batches come first
+      if (a.status !== b.status) {
+        if (a.status === BatchStatus.ACTIVE) return -1;
+        if (b.status === BatchStatus.ACTIVE) return 1;
+      }
+      
+      // Then by expiry date
+      if (a.expiryDate && b.expiryDate) {
+        return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
+      }
+      if (a.expiryDate && !b.expiryDate) return -1;
+      if (!a.expiryDate && b.expiryDate) return 1;
+      
+      // Finally by creation date
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+    
+    // Calculate total initial stock for percentage calculations
+    const totalInitialStock = sortedBatches.reduce((sum, batch) => sum + batch.initialStock, 0);
+    
+    // Enhance each batch with display information
+    return sortedBatches.map((batch, index) => {
+      const daysUntilExpiry = this.calculateBatchDaysUntilExpiry(batch.expiryDate);
+      const expiryStatus = this.calculateBatchExpiryStatus(batch.expiryDate);
+      
+      return {
+        ...batch,
+        fifoOrder: index + 1,
+        expiryStatus,
+        daysUntilExpiry,
+        stockPercentage: totalInitialStock > 0 ? (batch.currentStock / totalInitialStock) * 100 : 0,
+        // Computed properties
+        isExpired: daysUntilExpiry < 0,
+        categoryId: categoryId || 0
+      };
+    });
+  }
+
+  /**
+   * Load products with batch summary information
+   */
+  private loadProductsWithBatches(): void {
+    this.loadingBatchData.set(true);
+    const filterValues = this.filterForm.value;
+    
+    // Get category filter for API call
+    const categoryId = filterValues.categoryId || undefined;
+
+    console.log('📡 Loading products with batch summary...', { categoryId });
+
+    this.subscriptions.add(
+      this.inventoryService.getProductsWithBatchSummary(categoryId).subscribe({
+        next: (batchProducts) => {
+          console.log('📦 Batch Products Loaded:', batchProducts.length, 'products');
+          this.batchProducts.set(batchProducts);
+          
+          // Apply client-side filtering and sorting
+          const filteredProducts = this.applyClientSideFiltering(batchProducts, filterValues);
+          
+          // Convert batch products to enhanced products for table display
+          const enhancedProducts = filteredProducts.map(batchProduct => 
+            this.convertBatchProductToEnhanced(batchProduct)
+          );
+          
+          this.products.data = enhancedProducts;
+          this.totalItems.set(enhancedProducts.length);
+          
+          this.loadingBatchData.set(false);
+          console.log('✅ Batch view loaded successfully:', enhancedProducts.length, 'products displayed');
+        },
+        error: (error) => {
+          console.error('❌ Failed to load products with batches:', error);
+          
+          // Enhanced error handling
+          let errorMessage = 'Failed to load batch data';
+          if (error?.status === 404) {
+            errorMessage = 'Batch summary endpoint not found. Please check backend configuration.';
+          } else if (error?.status === 400) {
+            errorMessage = 'Invalid request parameters for batch data.';
+          } else if (error?.status === 500) {
+            errorMessage = 'Server error occurred while loading batch data.';
+          } else if (error?.message) {
+            errorMessage = `Failed to load batch data: ${error.message}`;
+          }
+          
+          this.showError(errorMessage);
+          this.loadingBatchData.set(false);
+          
+          // Fallback to regular view with user notification
+          this.showBatchView.set(false);
+          this.showInfo('Switched back to regular view due to batch data loading error.');
+          this.loadProducts();
+        }
+      })
+    );
+  }
+
+  /**
+   * Apply client-side filtering and sorting to batch products
+   */
+  private applyClientSideFiltering(products: ProductWithBatchSummaryDto[], filterValues: any): ProductWithBatchSummaryDto[] {
+    let filtered = [...products];
+    
+    // Apply search filter
+    const searchTerm = filterValues.search?.trim().toLowerCase();
+    if (searchTerm) {
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(searchTerm) ||
+        product.barcode.toLowerCase().includes(searchTerm) ||
+        (product.description && product.description.toLowerCase().includes(searchTerm))
+      );
+    }
+    
+    // Apply active status filter
+    if (filterValues.isActive !== undefined && filterValues.isActive !== '') {
+      filtered = filtered.filter(product => product.isActive === filterValues.isActive);
+    }
+    
+    // Apply sorting
+    const sortBy = filterValues.sortBy || 'name';
+    const sortOrder = filterValues.sortOrder || 'asc';
+    
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'stock':
+          comparison = (a.totalStock || 0) - (b.totalStock || 0);
+          break;
+        case 'barcode':
+          comparison = a.barcode.localeCompare(b.barcode);
+          break;
+        case 'minimumStock':
+          comparison = (a.minimumStock || 0) - (b.minimumStock || 0);
+          break;
+        case 'totalBatches':
+          comparison = (a.totalBatches || 0) - (b.totalBatches || 0);
+          break;
+        default:
+          comparison = 0;
+      }
+      
+      return sortOrder === 'desc' ? -comparison : comparison;
+    });
+    
+    // Apply pagination (client-side)
+    const page = this.currentPage();
+    const pageSize = this.pageSize();
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    return filtered.slice(startIndex, endIndex);
+  }
+
+  /**
+   * Convert ProductWithBatchSummaryDto to ProductWithExpiryAndBatch
+   */
+  private convertBatchProductToEnhanced(batchProduct: ProductWithBatchSummaryDto): ProductWithExpiryAndBatch {
+    const enhanced: ProductWithExpiryAndBatch = {
+      ...batchProduct,
+      // Map batch summary fields to enhanced product
+      totalBatches: batchProduct.totalBatches,
+      batchesGood: batchProduct.batchesGood,
+      batchesWarning: batchProduct.batchesWarning,
+      batchesCritical: batchProduct.batchesCritical,
+      batchesExpired: batchProduct.batchesExpired,
+      nearestExpiryDate: batchProduct.nearestExpiryDate,
+      daysToNearestExpiry: batchProduct.daysToNearestExpiry,
+      latestBatch: batchProduct.latestBatch,
+      
+      // Calculate expiry information from batch data
+      expiryDate: batchProduct.nearestExpiryDate,
+      daysUntilExpiry: batchProduct.daysToNearestExpiry,
+      expiryStatus: batchProduct.expiryStatus as any,
+      categoryRequiresExpiry: batchProduct.totalBatches > 0,
+      needsExpiryData: batchProduct.totalBatches === 0,
+      expiryStatusText: this.formatBatchExpiryStatus(batchProduct),
+      
+      // Calculate legacy fields for compatibility
+      buyPrice: 0, // Not available in batch summary
+      sellPrice: 0, // Not available in batch summary
+      categoryId: 0, // Will need to be populated from category lookup
+      minimumStock: batchProduct.minimumStock || 5,
+      profitMargin: 0, // Cannot calculate without prices
+      isLowStock: batchProduct.isLowStock,
+      isOutOfStock: batchProduct.totalStock === 0,
+      stock: batchProduct.totalStock, // Map totalStock to stock field
+      
+      // Handle date fields - provide defaults if not available
+      createdAt: (batchProduct as any).createdAt ? 
+        (typeof (batchProduct as any).createdAt === 'string' ? new Date((batchProduct as any).createdAt) : (batchProduct as any).createdAt) : 
+        new Date(),
+      updatedAt: (batchProduct as any).updatedAt ? 
+        (typeof (batchProduct as any).updatedAt === 'string' ? new Date((batchProduct as any).updatedAt) : (batchProduct as any).updatedAt) : 
+        new Date()
+    };
+
+    return enhanced;
+  }
+
+  /**
+   * Format batch expiry status text
+   */
+  private formatBatchExpiryStatus(batchProduct: ProductWithBatchSummaryDto): string {
+    if (batchProduct.totalBatches === 0) {
+      return 'No batches';
+    }
+
+    if (batchProduct.daysToNearestExpiry !== undefined) {
+      const days = batchProduct.daysToNearestExpiry;
+      if (days < 0) return `${Math.abs(days)} days overdue`;
+      if (days === 0) return 'Expires today';
+      if (days === 1) return '1 day left';
+      return `${days} days left`;
+    }
+
+    return 'No expiry data';
+  }
+
+  /**
+   * Calculate profit margin percentage
+   */
+  private calculateProfitMargin(sellPrice: number, buyPrice: number): number {
+    if (buyPrice === 0) return 0;
+    return ((sellPrice - buyPrice) / buyPrice) * 100;
+  }
+
+  /**
+   * Get batch summary display text
+   */
+  getBatchSummaryText(product: ProductWithExpiryAndBatch): string {
+    if (!product.totalBatches || product.totalBatches === 0) {
+      return 'No batches';
+    }
+
+    const parts = [];
+    if (product.batchesGood) parts.push(`${product.batchesGood} good`);
+    if (product.batchesWarning) parts.push(`${product.batchesWarning} warning`);
+    if (product.batchesCritical) parts.push(`${product.batchesCritical} critical`);
+    if (product.batchesExpired) parts.push(`${product.batchesExpired} expired`);
+
+    return parts.length > 0 ? parts.join(', ') : `${product.totalBatches} batches`;
+  }
+
+  /**
+   * Get batch status color based on the worst batch status
+   */
+  getBatchStatusColor(product: ProductWithExpiryAndBatch): string {
+    if (product.batchesExpired && product.batchesExpired > 0) return '#E15A4F'; // Red
+    if (product.batchesCritical && product.batchesCritical > 0) return '#FF914D'; // Orange
+    if (product.batchesWarning && product.batchesWarning > 0) return '#FFB84D'; // Yellow
+    if (product.batchesGood && product.batchesGood > 0) return '#4BBF7B'; // Green
+    return '#666666'; // Gray for no batches
+  }
+
+  // ===== NEW: DETAILED BATCH VIEW FORMATTING METHODS =====
+
+  /**
+   * Calculate expiry status for a batch
+   */
+  calculateBatchExpiryStatus(expiryDate: string | undefined): 'good' | 'warning' | 'critical' | 'expired' {
+    if (!expiryDate) return 'good';
+    
+    const days = this.calculateBatchDaysUntilExpiry(expiryDate);
+    
+    if (days < 0) return 'expired';
+    if (days <= 3) return 'critical';
+    if (days <= 7) return 'warning';
+    return 'good';
+  }
+
+  /**
+   * Calculate days until expiry for a batch
+   */
+  calculateBatchDaysUntilExpiry(expiryDate: string | undefined): number {
+    if (!expiryDate) return Infinity;
+    
+    try {
+      const expiry = new Date(expiryDate);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      expiry.setHours(0, 0, 0, 0);
+      return Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Format safe date display (fixes "Not Set" issues)
+   */
+  formatSafeDate(date: string | Date | null): string {
+    if (!date) return 'Not set';
+    
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return 'Invalid date';
+      
+      return dateObj.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Invalid date';
+    }
+  }
+
+  /**
+   * Format safe currency (fixes "Rp NaN" issues)
+   */
+  formatSafeCurrency(amount: number | null | undefined): string {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return 'Rp 0';
+    }
+    
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    }).format(amount);
+  }
+
+  /**
+   * Format safe stock display (fixes "NaN btl" issues)
+   */
+  formatSafeStock(stock: number | null | undefined, unit: string): string {
+    if (stock === null || stock === undefined || isNaN(stock)) {
+      return `0 ${unit}`;
+    }
+    
+    return `${this.formatNumber(stock)} ${unit}`;
+  }
+
+  /**
+   * Get days left text for batch display
+   */
+  getDaysLeftText(batch: ProductBatchWithDetails): string {
+    const days = batch.daysUntilExpiry;
+    
+    if (days === Infinity) return 'No expiry';
+    if (days < 0) return `Expired ${Math.abs(days)} days ago`;
+    if (days === 0) return 'Expires today';
+    if (days === 1) return 'Expires tomorrow';
+    return `${days} days left`;
+  }
+
+  /**
+   * Get batch card CSS classes based on status
+   */
+  getBatchCardClasses(batch: ProductBatchWithDetails): string[] {
+    const classes = ['batch-card'];
+    
+    classes.push(`expiry-${batch.expiryStatus}`);
+    
+    if (batch.isExpired) classes.push('expired');
+    if (batch.isDisposed) classes.push('disposed');
+    if (batch.currentStock === 0) classes.push('empty');
+    if (batch.fifoOrder === 1) classes.push('fifo-priority');
+    
+    return classes;
+  }
+
+  /**
+   * Get FIFO order display text
+   */
+  getFifoOrderText(batch: ProductBatchWithDetails): string {
+    if (batch.fifoOrder === 1) return '1st (Sell First)';
+    if (batch.fifoOrder === 2) return '2nd';
+    if (batch.fifoOrder === 3) return '3rd';
+    return `${batch.fifoOrder}th`;
+  }
+
+  /**
+   * Get FIFO order CSS class
+   */
+  getFifoOrderClass(batch: ProductBatchWithDetails): string {
+    if (batch.fifoOrder === 1) return 'fifo-first';
+    if (batch.fifoOrder <= 3) return 'fifo-soon';
+    return 'fifo-later';
+  }
+
+  /**
+   * Get expiry status icon
+   */
+  getExpiryIcon(batch: ProductBatchWithDetails): string {
+    switch (batch.expiryStatus) {
+      case 'good': return 'check_circle';
+      case 'warning': return 'warning';
+      case 'critical': return 'error';
+      case 'expired': return 'cancel';
+      default: return 'help';
+    }
+  }
+
+  /**
+   * Get expiry icon CSS class
+   */
+  getExpiryIconClass(batch: ProductBatchWithDetails): string {
+    return `expiry-icon-${batch.expiryStatus}`;
+  }
+
+  /**
+   * Get expiry date CSS class
+   */
+  getExpiryDateClass(batch: ProductBatchWithDetails): string {
+    return `expiry-date-${batch.expiryStatus}`;
+  }
+
+  /**
+   * Get days left CSS class
+   */
+  getDaysLeftClass(batch: ProductBatchWithDetails): string {
+    return `days-left-${batch.expiryStatus}`;
+  }
+
+  /**
+   * Get batch status icon
+   */
+  getBatchStatusIcon(batch: ProductBatchWithDetails): string {
+    if (batch.isDisposed) return 'delete_sweep';
+    if (batch.isExpired) return 'schedule';
+    if (batch.currentStock === 0) return 'inventory';
+    if (batch.status === BatchStatus.BLOCKED) return 'block';
+    return 'check_circle';
+  }
+
+  /**
+   * Get batch status text
+   */
+  getBatchStatusText(batch: ProductBatchWithDetails): string {
+    if (batch.isDisposed) return 'Disposed';
+    if (batch.isExpired) return 'Expired';
+    if (batch.currentStock === 0) return 'Empty';
+    if (batch.status === BatchStatus.BLOCKED) return 'Blocked';
+    return 'Active';
+  }
+
+  /**
+   * Navigate to batch management for a product
+   */
+  viewProductBatches(product: ProductWithExpiryAndBatch): void {
+    this.router.navigate(['/dashboard/inventory/batches', product.id]);
+  }
+
+  /**
+   * Add new batch for a product
+   */
+  addNewBatch(product: ProductWithExpiryAndBatch): void {
+    this.router.navigate(['/dashboard/inventory/product/edit', product.id], {
+      queryParams: { action: 'add-batch' }
+    });
+  }
+
+  // ===== NEW: BATCH VIEW UTILITY METHODS =====
+
+  /**
+   * TrackBy function for product groups
+   */
+  trackByProductGroup(index: number, productGroup: ProductWithBatchesGroup): number {
+    return productGroup.productId;
+  }
+
+  /**
+   * TrackBy function for batches
+   */
+  trackByBatch(index: number, batch: ProductBatchWithDetails): number {
+    return batch.id;
+  }
+
+  /**
+   * Get total batch count across all products
+   */
+  getTotalBatchCount(): number {
+    return this.productsWithDetailedBatches().reduce((total, productGroup) => total + productGroup.batches.length, 0);
+  }
+
+  /**
+   * Get critical batch count across all products
+   */
+  getCriticalBatchCount(): number {
+    return this.productsWithDetailedBatches().reduce((total, productGroup) => 
+      total + productGroup.batches.filter(batch => batch.expiryStatus === 'critical').length, 0);
+  }
+
+  /**
+   * Get count of products with stock discrepancies
+   */
+  getStockDiscrepancyCount(): number {
+    return this.productsWithDetailedBatches().filter(productGroup => productGroup.hasStockDiscrepancy).length;
+  }
+
+  /**
+   * Check and log all stock discrepancies
+   */
+  checkStockDiscrepancies(): void {
+    const groups = this.productsWithDetailedBatches();
+    const discrepancies = groups.filter(group => group.hasStockDiscrepancy);
+    
+    if (discrepancies.length > 0) {
+      console.warn(`⚠️ Found ${discrepancies.length} stock discrepancies:`);
+      discrepancies.forEach(group => {
+        console.warn(`  - ${group.productName}: DB=${group.databaseStock}, Batches=${group.totalStock}`);
+      });
+    } else {
+      console.log('✅ No stock discrepancies found');
+    }
+  }
+
+  // ===== NEW: BATCH ACTION METHODS =====
+
+  /**
+   * Edit a specific batch - stay within inventory module
+   */
+  editBatch(batch: ProductBatchWithDetails): void {
+    console.log('🔧 Editing batch:', batch.batchNumber);
+    
+    // Navigate to product edit page with batch focus, NOT dashboard
+    this.router.navigate(['/dashboard/inventory/edit', batch.productId], {
+      queryParams: { 
+        action: 'edit-batch',
+        batchId: batch.id,
+        batchNumber: batch.batchNumber
+      }
+    });
+  }
+
+  /**
+   * Add stock to an existing batch - open modal instead of redirect
+   */
+  addStockToBatch(batch: ProductBatchWithDetails): void {
+    console.log('➕ Adding stock to batch:', batch.batchNumber);
+    
+    // For now, show info message since modal components aren't imported
+    // TODO: Open AddStockToBatchModalComponent when available
+    this.showInfo(`Add stock to batch ${batch.batchNumber} - feature coming soon`);
+    
+    // Alternative: Navigate to product edit with add-stock action
+    this.router.navigate(['/dashboard/inventory/edit', batch.productId], {
+      queryParams: { 
+        action: 'add-stock-to-batch',
+        batchId: batch.id,
+        batchNumber: batch.batchNumber
+      }
+    });
+  }
+
+  /**
+   * Edit the product that contains this batch
+   */
+  editProductFromBatch(productGroup: ProductWithBatchesGroup): void {
+    console.log('🔧 Editing product:', productGroup.productName);
+    
+    // Navigate to product edit page - STAY IN INVENTORY MODULE
+    this.router.navigate(['/dashboard/inventory/edit', productGroup.productId]);
+  }
+
+  /**
+   * Add stock to product (create new batch)
+   */
+  addStockToProduct(productGroup: ProductWithBatchesGroup): void {
+    console.log('➕ Adding stock to product:', productGroup.productName);
+    
+    // Navigate to product edit with add-batch action
+    this.router.navigate(['/dashboard/inventory/edit', productGroup.productId], {
+      queryParams: { action: 'add-batch' }
+    });
+  }
+
+  /**
+   * View batch history - stay in inventory module
+   */
+  viewBatchHistory(batch: ProductBatchWithDetails): void {
+    console.log('📜 Viewing batch history:', batch.batchNumber);
+    
+    // For now, show batch info since we don't have a dedicated history page
+    this.showInfo(`Batch ${batch.batchNumber} history - feature coming soon`);
+    
+    // Alternative: Could navigate to a batch details page
+    // this.router.navigate(['/dashboard/inventory/batch-details', batch.id]);
+  }
+
+  /**
+   * Transfer stock from batch
+   */
+  transferBatch(batch: ProductBatchWithDetails): void {
+    console.log('🔄 Transferring batch:', batch.batchNumber);
+    
+    if (batch.currentStock === 0) {
+      this.showError('Cannot transfer stock from empty batch');
+      return;
+    }
+    
+    // For now, show info message
+    this.showInfo(`Transfer ${batch.currentStock} units from batch ${batch.batchNumber} - feature coming soon`);
+  }
+
+  /**
+   * Dispose expired batch with proper confirmation
+   */
+  disposeBatch(batch: ProductBatchWithDetails): void {
+    console.log('🗑️ Disposing batch:', batch.batchNumber);
+    
+    const confirmed = confirm(
+      `Are you sure you want to dispose batch ${batch.batchNumber}?\n\n` +
+      `This will mark ${batch.currentStock} units as disposed and cannot be undone.\n\n` +
+      `Batch Details:\n` +
+      `- Product: ${batch.productName || 'Unknown'}\n` +
+      `- Expiry: ${batch.expiryDate ? this.formatSafeDate(batch.expiryDate) : 'No expiry'}\n` +
+      `- Current Stock: ${batch.currentStock} units`
+    );
+    
+    if (confirmed) {
+      // TODO: Implement proper batch disposal API call
+      this.showInfo(`Batch ${batch.batchNumber} has been marked for disposal. This feature will be fully implemented soon.`);
+      
+      // For now, just log the action
+      console.log('Batch disposal requested:', {
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        currentStock: batch.currentStock,
+        productId: batch.productId
+      });
+    }
+  }
+
+  /**
+   * Create first batch for a product
+   */
+  createFirstBatch(productGroup: ProductWithBatchesGroup): void {
+    console.log('🆕 Creating first batch for product:', productGroup.productName);
+    
+    this.router.navigate(['/dashboard/inventory/edit', productGroup.productId], {
+      queryParams: { action: 'create-first-batch' }
+    });
+  }
+
+  /**
+   * Prevent unwanted dashboard redirects
+   */
+  private preventDashboardRedirect(): void {
+    console.log('🛡️ Staying within inventory module - no dashboard redirects');
   }
 
 }

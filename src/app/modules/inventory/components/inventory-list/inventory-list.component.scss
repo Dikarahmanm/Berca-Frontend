@@ -5,6 +5,9 @@
 // Use expiry management styles
 @use 'expiry-styles.scss';
 
+// Use enhanced column system styles
+@use './enhanced-columns.scss';
+
 .inventory-container {
   padding: var(--s4);
   max-width: 100%;

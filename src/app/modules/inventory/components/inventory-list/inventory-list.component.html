@@ -2,35 +2,39 @@
 <!-- src/app/modules/inventory/components/inventory-list/inventory-list.component.html -->
 
 <div class="inventory-container">
-  <!-- ===== HEADER SECTION ===== -->
-  <div class="page-header">
-    <div class="header-content">
-      <div class="title-section">
-        <h1 class="page-title">
+  <!-- 🎯 MODERN HEADER SECTION WITH DUAL VIEW TOGGLE -->
+  <div class="modern-inventory-header">
+    <div class="header-title-section">
+      <h1 class="modern-title">
+        <mat-icon class="title-icon">{{ batchViewMode() ? 'layers' : 'inventory_2' }}</mat-icon>
+        {{ currentViewTitle() }}
+      </h1>
+      <div class="subtitle-stats">
+        <span class="stat-chip products">{{ filteredProductsCount() }} Products</span>
+        <span class="stat-chip batches" *ngIf="batchViewMode()">{{ visibleBatchesCount() }} Batches</span>
+      </div>
+    </div>
+
+    <!-- 🔄 ENHANCED VIEW TOGGLE WITH ANIMATION -->
+    <div class="view-toggle-section">
+      <div class="toggle-group" [class.batch-active]="batchViewMode()">
+        <button class="toggle-btn product-view" [class.active]="!batchViewMode()" (click)="toggleBatchView()" *ngIf="batchViewMode()">
           <mat-icon>inventory_2</mat-icon>
-          Inventory Management
-        </h1>
-        <p class="page-subtitle">Manage products, stock levels, and inventory operations</p>
+          <span>Products</span>
+          <div class="active-indicator"></div>
+        </button>
+        <button class="toggle-btn batch-view" [class.active]="batchViewMode()" (click)="toggleBatchView()" *ngIf="!batchViewMode()">
+          <mat-icon>layers</mat-icon>
+          <span>Batches</span>
+          <div class="active-indicator"></div>
+        </button>
       </div>
 
+      <!-- Action Buttons -->
       <div class="header-actions">
         <button mat-raised-button color="primary" (click)="addProduct()" class="add-btn">
           <mat-icon>add</mat-icon>
           Add Product
-        </button>
-
-        <!-- ✅ NEW: Toggle Batch View Button -->
-        <button mat-raised-button 
-          [color]="batchViewMode() ? 'accent' : 'basic'" 
-          (click)="toggleBatchView()" 
-          class="batch-toggle-btn"
-          [class.active]="batchViewMode()"
-          matTooltip="{{ batchViewMode() ? 'Switch to Product View' : 'Switch to Batch View' }}">
-          <mat-icon>{{ batchViewMode() ? 'inventory_2' : 'layers' }}</mat-icon>
-          {{ batchViewMode() ? 'Product View' : 'Batch View' }}
-          <span class="loading-indicator" *ngIf="loadingBatchDetails()">
-            <mat-spinner diameter="16"></mat-spinner>
-          </span>
         </button>
 
         <button mat-icon-button (click)="refreshData()" matTooltip="Refresh Data">
@@ -499,12 +503,479 @@
     </div>
   </div>
 
-  <!-- ===== PRODUCTS TABLE (Hidden in Batch View Mode) ===== -->
-  <mat-card class="table-card" *ngIf="!batchViewMode()">
+  <!-- 🖥️ ENHANCED DESKTOP TABLE WITH MODERN COLUMNS -->
+  <div class="enhanced-table-container" *ngIf="!batchViewMode() && isDesktopView()">
+    
+    <!-- Table Header with Sortable Columns -->
+    <div class="modern-table-header">
+      <div class="table-row header-row">
+        
+        <!-- Product Info Column (Expandable) -->
+        <div class="table-cell header-cell product-info-column">
+          <button class="sort-header" (click)="sortBy('name')" [class.active]="sortField() === 'name'">
+            <div class="header-content">
+              <mat-icon class="column-icon">inventory_2</mat-icon>
+              <span class="header-label">Product Information</span>
+              <mat-icon class="sort-icon" *ngIf="sortField() === 'name'">
+                {{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+              </mat-icon>
+            </div>
+          </button>
+        </div>
+
+        <!-- Stock Status Column with Visual Indicators -->
+        <div class="table-cell header-cell stock-column">
+          <button class="sort-header" (click)="sortBy('stock')" [class.active]="sortField() === 'stock'">
+            <div class="header-content">
+              <mat-icon class="column-icon">analytics</mat-icon>
+              <span class="header-label">Stock Status</span>
+              <mat-icon class="sort-icon" *ngIf="sortField() === 'stock'">
+                {{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+              </mat-icon>
+            </div>
+          </button>
+        </div>
+
+        <!-- Enhanced Expiry Status Column -->
+        <div class="table-cell header-cell expiry-column">
+          <button class="sort-header" (click)="sortBy('expiryDate')" [class.active]="sortField() === 'expiryDate'">
+            <div class="header-content">
+              <mat-icon class="column-icon">schedule</mat-icon>
+              <span class="header-label">Expiry & Batches</span>
+              <mat-icon class="sort-icon" *ngIf="sortField() === 'expiryDate'">
+                {{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+              </mat-icon>
+            </div>
+          </button>
+        </div>
+
+        <!-- Pricing Column with Margin Analysis -->
+        <div class="table-cell header-cell pricing-column">
+          <button class="sort-header" (click)="sortBy('sellPrice')" [class.active]="sortField() === 'sellPrice'">
+            <div class="header-content">
+              <mat-icon class="column-icon">attach_money</mat-icon>
+              <span class="header-label">Pricing & Margin</span>
+              <mat-icon class="sort-icon" *ngIf="sortField() === 'sellPrice'">
+                {{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+              </mat-icon>
+            </div>
+          </button>
+        </div>
+
+        <!-- Performance Metrics Column -->
+        <div class="table-cell header-cell performance-column">
+          <div class="header-content">
+            <mat-icon class="column-icon">trending_up</mat-icon>
+            <span class="header-label">Performance</span>
+          </div>
+        </div>
+
+        <!-- Quick Actions Column -->
+        <div class="table-cell header-cell actions-column">
+          <div class="header-content">
+            <mat-icon class="column-icon">more_horiz</mat-icon>
+            <span class="header-label">Actions</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Body with Enhanced Row Design -->
+    <div class="modern-table-body">
+      <div 
+        *ngFor="let product of products.data; trackBy: trackById; let i = index"
+        class="table-row data-row"
+        [class]="'row-stock-' + getStockStatus(product)"
+        [class.has-expiry]="product.categoryRequiresExpiry"
+        [class.expanded]="expandedProducts.has(product.id)">
+
+        <!-- 1. ENHANCED PRODUCT INFO COLUMN -->
+        <div class="table-cell product-info-cell">
+          <div class="product-info-content">
+            
+            <!-- Main Product Identity -->
+            <div class="product-identity">
+              <div class="product-primary">
+                <h3 class="product-name">{{ product.name }}</h3>
+                <div class="product-meta">
+                  <span class="barcode-chip">
+                    <mat-icon>qr_code</mat-icon>
+                    {{ product.barcode }}
+                  </span>
+                  <span class="category-chip" [style.background-color]="getCategoryColor(product.categoryId)">
+                    {{ getCategoryName(product.categoryId) }}
+                  </span>
+                </div>
+              </div>
+              
+              <!-- Expandable Details Toggle -->
+              <button 
+                class="expand-toggle"
+                (click)="toggleProductExpansion(product.id)"
+                [attr.aria-expanded]="expandedProducts.has(product.id)"
+                matTooltip="View detailed information">
+                <mat-icon [class.rotated]="expandedProducts.has(product.id)">
+                  expand_more
+                </mat-icon>
+              </button>
+            </div>
+
+            <!-- Expandable Product Details -->
+            <div class="product-details-expansion" *ngIf="expandedProducts.has(product.id)">
+              <div class="details-grid">
+                <div class="detail-item">
+                  <span class="detail-label">Description:</span>
+                  <span class="detail-value">{{ product.description || 'No description' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Unit:</span>
+                  <span class="detail-value">{{ product.unit }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Created:</span>
+                  <span class="detail-value">{{ product.createdAt | date:'mediumDate' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Last Updated:</span>
+                  <span class="detail-value">{{ product.updatedAt | date:'mediumDate' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. ENHANCED STOCK STATUS COLUMN -->
+        <div class="table-cell stock-cell">
+          <div class="stock-content">
+            
+            <!-- Stock Level Indicator -->
+            <div class="stock-indicator-wrapper">
+              <div class="stock-circle" [class]="'circle-' + getStockStatus(product)">
+                <div class="stock-value">{{ product.stock }}</div>
+                <div class="stock-unit">{{ product.unit }}</div>
+              </div>
+              
+              <!-- Stock Status Bar -->
+              <div class="stock-progress-container">
+                <div class="stock-progress-bar">
+                  <div 
+                    class="stock-fill" 
+                    [class]="'fill-' + getStockStatus(product)"
+                    [style.width.%]="getStockPercentage(product)">
+                  </div>
+                </div>
+                <div class="stock-labels">
+                  <span class="current-stock">{{ product.stock }}</span>
+                  <span class="minimum-stock">Min: {{ product.minimumStock }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stock Status Badge -->
+            <div class="stock-status-badge" [class]="'badge-' + getStockStatus(product)">
+              <mat-icon class="status-icon">{{ getStockStatusIcon(product) }}</mat-icon>
+              <span class="status-text">{{ getStockStatusText(product) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. ENHANCED EXPIRY & BATCH COLUMN -->
+        <div class="table-cell expiry-cell">
+          <div class="expiry-content">
+            
+            <!-- No Expiry Required -->
+            <div *ngIf="!product.categoryRequiresExpiry" class="no-expiry-indicator">
+              <mat-icon class="no-expiry-icon">block</mat-icon>
+              <span class="no-expiry-text">No expiry tracking</span>
+            </div>
+
+            <!-- Has Expiry Tracking -->
+            <div *ngIf="product.categoryRequiresExpiry" class="expiry-tracking">
+              
+              <!-- Expiry Status Indicator -->
+              <div class="expiry-status-indicator" [class]="'status-' + product.expiryStatus">
+                <div class="status-icon-wrapper">
+                  <mat-icon class="expiry-icon">{{ getExpiryStatusIcon(product) }}</mat-icon>
+                </div>
+                <div class="expiry-info">
+                  <div class="expiry-status-text">{{ getExpiryStatusText(product) }}</div>
+                  <div class="expiry-date" *ngIf="product.expiryDate">
+                    {{ product.expiryDate | date:'mediumDate' }}
+                  </div>
+                  <div class="days-remaining" [class]="'days-' + product.expiryStatus">
+                    {{ product.daysUntilExpiry }} days left
+                  </div>
+                </div>
+              </div>
+
+              <!-- Batch Information -->
+              <div class="batch-info" *ngIf="product.totalBatches">
+                <div class="batch-summary">
+                  <mat-icon class="batch-icon">layers</mat-icon>
+                  <span class="batch-count">{{ product.totalBatches }} batch{{ product.totalBatches > 1 ? 'es' : '' }}</span>
+                </div>
+                
+                <!-- Quick Batch Preview -->
+                <div class="batch-preview" *ngIf="product.batches?.length">
+                  <div 
+                    *ngFor="let batch of (product.batches || []).slice(0, 3); let isLast = last"
+                    class="batch-preview-item"
+                    [class]="'preview-' + batch.expiryStatus">
+                    <span class="batch-number">{{ batch.batchNumber || 'No#' }}</span>
+                    <span class="batch-stock">{{ batch.currentStock }}</span>
+                  </div>
+                  <span *ngIf="(product.batches?.length || 0) > 3" class="more-batches">
+                    +{{ (product.batches?.length || 0) - 3 }} more
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. ENHANCED PRICING & MARGIN COLUMN -->
+        <div class="table-cell pricing-cell">
+          <div class="pricing-content">
+            
+            <!-- Price Information -->
+            <div class="price-info">
+              <div class="sell-price">
+                <span class="price-label">Sell</span>
+                <span class="price-value">{{ formatCurrency(product.sellPrice) }}</span>
+              </div>
+              <div class="buy-price">
+                <span class="price-label">Buy</span>
+                <span class="price-value">{{ formatCurrency(product.buyPrice) }}</span>
+              </div>
+            </div>
+
+            <!-- Margin Analysis -->
+            <div class="margin-analysis">
+              <div class="margin-info">
+                <span class="margin-label">Margin</span>
+                <span class="margin-value" [class]="getMarginClass(product)">
+                  {{ formatCurrency(product.sellPrice - product.buyPrice) }}
+                </span>
+              </div>
+              <div class="margin-percentage" [class]="getMarginClass(product)">
+                {{ getMarginPercentage(product) | number:'1.0-0' }}%
+              </div>
+            </div>
+
+            <!-- Profit Calculator -->
+            <div class="profit-preview">
+              <span class="profit-label">Per unit profit</span>
+              <span class="profit-value" [class]="getProfitClass(product)">
+                {{ formatCurrency(calculateProfit(product)) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. PERFORMANCE METRICS COLUMN -->
+        <div class="table-cell performance-cell">
+          <div class="performance-content">
+            
+            <!-- Performance Indicators -->
+            <div class="performance-metrics">
+              
+              <!-- Stock Turnover -->
+              <div class="metric-item turnover">
+                <mat-icon class="metric-icon">sync</mat-icon>
+                <div class="metric-info">
+                  <span class="metric-label">Turnover</span>
+                  <span class="metric-value">{{ getStockTurnover(product) }}</span>
+                </div>
+              </div>
+
+              <!-- Sales Performance -->
+              <div class="metric-item sales">
+                <mat-icon class="metric-icon">trending_up</mat-icon>
+                <div class="metric-info">
+                  <span class="metric-label">Sales</span>
+                  <span class="metric-value">{{ getSalesPerformance(product) }}</span>
+                </div>
+              </div>
+
+              <!-- Stock Health -->
+              <div class="metric-item health">
+                <mat-icon class="metric-icon" [class]="'health-' + getStockHealth(product)">
+                  {{ getStockHealthIcon(product) }}
+                </mat-icon>
+                <div class="metric-info">
+                  <span class="metric-label">Health</span>
+                  <span class="metric-value">{{ getStockHealth(product) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Performance Score -->
+            <div class="performance-score">
+              <div class="score-circle" [class]="'score-' + getPerformanceGrade(product)">
+                <span class="score-value">{{ getPerformanceScore(product) }}</span>
+              </div>
+              <span class="score-grade">{{ getPerformanceGrade(product) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. ENHANCED ACTIONS COLUMN -->
+        <div class="table-cell actions-cell">
+          <div class="actions-content">
+            
+            <!-- Primary Actions -->
+            <div class="primary-actions">
+              <button 
+                mat-icon-button 
+                class="action-btn primary" 
+                (click)="editProduct(product)"
+                matTooltip="Edit product details">
+                <mat-icon>edit</mat-icon>
+              </button>
+              
+              <button 
+                mat-icon-button 
+                class="action-btn secondary" 
+                (click)="viewProductBatches(product)"
+                matTooltip="Manage batches"
+                *ngIf="product.totalBatches">
+                <mat-icon>layers</mat-icon>
+              </button>
+              
+              <button 
+                mat-icon-button 
+                class="action-btn secondary" 
+                (click)="adjustStock(product)"
+                matTooltip="Adjust stock">
+                <mat-icon>tune</mat-icon>
+              </button>
+            </div>
+
+            <!-- Dropdown Menu for More Actions -->
+            <div class="more-actions">
+              <button 
+                mat-icon-button 
+                [matMenuTriggerFor]="moreMenu"
+                class="action-btn more"
+                matTooltip="More actions">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              
+              <mat-menu #moreMenu="matMenu" class="product-actions-menu">
+                <button mat-menu-item (click)="duplicateProduct(product)">
+                  <mat-icon>content_copy</mat-icon>
+                  <span>Duplicate Product</span>
+                </button>
+                
+                <button mat-menu-item (click)="viewProductHistory(product)">
+                  <mat-icon>history</mat-icon>
+                  <span>View History</span>
+                </button>
+                
+                <button mat-menu-item (click)="generateQRCode(product)">
+                  <mat-icon>qr_code</mat-icon>
+                  <span>Generate QR Code</span>
+                </button>
+                
+                <mat-divider></mat-divider>
+                
+                <button 
+                  mat-menu-item 
+                  (click)="toggleProductStatus(product)"
+                  [class.deactivate]="product.isActive">
+                  <mat-icon>{{ product.isActive ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  <span>{{ product.isActive ? 'Deactivate' : 'Activate' }}</span>
+                </button>
+                
+                <button 
+                  mat-menu-item 
+                  (click)="deleteProduct(product)"
+                  class="delete-action">
+                  <mat-icon>delete</mat-icon>
+                  <span>Delete Product</span>
+                </button>
+              </mat-menu>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📱 MODERN PRODUCT CARDS VIEW (Mobile/Tablet) -->
+  <div class="product-cards-container" *ngIf="!batchViewMode() && !isDesktopView()">
+    
+    <div class="products-grid">
+      <div 
+        *ngFor="let product of products.data; trackBy: trackById"
+        class="product-card modern-card"
+        [class]="'card-stock-' + getStockStatus(product)"
+        [class.has-expiry]="product.categoryRequiresExpiry">
+        
+        <!-- Product Header -->
+        <div class="card-header">
+          <div class="product-title">
+            <h3 class="product-name">{{ product.name }}</h3>
+            <div class="product-barcode">{{ product.barcode }}</div>
+          </div>
+          <div class="category-chip" [style.background-color]="getCategoryColor(product.categoryId)">
+            {{ getCategoryName(product.categoryId) }}
+          </div>
+        </div>
+        
+        <!-- Stock & Expiry Section -->
+        <div class="card-body">
+          <div class="stock-section">
+            <div class="stock-indicator">
+              <div class="stock-value" [class]="'stock-' + getStockStatus(product)">
+                {{ product.stock }}
+              </div>
+              <div class="stock-label">In Stock</div>
+            </div>
+            <div class="minimum-stock">
+              <span>Min: {{ product.minimumStock }}</span>
+            </div>
+          </div>
+          
+          <!-- Expiry Information (if applicable) -->
+          <div class="expiry-section" *ngIf="product.categoryRequiresExpiry">
+            <div class="expiry-status" [class]="'status-' + product.expiryStatus">
+              <mat-icon>{{ getExpiryStatusIcon(product) }}</mat-icon>
+              <span>{{ getExpiryStatusText(product) }}</span>
+            </div>
+            <div class="expiry-date" *ngIf="product.expiryDate">
+              {{ product.expiryDate | date:'mediumDate' }}
+            </div>
+            <div class="days-left" *ngIf="product.daysUntilExpiry !== undefined">
+              {{ product.daysUntilExpiry }} days left
+            </div>
+          </div>
+        </div>
+        
+        <!-- Price & Actions -->
+        <div class="card-footer">
+          <div class="price-info">
+            <div class="sell-price">{{ formatCurrency(product.sellPrice) }}</div>
+            <div class="buy-price">Buy: {{ formatCurrency(product.buyPrice) }}</div>
+          </div>
+          <div class="card-actions">
+            <button mat-icon-button (click)="editProduct(product)" matTooltip="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button (click)="viewProductBatches(product)" matTooltip="View Batches" *ngIf="product.totalBatches">
+              <mat-icon>layers</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legacy Table Container (for compatibility) -->
+  <mat-card class="table-card" *ngIf="!batchViewMode() && false">
     <mat-card-content>
       <div class="table-container">
-        <!-- ✅ FIXED: Dynamic columns based on screen size -->
-        <table mat-table [dataSource]="products" matSort (matSortChange)="onSortChange($event)" class="products-table">
+        <!-- Original table structure preserved but hidden -->
 
           <!-- Image Column - Desktop Only -->
           <ng-container matColumnDef="image">
@@ -922,13 +1393,7 @@
             </td>
           </ng-container>
 
-          <!-- ✅ FIXED: Dynamic table header and rows based on responsive columns -->
-          <tr mat-header-row *matHeaderRowDef="currentDisplayedColumns(); sticky: true"></tr>
-          <tr mat-row *matRowDef="let product; columns: currentDisplayedColumns();"
-            [class.low-stock-row]="product.isLowStock" [class.out-of-stock-row]="product.isOutOfStock"
-            [class.inactive-row]="!product.isActive">
-          </tr>
-        </table>
+          <!-- Legacy table structure removed -->
 
         <!-- ===== LOADING STATE ===== -->
         <div class="loading-container" *ngIf="loading()">

@@ -1,0 +1,1047 @@
+// ✅ ENHANCED COLUMN SYSTEM STYLES
+// Enhanced inventory list with modern column design
+
+// ===== MODERN HEADER STYLES =====
+.modern-inventory-header {
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+  padding: var(--s6);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  .header-title-section {
+    .modern-title {
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      margin: 0 0 var(--s2) 0;
+      
+      .title-icon {
+        color: var(--primary);
+        font-size: 32px;
+      }
+    }
+    
+    .subtitle-stats {
+      display: flex;
+      gap: var(--s3);
+      
+      .stat-chip {
+        padding: var(--s1) var(--s3);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        font-size: var(--text-xs);
+        color: var(--text-secondary);
+        
+        &.products {
+          background: var(--primary-light);
+          color: var(--primary);
+          border-color: var(--primary);
+        }
+        
+        &.batches {
+          background: rgba(59, 130, 246, 0.1);
+          color: #3B82F6;
+          border-color: #3B82F6;
+        }
+      }
+    }
+  }
+  
+  .view-toggle-section {
+    display: flex;
+    align-items: center;
+    gap: var(--s4);
+    
+    .toggle-group {
+      display: flex;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      
+      .toggle-btn {
+        padding: var(--s3) var(--s5);
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 150ms ease;
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        min-height: 44px;
+        
+        &.active {
+          background: var(--primary);
+          color: white;
+          
+          .active-indicator {
+            opacity: 1;
+          }
+        }
+        
+        &:hover:not(.active) {
+          background: var(--primary-light);
+          color: var(--primary);
+        }
+        
+        .active-indicator {
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: var(--primary);
+          opacity: 0;
+          transition: opacity 150ms ease;
+        }
+      }
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: var(--s2);
+      align-items: center;
+    }
+  }
+}
+
+// ===== ENHANCED TABLE DESIGN =====
+.enhanced-table-container {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: var(--s6) 0;
+  
+  .modern-table-header {
+    background: linear-gradient(135deg, var(--bg) 0%, var(--bg-secondary) 100%);
+    border-bottom: 2px solid var(--border);
+    
+    .header-row {
+      display: grid;
+      grid-template-columns: 
+        2fr      // Product Info (expandable)
+        1.2fr    // Stock Status
+        1.5fr    // Expiry & Batches  
+        1.2fr    // Pricing & Margin
+        1fr      // Performance
+        120px;   // Actions (fixed width)
+      gap: var(--s4);
+      padding: var(--s4) var(--s6);
+      
+      .header-cell {
+        .sort-header {
+          width: 100%;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          padding: var(--s3) 0;
+          border-radius: 8px;
+          transition: all 150ms ease;
+          
+          &:hover {
+            background: rgba(255, 145, 77, 0.1);
+          }
+          
+          &.active {
+            background: var(--primary);
+            color: white;
+            
+            .column-icon, .sort-icon {
+              color: white;
+            }
+          }
+          
+          .header-content {
+            display: flex;
+            align-items: center;
+            gap: var(--s2);
+            
+            .column-icon {
+              color: var(--primary);
+              font-size: 20px;
+            }
+            
+            .header-label {
+              font-weight: 600;
+              font-size: var(--text-sm);
+            }
+            
+            .sort-icon {
+              margin-left: auto;
+              font-size: 18px;
+            }
+          }
+        }
+        
+        // Non-sortable headers
+        .header-content {
+          display: flex;
+          align-items: center;
+          gap: var(--s2);
+          padding: var(--s3) 0;
+          
+          .column-icon {
+            color: var(--primary);
+            font-size: 20px;
+          }
+          
+          .header-label {
+            font-weight: 600;
+            font-size: var(--text-sm);
+            color: var(--text);
+          }
+        }
+      }
+    }
+  }
+  
+  .modern-table-body {
+    .data-row {
+      display: grid;
+      grid-template-columns: 2fr 1.2fr 1.5fr 1.2fr 1fr 120px;
+      gap: var(--s4);
+      padding: var(--s5) var(--s6);
+      border-bottom: 1px solid var(--border);
+      transition: all 150ms ease;
+      
+      &:hover {
+        background: var(--bg);
+      }
+      
+      &.expanded {
+        background: var(--primary-light);
+        border-left: 4px solid var(--primary);
+      }
+      
+      // Stock status row colors
+      &.row-stock-critical {
+        border-left: 4px solid var(--error);
+      }
+      
+      &.row-stock-low {
+        border-left: 4px solid var(--warning);
+      }
+      
+      &.row-stock-good {
+        border-left: 4px solid var(--success);
+      }
+    }
+  }
+}
+
+// ===== COLUMN-SPECIFIC STYLES =====
+
+// 1. Product Info Column
+.product-info-cell {
+  .product-info-content {
+    .product-identity {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--s3);
+      
+      .product-primary {
+        flex: 1;
+        
+        .product-name {
+          font-size: var(--text-lg);
+          font-weight: 600;
+          color: var(--text);
+          margin: 0 0 var(--s2) 0;
+          line-height: 1.3;
+        }
+        
+        .product-meta {
+          display: flex;
+          gap: var(--s2);
+          flex-wrap: wrap;
+          
+          .barcode-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--s1);
+            padding: var(--s1) var(--s2);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            
+            mat-icon {
+              font-size: 14px;
+              color: var(--primary);
+            }
+          }
+          
+          .category-chip {
+            padding: var(--s1) var(--s2);
+            border-radius: 4px;
+            font-size: var(--text-xs);
+            font-weight: 500;
+            color: white;
+          }
+        }
+      }
+      
+      .expand-toggle {
+        border: 1px solid var(--border);
+        background: var(--surface);
+        border-radius: 6px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 150ms ease;
+        
+        &:hover {
+          background: var(--primary);
+          color: white;
+          border-color: var(--primary);
+        }
+        
+        mat-icon {
+          transition: transform 150ms ease;
+          
+          &.rotated {
+            transform: rotate(180deg);
+          }
+        }
+      }
+    }
+    
+    .product-details-expansion {
+      margin-top: var(--s4);
+      padding: var(--s4);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      
+      .details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--s3);
+        
+        .detail-item {
+          display: flex;
+          flex-direction: column;
+          gap: var(--s1);
+          
+          .detail-label {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            font-weight: 500;
+          }
+          
+          .detail-value {
+            font-size: var(--text-sm);
+            color: var(--text);
+          }
+        }
+      }
+    }
+  }
+}
+
+// 2. Stock Status Column
+.stock-cell {
+  .stock-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+    
+    .stock-indicator-wrapper {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      
+      .stock-circle {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 3px solid;
+        
+        &.circle-critical {
+          background: rgba(225, 90, 79, 0.1);
+          border-color: var(--error);
+          color: var(--error);
+        }
+        
+        &.circle-low {
+          background: rgba(255, 184, 77, 0.1);
+          border-color: var(--warning);
+          color: var(--warning);
+        }
+        
+        &.circle-good {
+          background: rgba(75, 191, 123, 0.1);
+          border-color: var(--success);
+          color: var(--success);
+        }
+        
+        .stock-value {
+          font-size: var(--text-lg);
+          font-weight: 700;
+        }
+        
+        .stock-unit {
+          font-size: var(--text-xs);
+          opacity: 0.8;
+        }
+      }
+      
+      .stock-progress-container {
+        flex: 1;
+        
+        .stock-progress-bar {
+          width: 100%;
+          height: 8px;
+          background: var(--bg);
+          border-radius: 4px;
+          overflow: hidden;
+          
+          .stock-fill {
+            height: 100%;
+            transition: width 300ms ease;
+            
+            &.fill-critical { background: var(--error); }
+            &.fill-low { background: var(--warning); }
+            &.fill-good { background: var(--success); }
+          }
+        }
+        
+        .stock-labels {
+          display: flex;
+          justify-content: space-between;
+          margin-top: var(--s2);
+          
+          .current-stock {
+            font-weight: 600;
+            color: var(--text);
+          }
+          
+          .minimum-stock {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+          }
+        }
+      }
+    }
+    
+    .stock-status-badge {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      padding: var(--s2) var(--s3);
+      border-radius: 20px;
+      font-size: var(--text-xs);
+      font-weight: 500;
+      
+      &.badge-critical {
+        background: rgba(225, 90, 79, 0.1);
+        color: var(--error);
+        border: 1px solid var(--error);
+      }
+      
+      &.badge-low {
+        background: rgba(255, 184, 77, 0.1);
+        color: var(--warning);
+        border: 1px solid var(--warning);
+      }
+      
+      &.badge-good {
+        background: rgba(75, 191, 123, 0.1);
+        color: var(--success);
+        border: 1px solid var(--success);
+      }
+      
+      .status-icon {
+        font-size: 16px;
+      }
+    }
+  }
+}
+
+// 3. Expiry & Batch Column
+.expiry-cell {
+  .expiry-content {
+    .no-expiry-indicator {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      
+      .no-expiry-icon {
+        color: var(--text-muted);
+      }
+    }
+    
+    .expiry-tracking {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s3);
+      
+      .expiry-status-indicator {
+        display: flex;
+        align-items: center;
+        gap: var(--s3);
+        
+        .status-icon-wrapper {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          
+          .expiry-icon {
+            font-size: 20px;
+          }
+        }
+        
+        &.status-good .status-icon-wrapper {
+          background: rgba(75, 191, 123, 0.1);
+          .expiry-icon { color: var(--success); }
+        }
+        
+        &.status-warning .status-icon-wrapper {
+          background: rgba(255, 184, 77, 0.1);
+          .expiry-icon { color: var(--warning); }
+        }
+        
+        &.status-critical .status-icon-wrapper {
+          background: rgba(225, 90, 79, 0.1);
+          .expiry-icon { color: var(--error); }
+        }
+        
+        .expiry-info {
+          .expiry-status-text {
+            font-weight: 600;
+            font-size: var(--text-sm);
+          }
+          
+          .expiry-date {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+          }
+          
+          .days-remaining {
+            font-size: var(--text-xs);
+            font-weight: 500;
+            
+            &.days-good { color: var(--success); }
+            &.days-warning { color: var(--warning); }
+            &.days-critical { color: var(--error); }
+          }
+        }
+      }
+      
+      .batch-info {
+        .batch-summary {
+          display: flex;
+          align-items: center;
+          gap: var(--s2);
+          margin-bottom: var(--s2);
+          
+          .batch-icon {
+            color: var(--primary);
+            font-size: 16px;
+          }
+          
+          .batch-count {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+          }
+        }
+        
+        .batch-preview {
+          display: flex;
+          flex-direction: column;
+          gap: var(--s1);
+          
+          .batch-preview-item {
+            display: flex;
+            justify-content: space-between;
+            padding: var(--s1) var(--s2);
+            background: var(--bg);
+            border-radius: 4px;
+            font-size: var(--text-xs);
+            
+            &.preview-good { border-left: 3px solid var(--success); }
+            &.preview-warning { border-left: 3px solid var(--warning); }
+            &.preview-critical { border-left: 3px solid var(--error); }
+          }
+          
+          .more-batches {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            font-style: italic;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 4. Pricing & Margin Column
+.pricing-cell {
+  .pricing-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+    
+    .price-info {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s2);
+      
+      .sell-price, .buy-price {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        
+        .price-label {
+          font-size: var(--text-xs);
+          color: var(--text-secondary);
+        }
+        
+        .price-value {
+          font-weight: 600;
+          font-size: var(--text-sm);
+        }
+      }
+      
+      .sell-price .price-value {
+        color: var(--success);
+      }
+      
+      .buy-price .price-value {
+        color: var(--text);
+      }
+    }
+    
+    .margin-analysis {
+      padding: var(--s2);
+      background: var(--bg);
+      border-radius: 6px;
+      
+      .margin-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--s1);
+        
+        .margin-label {
+          font-size: var(--text-xs);
+          color: var(--text-secondary);
+        }
+        
+        .margin-value {
+          font-weight: 600;
+          font-size: var(--text-sm);
+          
+          &.margin-good { color: var(--success); }
+          &.margin-warning { color: var(--warning); }
+          &.margin-poor { color: var(--error); }
+        }
+      }
+      
+      .margin-percentage {
+        font-size: var(--text-xs);
+        text-align: center;
+        padding: var(--s1);
+        border-radius: 12px;
+        
+        &.margin-good {
+          background: rgba(75, 191, 123, 0.1);
+          color: var(--success);
+        }
+        
+        &.margin-warning {
+          background: rgba(255, 184, 77, 0.1);
+          color: var(--warning);
+        }
+        
+        &.margin-poor {
+          background: rgba(225, 90, 79, 0.1);
+          color: var(--error);
+        }
+      }
+    }
+    
+    .profit-preview {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: var(--text-xs);
+      
+      .profit-label {
+        color: var(--text-secondary);
+      }
+      
+      .profit-value {
+        font-weight: 600;
+        
+        &.profit-positive { color: var(--success); }
+        &.profit-negative { color: var(--error); }
+      }
+    }
+  }
+}
+
+// 5. Performance Metrics Column
+.performance-cell {
+  .performance-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+    
+    .performance-metrics {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s2);
+      
+      .metric-item {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        
+        .metric-icon {
+          width: 20px;
+          height: 20px;
+          font-size: 16px;
+          color: var(--primary);
+          
+          &.health-good { color: var(--success); }
+          &.health-warning { color: var(--warning); }
+          &.health-critical { color: var(--error); }
+        }
+        
+        .metric-info {
+          flex: 1;
+          
+          .metric-label {
+            display: block;
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            line-height: 1.2;
+          }
+          
+          .metric-value {
+            display: block;
+            font-size: var(--text-sm);
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1.2;
+          }
+        }
+      }
+    }
+    
+    .performance-score {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--s1);
+      
+      .score-circle {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: var(--text-sm);
+        border: 2px solid;
+        
+        &.score-A {
+          background: rgba(75, 191, 123, 0.1);
+          border-color: var(--success);
+          color: var(--success);
+        }
+        
+        &.score-B {
+          background: rgba(255, 184, 77, 0.1);
+          border-color: var(--warning);
+          color: var(--warning);
+        }
+        
+        &.score-C, &.score-D, &.score-F {
+          background: rgba(225, 90, 79, 0.1);
+          border-color: var(--error);
+          color: var(--error);
+        }
+      }
+      
+      .score-grade {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+    }
+  }
+}
+
+// 6. Actions Column
+.actions-cell {
+  .actions-content {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    
+    .primary-actions {
+      display: flex;
+      gap: var(--s1);
+      
+      .action-btn {
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        transition: all 150ms ease;
+        
+        &.primary {
+          background: var(--primary);
+          border-color: var(--primary);
+          color: white;
+          
+          &:hover {
+            background: var(--primary-hover);
+          }
+        }
+        
+        &.secondary {
+          background: var(--surface);
+          color: var(--text);
+          
+          &:hover {
+            background: var(--bg);
+            border-color: var(--primary);
+          }
+        }
+        
+        &.more {
+          background: var(--bg);
+          color: var(--text-secondary);
+          
+          &:hover {
+            background: var(--border);
+          }
+        }
+        
+        mat-icon {
+          font-size: 18px;
+        }
+      }
+    }
+  }
+}
+
+// ===== MOBILE CARD DESIGN =====
+.product-cards-container {
+  padding: var(--s6);
+  
+  .products-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--s4);
+    
+    @media (min-width: 640px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    @media (min-width: 768px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .product-card {
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      padding: var(--s4);
+      transition: all 150ms ease;
+      
+      &:hover {
+        border-color: var(--primary);
+        transform: translateY(-2px);
+      }
+      
+      &.card-stock-critical {
+        border-left-color: var(--error);
+        border-left-width: 4px;
+      }
+      
+      &.card-stock-low {
+        border-left-color: var(--warning);
+        border-left-width: 4px;
+      }
+      
+      &.card-stock-good {
+        border-left-color: var(--success);
+        border-left-width: 4px;
+      }
+      
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: var(--s4);
+        
+        .product-title {
+          flex: 1;
+          
+          .product-name {
+            font-size: var(--text-lg);
+            font-weight: 600;
+            color: var(--text);
+            margin: 0 0 var(--s1) 0;
+          }
+          
+          .product-barcode {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+          }
+        }
+        
+        .category-chip {
+          padding: var(--s1) var(--s2);
+          border-radius: 4px;
+          font-size: var(--text-xs);
+          font-weight: 500;
+          color: white;
+        }
+      }
+      
+      .card-body {
+        margin-bottom: var(--s4);
+        
+        .stock-section {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: var(--s3);
+          
+          .stock-indicator {
+            text-align: center;
+            
+            .stock-value {
+              font-size: var(--text-xl);
+              font-weight: 700;
+              
+              &.stock-critical { color: var(--error); }
+              &.stock-low { color: var(--warning); }
+              &.stock-good { color: var(--success); }
+            }
+            
+            .stock-label {
+              font-size: var(--text-xs);
+              color: var(--text-secondary);
+            }
+          }
+          
+          .minimum-stock {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+          }
+        }
+        
+        .expiry-section {
+          padding: var(--s3);
+          background: var(--bg);
+          border-radius: 8px;
+          
+          .expiry-status {
+            display: flex;
+            align-items: center;
+            gap: var(--s2);
+            margin-bottom: var(--s2);
+            
+            &.status-good { color: var(--success); }
+            &.status-warning { color: var(--warning); }
+            &.status-critical { color: var(--error); }
+          }
+          
+          .expiry-date, .days-left {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+          }
+        }
+      }
+      
+      .card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        
+        .price-info {
+          .sell-price {
+            font-size: var(--text-lg);
+            font-weight: 700;
+            color: var(--success);
+          }
+          
+          .buy-price {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+          }
+        }
+        
+        .card-actions {
+          display: flex;
+          gap: var(--s2);
+        }
+      }
+    }
+  }
+}
+
+// ===== RESPONSIVE DESIGN =====
+@media (max-width: 640px) {
+  .modern-inventory-header {
+    flex-direction: column;
+    gap: var(--s4);
+    align-items: stretch;
+    
+    .view-toggle-section {
+      justify-content: space-between;
+      
+      .toggle-group .toggle-btn {
+        flex: 1;
+        min-height: 48px;
+      }
+    }
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1023px) {
+  .enhanced-table-container .modern-table-header .header-row,
+  .enhanced-table-container .modern-table-body .data-row {
+    grid-template-columns: 2fr 1fr 1.2fr 0.8fr 80px;
+    
+    .performance-cell {
+      display: none; // Hide performance column on tablet
+    }
+  }
+}
+
+@media (max-width: 1200px) {
+  .enhanced-table-container .modern-table-header .header-row,
+  .enhanced-table-container .modern-table-body .data-row {
+    grid-template-columns: 1.8fr 1fr 1.3fr 1fr 0.8fr 100px;
+  }
+}

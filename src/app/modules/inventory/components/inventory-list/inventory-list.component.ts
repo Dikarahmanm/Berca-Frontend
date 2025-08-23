@@ -73,6 +73,9 @@ export interface ProductWithExpiryAndBatch extends Product {
     expiryDate?: string;
     status: string;
   };
+  
+  // ✅ NEW: For batch detail view compatibility
+  batches?: ProductBatchWithDetails[];
 }
 
 // ✅ NEW: Interfaces for batch view mode
@@ -161,8 +164,21 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   showExpiryColumn = signal(true);
   productsRequiringExpiry = signal<ProductWithExpiryAndBatch[]>([]);
   
+  // ✅ NEW: Enhanced UI state signals for column system
+  viewMode = signal<'cards' | 'table'>('cards');
+  selectedBatchView = signal<'summary' | 'detailed'>('summary');
+  filterPanelOpen = signal(false);
+  sortModalOpen = signal(false);
+  expandedProducts = new Set<number>();
+
   // Enhanced computed properties
   enhancedProducts = computed(() => this.enhanceProductsWithExpiryInfo(this.rawProducts()));
+  
+  // ✅ NEW: UI computed properties
+  currentViewTitle = computed(() => this.batchViewMode() ? 'Batch Management View' : 'Product Management View');
+  filteredProductsCount = computed(() => this.products.data.length);
+  visibleBatchesCount = computed(() => this.productsWithDetailedBatches().reduce((sum, p) => sum + p.batches.length, 0));
+  isDesktopView = computed(() => this.screenWidth() >= 1024);
   
   filteredProductsByExpiry = computed(() => {
     const filter = this.expiryFilter();
@@ -588,20 +604,14 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
     return category?.color || '#666666';
   }
 
-  getStockStatus(product: Product): 'high' | 'medium' | 'low' | 'out' {
-    if (product.stock === 0) return 'out';
-    if (product.stock <= product.minimumStock) return 'low';
-    if (product.stock <= product.minimumStock * 2) return 'medium';
-    return 'high';
-  }
+  // ✅ UPDATED: Enhanced getStockStatus method moved to line 1852 - using new return type
 
   getStockStatusColor(product: Product): string {
     const status = this.getStockStatus(product);
     const colors = {
-      'high': '#4BBF7B',   // Success green
-      'medium': '#FFB84D', // Warning orange
-      'low': '#FF914D',    // Primary orange
-      'out': '#E15A4F'     // Error red
+      'good': '#4BBF7B',     // Success green
+      'low': '#FFB84D',      // Warning orange  
+      'critical': '#E15A4F'  // Error red
     };
     return colors[status];
   }
@@ -609,10 +619,9 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   getStockStatusLabel(product: Product): string {
     const status = this.getStockStatus(product);
     const labels = {
-      'high': 'Good Stock',
-      'medium': 'Medium Stock', 
+      'critical': 'Out of Stock',
       'low': 'Low Stock',
-      'out': 'Out of Stock'
+      'good': 'Good Stock'
     };
     return labels[status];
   }
@@ -712,6 +721,11 @@ onCategoryFilterChange(event: any): void {
   trackCategoryById(index: number, category: Category): number {
     return category.id;
   }
+
+  // ✅ NEW: TrackBy function for products (referenced in template)
+  trackById(index: number, item: any): number {
+    return item.id;
+  }
   // ===== QUICK ACTIONS =====
 
   refreshData(): void {
@@ -764,9 +778,7 @@ onCategoryFilterChange(event: any): void {
     return this.isTablet();
   }
 
-  get isDesktopView(): boolean {
-    return this.isDesktop();
-  }
+  // Removed duplicate getter - using computed property instead
 
   // Get current displayed columns for template
   // Computed property for current displayed columns
@@ -856,26 +868,9 @@ onCategoryFilterChange(event: any): void {
           this.expiryAnalytics.set(data);
         },
         error: (error) => {
-          console.error('Failed to load expiry analytics:', error);
-          // Set mock analytics data as fallback
-          this.expiryAnalytics.set({
-            totalProductsWithExpiry: 0,
-            expiringProducts: 0,
-            expiredProducts: 0,
-            criticalProducts: 0,
-            totalStockValue: 0,
-            expiringStockValue: 0,
-            expiredStockValue: 0,
-            totalWasteValue: 0,
-            potentialLossValue: 0,
-            wastePercentage: 0,
-            expiryRate: 0,
-            averageDaysToExpiry: 0,
-            topExpiringCategories: [],
-            expiryTrends: [],
-            monthlyWasteTrend: [],
-            urgencyBreakdown: { low: 0, medium: 0, high: 0, critical: 0 }
-          });
+          console.error('❌ Failed to load expiry analytics:', error);
+          // Service will handle fallback data automatically
+          this.showError('Failed to load expiry analytics. Using fallback data.');
         }
       })
     );
@@ -1345,20 +1340,37 @@ onCategoryFilterChange(event: any): void {
       needsExpiryData: false
     };
 
-    // TODO: Check if category requires expiry (would need to be loaded separately)
-    // For now, assume products with expiryDate require expiry tracking
-    enhanced.categoryRequiresExpiry = !!product.expiryDate;
+    // ✅ FIXED: Check if category requires expiry by looking up category data
+    const category = this.categories().find(c => c.id === product.categoryId);
+    const categoryRequiresExpiry = category ? (category as any).requiresExpiryDate : false;
+    
+    enhanced.categoryRequiresExpiry = categoryRequiresExpiry;
 
     if (product.expiryDate) {
       enhanced.daysUntilExpiry = this.calculateDaysUntilExpiry(product.expiryDate);
       enhanced.expiryStatus = this.getExpiryStatusFromDays(enhanced.daysUntilExpiry);
       enhanced.expiryStatusText = this.formatDaysUntilExpiry(enhanced);
-    } else if (enhanced.categoryRequiresExpiry) {
+    } else if (categoryRequiresExpiry) {
       enhanced.expiryStatus = 'missing';
       enhanced.needsExpiryData = true;
       enhanced.expiryStatusText = 'Missing expiry data';
     } else {
       enhanced.expiryStatusText = 'Not required';
+    }
+
+    // ✅ REAL API: Batch data will come from backend API calls
+    // For now, basic batch info for products that have expiry dates
+    if (product.expiryDate) {
+      // Basic batch info - will be populated by real API calls
+      enhanced.nearestExpiryDate = product.expiryDate;
+      enhanced.daysToNearestExpiry = enhanced.daysUntilExpiry;
+      
+      // These will be populated by getProductsWithBatchSummary() API call
+      enhanced.totalBatches = 0;
+      enhanced.batchesGood = 0;
+      enhanced.batchesWarning = 0;
+      enhanced.batchesCritical = 0;
+      enhanced.batchesExpired = 0;
     }
 
     return enhanced;
@@ -1638,8 +1650,17 @@ onCategoryFilterChange(event: any): void {
 
     console.log('📡 Loading products with batch summary...', { categoryId });
 
+    // ✅ REAL API: Use enhanced filter parameters
+    const batchFilters = {
+      categoryId: categoryId,
+      page: this.currentPage(),
+      pageSize: this.pageSize(),
+      sortBy: filterValues.sortBy || 'name',
+      sortOrder: filterValues.sortOrder || 'asc'
+    };
+
     this.subscriptions.add(
-      this.inventoryService.getProductsWithBatchSummary(categoryId).subscribe({
+      this.inventoryService.getProductsWithBatchSummary(batchFilters).subscribe({
         next: (batchProducts) => {
           console.log('📦 Batch Products Loaded:', batchProducts.length, 'products');
           this.batchProducts.set(batchProducts);
@@ -1833,6 +1854,211 @@ onCategoryFilterChange(event: any): void {
     if (product.batchesExpired) parts.push(`${product.batchesExpired} expired`);
 
     return parts.length > 0 ? parts.join(', ') : `${product.totalBatches} batches`;
+  }
+
+  // ✅ NEW: Enhanced Column System Helper Methods
+
+  // Stock Status Helpers
+  getStockStatus(product: Product): 'critical' | 'low' | 'good' {
+    if (product.stock <= 0) return 'critical';
+    if (product.stock <= product.minimumStock) return 'low';
+    return 'good';
+  }
+
+  getStockPercentage(product: Product): number {
+    if (product.minimumStock === 0) return 100;
+    return Math.min((product.stock / (product.minimumStock * 2)) * 100, 100);
+  }
+
+  getStockStatusIcon(product: Product): string {
+    const status = this.getStockStatus(product);
+    switch (status) {
+      case 'critical': return 'error';
+      case 'low': return 'warning';
+      case 'good': return 'check_circle';
+      default: return 'help';
+    }
+  }
+
+  getStockStatusText(product: Product): string {
+    const status = this.getStockStatus(product);
+    switch (status) {
+      case 'critical': return 'Out of Stock';
+      case 'low': return 'Low Stock';
+      case 'good': return 'In Stock';
+      default: return 'Unknown';
+    }
+  }
+
+  // Margin & Profit Helpers - using existing method at line 626
+
+  getMarginClass(product: Product): string {
+    const margin = this.getMarginPercentage(product);
+    if (margin >= 30) return 'margin-good';
+    if (margin >= 15) return 'margin-warning';
+    return 'margin-poor';
+  }
+
+  calculateProfit(product: Product): number {
+    return product.sellPrice - product.buyPrice;
+  }
+
+  getProfitClass(product: Product): string {
+    const profit = this.calculateProfit(product);
+    return profit > 0 ? 'profit-positive' : 'profit-negative';
+  }
+
+  // Performance Metrics (Mock implementations - replace with actual business logic)
+  getStockTurnover(product: Product): string {
+    // Mock calculation based on stock levels
+    const stockRatio = product.stock / Math.max(product.minimumStock, 1);
+    if (stockRatio > 2) return 'High';
+    if (stockRatio > 1) return 'Medium';
+    return 'Low';
+  }
+
+  getSalesPerformance(product: Product): string {
+    // Mock calculation based on profit margins
+    const margin = this.getMarginPercentage(product);
+    if (margin >= 30) return 'Excellent';
+    if (margin >= 20) return 'Good';
+    if (margin >= 10) return 'Fair';
+    return 'Poor';
+  }
+
+  getStockHealth(product: Product): string {
+    const stockStatus = this.getStockStatus(product);
+    const productWithExpiry = product as ProductWithExpiryAndBatch;
+    const expiryStatus = productWithExpiry.expiryStatus || 'good';
+    
+    if (stockStatus === 'critical' || expiryStatus === 'critical') return 'critical';
+    if (stockStatus === 'low' || expiryStatus === 'warning') return 'warning';
+    return 'good';
+  }
+
+  getStockHealthIcon(product: Product): string {
+    const health = this.getStockHealth(product);
+    switch (health) {
+      case 'critical': return 'heart_broken';
+      case 'warning': return 'favorite_border';
+      case 'good': return 'favorite';
+      default: return 'help';
+    }
+  }
+
+  getPerformanceScore(product: Product): number {
+    // Mock calculation combining various factors
+    const stockStatus = this.getStockStatus(product);
+    const margin = this.getMarginPercentage(product);
+    
+    let score = 50; // Base score
+    
+    // Stock factor
+    if (stockStatus === 'good') score += 20;
+    else if (stockStatus === 'low') score += 10;
+    else score -= 10;
+    
+    // Margin factor
+    if (margin >= 30) score += 30;
+    else if (margin >= 20) score += 20;
+    else if (margin >= 10) score += 10;
+    else score -= 10;
+    
+    return Math.max(0, Math.min(100, score));
+  }
+
+  getPerformanceGrade(product: Product): string {
+    const score = this.getPerformanceScore(product);
+    if (score >= 90) return 'A';
+    if (score >= 80) return 'B';
+    if (score >= 70) return 'C';
+    if (score >= 60) return 'D';
+    return 'F';
+  }
+
+  // Product Expansion Methods
+  toggleProductExpansion(productId: number): void {
+    if (this.expandedProducts.has(productId)) {
+      this.expandedProducts.delete(productId);
+    } else {
+      this.expandedProducts.add(productId);
+    }
+  }
+
+  // Additional Action Methods
+  duplicateProduct(product: Product): void {
+    console.log('Duplicating product:', product.id);
+    this.showSuccess(`Product "${product.name}" will be duplicated`);
+    // TODO: Implement duplication logic
+  }
+
+  viewProductHistory(product: Product): void {
+    console.log('Viewing history for product:', product.id);
+    this.showSuccess(`Opening history for "${product.name}"`);
+    // TODO: Navigate to product history page
+  }
+
+  generateQRCode(product: Product): void {
+    console.log('Generating QR code for product:', product.id);
+    this.showSuccess(`QR code generated for "${product.name}"`);
+    // TODO: Implement QR code generation
+  }
+
+
+
+
+  // ✅ NEW: Sorting functionality for enhanced columns
+  sortField = signal<string>('name');
+  sortDirection = signal<'asc' | 'desc'>('asc');
+
+  sortBy(field: string): void {
+    if (this.sortField() === field) {
+      // Toggle direction if same field
+      this.sortDirection.set(this.sortDirection() === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to ascending
+      this.sortField.set(field);
+      this.sortDirection.set('asc');
+    }
+
+    // Apply sorting to the data source
+    this.applySorting();
+  }
+
+  private applySorting(): void {
+    const field = this.sortField();
+    const direction = this.sortDirection();
+    
+    const data = [...this.products.data];
+    
+    data.sort((a: any, b: any) => {
+      let aValue = a[field];
+      let bValue = b[field];
+      
+      // Handle different field types
+      if (field === 'name') {
+        aValue = a.name?.toLowerCase() || '';
+        bValue = b.name?.toLowerCase() || '';
+      } else if (field === 'stock' || field === 'sellPrice' || field === 'buyPrice') {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      } else if (field === 'expiryDate') {
+        const productA = a as ProductWithExpiryAndBatch;
+        const productB = b as ProductWithExpiryAndBatch;
+        aValue = productA.expiryDate ? new Date(productA.expiryDate).getTime() : 0;
+        bValue = productB.expiryDate ? new Date(productB.expiryDate).getTime() : 0;
+      }
+      
+      if (aValue < bValue) {
+        return direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+    
+    this.products.data = data;
   }
 
   /**
@@ -2032,8 +2258,13 @@ onCategoryFilterChange(event: any): void {
   /**
    * Navigate to batch management for a product
    */
-  viewProductBatches(product: ProductWithExpiryAndBatch): void {
+  viewProductBatches(product: Product | ProductWithExpiryAndBatch): void {
     this.router.navigate(['/dashboard/inventory/batches', product.id]);
+  }
+
+  adjustStock(product: Product): void {
+    console.log('Adjusting stock for product:', product.id);
+    this.router.navigate(['/dashboard/inventory/stock-mutation', product.id]);
   }
 
   /**

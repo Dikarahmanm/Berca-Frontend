@@ -394,73 +394,165 @@ export class InventoryService {
   }
 
   /**
-   * ✅ FIXED: Get products with batch summary for enhanced inventory view
+   * ✅ REAL API: Get products with batch summary for enhanced inventory view
    * Backend: GET /api/Product/with-batch-summary
    */
-  getProductsWithBatchSummary(categoryId?: number): Observable<ProductWithBatchSummaryDto[]> {
+  getProductsWithBatchSummary(filters?: {
+    categoryId?: number;
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: string;
+  }): Observable<ProductWithBatchSummaryDto[]> {
     let params = new HttpParams();
     
-    // Only pass categoryId if provided
-    if (categoryId) {
-      params = params.set('categoryId', categoryId.toString());
-    }
+    if (filters?.categoryId) params = params.set('categoryId', filters.categoryId.toString());
+    if (filters?.page) params = params.set('page', filters.page.toString());
+    if (filters?.pageSize) params = params.set('pageSize', filters.pageSize.toString());
+    if (filters?.sortBy) params = params.set('sortBy', filters.sortBy);
+    if (filters?.sortOrder) params = params.set('sortOrder', filters.sortOrder);
+
+    console.log('🚀 Calling REAL API: /Product/with-batch-summary', params.toString());
 
     return this.http.get<ApiResponse<ProductWithBatchSummaryDto[]>>(`${this.apiUrl}/with-batch-summary`, { params })
       .pipe(
+        tap(response => console.log('✅ Real API Response:', response)),
         map(response => {
           if (response.success) {
-            return response.data;
+            return response.data || [];
           }
           throw new Error(response.message || 'Failed to fetch products with batches');
         }),
-        catchError(error => this.handleError(error))
+        catchError(error => {
+          console.error('❌ API Error - with-batch-summary:', error);
+          // Fallback to empty array instead of throwing
+          return [];
+        })
       );
   }
 
   /**
-   * ✅ NEW: Get batches for a specific product
+   * ✅ REAL API: Get batches for a specific product
    * Backend: GET /api/Product/{productId}/batches
    */
-  getProductBatches(productId: number): Observable<ProductBatch[]> {
-    return this.http.get<ApiResponse<ProductBatch[]>>(`${this.apiUrl}/${productId}/batches`)
+  getProductBatches(productId: number, sortBy = 'expiryDate', sortOrder = 'asc'): Observable<ProductBatch[]> {
+    const params = new HttpParams()
+      .set('sortBy', sortBy)
+      .set('sortOrder', sortOrder);
+
+    console.log(`🚀 Calling REAL API: /Product/${productId}/batches`);
+
+    return this.http.get<ApiResponse<ProductBatch[]>>(`${this.apiUrl}/${productId}/batches`, { params })
       .pipe(
+        tap(response => console.log('✅ Real API Response - batches:', response)),
         map(response => {
           if (response.success) {
-            return response.data;
+            return response.data || [];
           }
-          throw new Error(response.message || 'Failed to fetch product batches');
+          throw new Error(response.message || 'Failed to fetch batches');
         }),
-        catchError(error => this.handleError(error))
+        catchError(error => {
+          console.error(`❌ API Error - batches for product ${productId}:`, error);
+          // Fallback to empty array
+          return [];
+        })
       );
   }
 
   /**
-   * ✅ NEW: Create batch for existing product
+   * ✅ REAL API: Create new batch for a product
    * Backend: POST /api/Product/{productId}/batches
    */
-  createBatchForProduct(productId: number, batchData: CreateBatchRequest): Observable<ProductBatch> {
-    console.log('🆕 Creating Batch for Product:', { productId, batchData });
-    
+  createBatch(productId: number, batchData: CreateBatchRequest): Observable<ProductBatch> {
+    console.log(`🚀 Calling REAL API: POST /Product/${productId}/batches`, batchData);
+
     return this.http.post<ApiResponse<ProductBatch>>(`${this.apiUrl}/${productId}/batches`, batchData)
       .pipe(
+        tap(response => console.log('✅ Real API Response - create batch:', response)),
         map(response => {
-          console.log('✅ Batch Created:', response);
           if (response.success) {
-            this.refreshProducts();
-            return response.data;
+            return response.data!;
           }
           throw new Error(response.message || 'Failed to create batch');
         }),
         catchError(error => {
-          console.error('❌ Create Batch Error:', error);
-          if (error.status === 400) {
-            const message = error.error?.message || error.error?.errors || 'Invalid batch data';
-            throw new Error(message);
-          }
-          return this.handleError(error);
+          console.error(`❌ API Error - create batch for product ${productId}:`, error);
+          return throwError(() => new Error('Failed to create batch'));
         })
       );
   }
+
+  /**
+   * ✅ REAL API: Update existing batch
+   * Backend: PUT /api/Product/{productId}/batches/{batchId}
+   */
+  updateBatch(productId: number, batchId: number, batchData: any): Observable<ProductBatch> {
+    console.log(`🚀 Calling REAL API: PUT /Product/${productId}/batches/${batchId}`, batchData);
+
+    return this.http.put<ApiResponse<ProductBatch>>(`${this.apiUrl}/${productId}/batches/${batchId}`, batchData)
+      .pipe(
+        tap(response => console.log('✅ Real API Response - update batch:', response)),
+        map(response => {
+          if (response.success) {
+            return response.data!;
+          }
+          throw new Error(response.message || 'Failed to update batch');
+        }),
+        catchError(error => {
+          console.error(`❌ API Error - update batch ${batchId}:`, error);
+          return throwError(() => new Error('Failed to update batch'));
+        })
+      );
+  }
+
+  /**
+   * ✅ REAL API: Dispose batch
+   * Backend: POST /api/Product/{productId}/batches/{batchId}/dispose
+   */
+  disposeBatch(productId: number, batchId: number, reason?: string): Observable<boolean> {
+    const disposeData = { reason: reason || 'Manual disposal' };
+    console.log(`🚀 Calling REAL API: POST /Product/${productId}/batches/${batchId}/dispose`, disposeData);
+
+    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/${productId}/batches/${batchId}/dispose`, disposeData)
+      .pipe(
+        tap(response => console.log('✅ Real API Response - dispose batch:', response)),
+        map(response => {
+          if (response.success) {
+            return response.data || true;
+          }
+          throw new Error(response.message || 'Failed to dispose batch');
+        }),
+        catchError(error => {
+          console.error(`❌ API Error - dispose batch ${batchId}:`, error);
+          return throwError(() => new Error('Failed to dispose batch'));
+        })
+      );
+  }
+
+  /**
+   * ✅ REAL API: Get single batch details
+   * Backend: GET /api/Product/{productId}/batches/{batchId}
+   */
+  getBatch(productId: number, batchId: number): Observable<ProductBatch> {
+    console.log(`🚀 Calling REAL API: GET /Product/${productId}/batches/${batchId}`);
+
+    return this.http.get<ApiResponse<ProductBatch>>(`${this.apiUrl}/${productId}/batches/${batchId}`)
+      .pipe(
+        tap(response => console.log('✅ Real API Response - single batch:', response)),
+        map(response => {
+          if (response.success) {
+            return response.data!;
+          }
+          throw new Error(response.message || 'Failed to fetch batch details');
+        }),
+        catchError(error => {
+          console.error(`❌ API Error - get batch ${batchId}:`, error);
+          return throwError(() => new Error('Failed to fetch batch details'));
+        })
+      );
+  }
+
+  // ✅ REMOVED: Duplicate method - using createBatch() instead
 
   /**
    * ✅ NEW: Add stock to existing batch

@@ -1,0 +1,338 @@
+<!-- src/app/shared/components/unified-notification-center/unified-notification-center.component.html -->
+<!-- ✅ REDESIGNED: Clean Semantic Structure + Custom Dropdown + Better Accessibility -->
+<!-- Following Project Guidelines: Mobile-first, High Contrast, Clean Design -->
+
+<div class="notification-center" role="region" aria-label="Notification Center">
+
+    <!-- Main Notification Bell Button -->
+    <button class="notification-bell" (click)="toggleDropdown()"
+        [class.has-alerts]="hasAlerts()" [class.has-critical]="hasCriticalAlerts()" 
+        [class.active]="isDropdownOpen()" [attr.aria-label]="getAriaLabel()"
+        [attr.aria-expanded]="isDropdownOpen()" type="button">
+
+        <div class="notification-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+            </svg>
+            <span class="notification-badge" *ngIf="displayCount() > 0" 
+                [class.critical]="hasCriticalAlerts()"
+                [attr.aria-label]="'You have ' + displayCount() + ' notifications'">
+                {{ displayCount() > 99 ? '99+' : displayCount() }}
+            </span>
+        </div>
+    </button>
+
+    <!-- Custom Notification Dropdown -->
+    <div class="notification-dropdown" [class.show]="isDropdownOpen()">
+
+        <!-- Header Section -->
+        <header class="dropdown-header" (click)="$event.stopPropagation()">
+            <div class="header-content">
+                <div class="header-title">
+                    <h3>Notification Center</h3>
+                    <div class="header-stats" *ngIf="!isLoading()">
+                        <span class="total-count"
+                            [attr.aria-label]="'Total notifications: ' + notificationCounts().total">
+                            {{ notificationCounts().total }}
+                        </span>
+                        <span class="divider" aria-hidden="true">•</span>
+                        <span class="unread-count" *ngIf="unreadCount() > 0"
+                            [attr.aria-label]="'Unread notifications: ' + unreadCount()">
+                            {{ unreadCount() }} unread
+                        </span>
+                        <span class="all-read" *ngIf="unreadCount() === 0 && notificationCounts().total > 0"
+                            aria-label="All notifications read">
+                            All read
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Toggle Controls -->
+                <div class="notification-toggles" role="group" aria-label="Notification type toggles">
+                    <div class="toggle-group">
+                        <label class="toggle-label">
+                            <input type="checkbox" class="toggle-input" 
+                                [checked]="preferences().smartEnabled"
+                                (change)="onSmartToggleChange($event)" 
+                                [attr.aria-label]="'Toggle smart notifications. Currently ' + (preferences().smartEnabled ? 'enabled' : 'disabled')">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Smart</span>
+                        </label>
+                    </div>
+
+                    <div class="toggle-group">
+                        <label class="toggle-label">
+                            <input type="checkbox" class="toggle-input" 
+                                [checked]="preferences().basicEnabled"
+                                (change)="onBasicToggleChange($event)" 
+                                [attr.aria-label]="'Toggle system notifications. Currently ' + (preferences().basicEnabled ? 'enabled' : 'disabled')">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">System</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="dropdown-divider"></div>
+
+        <!-- Loading State -->
+        <div class="loading-section" *ngIf="isLoading()" role="status" aria-live="polite"
+            aria-label="Loading notifications">
+            <div class="loading-content">
+                <div class="loading-spinner" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" class="spinner">
+                        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" 
+                            stroke-linecap="round" stroke-dasharray="32" stroke-dashoffset="32">
+                            <animate attributeName="stroke-dasharray" dur="2s" values="0 32;16 16;0 32;0 32" repeatCount="indefinite"/>
+                            <animate attributeName="stroke-dashoffset" dur="2s" values="0;-16;-32;-32" repeatCount="indefinite"/>
+                        </circle>
+                    </svg>
+                </div>
+                <span class="loading-text">Loading notifications...</span>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="notification-content" *ngIf="!isLoading()">
+
+            <!-- Smart Notifications Section -->
+            <section class="smart-section" *ngIf="preferences().smartEnabled" aria-label="Smart notifications">
+
+                <!-- Critical Smart Notifications -->
+                <div class="notification-group critical" *ngIf="criticalNotifications().length > 0" role="group"
+                    [attr.aria-label]="'Critical alerts: ' + criticalNotifications().length + ' items'">
+
+                    <div class="group-header">
+                        <svg class="group-icon critical" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                        </svg>
+                        <h4 class="group-title">Critical Alerts</h4>
+                        <span class="group-count"
+                            [attr.aria-label]="criticalNotifications().length + ' critical alerts'">
+                            {{ criticalNotifications().length }}
+                        </span>
+                    </div>
+
+                    <div class="notification-list" role="list">
+                        <article class="notification-item critical"
+                            *ngFor="let notification of getCriticalNotificationsSlice(); trackBy: trackByNotificationId"
+                            (click)="handleNotificationClick(notification, 'smart')"
+                            (keydown.enter)="handleNotificationClick(notification, 'smart')"
+                            (keydown.space)="handleNotificationClick(notification, 'smart')"
+                            [attr.aria-label]="getNotificationAriaLabel(notification)" tabindex="0"
+                            role="listitem button">
+
+                            <div class="notification-content">
+                                <div class="notification-header">
+                                    <h5 class="notification-title">{{ notification.title }}</h5>
+                                    <div class="notification-meta" *ngIf="hasSmartMeta(notification)">
+                                        <span class="financial-impact" *ngIf="notification.potentialLoss"
+                                            [attr.aria-label]="'Potential loss: ' + formatCurrencyShort(notification.potentialLoss)">
+                                            💰{{ formatCurrencyShort(notification.potentialLoss) }}
+                                        </span>
+                                        <span class="confidence" *ngIf="notification.confidenceScore"
+                                            [attr.aria-label]="'Confidence level: ' + notification.confidenceScore + ' percent'">
+                                            {{ notification.confidenceScore }}% sure
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="notification-message">{{ notification.message }}</p>
+                                <time class="notification-time" [attr.datetime]="notification.createdAt">
+                                    {{ formatRelativeTime(notification.createdAt) }}
+                                </time>
+                            </div>
+
+                            <div class="notification-actions">
+                                <button type="button" class="action-btn quick-action"
+                                    (click)="handleQuickAction(notification); $event.stopPropagation()"
+                                    [attr.aria-label]="'Quick action for ' + notification.title"
+                                    title="Quick Action">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <path d="M7 2v11h3v9l7-12h-4l4-8z"/>
+                                    </svg>
+                                    <span class="sr-only">Quick Action</span>
+                                </button>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+
+                <!-- High Priority Smart Notifications -->
+                <div class="notification-group high" *ngIf="highPriorityNotifications().length > 0" role="group"
+                    [attr.aria-label]="'High priority alerts: ' + highPriorityNotifications().length + ' items'">
+
+                    <div class="group-header">
+                        <svg class="group-icon high" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M14,4L12,2L10,4V8.5L5.5,13L6.91,14.41L12,9.33L17.09,14.41L18.5,13L14,8.5V4Z"/>
+                        </svg>
+                        <h4 class="group-title">High Priority</h4>
+                        <span class="group-count"
+                            [attr.aria-label]="highPriorityNotifications().length + ' high priority alerts'">
+                            {{ highPriorityNotifications().length }}
+                        </span>
+                    </div>
+
+                    <div class="notification-list" role="list">
+                        <article class="notification-item high"
+                            *ngFor="let notification of getHighPriorityNotificationsSlice(); trackBy: trackByNotificationId"
+                            (click)="handleNotificationClick(notification, 'smart')"
+                            (keydown.enter)="handleNotificationClick(notification, 'smart')"
+                            (keydown.space)="handleNotificationClick(notification, 'smart')"
+                            [attr.aria-label]="getNotificationAriaLabel(notification)" tabindex="0"
+                            role="listitem button">
+
+                            <div class="notification-content">
+                                <h5 class="notification-title">{{ notification.title }}</h5>
+                                <p class="notification-message">{{ notification.message }}</p>
+                                <time class="notification-time" [attr.datetime]="notification.createdAt">
+                                    {{ formatRelativeTime(notification.createdAt) }}
+                                </time>
+                            </div>
+
+                            <div class="notification-actions">
+                                <span class="smart-chip" aria-label="Smart notification">
+                                    Smart
+                                </span>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+
+                <!-- No Smart Notifications State -->
+                <div class="empty-state smart" *ngIf="smartNotifications().length === 0" role="status"
+                    aria-label="No smart notifications">
+                    <svg class="empty-icon success" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z"/>
+                    </svg>
+                    <p class="empty-message">All systems running smoothly</p>
+                </div>
+            </section>
+
+            <div class="dropdown-divider" *ngIf="preferences().smartEnabled && preferences().basicEnabled"></div>
+
+            <!-- System Notifications Section -->
+            <section class="system-section" *ngIf="preferences().basicEnabled" aria-label="System notifications">
+
+                <div class="notification-group system" *ngIf="basicNotifications().length > 0" role="group"
+                    [attr.aria-label]="'System updates: ' + basicNotifications().length + ' items'">
+
+                    <div class="group-header">
+                        <svg class="group-icon system" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,7H13V9H11V7M11,11H13V17H11V11Z"/>
+                        </svg>
+                        <h4 class="group-title">System Updates</h4>
+                        <span class="group-count" [attr.aria-label]="basicNotifications().length + ' system updates'">
+                            {{ basicNotifications().length }}
+                        </span>
+                    </div>
+
+                    <div class="notification-list" role="list">
+                        <article class="notification-item system"
+                            *ngFor="let notification of getBasicNotificationsSlice(); trackBy: trackByBasicNotificationId"
+                            (click)="handleNotificationClick(notification, 'basic')"
+                            (keydown.enter)="handleNotificationClick(notification, 'basic')"
+                            (keydown.space)="handleNotificationClick(notification, 'basic')"
+                            [class.unread]="!notification.isRead"
+                            [attr.aria-label]="getNotificationAriaLabel(notification) + (notification.isRead ? '' : '. Unread')"
+                            tabindex="0" role="listitem button">
+
+                            <div class="notification-content">
+                                <h5 class="notification-title" [class.unread]="!notification.isRead">
+                                    {{ notification.title }}
+                                    <span class="unread-indicator" *ngIf="!notification.isRead"
+                                        aria-label="Unread"></span>
+                                </h5>
+                                <p class="notification-message">{{ notification.message }}</p>
+                                <time class="notification-time" [attr.datetime]="notification.createdAt">
+                                    {{ formatRelativeTime(notification.createdAt) }}
+                                </time>
+                            </div>
+
+                            <div class="notification-actions">
+                                <span class="priority-chip" [class]="'priority-' + notification.priority.toLowerCase()"
+                                    [attr.aria-label]="'Priority: ' + notification.priority">
+                                    {{ notification.priority }}
+                                </span>
+
+                                <button type="button" class="action-btn mark-read" *ngIf="!notification.isRead"
+                                    (click)="markAsRead(notification.id, 'basic'); $event.stopPropagation()"
+                                    title="Mark as read"
+                                    [attr.aria-label]="'Mark ' + notification.title + ' as read'">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>
+                                    </svg>
+                                    <span class="sr-only">Mark as read</span>
+                                </button>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+
+                <!-- No System Notifications State -->
+                <div class="empty-state system" *ngIf="basicNotifications().length === 0" role="status"
+                    aria-label="No system notifications">
+                    <svg class="empty-icon info" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                    </svg>
+                    <p class="empty-message">No system updates</p>
+                </div>
+            </section>
+
+            <!-- Both Disabled State -->
+            <div class="empty-state disabled" *ngIf="!preferences().smartEnabled && !preferences().basicEnabled"
+                role="status" aria-label="All notifications disabled">
+                <svg class="empty-icon disabled" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M20,18.69L19.37,18.06L13,11.69V4A1,1 0 0,0 12,3A1,1 0 0,0 11,4V11.69L5.37,6.06L4.63,6.8L10.69,12.86C10.89,13.06 11,13.32 11,13.59V19A1,1 0 0,0 12,20A1,1 0 0,0 13,19V13.59C13,13.32 12.89,13.06 12.69,12.86L20,18.69Z"/>
+                </svg>
+                <p class="empty-message">All notifications disabled</p>
+                <p class="empty-submessage">Enable smart or system notifications above</p>
+            </div>
+        </div>
+
+        <div class="dropdown-divider"></div>
+
+        <!-- Dropdown Footer -->
+        <footer class="dropdown-footer" role="contentinfo">
+            <button type="button" class="footer-btn" (click)="viewAllNotifications(); $event.stopPropagation()"
+                title="View all notifications" aria-label="View all notifications page">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M3,5H21V7H3V5M3,13V11H21V13H3M3,19V17H21V19H3Z"/>
+                </svg>
+                <span class="footer-btn-text">View All</span>
+            </button>
+
+            <button type="button" class="footer-btn" (click)="openSettings(); $event.stopPropagation()"
+                title="Notification settings" aria-label="Open notification settings">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                </svg>
+                <span class="footer-btn-text">Settings</span>
+            </button>
+
+            <button type="button" class="footer-btn refresh-btn"
+                (click)="refreshNotifications(); $event.stopPropagation()" [disabled]="isLoading()"
+                title="Refresh notifications"
+                [attr.aria-label]="'Refresh notifications' + (isLoading() ? '. Currently loading' : '')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+                    [class.spinning]="isLoading()">
+                    <path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
+                </svg>
+                <span class="footer-btn-text">Refresh</span>
+            </button>
+        </footer>
+    </div>
+
+    <!-- Backdrop -->
+    <div class="notification-backdrop" *ngIf="isDropdownOpen()" (click)="closeDropdown()"></div>
+</div>
+
+<!-- Screen reader only content for live announcements -->
+<div class="sr-only" aria-live="polite" aria-atomic="true">
+    <span *ngIf="hasCriticalAlerts()">
+        Critical notifications require attention: {{ criticalNotifications().length }} items
+    </span>
+    <span *ngIf="unreadCount() > 0">
+        {{ unreadCount() }} unread notifications
+    </span>
+</div>

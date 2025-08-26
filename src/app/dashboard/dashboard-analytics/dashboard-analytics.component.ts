@@ -1,5 +1,8 @@
 // src/app/dashboard/dashboard-analytics/dashboard-analytics.component.ts
-import { Component, OnInit, OnDestroy, HostListener, signal, computed } from '@angular/core';
+// ✅ SMART ANALYTICS INTEGRATION: Enhanced Dashboard Analytics
+// Following Project Guidelines: Signal-based, Performance Optimized, Comprehensive Analytics
+
+import { Component, OnInit, OnDestroy, HostListener, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,13 +16,17 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatBadgeModule } from '@angular/material/badge';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { FormsModule } from '@angular/forms';
-import { Observable, Subject, combineLatest, of } from 'rxjs';
+import { Observable, Subject, combineLatest, of, interval } from 'rxjs';
 import { takeUntil, startWith, map, catchError } from 'rxjs/operators';
 import { DateRangeUtil } from '../../shared/utils/date-range.util';
 import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+
+// ===== ENHANCED IMPORTS: Smart Analytics Services =====
 import { 
   DashboardService, 
   DashboardKPIDto, 
@@ -31,6 +38,24 @@ import {
   QuickStatsDto,
   LowStockProductDto
 } from '../../core/services/dashboard.service';
+
+import { 
+  ExpiryAnalyticsService,
+  ComprehensiveExpiryAnalyticsDto,
+  CategoryExpiryStatsDto
+} from '../../core/services/expiry-analytics.service';
+import { SmartFifoRecommendationDto } from '../../core/interfaces/smart-analytics.interfaces';
+
+import {
+  SmartNotificationsService,
+  SmartNotificationDto
+} from '../../core/services/smart-notifications.service';
+
+import {
+  MultiBranchCoordinationService,
+  CrossBranchAnalyticsDto,
+  StockTransferOpportunityDto
+} from '../../core/services/multi-branch-coordination.service';
 
 // Import Modal Components
 import { ProductQuickViewModalComponent, ProductQuickViewData } from '../../shared/components/product-quick-view-modal/product-quick-view-modal.component';
@@ -54,6 +79,8 @@ import { QuickRestockModalComponent, QuickRestockData } from '../../shared/compo
     MatTableModule,
     MatChipsModule,
     MatBadgeModule,
+    MatTooltipModule,
+    MatExpansionModule,
     FormsModule
   ],
   templateUrl: './dashboard-analytics.component.html',
@@ -62,11 +89,16 @@ import { QuickRestockModalComponent, QuickRestockData } from '../../shared/compo
 export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
-  // Data observables
+  // ===== DEPENDENCY INJECTION: Smart Analytics Services =====
+  private expiryAnalyticsService = inject(ExpiryAnalyticsService);
+  private smartNotificationsService = inject(SmartNotificationsService);
+  private multiBranchService = inject(MultiBranchCoordinationService);
+
+  // ===== EXISTING DATA OBSERVABLES =====
   kpis$: Observable<DashboardKPIDto | null>;
   quickStats$: Observable<QuickStatsDto | null>;
   
-  // Chart data - converted to signals
+  // ===== EXISTING CHART DATA SIGNALS =====
   salesChartData = signal<ChartDataDto[]>([]);
   revenueChartData = signal<ChartDataDto[]>([]);
   topProducts = signal<TopProductDto[]>([]);
@@ -75,16 +107,68 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
   recentTransactions = signal<RecentTransactionDto[]>([]);
   lowStockAlerts = signal<LowStockProductDto[]>([]);
 
-  // Current data for calculations - converted to signals
+  // ===== SMART ANALYTICS DATA SIGNALS =====
+  smartAnalyticsData = signal<ComprehensiveExpiryAnalyticsDto | null>(null);
+  fifoRecommendations = signal<SmartFifoRecommendationDto[]>([]);
+  categoryExpiryStats = signal<CategoryExpiryStatsDto[]>([]);
+  smartNotifications = signal<SmartNotificationDto[]>([]);
+  crossBranchAnalytics = signal<CrossBranchAnalyticsDto | null>(null);
+  transferOpportunities = signal<StockTransferOpportunityDto[]>([]);
+
+  // ===== EXISTING DATA SIGNALS =====
   currentKPIs = signal<DashboardKPIDto | null>(null);
   currentQuickStats = signal<QuickStatsDto | null>(null);
 
-  // UI state - converted to signals
+  // ===== ENHANCED UI STATE SIGNALS =====
   isLoading = signal<boolean>(true);
+  isSmartAnalyticsLoading = signal<boolean>(false);
   selectedPeriod = signal<'today' | 'week' | 'month' | 'year'>('month');
   selectedChartPeriod = signal<'daily' | 'weekly' | 'monthly'>('daily');
   selectedWorstCategory = signal<string>('all');
+  selectedAnalyticsTab = signal<number>(0);
+  showAdvancedAnalytics = signal<boolean>(false);
   refreshInterval: any;
+
+  // ===== COMPUTED PROPERTIES: Smart Analytics =====
+  readonly criticalFifoRecommendations = computed(() => 
+    this.fifoRecommendations().filter(r => r.priority === 'CRITICAL').slice(0, 5)
+  );
+
+  readonly highRiskCategoryStats = computed(() =>
+    this.categoryExpiryStats()
+      .filter(c => c.riskScore >= 70) // High risk threshold
+      .sort((a, b) => b.riskScore - a.riskScore)
+      .slice(0, 3)
+  );
+
+  readonly criticalTransferOpportunities = computed(() =>
+    this.transferOpportunities()
+      .filter(t => t.urgency === 'CRITICAL')
+      .sort((a, b) => b.potentialSavings - a.potentialSavings)
+      .slice(0, 3)
+  );
+
+  readonly unreadSmartNotifications = computed(() =>
+    this.smartNotifications().filter(n => !n.isRead).length
+  );
+
+  readonly totalPotentialSavings = computed(() =>
+    this.smartAnalyticsData()?.potentialLossValue || 0
+  );
+
+  readonly expiringProductsCount = computed(() => {
+    const data = this.smartAnalyticsData();
+    return (data?.expiringIn7Days || 0) + (data?.expiringIn30Days || 0);
+  });
+
+  readonly crossBranchSummary = computed(() => {
+    const analytics = this.crossBranchAnalytics();
+    return analytics ? {
+      totalBranches: analytics.totalBranches,
+      transferOpportunities: this.transferOpportunities().length,
+      potentialSavings: this.transferOpportunities().reduce((sum, t) => sum + t.potentialSavings, 0)
+    } : null;
+  });
 
   // Chart colors
   readonly chartColors = {
@@ -93,7 +177,11 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
     warning: '#FFB84D',
     error: '#E15A4F',
     info: '#4FC3F7',
-    surface: 'rgba(255,255,255,0.25)'
+    surface: 'rgba(255,255,255,0.25)',
+    critical: '#D32F2F',
+    high: '#FF5722',
+    medium: '#FF9800',
+    low: '#8BC34A'
   };
 
   readonly pieColors = ['#FF914D', '#4BBF7B', '#FFB84D', '#E15A4F', '#4FC3F7', '#9C27B0', '#607D8B', '#795548'];
@@ -110,6 +198,7 @@ constructor(
 
   ngOnInit() {
     this.loadDashboardData();
+    this.loadSmartAnalyticsData();
     this.setupRealTimeUpdates();
     this.subscribeToData();
   }
@@ -239,6 +328,73 @@ constructor(
     });
   }
 
+  // ===== SMART ANALYTICS DATA LOADING =====
+
+  async loadSmartAnalyticsData(): Promise<void> {
+    console.log('🧠 Loading smart analytics data...');
+    this.isSmartAnalyticsLoading.set(true);
+
+    try {
+      // Load all smart analytics data in parallel
+      const [
+        comprehensiveAnalytics,
+        smartNotifications,
+        crossBranchAnalytics
+      ] = await Promise.allSettled([
+        this.expiryAnalyticsService.getComprehensiveAnalytics(),
+        this.smartNotificationsService.getSmartNotifications(),
+        this.multiBranchService.getCrossBranchAnalytics()
+      ]);
+
+      // Process comprehensive expiry analytics
+      if (comprehensiveAnalytics.status === 'fulfilled') {
+        this.smartAnalyticsData.set(comprehensiveAnalytics.value);
+        this.fifoRecommendations.set(comprehensiveAnalytics.value.recommendations || []);
+        this.categoryExpiryStats.set(comprehensiveAnalytics.value.categoryBreakdown || []);
+        console.log('✅ Smart expiry analytics loaded:', comprehensiveAnalytics.value);
+      } else {
+        console.error('❌ Failed to load expiry analytics:', comprehensiveAnalytics.reason);
+      }
+
+      // Process smart notifications
+      if (smartNotifications.status === 'fulfilled') {
+        this.smartNotifications.set(smartNotifications.value);
+        console.log('✅ Smart notifications loaded:', smartNotifications.value.length, 'notifications');
+      } else {
+        console.error('❌ Failed to load smart notifications:', smartNotifications.reason);
+      }
+
+      // Process cross-branch analytics
+      if (crossBranchAnalytics.status === 'fulfilled') {
+        this.crossBranchAnalytics.set(crossBranchAnalytics.value);
+        // Map InterBranchTransferRecommendation to StockTransferOpportunityDto
+        const transferOpportunities = crossBranchAnalytics.value.transferRecommendations?.map(rec => ({
+          id: rec.id,
+          productName: rec.productName,
+          fromBranchName: rec.fromBranchName,
+          toBranchName: rec.toBranchName,
+          quantity: rec.recommendedQuantity,
+          urgency: this.mapExpiryUrgencyToString(rec.priority),
+          potentialSavings: rec.estimatedSaving,
+          transferCost: rec.transferCost,
+          netBenefit: rec.netBenefit
+        })) || [];
+        this.transferOpportunities.set(transferOpportunities);
+        console.log('✅ Cross-branch analytics loaded:', crossBranchAnalytics.value);
+      } else {
+        console.error('❌ Failed to load cross-branch analytics:', crossBranchAnalytics.reason);
+      }
+
+      console.log('🧠 Smart analytics data loading completed');
+
+    } catch (error) {
+      console.error('❌ Error loading smart analytics:', error);
+      this.showError('Gagal memuat smart analytics. Menggunakan data dasar saja.');
+    } finally {
+      this.isSmartAnalyticsLoading.set(false);
+    }
+  }
+
   private subscribeToData() {
     // Subscribe to real-time KPIs
     this.kpis$.pipe(takeUntil(this.destroy$)).subscribe(kpis => {
@@ -274,6 +430,125 @@ constructor(
   refreshData() {
     this.dashboardService.refreshAllData();
     this.loadDashboardData();
+    this.loadSmartAnalyticsData();
+  }
+
+  // ===== SMART ANALYTICS EVENT HANDLERS =====
+
+  async onExecuteFifoRecommendation(recommendation: SmartFifoRecommendationDto): Promise<void> {
+    console.log('⚡ Executing FIFO recommendation:', recommendation.productId);
+    
+    try {
+      await this.expiryAnalyticsService.executeRecommendation(
+        recommendation.productId,
+        recommendation.batchId,
+        recommendation.recommendedAction,
+        recommendation.discountPercentage
+      );
+
+      this.showSuccess(`Aksi ${recommendation.recommendedAction} berhasil dijalankan untuk ${recommendation.productName}`);
+      await this.loadSmartAnalyticsData(); // Refresh data
+    } catch (error) {
+      console.error('❌ Error executing recommendation:', error);
+      this.showError(`Gagal menjalankan aksi untuk ${recommendation.productName}`);
+    }
+  }
+
+  async onExecuteTransferOpportunity(opportunity: StockTransferOpportunityDto): Promise<void> {
+    console.log('🚚 Executing transfer opportunity:', opportunity.id);
+    
+    try {
+      await this.multiBranchService.executeTransferOpportunity(opportunity.id);
+      
+      this.showSuccess(`Transfer ${opportunity.productName} dari ${opportunity.fromBranchName} ke ${opportunity.toBranchName} berhasil diinisiasi`);
+      await this.loadSmartAnalyticsData(); // Refresh data
+    } catch (error) {
+      console.error('❌ Error executing transfer:', error);
+      this.showError(`Gagal menjalankan transfer untuk ${opportunity.productName}`);
+    }
+  }
+
+
+  onAnalyticsTabChange(tabIndex: number): void {
+    this.selectedAnalyticsTab.set(tabIndex);
+    console.log('📊 Analytics tab changed:', tabIndex);
+    
+    // Load specific data based on tab
+    switch (tabIndex) {
+      case 1: // Expiry Analytics
+        this.expiryAnalyticsService.refreshData();
+        break;
+      case 2: // Cross-Branch Analytics
+        this.multiBranchService.refreshData();
+        break;
+      case 3: // Smart Notifications
+        this.smartNotificationsService.refreshNotifications();
+        break;
+    }
+  }
+
+  // ===== SMART ANALYTICS NAVIGATION =====
+
+  navigateToExpiryManagement(): void {
+    console.log('🔄 Navigating to expiry management');
+    this.router.navigate(['/dashboard/inventory'], {
+      queryParams: { filter: 'expiring', view: 'expiry-analytics' }
+    });
+  }
+
+  navigateToMultiBranchCoordination(): void {
+    console.log('🔄 Navigating to multi-branch coordination');
+    this.router.navigate(['/dashboard/multi-branch']);
+  }
+
+  navigateToSmartNotifications(): void {
+    console.log('🔄 Navigating to smart notifications');
+    this.router.navigate(['/dashboard/notifications'], {
+      queryParams: { type: 'smart' }
+    });
+  }
+
+  // ===== SMART ANALYTICS HELPERS =====
+
+  getRiskLevelColor(riskLevel: string): string {
+    switch (riskLevel) {
+      case 'CRITICAL': return this.chartColors.critical;
+      case 'HIGH': return this.chartColors.high;
+      case 'MEDIUM': return this.chartColors.medium;
+      case 'LOW': return this.chartColors.low;
+      default: return this.chartColors.info;
+    }
+  }
+
+  getUrgencyIcon(urgency: string): string {
+    switch (urgency) {
+      case 'CRITICAL': return 'error';
+      case 'HIGH': return 'warning';
+      case 'MEDIUM': return 'info';
+      case 'LOW': return 'check_circle';
+      default: return 'help_outline';
+    }
+  }
+
+  getRecommendationActionIcon(action: string): string {
+    switch (action) {
+      case 'SELL_FIRST': return 'shopping_cart';
+      case 'DISCOUNT': return 'local_offer';
+      case 'TRANSFER': return 'swap_horiz';
+      case 'DISPOSE': return 'delete';
+      case 'DONATE': return 'volunteer_activism';
+      case 'RETURN_TO_SUPPLIER': return 'keyboard_return';
+      default: return 'help_outline';
+    }
+  }
+
+  formatDaysUntilExpiry(days: number): string {
+    if (days < 0) return 'Sudah kedaluwarsa';
+    if (days === 0) return 'Kedaluwarsa hari ini';
+    if (days === 1) return '1 hari lagi';
+    if (days < 7) return `${days} hari lagi`;
+    if (days < 30) return `${Math.floor(days / 7)} minggu lagi`;
+    return `${Math.floor(days / 30)} bulan lagi`;
   }
 
   // ===== CHART FORMATTERS =====
@@ -731,6 +1006,136 @@ showTransactionQuickView(transaction: RecentTransactionDto) {
     if ((event.ctrlKey || event.metaKey) && event.key === 't') {
       event.preventDefault();
       this.navigateToTransactions();
+    }
+  }
+
+  // ===== SMART ANALYTICS UI METHODS =====
+  
+  onToggleAdvancedAnalytics(): void {
+    this.showAdvancedAnalytics.update(show => !show);
+    
+    if (this.showAdvancedAnalytics() && !this.smartAnalyticsData() && !this.isSmartAnalyticsLoading()) {
+      this.loadSmartAnalyticsData();
+    }
+  }
+
+  formatExpiryDate(date: string): string {
+    const expiryDate = new Date(date);
+    const now = new Date();
+    const diffTime = expiryDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return `Kedaluwarsa ${Math.abs(diffDays)} hari lalu`;
+    } else if (diffDays === 0) {
+      return 'Kedaluwarsa hari ini';
+    } else if (diffDays === 1) {
+      return 'Kedaluwarsa besok';
+    } else if (diffDays <= 7) {
+      return `Kedaluwarsa dalam ${diffDays} hari`;
+    } else if (diffDays <= 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `Kedaluwarsa dalam ${weeks} minggu`;
+    } else {
+      const months = Math.floor(diffDays / 30);
+      return `Kedaluwarsa dalam ${months} bulan`;
+    }
+  }
+
+  getNotificationIcon(type: string): string {
+    switch (type) {
+      case 'EXPIRY_WARNING':
+        return 'schedule';
+      case 'LOW_STOCK':
+        return 'inventory_2';
+      case 'FIFO_RECOMMENDATION':
+        return 'smart_toy';
+      case 'TRANSFER_OPPORTUNITY':
+        return 'swap_horiz';
+      case 'DEBT_REMINDER':
+        return 'account_balance_wallet';
+      case 'FACTURE_OVERDUE':
+        return 'receipt_long';
+      case 'SYSTEM_ALERT':
+        return 'settings';
+      case 'PERFORMANCE_INSIGHT':
+        return 'insights';
+      default:
+        return 'notifications';
+    }
+  }
+
+  async markNotificationAsRead(notificationId: number): Promise<void> {
+    try {
+      const success = await this.smartNotificationsService.markAsRead(notificationId);
+      if (success) {
+        // Update local state - the service should handle this automatically via signals
+        console.log(`✅ Marked notification ${notificationId} as read`);
+      } else {
+        this.showError('Gagal menandai notifikasi sebagai dibaca');
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      this.showError('Error menandai notifikasi sebagai dibaca');
+    }
+  }
+
+  getNotificationPriorityClass(priority: string): string {
+    switch (priority?.toLowerCase()) {
+      case 'critical':
+        return 'critical';
+      case 'high':
+        return 'high';
+      case 'medium':
+        return 'medium';
+      case 'low':
+        return 'low';
+      default:
+        return 'medium';
+    }
+  }
+
+  formatNotificationTime(createdAt: string): string {
+    const date = new Date(createdAt);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffMinutes < 1) {
+      return 'Baru saja';
+    } else if (diffMinutes < 60) {
+      return `${diffMinutes} menit lalu`;
+    } else if (diffMinutes < 1440) {
+      const diffHours = Math.floor(diffMinutes / 60);
+      return `${diffHours} jam lalu`;
+    } else {
+      const diffDays = Math.floor(diffMinutes / 1440);
+      return `${diffDays} hari lalu`;
+    }
+  }
+
+  onExecuteAction(action: any): void {
+    console.log('⚡ Executing recommended action:', action);
+    // Implementation will depend on the specific action type
+    this.showInfo('Fitur ini akan segera tersedia');
+  }
+
+  onViewDetails(item: any): void {
+    console.log('🔍 Viewing item details:', item);
+    // Implementation will depend on the specific item type
+    this.showInfo('Membuka detail...');
+  }
+
+  // ===== HELPER METHODS =====
+  
+  private mapExpiryUrgencyToString(urgency: any): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+    // Map ExpiryUrgency enum values to string literals
+    switch (urgency) {
+      case 0: case 'LOW': return 'LOW';
+      case 1: case 'MEDIUM': return 'MEDIUM'; 
+      case 2: case 'HIGH': return 'HIGH';
+      case 3: case 'CRITICAL': return 'CRITICAL';
+      default: return 'MEDIUM';
     }
   }
 }

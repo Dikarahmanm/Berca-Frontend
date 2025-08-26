@@ -504,6 +504,306 @@
       </ng-template>
     </section>
 
+    <!-- ===== SMART ANALYTICS SECTIONS ===== -->
+    
+    <!-- Smart Analytics Toggle -->
+    <section class="smart-analytics-toggle" *ngIf="!isLoading()">
+      <div class="toggle-header">
+        <h2>🧠 Smart Analytics</h2>
+        <p>AI-powered insights and recommendations</p>
+      </div>
+      <button class="btn btn-accent toggle-btn" (click)="onToggleAdvancedAnalytics()" type="button"
+        [attr.aria-expanded]="showAdvancedAnalytics()"
+        [attr.aria-label]="showAdvancedAnalytics() ? 'Hide advanced analytics' : 'Show advanced analytics'">
+        <mat-icon>{{ showAdvancedAnalytics() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        <span>{{ showAdvancedAnalytics() ? 'Hide' : 'Show' }} Advanced Analytics</span>
+      </button>
+    </section>
+
+    <!-- Smart Analytics Content -->
+    <div class="smart-analytics-content" *ngIf="showAdvancedAnalytics()">
+
+      <!-- Smart Analytics Loading State -->
+      <div class="smart-loading-overlay" *ngIf="isSmartAnalyticsLoading()" role="status" aria-live="polite">
+        <div class="loading-spinner"></div>
+        <p>🧠 Loading smart analytics...</p>
+      </div>
+
+      <!-- Expiry Analytics Section -->
+      <section class="expiry-analytics-section" *ngIf="smartAnalyticsData()" aria-labelledby="expiry-title">
+        <div class="section-header">
+          <h3 id="expiry-title">
+            <mat-icon>schedule</mat-icon>
+            Expiry Analytics
+          </h3>
+          <p>AI-powered expiry predictions and insights</p>
+        </div>
+
+        <div class="expiry-overview-grid">
+          <div class="expiry-stat-card critical">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ smartAnalyticsData()!.expiringIn7Days }}</div>
+              <div class="stat-label">Expiring in 7 Days</div>
+            </div>
+          </div>
+
+          <div class="expiry-stat-card warning">
+            <div class="stat-icon">📅</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ smartAnalyticsData()!.expiringIn30Days }}</div>
+              <div class="stat-label">Expiring in 30 Days</div>
+            </div>
+          </div>
+
+          <div class="expiry-stat-card info">
+            <div class="stat-icon">💰</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ formatCurrency(smartAnalyticsData()!.potentialLossValue) }}</div>
+              <div class="stat-label">Potential Loss</div>
+            </div>
+          </div>
+
+          <div class="expiry-stat-card success">
+            <div class="stat-icon">📦</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ smartAnalyticsData()!.totalProducts }}</div>
+              <div class="stat-label">Total Products</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FIFO Recommendations Section -->
+      <section class="fifo-recommendations-section" *ngIf="fifoRecommendations().length > 0" aria-labelledby="fifo-title">
+        <div class="section-header">
+          <h3 id="fifo-title">
+            <mat-icon>smart_toy</mat-icon>
+            FIFO Recommendations
+          </h3>
+          <p>AI-powered inventory optimization suggestions</p>
+        </div>
+
+        <div class="fifo-recommendations-list">
+          <article class="fifo-recommendation-item" 
+            *ngFor="let recommendation of criticalFifoRecommendations()"
+            [class]="'priority-' + recommendation.priority.toLowerCase()">
+            
+            <div class="recommendation-header">
+              <div class="product-info">
+                <h4 class="product-name">{{ recommendation.productName }}</h4>
+                <div class="product-code">{{ recommendation.productBarcode }}</div>
+              </div>
+              <div class="priority-badge" [class]="'priority-' + recommendation.priority.toLowerCase()">
+                {{ recommendation.priority }}
+              </div>
+            </div>
+
+            <div class="recommendation-details">
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <mat-icon>inventory</mat-icon>
+                  <span>{{ recommendation.currentStock }} units</span>
+                </div>
+                <div class="detail-item">
+                  <mat-icon>schedule</mat-icon>
+                  <span>{{ formatExpiryDate(recommendation.expiryDate) }}</span>
+                </div>
+                <div class="detail-item">
+                  <mat-icon>savings</mat-icon>
+                  <span>Save {{ formatCurrency(recommendation.potentialSavings) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="recommendation-action">
+              <div class="ai-suggestion">
+                <mat-icon>psychology</mat-icon>
+                <span>{{ recommendation.recommendedAction }}</span>
+              </div>
+              <button class="btn btn-sm btn-primary" 
+                (click)="onExecuteFifoRecommendation(recommendation)"
+                [attr.aria-label]="'Execute recommendation for ' + recommendation.productName">
+                Execute
+              </button>
+            </div>
+
+            <div class="confidence-indicator">
+              <span class="confidence-label">AI Confidence:</span>
+              <div class="confidence-bar">
+                <div class="confidence-fill" [style.width.%]="(recommendation.confidenceScore * 100)"></div>
+              </div>
+              <span class="confidence-score">{{ (recommendation.confidenceScore * 100).toFixed(0) }}%</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Multi-Branch Analytics Section -->
+      <section class="multi-branch-section" *ngIf="crossBranchAnalytics()" aria-labelledby="branch-title">
+        <div class="section-header">
+          <h3 id="branch-title">
+            <mat-icon>account_tree</mat-icon>
+            Multi-Branch Analytics
+          </h3>
+          <p>Cross-branch performance and transfer opportunities</p>
+        </div>
+
+        <div class="branch-overview-grid">
+          <div class="branch-stat-card">
+            <div class="stat-icon">🏢</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ crossBranchAnalytics()!.totalBranches }}</div>
+              <div class="stat-label">Total Branches</div>
+            </div>
+          </div>
+
+          <div class="branch-stat-card">
+            <div class="stat-icon">🔄</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ crossBranchAnalytics()!.totalTransfers }}</div>
+              <div class="stat-label">Total Transfers</div>
+            </div>
+          </div>
+
+          <div class="branch-stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-content">
+              <div class="stat-value">{{ formatCurrency(crossBranchAnalytics()!.transfersSavings) }}</div>
+              <div class="stat-label">Transfer Savings</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transfer Opportunities -->
+        <div class="transfer-opportunities" *ngIf="criticalTransferOpportunities().length > 0">
+          <h4>🚚 Transfer Opportunities</h4>
+          <div class="transfer-list">
+            <article class="transfer-item" *ngFor="let opportunity of criticalTransferOpportunities()">
+              <div class="transfer-header">
+                <div class="product-info">
+                  <h5>{{ opportunity.productName }}</h5>
+                  <div class="transfer-route">{{ opportunity.fromBranchName }} → {{ opportunity.toBranchName }}</div>
+                </div>
+                <div class="urgency-badge" [class]="'urgency-' + opportunity.urgency.toLowerCase()">
+                  {{ opportunity.urgency }}
+                </div>
+              </div>
+
+              <div class="transfer-details">
+                <div class="detail-item">
+                  <span class="detail-label">Quantity:</span>
+                  <span class="detail-value">{{ opportunity.quantity }} units</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Savings:</span>
+                  <span class="detail-value">{{ formatCurrency(opportunity.potentialSavings) }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Net Benefit:</span>
+                  <span class="detail-value">{{ formatCurrency(opportunity.netBenefit) }}</span>
+                </div>
+              </div>
+
+              <div class="transfer-action">
+                <button class="btn btn-sm btn-success" 
+                  (click)="onExecuteTransferOpportunity(opportunity)"
+                  [attr.aria-label]="'Execute transfer for ' + opportunity.productName">
+                  Execute Transfer
+                </button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Smart Notifications Section -->
+      <section class="smart-notifications-section" *ngIf="smartNotifications().length > 0" aria-labelledby="smart-notif-title">
+        <div class="section-header">
+          <h3 id="smart-notif-title">
+            <mat-icon>notifications_active</mat-icon>
+            Smart Notifications
+          </h3>
+          <p>Intelligent alerts and recommendations</p>
+        </div>
+
+        <div class="smart-notifications-list">
+          <article class="smart-notification-item" 
+            *ngFor="let notification of smartNotifications().slice(0, 5)"
+            [class]="'priority-' + notification.priority.toLowerCase()">
+            
+            <div class="notification-icon">
+              <mat-icon>{{ getNotificationIcon(notification.type) }}</mat-icon>
+            </div>
+
+            <div class="notification-content">
+              <h4 class="notification-title">{{ notification.title }}</h4>
+              <p class="notification-message">{{ notification.message }}</p>
+              <div class="notification-meta">
+                <span class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</span>
+                <span class="notification-priority">{{ notification.priority }}</span>
+              </div>
+            </div>
+
+            <div class="notification-actions" *ngIf="!notification.isRead">
+              <button class="btn btn-sm btn-outline" 
+                (click)="markNotificationAsRead(notification.id)"
+                aria-label="Mark notification as read">
+                Mark Read
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Analytics Summary -->
+      <section class="analytics-summary-section">
+        <div class="section-header">
+          <h3>
+            <mat-icon>summarize</mat-icon>
+            Analytics Summary
+          </h3>
+          <p>Key insights and recommendations</p>
+        </div>
+
+        <div class="summary-cards">
+          <div class="summary-card insights">
+            <h4>💡 Key Insights</h4>
+            <ul class="insights-list">
+              <li *ngIf="expiringProductsCount() > 0">
+                {{ expiringProductsCount() }} products expiring soon - review FIFO recommendations
+              </li>
+              <li *ngIf="totalPotentialSavings() > 0">
+                Potential savings of {{ formatCurrency(totalPotentialSavings()) }} through optimization
+              </li>
+              <li *ngIf="unreadSmartNotifications() > 0">
+                {{ unreadSmartNotifications() }} smart notifications require attention
+              </li>
+            </ul>
+          </div>
+
+          <div class="summary-card actions">
+            <h4>⚡ Recommended Actions</h4>
+            <div class="action-buttons">
+              <button class="btn btn-sm btn-primary" (click)="navigateToExpiryManagement()">
+                <mat-icon>schedule</mat-icon>
+                Manage Expiry
+              </button>
+              <button class="btn btn-sm btn-success" (click)="navigateToMultiBranchCoordination()">
+                <mat-icon>account_tree</mat-icon>
+                Coordinate Branches
+              </button>
+              <button class="btn btn-sm btn-info" (click)="navigateToSmartNotifications()">
+                <mat-icon>notifications</mat-icon>
+                View Notifications
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
     <!-- Keyboard Shortcuts Help -->
     <div class="keyboard-shortcuts-hint" *ngIf="!isLoading">
       <div class="shortcuts-content">

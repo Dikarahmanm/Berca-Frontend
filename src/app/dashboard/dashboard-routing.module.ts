@@ -96,6 +96,30 @@ const routes: Routes = [
         }
       },
 
+      // ===== SUPPLIER MANAGEMENT ===== //
+      {
+        path: 'supplier',
+        loadChildren: () => import('../modules/supplier/supplier.module').then(m => m.SupplierModule),
+        canActivate: [roleGuard],
+        data: {
+          title: 'Supplier Management',
+          breadcrumb: 'Suppliers',
+          requiredRoles: ['Admin', 'Manager']
+        }
+      },
+
+      // ===== FACTURE MANAGEMENT ===== //
+      {
+        path: 'facture',
+        loadChildren: () => import('../modules/facture/facture.module').then(m => m.FactureModule),
+        canActivate: [roleGuard],
+        data: {
+          title: 'Facture Management',
+          breadcrumb: 'Factures',
+          requiredRoles: ['Admin', 'Manager', 'User']
+        }
+      },
+
       // ===== DEFAULT ROUTE - REDIRECT TO DASHBOARD HOME ===== //
       {
         path: '',

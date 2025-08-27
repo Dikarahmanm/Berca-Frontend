@@ -342,6 +342,7 @@ export interface ConfirmPaymentDto {
   paymentId: number;
   confirmedAmount: number;
   confirmationReference?: string;
+  supplierAckReference?: string;
   notes?: string;
   confirmationFile?: string;
 }

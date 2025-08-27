@@ -573,16 +573,30 @@ export class FactureService {
 
   confirmPayment(confirmDto: ConfirmPaymentDto): Observable<FacturePaymentDto> {
     this._loading.set(true);
+    const apiUrl = `${this.baseUrl}/payments/${confirmDto.paymentId}/confirm`;
     console.log('✅ Confirming payment:', confirmDto);
+    console.log('🔍 API URL:', apiUrl);
+    console.log('🔍 Request body:', JSON.stringify(confirmDto, null, 2));
     
-    return this.http.post<FacturePaymentDto>(`${this.baseUrl}/payments/${confirmDto.paymentId}/confirm`, confirmDto, {
+    return this.http.post<FacturePaymentDto>(apiUrl, confirmDto, {
       withCredentials: true
     }).pipe(
       tap(response => {
-        console.log('✅ Payment confirmed successfully:', response);
+        console.log('✅ Payment confirmed successfully - Full response:', response);
+        console.log('🔍 Response status:', response?.status, response?.statusDisplay);
+        console.log('🔍 Response confirmed amount:', response?.amount);
+        console.log('🔍 Response confirmed at:', response?.confirmedAt);
+        console.log('🔍 Response processing status:', response?.processingStatus);
         this._loading.set(false);
       }),
-      catchError(this.handleError.bind(this))
+      catchError(error => {
+        console.error('❌ Confirm payment API error:', error);
+        console.error('❌ Error status:', error.status);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error body:', error.error);
+        this._loading.set(false);
+        return this.handleError(error);
+      })
     );
   }
 

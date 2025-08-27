@@ -129,16 +129,51 @@ import { FactureDto, FacturePaymentDto, ProcessPaymentDto, ConfirmPaymentDto, Pa
                   placeholder="Check number">
               </div>
 
-              <!-- Confirmation Reference -->
-              <div class="form-group">
-                <label for="confirmationReference" class="form-label">Confirmation Reference</label>
-                <input
-                  id="confirmationReference"
-                  type="text"
-                  formControlName="confirmationReference"
-                  class="form-input"
-                  placeholder="Internal confirmation reference">
-              </div>
+              <!-- Fields for PROCESS PAYMENT (status 0 -> 1) -->
+              <ng-container *ngIf="selectedPayment()?.status === 0">
+                <!-- Payment Reference for Processing -->
+                <div class="form-group">
+                  <label for="confirmationReference" class="form-label">Payment Reference</label>
+                  <input
+                    id="confirmationReference"
+                    type="text"
+                    formControlName="confirmationReference"
+                    class="form-input"
+                    placeholder="Internal payment reference number">
+                  <small class="text-gray-600">Optional: Internal tracking reference for this payment</small>
+                </div>
+              </ng-container>
+
+              <!-- Fields for CONFIRM PAYMENT (status 1/2 -> 3) -->
+              <ng-container *ngIf="selectedPayment()?.status === 1 || selectedPayment()?.status === 2">
+                <!-- Confirmation Reference -->
+                <div class="form-group">
+                  <label for="confirmationReference" class="form-label">Confirmation Reference</label>
+                  <input
+                    id="confirmationReference"
+                    type="text"
+                    formControlName="confirmationReference"
+                    class="form-input"
+                    placeholder="Internal confirmation reference">
+                  <small class="text-gray-600">Optional: Internal confirmation tracking reference</small>
+                </div>
+
+                <!-- Supplier Acknowledgement Reference -->
+                <div class="form-group">
+                  <label for="supplierAckReference" class="form-label required">Supplier Acknowledgement Reference</label>
+                  <input
+                    id="supplierAckReference"
+                    type="text"
+                    formControlName="supplierAckReference"
+                    class="form-input"
+                    placeholder="Supplier's acknowledgement/receipt reference number"
+                    [class.error]="receiveForm.get('supplierAckReference')?.invalid && receiveForm.get('supplierAckReference')?.touched">
+                  <div *ngIf="receiveForm.get('supplierAckReference')?.invalid && receiveForm.get('supplierAckReference')?.touched" class="error-message">
+                    Supplier acknowledgement reference is required for confirmation
+                  </div>
+                  <small class="text-gray-600">Required: Reference number from supplier confirming payment receipt</small>
+                </div>
+              </ng-container>
 
               <!-- Notes -->
               <div class="form-group">
@@ -542,11 +577,24 @@ export class ReceivePaymentModalComponent implements OnInit {
     const facture = this.facture();
     if (!facture?.payments) return [];
     
-    // Filter for payments that can be processed or confirmed
-    return facture.payments.filter(payment => 
-      payment.canProcess && 
+    // Filter for payments that can be processed OR confirmed
+    const filtered = facture.payments.filter(payment => 
+      (payment.canProcess || payment.canConfirm) && 
       (payment.status === 0 || payment.status === 1 || payment.status === 2) // SCHEDULED, PENDING, or PROCESSING
     );
+    
+    console.log('🔍 Filtering payments:', facture.payments.map(p => ({
+      id: p.id,
+      status: p.status,
+      statusDisplay: p.statusDisplay,
+      canProcess: p.canProcess,
+      canConfirm: p.canConfirm,
+      included: (p.canProcess || p.canConfirm) && (p.status === 0 || p.status === 1 || p.status === 2)
+    })));
+    
+    console.log('🔍 Final filtered payments count:', filtered.length);
+    
+    return filtered;
   });
 
   readonly needsBankDetails = computed(() => {
@@ -559,18 +607,26 @@ export class ReceivePaymentModalComponent implements OnInit {
     if (!payment) return { action: 'Select Payment', processing: 'Processing...' };
 
     console.log('🔍 Current payment status:', payment.status, payment.statusDisplay);
+    console.log('🔍 Payment capabilities - canProcess:', payment.canProcess, 'canConfirm:', payment.canConfirm);
     
+    let actionResult;
     switch (payment.status) {
       case 0: // SCHEDULED
-        return { action: 'Process Payment', processing: 'Processing...' };
+        actionResult = { action: 'Process Payment', processing: 'Processing...' };
+        break;
       case 1: // PENDING  
       case 2: // PROCESSING
-        return { action: 'Confirm Payment', processing: 'Confirming...' };
+        actionResult = { action: 'Confirm Payment', processing: 'Confirming...' };
+        break;
       case 3: // COMPLETED
-        return { action: 'Payment Completed', processing: 'Completed' };
+        actionResult = { action: 'Payment Completed', processing: 'Completed' };
+        break;
       default:
-        return { action: 'Complete Payment', processing: 'Completing...' };
+        actionResult = { action: 'Complete Payment', processing: 'Completing...' };
     }
+    
+    console.log('🔍 Button will show:', actionResult.action);
+    return actionResult;
   });
 
   constructor() {
@@ -579,12 +635,19 @@ export class ReceivePaymentModalComponent implements OnInit {
       const lastPaymentId = this.lastProcessedPaymentId();
       const payments = this.scheduledPayments();
       
+      console.log('🔄 Effect triggered - lastPaymentId:', lastPaymentId, 'payments count:', payments.length);
+      
       if (lastPaymentId && payments.length > 0) {
         const updatedPayment = payments.find(p => p.id === lastPaymentId);
+        console.log('🔍 Looking for payment ID:', lastPaymentId, 'in payments:', payments.map(p => ({ id: p.id, status: p.status, canProcess: p.canProcess, canConfirm: p.canConfirm })));
+        
         if (updatedPayment) {
-          console.log('🔄 Auto-reselecting updated payment:', updatedPayment.id, 'status:', updatedPayment.status);
+          console.log('🔄 Auto-reselecting updated payment:', updatedPayment.id, 'status:', updatedPayment.status, 'statusDisplay:', updatedPayment.statusDisplay);
+          console.log('🔍 Payment capabilities - canProcess:', updatedPayment.canProcess, 'canConfirm:', updatedPayment.canConfirm);
           this.selectedPayment.set(updatedPayment);
           this.updateFormForPayment(updatedPayment);
+        } else {
+          console.log('⚠️ Payment not found after refresh! Available payment IDs:', payments.map(p => p.id));
         }
       }
     });
@@ -600,6 +663,7 @@ export class ReceivePaymentModalComponent implements OnInit {
       transferReference: [''],
       checkNumber: [''],
       confirmationReference: [''],
+      supplierAckReference: [''], // Validation will be set dynamically based on payment status
       notes: ['']
     });
   }
@@ -617,6 +681,7 @@ export class ReceivePaymentModalComponent implements OnInit {
       transferReference: payment.transferReference || '',
       checkNumber: payment.checkNumber || '',
       confirmationReference: payment.paymentReference || this.generateConfirmationReference(payment),
+      supplierAckReference: payment.supplierAckReference || '',
       notes: payment.notes || ''
     });
 
@@ -627,21 +692,30 @@ export class ReceivePaymentModalComponent implements OnInit {
   private updateFormValidators(payment: FacturePaymentDto): void {
     const transferRefControl = this.receiveForm.get('transferReference');
     const checkNumberControl = this.receiveForm.get('checkNumber');
+    const supplierAckRefControl = this.receiveForm.get('supplierAckReference');
 
     // Clear all validators first
     transferRefControl?.clearValidators();
     checkNumberControl?.clearValidators();
+    supplierAckRefControl?.clearValidators();
 
-    // Add conditional validators based on payment method
-    if (payment.paymentMethod === PaymentMethod.BANK_TRANSFER) {
-      transferRefControl?.setValidators([Validators.required]);
-    } else if (payment.paymentMethod === PaymentMethod.CHECK) {
-      checkNumberControl?.setValidators([Validators.required]);
+    // Set validators based on payment status and method
+    if (payment.status === 0) { 
+      // SCHEDULED - Processing step: validate payment method fields
+      if (payment.paymentMethod === PaymentMethod.BANK_TRANSFER) {
+        transferRefControl?.setValidators([Validators.required]);
+      } else if (payment.paymentMethod === PaymentMethod.CHECK) {
+        checkNumberControl?.setValidators([Validators.required]);
+      }
+    } else if (payment.status === 1 || payment.status === 2) { 
+      // PENDING/PROCESSING - Confirmation step: require supplier acknowledgement
+      supplierAckRefControl?.setValidators([Validators.required]);
     }
 
     // Update validity
     transferRefControl?.updateValueAndValidity();
     checkNumberControl?.updateValueAndValidity();
+    supplierAckRefControl?.updateValueAndValidity();
   }
 
   private generateConfirmationReference(payment: FacturePaymentDto): string {
@@ -700,6 +774,7 @@ export class ReceivePaymentModalComponent implements OnInit {
         paymentId: selectedPayment.id,
         confirmedAmount: parseFloat(formValue.confirmedAmount),
         confirmationReference: formValue.confirmationReference || undefined,
+        supplierAckReference: formValue.supplierAckReference,
         notes: formValue.notes || undefined,
         confirmationFile: undefined // File upload to be implemented later
       };
@@ -713,6 +788,7 @@ export class ReceivePaymentModalComponent implements OnInit {
         paymentId: selectedPayment.id,
         confirmedAmount: parseFloat(formValue.confirmedAmount),
         confirmationReference: formValue.confirmationReference || undefined,
+        supplierAckReference: formValue.supplierAckReference,
         notes: formValue.notes || undefined,
         confirmationFile: undefined
       };

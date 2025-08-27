@@ -153,11 +153,6 @@ import {
                         (click)="navigateToVerify(facture.id)">
                   Verify
                 </button>
-                <button *ngIf="canApprove(facture)" 
-                        class="btn btn-sm btn-primary" 
-                        (click)="approveFacture(facture.id)">
-                  Approve
-                </button>
               </div>
             </div>
           </div>
@@ -196,8 +191,8 @@ import {
                     </span>
                   </td>
                   <td>
-                    <span class="priority-badge" [attr.data-priority]="facture.priority">
-                      {{ getPriorityLabel(facture.priority) }}
+                    <span class="priority-badge" [attr.data-priority]="getPriorityValue(getDynamicPriority(facture))">
+                      {{ getDynamicPriority(facture) }}
                     </span>
                   </td>
                   <td class="actions-cell">
@@ -209,11 +204,6 @@ import {
                               class="btn btn-sm btn-primary" 
                               (click)="navigateToVerify(facture.id)">
                         Verify
-                      </button>
-                      <button *ngIf="canApprove(facture)" 
-                              class="btn btn-sm btn-primary" 
-                              (click)="approveFacture(facture.id)">
-                        Approve
                       </button>
                     </div>
                   </td>
@@ -629,28 +619,9 @@ export class FactureListComponent implements OnInit, OnDestroy {
     this.router.navigate(['/dashboard/facture', id, 'verify']);
   }
 
-  // Workflow actions
-  approveFacture(id: number): void {
-    if (!confirm('Are you sure you want to approve this facture?')) return;
-
-    this.factureService.approveFacture(id).subscribe({
-      next: () => {
-        this.toastService.showSuccess('Success', 'Facture approved successfully');
-        this.loadFactures();
-      },
-      error: (error) => {
-        this.toastService.showError('Error', `Failed to approve facture: ${error.message}`);
-      }
-    });
-  }
-
   // Helper methods
   canVerify(facture: FactureListDto): boolean {
     return facture.status === FactureStatus.RECEIVED;
-  }
-
-  canApprove(facture: FactureListDto): boolean {
-    return facture.status === FactureStatus.VERIFIED;
   }
 
   getStatusLabel(status: FactureStatus): string {
@@ -667,14 +638,38 @@ export class FactureListComponent implements OnInit, OnDestroy {
     return labels[status] || 'Unknown';
   }
 
-  getPriorityLabel(priority: FacturePriority): string {
-    const labels: Record<FacturePriority, string> = {
-      [FacturePriority.LOW]: 'Low',
-      [FacturePriority.NORMAL]: 'Normal',
-      [FacturePriority.HIGH]: 'High',
-      [FacturePriority.URGENT]: 'Urgent'
-    };
-    return labels[priority] || 'Normal';
+  getDynamicPriority(facture: FactureListDto): string {
+    if (facture.status === FactureStatus.PAID || facture.status === FactureStatus.CANCELLED) {
+      return 'Low';
+    }
+
+    const dueDate = new Date(facture.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (dueDate < today) {
+      return 'Urgent';
+    }
+
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setHours(0, 0, 0, 0);
+    sevenDaysFromNow.setDate(today.getDate() + 7);
+
+    if (dueDate <= sevenDaysFromNow) {
+      return 'High';
+    }
+
+    return 'Normal';
+  }
+
+  getPriorityValue(priority: string): number {
+    switch (priority) {
+      case 'Urgent': return 3;
+      case 'High': return 2;
+      case 'Normal': return 1;
+      case 'Low': return 0;
+      default: return 1;
+    }
   }
 
   formatCurrency(amount: number): string {

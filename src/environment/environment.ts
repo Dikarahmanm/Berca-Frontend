@@ -44,7 +44,11 @@ export const environment = {
     // Reports & Analytics
     dashboard: '/Dashboard',
     reports: '/Report',
-    analytics: '/Analytics'
+    analytics: '/Analytics',
+    
+    // Supplier & Facture Management
+    suppliers: '/Supplier',
+    factures: '/Facture'
   },
   
   // ✅ REAL: POS Configuration sesuai backend business rules

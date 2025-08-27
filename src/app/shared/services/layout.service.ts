@@ -89,6 +89,20 @@ export class LayoutService {
           icon: 'category',
           route: '/dashboard/categories',
           roles: ['Admin', 'Manager']
+        },
+        {
+          id: 'suppliers',
+          label: 'Suppliers',
+          icon: 'business',
+          route: '/dashboard/supplier',
+          roles: ['Admin', 'Manager']
+        },
+        {
+          id: 'factures',
+          label: 'Factures',
+          icon: 'receipt_long',
+          route: '/dashboard/facture',
+          roles: ['Admin', 'Manager', 'User']
         }
       ]
     },
@@ -214,6 +228,8 @@ export class LayoutService {
       '/dashboard/reports': { title: 'Reports & Analytics', breadcrumb: ['Dashboard', 'Reports'] },
       '/dashboard/logs': { title: 'Activity Logs', breadcrumb: ['Dashboard', 'Logs'] },
       '/dashboard/membership': { title: 'Membership', breadcrumb: ['Dashboard', 'Membership'] },
+      '/dashboard/supplier': { title: 'Supplier Management', breadcrumb: ['Dashboard', 'Suppliers'] },
+      '/dashboard/facture': { title: 'Facture Management', breadcrumb: ['Dashboard', 'Factures'] },
       '/profile': { title: 'User Profile', breadcrumb: ['Profile'] },
       '/settings': { title: 'Settings', breadcrumb: ['Settings'] }
     };
@@ -288,6 +304,8 @@ export class LayoutService {
       '/dashboard/reports': 'Reports & Analytics',
       '/dashboard/logs': 'Activity Logs',
       '/dashboard/membership': 'Membership',
+      '/dashboard/supplier': 'Supplier Management',
+      '/dashboard/facture': 'Facture Management',
       '/profile': 'User Profile',
       '/settings': 'Settings'
     };

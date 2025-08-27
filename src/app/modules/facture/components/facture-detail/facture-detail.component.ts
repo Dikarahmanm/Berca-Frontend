@@ -19,12 +19,13 @@ import {
 import { FactureWorkflowModalComponent, WorkflowType, VerifyFormData, ApprovalFormData, DisputeFormData, CancelFormData } from '../facture-workflow-modal/facture-workflow-modal.component';
 import { PaymentScheduleModalComponent } from '../payment-schedule-modal/payment-schedule-modal.component';
 import { ReceivePaymentModalComponent } from '../receive-payment-modal/receive-payment-modal.component';
+import { PaymentConfirmationModalComponent, PaymentConfirmationData } from '../payment-confirmation-modal/payment-confirmation-modal.component';
 import { environment } from '../../../../../environment/environment';
 
 @Component({
   selector: 'app-facture-detail',
   standalone: true,
-  imports: [CommonModule, FactureWorkflowModalComponent, PaymentScheduleModalComponent, ReceivePaymentModalComponent],
+  imports: [CommonModule, FactureWorkflowModalComponent, PaymentScheduleModalComponent, ReceivePaymentModalComponent, PaymentConfirmationModalComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="facture-detail-container">
@@ -460,8 +461,19 @@ import { environment } from '../../../../../environment/environment';
       [isLoading]="receivePaymentLoading()"
       (close)="onCloseReceivePaymentModal()"
       (processPayment)="onProcessPaymentSubmit($event)"
-      (confirmPayment)="onConfirmPaymentSubmit($event)">
+      (confirmPayment)="onRequestPaymentConfirmation($event)">
     </app-receive-payment-modal>
+
+    <!-- Payment Confirmation Modal -->
+    <app-payment-confirmation-modal
+      *ngIf="showPaymentConfirmationModal() && facture() && paymentToConfirm()"
+      [facture]="facture()!"
+      [payment]="paymentToConfirm()!"
+      [isVisible]="showPaymentConfirmationModal()"
+      [isLoading]="confirmationLoading()"
+      (close)="onClosePaymentConfirmationModal()"
+      (confirmPayment)="onConfirmPaymentFinal($event)">
+    </app-payment-confirmation-modal>
   `,
   styles: [`
     .facture-detail-container {
@@ -1164,6 +1176,11 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
   // Receive payment modal state
   showReceivePaymentModal = signal<boolean>(false);
   receivePaymentLoading = signal<boolean>(false);
+  
+  // Payment confirmation modal
+  showPaymentConfirmationModal = signal<boolean>(false);
+  paymentToConfirm = signal<FacturePaymentDto | null>(null);
+  confirmationLoading = signal<boolean>(false);
 
   // Computed properties
   itemsCount = computed(() => this.facture()?.items?.length || 0);
@@ -1466,6 +1483,74 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
     this.showReceivePaymentModal.set(false);
   }
 
+  // Payment confirmation modal handlers
+  onClosePaymentConfirmationModal(): void {
+    this.showPaymentConfirmationModal.set(false);
+    this.paymentToConfirm.set(null);
+  }
+
+  onRequestPaymentConfirmation(confirmData: ConfirmPaymentDto): void {
+    console.log('💚 Payment confirmation requested:', confirmData);
+    
+    // Find the payment to confirm
+    const facture = this.facture();
+    const payment = facture?.payments?.find(p => p.id === confirmData.paymentId);
+    
+    if (!payment) {
+      console.error('❌ Payment not found for confirmation:', confirmData.paymentId);
+      this.toastService.showError('Error', 'Payment not found');
+      return;
+    }
+
+    console.log('💚 Found payment to confirm:', payment);
+    
+    // Close receive payment modal and show confirmation modal
+    this.showReceivePaymentModal.set(false);
+    this.paymentToConfirm.set(payment);
+    this.showPaymentConfirmationModal.set(true);
+  }
+
+  onConfirmPaymentFinal(confirmationData: PaymentConfirmationData): void {
+    this.confirmationLoading.set(true);
+    console.log('💚 Final payment confirmation:', confirmationData);
+    
+    const confirmData: ConfirmPaymentDto = {
+      paymentId: confirmationData.paymentId,
+      confirmedAmount: confirmationData.confirmedAmount,
+      confirmationReference: undefined, // Optional field
+      supplierAckReference: confirmationData.supplierAckReference,
+      notes: confirmationData.notes,
+      confirmationFile: undefined // Optional field
+    };
+
+    console.log('🔍 API endpoint will be called:', `${environment.apiUrl}/Facture/payments/${confirmData.paymentId}/confirm`);
+
+    this.factureService.confirmPayment(confirmData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (paymentResult) => {
+          console.log('✅ Payment confirmed successfully - FULL RESPONSE:', paymentResult);
+          
+          this.confirmationLoading.set(false);
+          this.showPaymentConfirmationModal.set(false);
+          this.paymentToConfirm.set(null);
+          
+          this.toastService.showSuccess('Success', 'Payment confirmed successfully!');
+          
+          // Reload facture data to get updated payment status and amounts
+          this.loadFacture();
+        },
+        error: (error) => {
+          console.error('❌ Failed to confirm payment:', error);
+          console.error('❌ Error details:', error.error);
+          console.error('❌ Error status:', error.status);
+          
+          this.confirmationLoading.set(false);
+          this.toastService.showError('Error', error.message || 'Failed to confirm payment');
+        }
+      });
+  }
+
   onProcessPaymentSubmit(processData: ProcessPaymentDto): void {
     this.receivePaymentLoading.set(true);
     console.log('🔄 Processing payment:', processData);
@@ -1478,10 +1563,14 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
           this.receivePaymentLoading.set(false);
           this.toastService.showSuccess('Success', 'Payment processed successfully!');
           
-          // Refresh facture data to get updated payment information
-          this.loadFacture();
+          // Close receive payment modal immediately 
+          this.showReceivePaymentModal.set(false);
           
-          // Keep modal open for confirmation step
+          // Auto-show confirmation modal with the processed payment
+          this.paymentToConfirm.set(paymentResult);
+          this.showPaymentConfirmationModal.set(true);
+          
+          console.log('🔄 Auto-opening confirmation modal for payment:', paymentResult.id);
         },
         error: (error) => {
           console.error('❌ Failed to process payment:', error);

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, effect, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -105,20 +105,22 @@ import {
       <!-- Factures List -->
       <div *ngIf="!factureService.loading() && !factureService.error()" class="content-section">
         
+        
         <!-- Mobile Card View -->
         <div class="mobile-view">
           <div *ngFor="let facture of paginatedFactures(); trackBy: trackByFacture" 
                class="facture-card card">
+            
             <div class="card-header">
               <div class="facture-basic">
-                <h4 class="facture-title">{{ facture.supplierInvoiceNumber }}</h4>
-                <p class="facture-supplier">{{ facture.supplierName }}</p>
+                <h4 class="facture-title">{{ facture?.supplierInvoiceNumber || 'N/A' }}</h4>
+                <p class="facture-supplier">{{ facture?.supplierName || 'N/A' }}</p>
               </div>
               <div class="facture-status">
-                <span class="status-badge" [attr.data-status]="facture.status">
-                  {{ getStatusLabel(facture.status) }}
+                <span class="status-badge" [attr.data-status]="facture?.status">
+                  {{ getStatusLabel(facture?.status) }}
                 </span>
-                <span *ngIf="facture.isOverdue" class="overdue-badge">
+                <span *ngIf="facture?.isOverdue" class="overdue-badge">
                   Overdue
                 </span>
               </div>
@@ -128,29 +130,29 @@ import {
               <div class="facture-details">
                 <div class="detail-row">
                   <span class="detail-label">Amount:</span>
-                  <span class="detail-value">{{ formatCurrency(facture.totalAmount) }}</span>
+                  <span class="detail-value">{{ formatCurrency(facture?.totalAmount) }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Due Date:</span>
-                  <span class="detail-value" [class.overdue]="facture.isOverdue">
-                    {{ formatDate(facture.dueDate) }}
+                  <span class="detail-value" [class.overdue]="facture?.isOverdue">
+                    {{ formatDate(facture?.dueDate || undefined) }}
                   </span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Received:</span>
-                  <span class="detail-value">{{ formatDate(facture.receivedAt) }}</span>
+                  <span class="detail-value">{{ formatDate(facture?.receivedAt || undefined) }}</span>
                 </div>
               </div>
             </div>
 
             <div class="card-footer">
               <div class="action-buttons">
-                <button class="btn btn-sm btn-outline" (click)="navigateToDetail(facture.id)">
+                <button class="btn btn-sm btn-outline" (click)="navigateToDetail(facture?.id || 0)">
                   View Details
                 </button>
                 <button *ngIf="canVerify(facture)" 
                         class="btn btn-sm btn-primary" 
-                        (click)="navigateToVerify(facture.id)">
+                        (click)="navigateToVerify(facture?.id || 0)">
                   Verify
                 </button>
               </div>
@@ -176,18 +178,18 @@ import {
               <tbody>
                 <tr *ngFor="let facture of paginatedFactures(); trackBy: trackByFacture">
                   <td class="invoice-cell">
-                    <strong>{{ facture.supplierInvoiceNumber }}</strong>
-                    <small class="internal-ref">{{ facture.internalReferenceNumber }}</small>
+                    <strong>{{ facture?.supplierInvoiceNumber || 'N/A' }}</strong>
+                    <small class="internal-ref">{{ facture?.internalReferenceNumber || 'N/A' }}</small>
                   </td>
-                  <td>{{ facture.supplierName }}</td>
-                  <td class="amount-cell">{{ formatCurrency(facture.totalAmount) }}</td>
-                  <td class="date-cell" [class.overdue]="facture.isOverdue">
-                    {{ formatDate(facture.dueDate) }}
-                    <span *ngIf="facture.isOverdue" class="overdue-indicator">⚠️</span>
+                  <td>{{ facture?.supplierName || 'N/A' }}</td>
+                  <td class="amount-cell">{{ formatCurrency(facture?.totalAmount) }}</td>
+                  <td class="date-cell" [class.overdue]="facture?.isOverdue">
+                    {{ formatDate(facture?.dueDate || undefined) }}
+                    <span *ngIf="facture?.isOverdue" class="overdue-indicator">⚠️</span>
                   </td>
                   <td>
-                    <span class="status-badge" [attr.data-status]="facture.status">
-                      {{ getStatusLabel(facture.status) }}
+                    <span class="status-badge" [attr.data-status]="facture?.status">
+                      {{ getStatusLabel(facture?.status) }}
                     </span>
                   </td>
                   <td>
@@ -197,12 +199,12 @@ import {
                   </td>
                   <td class="actions-cell">
                     <div class="action-buttons">
-                      <button class="btn btn-sm btn-outline" (click)="navigateToDetail(facture.id)">
+                      <button class="btn btn-sm btn-outline" (click)="navigateToDetail(facture?.id || 0)">
                         View
                       </button>
                       <button *ngIf="canVerify(facture)" 
                               class="btn btn-sm btn-primary" 
-                              (click)="navigateToVerify(facture.id)">
+                              (click)="navigateToVerify(facture?.id || 0)">
                         Verify
                       </button>
                     </div>
@@ -511,6 +513,7 @@ export class FactureListComponent implements OnInit, OnDestroy {
   private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   // Component state
   private readonly destroy$ = new Subject<void>();
@@ -526,22 +529,32 @@ export class FactureListComponent implements OnInit, OnDestroy {
     sortOrder: 'desc'
   });
 
-  private _totalCount = signal<number>(0);
-  private _factures = signal<FactureListDto[]>([]);
-
-  // Public readonly signals
+  // Use service signals directly for better reactivity
   readonly currentQuery = this._currentQuery.asReadonly();
-  readonly totalCount = this._totalCount.asReadonly();
-  readonly factures = this._factures.asReadonly();
+  readonly totalCount = computed(() => this.factureService.factures().length);
+  readonly factures = this.factureService.factures;
 
-  // Computed properties
-  readonly paginatedFactures = computed(() => this.factures());
+  // Computed properties for local filtering/pagination
+  readonly paginatedFactures = computed(() => {
+    const allFactures = this.factureService.factures();
+    // Return all factures since pagination is handled by backend
+    return allFactures;
+  });
 
   constructor() {
     this.searchForm = this.fb.group({
       search: [''],
       status: [''],
       priority: ['']
+    });
+    
+    // Effect to track signal changes and trigger change detection
+    effect(() => {
+      const facturesCount = this.factureService.factures().length;
+      const loading = this.factureService.loading();
+      
+      // Force change detection when signals change
+      this.cdr.markForCheck();
     });
   }
 
@@ -553,6 +566,7 @@ export class FactureListComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.priorityCache.clear(); // Clean up cache
   }
 
   private setupSearchSubscription(): void {
@@ -585,23 +599,13 @@ export class FactureListComponent implements OnInit, OnDestroy {
   loadFactures(): void {
     this.factureService.clearError();
     
-    // FOR DEVELOPMENT: Use mock data since backend may not be ready
-    console.log('🔍 Loading factures with query:', this.currentQuery());
-    
     this.factureService.getFactures(this.currentQuery()).subscribe({
       next: (response: FacturePagedResponseDto) => {
-        console.log('✅ Factures loaded successfully:', response);
-        this._factures.set(response.factures);
-        this._totalCount.set(response.totalCount);
+        // Data is automatically updated in service signals
       },
       error: (error) => {
-        console.error('❌ Failed to load factures:', error);
-        // Show user-friendly error message
-        this.toastService.showError('Error', 'Unable to load factures. Backend may not be available.');
-        
-        // FOR DEVELOPMENT: Set empty data so UI doesn't break
-        this._factures.set([]);
-        this._totalCount.set(0);
+        console.error('❌ Load factures error:', error);
+        this.toastService.showError('Error', 'Unable to load factures. Please try again.');
       }
     });
   }
@@ -620,11 +624,13 @@ export class FactureListComponent implements OnInit, OnDestroy {
   }
 
   // Helper methods
-  canVerify(facture: FactureListDto): boolean {
-    return facture.status === FactureStatus.RECEIVED;
+  canVerify(facture: FactureListDto | undefined): boolean {
+    return facture?.status === FactureStatus.RECEIVED;
   }
 
-  getStatusLabel(status: FactureStatus): string {
+  getStatusLabel(status: FactureStatus | undefined): string {
+    if (status === undefined || status === null) return 'Unknown';
+    
     const labels: Record<FactureStatus, string> = {
       [FactureStatus.RECEIVED]: 'Received',
       [FactureStatus.VERIFICATION]: 'Verifying',
@@ -638,28 +644,42 @@ export class FactureListComponent implements OnInit, OnDestroy {
     return labels[status] || 'Unknown';
   }
 
-  getDynamicPriority(facture: FactureListDto): string {
+  // Optimized priority calculation with memoization
+  private priorityCache = new Map<string, string>();
+  
+  getDynamicPriority(facture: FactureListDto | undefined): string {
+    if (!facture) return 'Normal';
+    
+    const cacheKey = `${facture.id}-${facture.status}-${facture.dueDate}`;
+    
+    if (this.priorityCache.has(cacheKey)) {
+      return this.priorityCache.get(cacheKey)!;
+    }
+
+    let priority = 'Normal';
+    
     if (facture.status === FactureStatus.PAID || facture.status === FactureStatus.CANCELLED) {
-      return 'Low';
+      priority = 'Low';
+    } else {
+      const dueDate = new Date(facture.dueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (dueDate < today) {
+        priority = 'Urgent';
+      } else {
+        const sevenDaysFromNow = new Date();
+        sevenDaysFromNow.setHours(0, 0, 0, 0);
+        sevenDaysFromNow.setDate(today.getDate() + 7);
+
+        if (dueDate <= sevenDaysFromNow) {
+          priority = 'High';
+        }
+      }
     }
 
-    const dueDate = new Date(facture.dueDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (dueDate < today) {
-      return 'Urgent';
-    }
-
-    const sevenDaysFromNow = new Date();
-    sevenDaysFromNow.setHours(0, 0, 0, 0);
-    sevenDaysFromNow.setDate(today.getDate() + 7);
-
-    if (dueDate <= sevenDaysFromNow) {
-      return 'High';
-    }
-
-    return 'Normal';
+    this.priorityCache.set(cacheKey, priority);
+    return priority;
   }
 
   getPriorityValue(priority: string): number {
@@ -672,23 +692,35 @@ export class FactureListComponent implements OnInit, OnDestroy {
     }
   }
 
-  formatCurrency(amount: number): string {
+  formatCurrency(amount: number | undefined): string {
+    if (!amount && amount !== 0) return 'N/A';
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0
-    }).format(amount);
+    }).format(amount || 0);
   }
 
-  formatDate(date: Date): string {
-    return new Intl.DateTimeFormat('id-ID', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    }).format(new Date(date));
+  formatDate(date: Date | string | undefined): string {
+    if (!date) return 'N/A';
+    
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        return 'Invalid Date';
+      }
+      return new Intl.DateTimeFormat('id-ID', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }).format(dateObj);
+    } catch (error) {
+      return 'Error';
+    }
   }
 
   clearFilters(): void {
+    this.priorityCache.clear(); // Clear priority cache when filters change
     this.searchForm.reset();
     this._currentQuery.set({
       page: 1,
@@ -700,7 +732,7 @@ export class FactureListComponent implements OnInit, OnDestroy {
   }
 
   trackByFacture(index: number, facture: FactureListDto): number {
-    return facture.id;
+    return facture?.id || index;
   }
 
   // Service is already exposed as public readonly above

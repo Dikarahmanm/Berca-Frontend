@@ -46,30 +46,18 @@ export class FactureService {
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
 
-  // Computed properties
-  readonly pendingFactures = computed(() => 
+  // Computed properties - optimized for performance
+  readonly facturesCount = computed(() => this._factures().length);
+
+  readonly pendingCount = computed(() => 
     this._factures().filter(f => 
       [FactureStatus.RECEIVED, FactureStatus.VERIFICATION].includes(f.status)
-    )
+    ).length
   );
 
-  readonly overdueFactures = computed(() => 
-    this._factures().filter(f => f.isOverdue)
+  readonly overdueCount = computed(() => 
+    this._factures().filter(f => f.isOverdue).length
   );
-
-  readonly facturesByStatus = computed(() => {
-    const factures = this._factures();
-    const grouped = new Map<FactureStatus, FactureListDto[]>();
-
-    factures.forEach(facture => {
-      if (!grouped.has(facture.status)) {
-        grouped.set(facture.status, []);
-      }
-      grouped.get(facture.status)!.push(facture);
-    });
-
-    return grouped;
-  });
 
   // ==================== WORKFLOW OPERATIONS ==================== //
 
@@ -77,41 +65,14 @@ export class FactureService {
     this._loading.set(true);
     this._error.set(null);
 
-    console.log('🚀 === RECEIVING SUPPLIER INVOICE ===');
-    console.log('📊 Request URL:', `${this.baseUrl}/receive`);
-    console.log('📋 Request Body:', JSON.stringify(receiveDto, null, 2));
-    console.log('📅 Request Body - Date Types:');
-    console.log('  - invoiceDate type:', typeof receiveDto.invoiceDate);
-    console.log('  - invoiceDate value:', receiveDto.invoiceDate);
-    console.log('  - dueDate type:', typeof receiveDto.dueDate);
-    console.log('  - dueDate value:', receiveDto.dueDate);
-    console.log('  - deliveryDate type:', typeof receiveDto.deliveryDate);
-    console.log('  - deliveryDate value:', receiveDto.deliveryDate);
-    console.log('🔢 Items count:', receiveDto.items?.length || 0);
-    console.log('📦 Items details:', receiveDto.items);
-
     return this.http.post<any>(`${this.baseUrl}/receive`, receiveDto, {
       withCredentials: true
     }).pipe(
-      tap(response => {
-        console.log('✅ Facture received:', response);
-        console.log('📊 Response type:', typeof response);
-        console.log('🔍 Response keys:', response ? Object.keys(response) : 'No keys');
-        console.log('✔️ Has success property:', 'success' in (response || {}));
-        console.log('✔️ Success value:', response?.success);
-        console.log('📦 Has data property:', 'data' in (response || {}));
-        console.log('📄 Response structure:', JSON.stringify(response, null, 2));
-        this._loading.set(false);
-      }),
+      tap(() => this._loading.set(false)),
       map(response => {
-        console.log('🔄 Processing response in map operator...');
-        
-        // If we get here without HTTP error, treat as success
         if (response) {
-          console.log('✅ Response successful, returning data');
           return response as FactureDto;
         }
-        
         throw new Error('No response received from server');
       }),
       catchError(this.handleError.bind(this))
@@ -232,11 +193,6 @@ export class FactureService {
     this._loading.set(true);
     this._error.set(null);
 
-    console.log('🚀 Starting getFactures request...');
-    console.log('📊 Query parameters:', query);
-    console.log('🔗 Base URL:', this.baseUrl);
-    console.log('🌍 Environment API URL:', environment.apiUrl);
-
     let params = new HttpParams();
     
     if (query.search) params = params.set('search', query.search);
@@ -277,32 +233,28 @@ export class FactureService {
     params = params.set('sortBy', query.sortBy);
     params = params.set('sortOrder', query.sortOrder);
 
-    const fullUrl = `${this.baseUrl}?${params.toString()}`;
-    console.log('📡 Making HTTP GET request to:', fullUrl);
-    console.log('🔑 With credentials: true');
-    console.log('📋 Final params:', params.toString());
-
     return this.http.get<ApiResponse<FacturePagedResponseDto>>(this.baseUrl, {
       params,
       withCredentials: true
     }).pipe(
       tap(response => {
-        console.log('✅ Raw response received:', response);
-        console.log('✅ Response type:', typeof response);
-        console.log('✅ Response has success property:', 'success' in (response || {}));
-        console.log('✅ Response.success value:', response?.success);
-        console.log('✅ Response.data exists:', !!response?.data);
+        console.log('📊 Raw HTTP response:', response);
         
         if (response && typeof response === 'object' && 'success' in response && response.success && response.data) {
-          console.log('✅ Setting factures data:', response.data.factures);
-          this._factures.set(response.data.factures);
+          console.log('✅ Setting factures data:', response.data.factures?.length || 0, 'items');
+          this._factures.set(response.data.factures || []);
+        } else if (response && typeof response === 'object' && 'factures' in response) {
+          console.log('✅ Direct response - setting factures:', (response as any).factures?.length || 0, 'items');
+          this._factures.set((response as any).factures || []);
         } else {
-          console.warn('⚠️ Response format unexpected:', response);
+          console.warn('⚠️ Unexpected response format, setting empty array');
+          this._factures.set([]);
         }
+        
         this._loading.set(false);
+        console.log('📊 Current factures signal value:', this._factures().length);
       }),
       map(response => {
-        console.log('🔄 Mapping response:', response);
         
         // Handle both wrapped and direct responses
         if (response && typeof response === 'object' && 'success' in response) {
@@ -313,10 +265,8 @@ export class FactureService {
           return response.data;
         } else if (response && typeof response === 'object' && 'factures' in response) {
           // This might be a direct FacturePagedResponseDto without wrapper
-          console.log('📦 Response appears to be direct data without ApiResponse wrapper');
           return response as FacturePagedResponseDto;
         } else {
-          console.error('❌ Unexpected response format:', response);
           throw new Error('Failed to fetch factures: Unexpected response format');
         }
       }),
@@ -325,18 +275,9 @@ export class FactureService {
   }
 
   getFactureById(id: number): Observable<FactureDto> {
-    console.log('🚀 Fetching facture by ID:', id);
-    console.log('🚀 API URL:', `${this.baseUrl}/${id}`);
-    
     return this.http.get<FactureDto>(`${this.baseUrl}/${id}`, {
       withCredentials: true
     }).pipe(
-      tap(response => {
-        console.log('✅ Raw API response:', response);
-        console.log('✅ Response type:', typeof response);
-        console.log('✅ Response has id:', response?.id);
-        console.log('✅ Response supplier name:', response?.supplierName);
-      }),
       map(response => {
         // Direct response - no wrapper expected
         if (!response || !response.id) {

@@ -214,7 +214,7 @@ import { FactureDto, FacturePaymentDto, ProcessPaymentDto, ConfirmPaymentDto, Pa
               type="button"
               class="btn btn-primary"
               (click)="onSubmit()"
-              [disabled]="!receiveForm.valid || isLoading() || selectedPayment()?.status === 3">
+              [disabled]="!receiveForm.valid || isLoading() || selectedPayment()?.status === 3 || selectedPayment()?.status === 1 || selectedPayment()?.status === 2">
               <span *ngIf="isLoading()" class="loading-spinner"></span>
               <span *ngIf="!isLoading()">{{ currentAction().action }}</span>
               <span *ngIf="isLoading()">{{ currentAction().processing }}</span>
@@ -616,7 +616,8 @@ export class ReceivePaymentModalComponent implements OnInit {
         break;
       case 1: // PENDING  
       case 2: // PROCESSING
-        actionResult = { action: 'Confirm Payment', processing: 'Confirming...' };
+        // After processing, confirmation modal will auto-popup, so no action button needed here
+        actionResult = { action: 'Payment Processed', processing: 'Processed' };
         break;
       case 3: // COMPLETED
         actionResult = { action: 'Payment Completed', processing: 'Completed' };
@@ -768,18 +769,10 @@ export class ReceivePaymentModalComponent implements OnInit {
       this.processPayment.emit(processData);
       
     } else if (selectedPayment.status === 1 || selectedPayment.status === 2) { 
-      // PENDING or PROCESSING: Second step - Confirm the payment
-      console.log('✅ Confirming PENDING/PROCESSING payment:', selectedPayment.id, 'status:', selectedPayment.status);
-      const confirmData: ConfirmPaymentDto = {
-        paymentId: selectedPayment.id,
-        confirmedAmount: parseFloat(formValue.confirmedAmount),
-        confirmationReference: formValue.confirmationReference || undefined,
-        supplierAckReference: formValue.supplierAckReference,
-        notes: formValue.notes || undefined,
-        confirmationFile: undefined // File upload to be implemented later
-      };
-
-      this.confirmPayment.emit(confirmData);
+      // PENDING or PROCESSING: No action needed - confirmation modal will auto-popup
+      console.log('⚠️ Payment already processed - confirmation modal should have auto-opened');
+      console.log('💡 If you see this, the payment was already processed and confirmation modal should be shown automatically');
+      return;
       
     } else {
       console.warn('⚠️ Unknown payment status:', selectedPayment.status, selectedPayment.statusDisplay);

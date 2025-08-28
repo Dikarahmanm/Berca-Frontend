@@ -17,36 +17,52 @@ import {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['./supplier-form.component.scss'],
   template: `
     <div class="supplier-form-container">
-      <!-- Header -->
+      <!-- Modern Header -->
       <div class="form-header">
         <div class="header-content">
           <button class="back-button" (click)="navigateBack()">
-            ← Back to Suppliers
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+            </svg>
+            Back to Suppliers
           </button>
-          <h2 class="form-title">{{ isEditMode() ? 'Edit Supplier' : 'Create New Supplier' }}</h2>
+          <h2 class="form-title">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="color: var(--primary)">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            {{ isEditMode() ? 'Edit Supplier' : 'Create New Supplier' }}
+          </h2>
           <p class="form-subtitle">
-            {{ isEditMode() ? 'Update supplier information and settings' : 'Add a new supplier to your system' }}
+            {{ isEditMode() ? 'Update supplier information and business terms' : 'Add a new supplier to your business network' }}
           </p>
         </div>
       </div>
 
-      <!-- Loading State -->
+      <!-- Enhanced Loading State -->
       <div *ngIf="loading()" class="loading-section">
         <div class="loading-spinner"></div>
-        <p class="loading-text">{{ isEditMode() ? 'Loading supplier data...' : 'Processing...' }}</p>
+        <p class="loading-text">{{ isEditMode() ? 'Loading supplier data...' : 'Processing request...' }}</p>
       </div>
 
-      <!-- Error State -->
-      <div *ngIf="error()" class="error-section card">
+      <!-- Enhanced Error State -->
+      <div *ngIf="error()" class="error-section">
         <div class="error-content">
-          <div class="error-icon">⚠️</div>
+          <div class="error-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11 15h2v2h-2zm0-8h2v6h-2zm1-5C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2z"/>
+            </svg>
+          </div>
           <div class="error-details">
-            <h3>Error</h3>
+            <h3>Something went wrong</h3>
             <p>{{ error() }}</p>
           </div>
           <button class="btn btn-outline" (click)="clearError()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
             Dismiss
           </button>
         </div>
@@ -56,10 +72,15 @@ import {
       <div *ngIf="!loading()" class="form-section">
         <form [formGroup]="supplierForm" (ngSubmit)="onSubmit()" class="supplier-form">
           
-          <!-- Basic Information Card -->
-          <div class="form-card card">
+          <!-- Enhanced Basic Information Card -->
+          <div class="form-card">
             <div class="card-header">
-              <h3 class="card-title">Basic Information</h3>
+              <h3 class="card-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="color: var(--primary)">
+                  <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 7.5V8.5C15 9.6 14.1 10.5 13 10.5C11.9 10.5 11 9.6 11 8.5V7.5L5 7V9C5 10.1 5.9 11 7 11H11V13H7C5.9 13 5 13.9 5 15V21H7V15H11V21H13V15H17V21H19V15C19 13.9 18.1 13 17 13H13V11H17C18.1 11 19 10.1 19 9V7Z"/>
+                </svg>
+                Basic Information
+              </h3>
               <p class="card-subtitle">Essential supplier details and contact information</p>
             </div>
             
@@ -179,10 +200,15 @@ import {
             </div>
           </div>
 
-          <!-- Business Terms Card -->
-          <div class="form-card card">
+          <!-- Enhanced Business Terms Card -->
+          <div class="form-card">
             <div class="card-header">
-              <h3 class="card-title">Business Terms</h3>
+              <h3 class="card-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="color: var(--primary)">
+                  <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                </svg>
+                Business Terms
+              </h3>
               <p class="card-subtitle">Payment terms and credit limit settings</p>
             </div>
             
@@ -240,10 +266,15 @@ import {
             </div>
           </div>
 
-          <!-- Branch Assignment Card (if applicable) -->
-          <div *ngIf="showBranchSelection" class="form-card card">
+          <!-- Enhanced Branch Assignment Card -->
+          <div *ngIf="showBranchSelection" class="form-card">
             <div class="card-header">
-              <h3 class="card-title">Branch Assignment</h3>
+              <h3 class="card-title">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="color: var(--primary)">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Branch Assignment
+              </h3>
               <p class="card-subtitle">Assign supplier to specific branch or make available to all</p>
             </div>
             
@@ -270,17 +301,29 @@ import {
             </div>
           </div>
 
-          <!-- Form Actions -->
+          <!-- Enhanced Form Actions -->
           <div class="form-actions">
             <div class="action-buttons">
               <button type="button" class="btn btn-outline" (click)="navigateBack()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
                 Cancel
               </button>
               <button type="button" class="btn btn-secondary" (click)="saveAsDraft()" [disabled]="!canSaveAsDraft()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                </svg>
                 Save as Draft
               </button>
               <button type="submit" class="btn btn-primary" [disabled]="!supplierForm.valid || submitting()">
                 <span *ngIf="submitting()" class="btn-spinner"></span>
+                <svg *ngIf="!submitting() && !isEditMode()" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <svg *ngIf="!submitting() && isEditMode()" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14.06 9.02L14.98 9.94L5.92 19H5V18.08L14.06 9.02ZM17.66 3C17.41 3 17.15 3.1 16.96 3.29L15.13 5.12L18.88 8.87L20.71 7.04C21.1 6.65 21.1 6.02 20.71 5.63L18.37 3.29C18.17 3.09 17.92 3 17.66 3ZM14.06 6.19L3 17.25V21H6.75L17.81 9.94L14.06 6.19Z"/>
+                </svg>
                 {{ isEditMode() ? 'Update Supplier' : 'Create Supplier' }}
               </button>
             </div>

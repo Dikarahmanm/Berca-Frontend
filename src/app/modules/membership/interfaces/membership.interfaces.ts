@@ -1,7 +1,7 @@
 // src/app/modules/membership/interfaces/membership.interfaces.ts
 // ✅ Complete Interface Definitions - Backend Integration Ready
 
-// Core Member DTO from Backend
+// Enhanced Member DTO with Credit Integration
 export interface MemberDto {
   id: number;
   memberNumber: string;
@@ -23,6 +23,24 @@ export interface MemberDto {
   address?: string; // <--- for membership-form.component
   dateOfBirth?: string; // <--- for membership-form.component
   gender?: GenderOption; // <--- for membership-form.component
+  
+  // ===== NEW: Credit Integration Fields =====
+  creditLimit: number;
+  currentDebt: number;
+  availableCredit: number;
+  creditStatus: 'Good' | 'Warning' | 'Bad' | 'Blocked';
+  creditScore: number;
+  nextPaymentDueDate?: string;
+  isEligibleForCredit: boolean;
+  creditUtilization: number;
+  paymentTerms: number;
+  daysOverdue: number;
+  overdueAmount: number;
+  creditEnabled: boolean;
+  lastPaymentDate?: string;
+  paymentSuccessRate: number;
+  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
+  maxAllowedTransaction: number;
 }
 
 // Create Member Request
@@ -59,7 +77,7 @@ export interface MemberSearchResponse {
   totalPages: number;
 }
 
-// Search/Filter Parameters
+// Enhanced Search/Filter Parameters with Credit Integration
 export interface MemberFilter {
   search?: string;
   isActive?: boolean;
@@ -68,6 +86,21 @@ export interface MemberFilter {
   pageSize?: number;
   sortBy?: string;
   sortDirection?: 'asc' | 'desc';
+  
+  // ===== NEW: Credit Filters =====
+  creditStatus?: 'Good' | 'Warning' | 'Bad' | 'Blocked' | '';
+  riskLevel?: 'Low' | 'Medium' | 'High' | 'Critical' | '';
+  hasCredit?: boolean;
+  isOverdue?: boolean;
+  minCreditLimit?: number;
+  maxCreditLimit?: number;
+  minDebt?: number;
+  maxDebt?: number;
+  minUtilization?: number;
+  maxUtilization?: number;
+  daysOverdueMin?: number;
+  daysOverdueMax?: number;
+  hasPaymentsDue?: boolean;
 }
 
 // Points Management

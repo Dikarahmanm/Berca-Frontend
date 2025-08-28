@@ -20,6 +20,26 @@
   flex: 1;
 }
 
+.breadcrumb {
+  margin-bottom: var(--s3);
+}
+
+.breadcrumb-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  padding: var(--s2) 0;
+  transition: var(--transition-normal);
+  
+  &:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+  }
+}
+
 .page-title {
   font-size: var(--text-3xl);
   font-weight: var(--font-bold);

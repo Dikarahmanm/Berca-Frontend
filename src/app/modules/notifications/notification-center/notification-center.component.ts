@@ -182,7 +182,7 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   /**
    * Get notification icon berdasarkan tipe backend
    */
-  getNotificationIcon(notification: NotificationDto): string {
+  getNotificationIcon(notification: NotificationDto | undefined): string {
     const iconMap: { [key: string]: string } = {
       // Stock Related
       'LOW_STOCK': 'inventory_2',
@@ -203,13 +203,13 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
       // Default
       'CUSTOM': 'notifications'
     };
-    return iconMap[notification.type] || 'notifications';
+    return iconMap[notification?.type || 'default'] || 'notifications';
   }
 
   /**
    * Get CSS class untuk styling notification berdasarkan tipe
    */
-  getNotificationTypeClass(notification: NotificationDto): string {
+  getNotificationTypeClass(notification: NotificationDto | undefined): string {
     const classMap: { [key: string]: string } = {
       // Stock Related - Orange/Red theme
       'LOW_STOCK': 'type-stock-warning',
@@ -230,13 +230,13 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
       // Default
       'CUSTOM': 'type-custom'
     };
-    return classMap[notification.type] || 'type-default';
+    return classMap[notification?.type || 'default'] || 'type-default';
   }
 
   /**
    * Get color untuk notification icon
    */
-  getNotificationColor(notification: NotificationDto): string {
+  getNotificationColor(notification: NotificationDto | undefined): string {
     const colorMap: { [key: string]: string } = {
       // Stock Related
       'LOW_STOCK': '#ff9800',
@@ -257,7 +257,7 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
       // Default
       'CUSTOM': '#9e9e9e'
     };
-    return colorMap[notification.type] || '#9e9e9e';
+    return colorMap[notification?.type || 'default'] || '#9e9e9e';
   }
 
   /**
@@ -290,7 +290,7 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   /**
    * Get notification badge text berdasarkan tipe
    */
-  getNotificationBadge(notification: NotificationDto): string {
+  getNotificationBadge(notification: NotificationDto | undefined): string {
     const badges: { [key: string]: string } = {
       'LOW_STOCK': 'STOK',
       'OUT_OF_STOCK': 'HABIS',
@@ -302,7 +302,7 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
       'USER_LOGIN': 'USER',
       'string': 'INFO'
     };
-    return badges[notification.type] || 'INFO';
+    return badges[notification?.type || 'default'] || 'INFO';
   }
 
   /**
@@ -341,9 +341,14 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   /**
    * Delete notification
    */
-  deleteNotification(notification: NotificationDto, event?: Event): void {
+  deleteNotification(notification: NotificationDto | undefined, event?: Event): void {
     if (event) {
       event.stopPropagation();
+    }
+    
+    if (!notification?.id) {
+      this.showError('Invalid notification');
+      return;
     }
     
     if (confirm('Apakah Anda yakin ingin menghapus notifikasi ini?')) {
@@ -363,7 +368,12 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   /**
    * Handle notification click with smart navigation
    */
-  onNotificationClick(notification: NotificationDto): void {
+  onNotificationClick(notification: NotificationDto | undefined): void {
+    if (!notification) {
+      console.warn('🔔 Notification click called with undefined notification');
+      return;
+    }
+    
     console.log('🔔 Notification clicked in center:', notification);
     
     // Use the notification service's smart click handler
@@ -373,7 +383,7 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   /**
    * Check if notification is expired
    */
-  isNotificationExpired(notification: NotificationDto): boolean {
+  isNotificationExpired(notification: NotificationDto | undefined): boolean {
     // Since backend doesn't have expiryDate, return false for now
     return false;
   }
@@ -436,7 +446,8 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   /**
    * Get notification priority class
    */
-  getNotificationPriorityClass(notification: NotificationDto): string {
+  getNotificationPriorityClass(notification: NotificationDto | undefined): string {
+    if (!notification?.priority) return 'priority-medium';
     return `priority-${notification.priority.toLowerCase()}`;
   }
 
@@ -444,23 +455,34 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
    * Track by function for notifications
    */
   trackByNotificationId(index: number, notification: NotificationDto): number {
-    return notification.id;
+    return notification?.id || index;
   }
 
   /**
    * Format notification time
    */
-  formatNotificationTime(date: string): string {
-    const now = new Date();
-    const notificationDate = new Date(date);
-    const diffInHours = Math.floor((now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60));
+  formatNotificationTime(date: string | undefined): string {
+    if (!date) return 'N/A';
     
-    if (diffInHours < 1) {
-      return 'Baru saja';
-    } else if (diffInHours < 24) {
-      return `${diffInHours} jam yang lalu`;
-    } else {
-      return notificationDate.toLocaleDateString('id-ID');
+    try {
+      const now = new Date();
+      const notificationDate = new Date(date);
+      
+      if (isNaN(notificationDate.getTime())) {
+        return 'Invalid Date';
+      }
+      
+      const diffInHours = Math.floor((now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60));
+      
+      if (diffInHours < 1) {
+        return 'Baru saja';
+      } else if (diffInHours < 24) {
+        return `${diffInHours} jam yang lalu`;
+      } else {
+        return notificationDate.toLocaleDateString('id-ID');
+      }
+    } catch (error) {
+      return 'Error';
     }
   }
 

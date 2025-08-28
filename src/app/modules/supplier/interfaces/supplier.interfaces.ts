@@ -21,14 +21,26 @@ export interface SupplierDto {
   paymentTerms: number; // days
   creditLimit: number;
   isActive: boolean;
-  branchId?: number;
+  branchId?: number | null;
   branchName?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: string;
-  updatedBy?: string;
+  branchCode?: string;
+  createdAt: string; // Backend returns string
+  updatedAt?: string; // Backend returns string
+  createdBy?: number;
+  createdByName?: string;
+  updatedBy?: number | null;
+  updatedByName?: string;
   
-  // Computed fields
+  // Backend display fields
+  statusDisplay?: string;
+  paymentTermsDisplay?: string;
+  creditLimitDisplay?: string;
+  branchDisplay?: string;
+  hasCreditLimit?: boolean;
+  isShortPaymentTerm?: boolean;
+  isLongPaymentTerm?: boolean;
+  
+  // Computed fields (for frontend use)
   totalFactures?: number;
   outstandingAmount?: number;
   lastFactureDate?: Date;

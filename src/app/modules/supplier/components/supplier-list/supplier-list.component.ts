@@ -22,11 +22,20 @@ import {
       <!-- Header with Actions -->
       <div class="header-section">
         <div class="header-content">
-          <h2 class="page-title">Supplier Management</h2>
-          <p class="page-subtitle">Manage your suppliers and their information</p>
+          <div class="breadcrumb">
+            <button class="breadcrumb-link" (click)="navigateToDashboard()">
+              ← Back to Dashboard
+            </button>
+          </div>
+          <h2 class="page-title">All Suppliers</h2>
+          <p class="page-subtitle">Complete list of suppliers with advanced filtering and management</p>
         </div>
 
         <div class="header-actions">
+          <button class="btn btn-outline" (click)="navigateToDashboard()">
+            <span class="btn-icon">📊</span>
+            Dashboard
+          </button>
           <button class="btn btn-primary" (click)="navigateToCreate()">
             <span class="btn-icon">+</span>
             Add Supplier
@@ -146,8 +155,8 @@ import {
                class="supplier-card card">
             <div class="card-header">
               <div class="supplier-basic">
-                <h4 class="supplier-name">{{ supplier.companyName }}</h4>
-                <p class="supplier-code">{{ supplier.supplierCode }}</p>
+                <h4 class="supplier-name">{{ supplier.companyName || 'N/A' }}</h4>
+                <p class="supplier-code">{{ supplier.supplierCode || 'N/A' }}</p>
               </div>
               <div class="supplier-status">
                 <span class="status-badge" 
@@ -162,19 +171,19 @@ import {
               <div class="supplier-details">
                 <div class="detail-row">
                   <span class="detail-label">Contact:</span>
-                  <span class="detail-value">{{ supplier.contactPerson }}</span>
+                  <span class="detail-value">{{ supplier.contactPerson || 'N/A' }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Phone:</span>
-                  <span class="detail-value">{{ supplier.phone }}</span>
+                  <span class="detail-value">{{ supplier.phone || 'N/A' }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Payment Terms:</span>
-                  <span class="detail-value">{{ supplier.paymentTerms }} days</span>
+                  <span class="detail-value">{{ supplier.paymentTerms || 0 }} days</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Credit Limit:</span>
-                  <span class="detail-value">{{ formatCurrency(supplier.creditLimit) }}</span>
+                  <span class="detail-value">{{ formatCurrency(supplier.creditLimit || 0) }}</span>
                 </div>
                 <div *ngIf="supplier.branchName" class="detail-row">
                   <span class="detail-label">Branch:</span>
@@ -239,13 +248,13 @@ import {
               <tbody>
                 <tr *ngFor="let supplier of paginatedSuppliers(); trackBy: trackBySupplier" 
                     class="table-row">
-                  <td class="supplier-code-cell">{{ supplier.supplierCode }}</td>
+                  <td class="supplier-code-cell">{{ supplier.supplierCode || 'N/A' }}</td>
                   <td class="company-name-cell">
-                    <strong>{{ supplier.companyName }}</strong>
+                    <strong>{{ supplier.companyName || 'N/A' }}</strong>
                   </td>
-                  <td>{{ supplier.contactPerson }}</td>
-                  <td>{{ supplier.paymentTerms }} days</td>
-                  <td>{{ formatCurrency(supplier.creditLimit) }}</td>
+                  <td>{{ supplier.contactPerson || 'N/A' }}</td>
+                  <td>{{ supplier.paymentTerms || 0 }} days</td>
+                  <td>{{ formatCurrency(supplier.creditLimit || 0) }}</td>
                   <td>
                     <span *ngIf="supplier.branchName" class="branch-badge">
                       {{ supplier.branchName }}
@@ -440,6 +449,10 @@ export class SupplierListComponent implements OnInit, OnDestroy {
   }
 
   // Navigation methods
+  navigateToDashboard(): void {
+    this.router.navigate(['/dashboard/supplier']);
+  }
+
   navigateToCreate(): void {
     this.router.navigate(['/dashboard/supplier/create']);
   }
@@ -570,12 +583,21 @@ export class SupplierListComponent implements OnInit, OnDestroy {
     this.toastService.showInfo('Info', 'Export functionality coming soon');
   }
 
-  formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0
-    }).format(amount);
+  formatCurrency(amount: number | undefined): string {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return 'N/A';
+    }
+    
+    try {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+      }).format(amount);
+    } catch (error) {
+      console.error('Error formatting currency:', error, 'Amount:', amount);
+      return 'Format Error';
+    }
   }
 
   trackBySupplier(index: number, supplier: SupplierDto): number {

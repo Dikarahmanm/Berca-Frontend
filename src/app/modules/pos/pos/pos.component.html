@@ -786,6 +786,8 @@
         [totalAmount]="cartTotal()"
         [isVisible]="showPaymentModal()"
         [hasMember]="!!selectedMember()"
+        [memberId]="selectedMember()?.id"
+        [memberCreditData]="memberCreditData()"
         (paymentComplete)="onPaymentComplete($event)"
         (paymentCancelled)="onPaymentCancelled()"
       />

@@ -99,266 +99,244 @@ export class MemberCreditService {
   readonly membersByStatus = computed(() => {
     const members = this._creditMembers();
     return {
-      good: members.filter(m => m.creditStatus === 'Good').length,
-      warning: members.filter(m => m.creditStatus === 'Warning').length,
-      bad: members.filter(m => m.creditStatus === 'Bad').length,
-      blocked: members.filter(m => m.creditStatus === 'Blocked').length
+      good: members.filter(m => m.statusDescription === 'Good').length,
+      warning: members.filter(m => m.statusDescription === 'Warning').length,
+      bad: members.filter(m => m.statusDescription === 'Bad').length,
+      blocked: members.filter(m => m.statusDescription === 'Blocked').length
     };
   });
 
-  // ===== CORE CREDIT MANAGEMENT APIS (5 endpoints) =====
+  // ===== CORE CREDIT MANAGEMENT APIS (14 endpoints from documentation) =====
 
   /**
-   * API 1: Get Member Credit Summary
-   * GET /api/Member/{memberId}/credit/summary
+   * Grant Credit to Member
+   * POST /api/MemberCredit/{id}/credit/grant
+   */
+  grantCredit(memberId: number, request: GrantCreditRequestDto): Observable<any> {
+    this._loading.set(true);
+    return this.http.post<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/grant`, request)
+      .pipe(
+        tap(() => this._loading.set(false)),
+        catchError(this.handleError)
+      );
+  }
+
+  /**
+   * Record Credit Payment
+   * POST /api/MemberCredit/{id}/credit/payment
+   */
+  recordPayment(memberId: number, request: CreditPaymentRequestDto): Observable<any> {
+    this._loading.set(true);
+    return this.http.post<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/payment`, request)
+      .pipe(
+        tap(() => this._loading.set(false)),
+        catchError(this.handleError)
+      );
+  }
+
+  /**
+   * Get Member Credit Summary
+   * GET /api/MemberCredit/{id}/credit/summary
    */
   getCreditSummary(memberId: number): Observable<MemberCreditSummaryDto> {
     this._loading.set(true);
-    this._error.set(null);
-
-    return this.http.get<CreditApiResponse<MemberCreditSummaryDto>>(
-      `${this.baseUrl}/Member/${memberId}/credit/summary`
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          this._currentMemberCredit.set(response.data);
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to get credit summary');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(error => {
-        this._error.set(error.message || 'Network error occurred');
-        this._loading.set(false);
-        return throwError(() => error);
-      }),
-      retry(2)
-    );
+    return this.http.get<CreditApiResponse<MemberCreditSummaryDto>>(`${this.baseUrl}/MemberCredit/${memberId}/credit/summary`)
+      .pipe(
+        map(res => res.data),
+        tap(summary => this._currentMemberCredit.set(summary)),
+        tap(() => this._loading.set(false)),
+        catchError(this.handleError)
+      );
   }
 
   /**
-   * API 2: Get Credit Eligibility
-   * GET /api/Member/{memberId}/credit/eligibility
+   * Get Credit Transaction History
+   * GET /api/MemberCredit/{id}/credit/history
    */
-  getCreditEligibility(memberId: number): Observable<CreditEligibilityDto> {
-    return this.http.get<CreditApiResponse<CreditEligibilityDto>>(
-      `${this.baseUrl}/Member/${memberId}/credit/eligibility`
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to check eligibility');
-      }),
-      catchError(this.handleError)
-    );
+  getCreditHistory(memberId: number): Observable<CreditTransactionDto[]> {
+    return this.http.get<CreditApiResponse<CreditTransactionDto[]>>(`${this.baseUrl}/MemberCredit/${memberId}/credit/history`)
+      .pipe(map(res => res.data), catchError(this.handleError));
   }
 
   /**
-   * API 3: Grant Credit to Member
-   * POST /api/Member/credit/grant
+   * Get Credit Eligibility
+   * GET /api/MemberCredit/{id}/credit/eligibility
    */
-  grantCredit(request: GrantCreditRequestDto): Observable<boolean> {
+  getCreditEligibility(memberId: number): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/eligibility`)
+      .pipe(catchError(this.handleError));
+  }
+
+  /**
+   * Get Credit Score
+   * GET /api/MemberCredit/{id}/credit/score
+   */
+  getCreditScore(memberId: number): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/score`)
+      .pipe(catchError(this.handleError));
+  }
+
+  /**
+   * Get Overdue Members
+   * GET /api/MemberCredit/collections/overdue
+   */
+  getOverdueMembers(branchId?: number): Observable<OverdueMemberDto[]> {
+    const params = branchId ? new HttpParams().set('branchId', branchId.toString()) : undefined;
+    return this.http.get<CreditApiResponse<OverdueMemberDto[]>>(`${this.baseUrl}/MemberCredit/collections/overdue`, { params })
+      .pipe(map(res => res.data), catchError(this.handleError));
+  }
+
+  /**
+   * Get Members Approaching Limit
+   * GET /api/MemberCredit/collections/approaching-limit
+   */
+  getApproachingLimitMembers(branchId?: number): Observable<ApproachingLimitMemberDto[]> {
+    const params = branchId ? new HttpParams().set('branchId', branchId.toString()) : undefined;
+    return this.http.get<CreditApiResponse<ApproachingLimitMemberDto[]>>(`${this.baseUrl}/MemberCredit/collections/approaching-limit`, { params })
+      .pipe(map(res => res.data), catchError(this.handleError));
+  }
+
+  /**
+   * Get Credit Analytics
+   * GET /api/MemberCredit/analytics
+   */
+  getCreditAnalytics(branchId?: number, startDate?: string, endDate?: string): Observable<CreditAnalyticsDto> {
+    let params = new HttpParams();
+    if (branchId) params = params.set('branchId', branchId.toString());
+    if (startDate) params = params.set('startDate', startDate);
+    if (endDate) params = params.set('endDate', endDate);
+
     this._loading.set(true);
-    
-    return this.http.post<CreditApiResponse<boolean>>(
-      `${this.baseUrl}/Member/credit/grant`,
-      request
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          // Refresh member credit data
-          this.refreshCreditMembers();
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to grant credit');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(this.handleError)
-    );
+    return this.http.get<CreditApiResponse<CreditAnalyticsDto>>(`${this.baseUrl}/MemberCredit/analytics`, { params })
+      .pipe(
+        map(res => res.data),
+        tap(analytics => this._creditAnalytics.set(analytics)),
+        tap(() => this._loading.set(false)),
+        catchError(this.handleError)
+      );
   }
 
   /**
-   * API 4: Record Credit Payment
-   * POST /api/Member/credit/payment
+   * Update Credit Status
+   * PUT /api/MemberCredit/{id}/credit/status
    */
-  recordPayment(request: CreditPaymentRequestDto): Observable<CreditTransactionDto> {
-    this._loading.set(true);
-    
-    return this.http.post<CreditTransactionResponse>(
-      `${this.baseUrl}/Member/credit/payment`,
-      request
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          // Update local credit data
-          this.updateLocalCreditData(request.memberId, -request.amount);
-          
-          // Add to transactions history
-          this._creditTransactions.update(transactions => 
-            [response.data, ...transactions]
-          );
-          
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to record payment');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(this.handleError)
-    );
+  updateCreditStatus(memberId: number, request: UpdateCreditStatusRequestDto): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/status`, request)
+      .pipe(catchError(this.handleError));
   }
 
   /**
-   * API 5: Update Credit Status
-   * PUT /api/Member/credit/status
+   * Update Credit Limit
+   * PUT /api/MemberCredit/{id}/credit/limit
    */
-  updateCreditStatus(request: UpdateCreditStatusRequestDto): Observable<boolean> {
-    this._loading.set(true);
-    
-    return this.http.put<CreditApiResponse<boolean>>(
-      `${this.baseUrl}/Member/credit/status`,
-      request
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          // Update local member credit status
-          this._creditMembers.update(members => 
-            members.map(member => 
-              member.memberId === request.memberId 
-                ? { ...member, creditStatus: request.newStatus }
-                : member
-            )
-          );
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to update status');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(this.handleError)
-    );
+  updateCreditLimit(memberId: number, request: UpdateCreditLimitRequestDto): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/limit`, request)
+      .pipe(catchError(this.handleError));
   }
 
-  // ===== POS INTEGRATION APIS (6 endpoints) =====
-
   /**
-   * API 6: Get Member for POS
-   * GET /api/POS/member/{memberId}/credit
+   * Send Payment Reminder
+   * POST /api/MemberCredit/{id}/reminders/send
    */
-  getPOSMemberCredit(memberId: number): Observable<POSMemberCreditDto> {
-    return this.http.get<CreditApiResponse<POSMemberCreditDto>>(
-      `${this.baseUrl}/POS/member/${memberId}/credit`
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Member not found for POS');
-      }),
-      catchError(this.handleError)
-    );
+  sendPaymentReminder(memberId: number, request: SendReminderRequestDto): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/MemberCredit/${memberId}/reminders/send`, request)
+      .pipe(catchError(this.handleError));
   }
 
   /**
-   * API 7: Search Member by Phone for POS
-   * GET /api/POS/member/search?phone={phone}
+   * Send Bulk Reminders
+   * POST /api/MemberCredit/reminders/bulk-send
    */
-  searchPOSMemberByPhone(phone: string): Observable<POSMemberCreditDto[]> {
-    const params = new HttpParams().set('phone', phone);
-    
-    return this.http.get<CreditApiResponse<POSMemberCreditDto[]>>(
-      `${this.baseUrl}/POS/member/search`,
-      { params }
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'No members found');
-      }),
-      catchError(this.handleError)
-    );
+  sendBulkReminders(branchId?: number): Observable<any> {
+    const params = branchId ? new HttpParams().set('branchId', branchId.toString()) : undefined;
+    return this.http.post<any>(`${this.baseUrl}/MemberCredit/reminders/bulk-send`, {}, { params })
+      .pipe(catchError(this.handleError));
   }
 
   /**
-   * API 8: Validate Credit Transaction
-   * POST /api/POS/credit/validate
+   * Maintenance: Update All Statuses
+   * POST /api/MemberCredit/maintenance/update-all-status
    */
-  validateCreditTransaction(request: CreditValidationRequestDto): Observable<CreditValidationResultDto> {
-    return this.http.post<CreditValidationResponse>(
-      `${this.baseUrl}/POS/credit/validate`,
-      request
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Validation failed');
-      }),
-      catchError(this.handleError)
-    );
+  updateAllMemberStatus(): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/MemberCredit/maintenance/update-all-status`, {})
+      .pipe(catchError(this.handleError));
   }
 
+
+  // ===== POS INTEGRATION APIS (6 endpoints from documentation) =====
+
   /**
-   * API 9: Create Sale with Credit
-   * POST /api/POS/sale/credit
+   * Validate Member Credit for POS
+   * POST /api/pos/validate-member-credit
    */
-  createSaleWithCredit(request: CreateSaleWithCreditDto): Observable<POSCreditInfoDto> {
-    this._loading.set(true);
-    
-    return this.http.post<CreditApiResponse<POSCreditInfoDto>>(
-      `${this.baseUrl}/POS/sale/credit`,
-      request
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          // Update local member credit after sale
-          this.updateLocalCreditData(request.memberId, request.creditAmount);
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to process credit sale');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(this.handleError)
-    );
+  validateMemberCreditForPOS(request: CreditValidationRequestDto): Observable<CreditValidationResultDto> {
+    return this.http.post<CreditApiResponse<CreditValidationResultDto>>(`${this.baseUrl}/pos/validate-member-credit`, request)
+      .pipe(map(res => res.data), catchError(this.handleError));
   }
 
   /**
-   * API 10: Get Sale Credit Info
-   * GET /api/POS/sale/{saleId}/credit
+   * Create Sale with Credit
+   * POST /api/pos/create-sale-with-credit
+   */
+  createSaleWithCredit(request: CreateSaleWithCreditDto): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/pos/create-sale-with-credit`, request)
+      .pipe(catchError(this.handleError));
+  }
+
+  /**
+   * Apply Credit Payment (in POS context, might differ from core payment)
+   * POST /api/pos/apply-credit-payment
+   */
+  applyCreditPayment(request: any): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/pos/apply-credit-payment`, request)
+      .pipe(catchError(this.handleError));
+  }
+
+  /**
+   * Member Credit Lookup for POS
+   * GET /api/pos/member-credit-lookup/{id}
+   */
+  getMemberCreditForPOS(identifier: string): Observable<POSMemberCreditDto> {
+    return this.http.get<CreditApiResponse<POSMemberCreditDto>>(`${this.baseUrl}/pos/member-credit-lookup/${identifier}`)
+      .pipe(map(res => res.data), catchError(this.handleError));
+  }
+
+  /**
+   * Check Member Credit Eligibility for POS
+   * GET /api/pos/member/{id}/credit-eligibility
+   */
+  getMemberCreditEligibilityForPOS(memberId: number): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/pos/member/${memberId}/credit-eligibility`)
+      .pipe(catchError(this.handleError));
+  }
+
+  /**
+   * Get Sale Credit Info for Receipt
+   * GET /api/pos/sales/{id}/credit-info
    */
   getSaleCreditInfo(saleId: number): Observable<POSCreditInfoDto> {
-    return this.http.get<CreditApiResponse<POSCreditInfoDto>>(
-      `${this.baseUrl}/POS/sale/${saleId}/credit`
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Sale credit info not found');
-      }),
-      catchError(this.handleError)
-    );
+    return this.http.get<CreditApiResponse<POSCreditInfoDto>>(`${this.baseUrl}/pos/sales/${saleId}/credit-info`)
+      .pipe(map(res => res.data), catchError(this.handleError));
+  }
+
+
+  // ===== MEMBER INTEGRATION APIS (5 endpoints from documentation) =====
+
+  /**
+   * Get Member with Credit Info
+   * GET /api/member/{id}/with-credit
+   */
+  getMemberWithCredit(memberId: number): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/member/${memberId}/with-credit`)
+      .pipe(catchError(this.handleError));
   }
 
   /**
-   * API 11: Cancel Credit Sale
-   * POST /api/POS/sale/{saleId}/credit/cancel
+   * Search Members with Credit
+   * GET /api/member/search-with-credit
    */
-  cancelCreditSale(saleId: number, reason: string): Observable<boolean> {
+  searchMembersWithCredit(filters: MemberCreditSearchFiltersDto): Observable<MemberCreditPagedResponseDto> {
     this._loading.set(true);
-    
-    return this.http.post<CreditApiResponse<boolean>>(
-      `${this.baseUrl}/POS/sale/${saleId}/credit/cancel`,
-      { reason }
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to cancel credit sale');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(this.handleError)
-    );
-  }
-
-  // ===== MEMBER INTEGRATION APIS (5 endpoints) =====
-
-  /**
-   * API 12: Search Credit Members
-   * GET /api/Member/credit/search
-   */
-  searchCreditMembers(filters: MemberCreditSearchFiltersDto): Observable<MemberCreditPagedResponseDto> {
-    this._loading.set(true);
-    
     let params = new HttpParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -366,315 +344,41 @@ export class MemberCreditService {
       }
     });
 
-    return this.http.get<CreditApiResponse<MemberCreditPagedResponseDto>>(
-      `${this.baseUrl}/Member/credit/search`,
-      { params }
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          this._creditMembers.set(response.data.members);
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to search credit members');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(this.handleError)
-    );
+    return this.http.get<CreditApiResponse<MemberCreditPagedResponseDto>>(`${this.baseUrl}/member/search-with-credit`, { params })
+      .pipe(
+        map(res => res.data),
+        tap(pagedData => this._creditMembers.set(pagedData.members)),
+        tap(() => this._loading.set(false)),
+        catchError(this.handleError)
+      );
   }
 
   /**
-   * API 13: Get Credit Transaction History
-   * GET /api/Member/{memberId}/credit/transactions
+   * Get Member Credit Status
+   * GET /api/member/{id}/credit-status
    */
-  getCreditTransactionHistory(
-    memberId: number,
-    page?: number,
-    pageSize?: number,
-    startDate?: string,
-    endDate?: string
-  ): Observable<CreditTransactionDto[]> {
-    let params = new HttpParams();
-    if (page) params = params.set('page', page.toString());
-    if (pageSize) params = params.set('pageSize', pageSize.toString());
-    if (startDate) params = params.set('startDate', startDate);
-    if (endDate) params = params.set('endDate', endDate);
-
-    return this.http.get<CreditApiResponse<CreditTransactionDto[]>>(
-      `${this.baseUrl}/Member/${memberId}/credit/transactions`,
-      { params }
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          this._creditTransactions.set(response.data);
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to get transaction history');
-      }),
-      catchError(this.handleError)
-    );
+  getMemberCreditStatus(memberId: number): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/member/${memberId}/credit-status`)
+      .pipe(catchError(this.handleError));
   }
 
   /**
-   * API 14: Update Credit Limit
-   * PUT /api/Member/credit/limit
+   * Member Lookup for POS (duplicate of /api/pos/member-credit-lookup/{id})
+   * GET /api/member/credit-lookup/{id}
    */
-  updateCreditLimit(request: UpdateCreditLimitRequestDto): Observable<boolean> {
-    this._loading.set(true);
-    
-    return this.http.put<CreditApiResponse<boolean>>(
-      `${this.baseUrl}/Member/credit/limit`,
-      request
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          // Update local member credit limit
-          this._creditMembers.update(members => 
-            members.map(member => 
-              member.memberId === request.memberId 
-                ? { ...member, creditLimit: request.newLimit }
-                : member
-            )
-          );
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to update credit limit');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(this.handleError)
-    );
-  }
+  // This seems redundant, getMemberCreditForPOS should be used.
+  // getMemberCreditLookup(identifier: string): Observable<any> {
+  //   return this.http.get<any>(`${this.baseUrl}/member/credit-lookup/${identifier}`)
+  //     .pipe(catchError(this.handleError));
+  // }
 
   /**
-   * API 15: Get Overdue Members
-   * GET /api/Member/credit/overdue
+   * Update Member Stats After Credit Transaction
+   * POST /api/member/{id}/update-after-credit
    */
-  getOverdueMembers(branchId?: number): Observable<OverdueMemberDto[]> {
-    let params = new HttpParams();
-    if (branchId) params = params.set('branchId', branchId.toString());
-
-    return this.http.get<CreditApiResponse<OverdueMemberDto[]>>(
-      `${this.baseUrl}/Member/credit/overdue`,
-      { params }
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to get overdue members');
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * API 16: Send Payment Reminder
-   * POST /api/Member/credit/reminder
-   */
-  sendPaymentReminder(request: SendReminderRequestDto): Observable<boolean> {
-    return this.http.post<CreditApiResponse<boolean>>(
-      `${this.baseUrl}/Member/credit/reminder`,
-      request
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to send reminder');
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  // ===== ANALYTICS & REPORTING APIS (9 endpoints) =====
-
-  /**
-   * API 17: Get Credit Analytics Dashboard
-   * GET /api/Analytics/credit/dashboard
-   */
-  getCreditAnalytics(branchId?: number, startDate?: string, endDate?: string): Observable<CreditAnalyticsDto> {
-    this._loading.set(true);
-    
-    let params = new HttpParams();
-    if (branchId) params = params.set('branchId', branchId.toString());
-    if (startDate) params = params.set('startDate', startDate);
-    if (endDate) params = params.set('endDate', endDate);
-
-    return this.http.get<CreditApiResponse<CreditAnalyticsDto>>(
-      `${this.baseUrl}/Analytics/credit/dashboard`,
-      { params }
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          this._creditAnalytics.set(response.data);
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to get credit analytics');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * API 18: Get Members Approaching Credit Limit
-   * GET /api/Analytics/credit/approaching-limit
-   */
-  getApproachingLimitMembers(threshold?: number, branchId?: number): Observable<ApproachingLimitMemberDto[]> {
-    let params = new HttpParams();
-    if (threshold) params = params.set('threshold', threshold.toString());
-    if (branchId) params = params.set('branchId', branchId.toString());
-
-    return this.http.get<CreditApiResponse<ApproachingLimitMemberDto[]>>(
-      `${this.baseUrl}/Analytics/credit/approaching-limit`,
-      { params }
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to get approaching limit members');
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * API 19: Get Branch Credit Comparison
-   * GET /api/Analytics/credit/branch-comparison
-   */
-  getBranchCreditComparison(startDate?: string, endDate?: string): Observable<BranchCreditComparisonDto[]> {
-    let params = new HttpParams();
-    if (startDate) params = params.set('startDate', startDate);
-    if (endDate) params = params.set('endDate', endDate);
-
-    return this.http.get<CreditApiResponse<BranchCreditComparisonDto[]>>(
-      `${this.baseUrl}/Analytics/credit/branch-comparison`,
-      { params }
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to get branch comparison');
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * API 20: Export Credit Report
-   * GET /api/Analytics/credit/export
-   */
-  exportCreditReport(
-    format: 'csv' | 'excel' | 'pdf',
-    filters?: MemberCreditSearchFiltersDto
-  ): Observable<Blob> {
-    let params = new HttpParams().set('format', format);
-    
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          params = params.set(key, value.toString());
-        }
-      });
-    }
-
-    return this.http.get(`${this.baseUrl}/Analytics/credit/export`, {
-      params,
-      responseType: 'blob'
-    }).pipe(
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * API 21: Get Credit Risk Assessment
-   * GET /api/Analytics/credit/risk-assessment/{memberId}
-   */
-  getCreditRiskAssessment(memberId: number): Observable<CreditCalculationResult> {
-    return this.http.get<CreditApiResponse<CreditCalculationResult>>(
-      `${this.baseUrl}/Analytics/credit/risk-assessment/${memberId}`
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to get risk assessment');
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * API 22: Bulk Update Credit Status
-   * POST /api/Member/credit/bulk-update
-   */
-  bulkUpdateCreditStatus(action: BulkCreditAction): Observable<boolean> {
-    this._loading.set(true);
-    
-    return this.http.post<CreditApiResponse<boolean>>(
-      `${this.baseUrl}/Member/credit/bulk-update`,
-      action
-    ).pipe(
-      map(response => {
-        if (response.success) {
-          // Refresh credit members data after bulk update
-          this.refreshCreditMembers();
-          return response.data;
-        }
-        throw new Error(response.message || 'Failed to perform bulk update');
-      }),
-      tap(() => this._loading.set(false)),
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * API 23: Get Credit Statistics
-   * GET /api/Analytics/credit/statistics
-   */
-  getCreditStatistics(branchId?: number): Observable<any> {
-    let params = new HttpParams();
-    if (branchId) params = params.set('branchId', branchId.toString());
-
-    return this.http.get<CreditApiResponse<any>>(
-      `${this.baseUrl}/Analytics/credit/statistics`,
-      { params }
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to get credit statistics');
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * API 24: Calculate Credit Score
-   * POST /api/Analytics/credit/calculate-score
-   */
-  calculateCreditScore(memberId: number, additionalData?: any): Observable<number> {
-    return this.http.post<CreditApiResponse<number>>(
-      `${this.baseUrl}/Analytics/credit/calculate-score`,
-      { memberId, ...additionalData }
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to calculate credit score');
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * API 25: Get Payment Due Notifications
-   * GET /api/Member/credit/payment-due-notifications
-   */
-  getPaymentDueNotifications(branchId?: number, days?: number): Observable<any[]> {
-    let params = new HttpParams();
-    if (branchId) params = params.set('branchId', branchId.toString());
-    if (days) params = params.set('days', days.toString());
-
-    return this.http.get<CreditApiResponse<any[]>>(
-      `${this.baseUrl}/Member/credit/payment-due-notifications`,
-      { params }
-    ).pipe(
-      map(response => {
-        if (response.success) return response.data;
-        throw new Error(response.message || 'Failed to get payment due notifications');
-      }),
-      catchError(this.handleError)
-    );
+  updateMemberAfterCredit(memberId: number): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/member/${memberId}/update-after-credit`, {})
+      .pipe(catchError(this.handleError));
   }
 
   // ===== UTILITY METHODS =====
@@ -721,7 +425,7 @@ export class MemberCreditService {
    * Refresh credit members data
    */
   private refreshCreditMembers(): void {
-    this.searchCreditMembers({ page: 1, pageSize: 50 }).subscribe();
+    this.searchMembersWithCredit({ page: 1, pageSize: 50 }).subscribe();
   }
 
   /**
@@ -731,21 +435,46 @@ export class MemberCreditService {
     this._loading.set(false);
     
     let errorMessage = 'An unexpected error occurred';
+    let detailedError = '';
     
+    // Extract detailed error information
     if (error.error?.message) {
       errorMessage = error.error.message;
+    } else if (error.error?.errors) {
+      // Handle validation errors
+      const errors = Array.isArray(error.error.errors) ? error.error.errors : [error.error.errors];
+      errorMessage = errors.join(', ');
     } else if (error.message) {
       errorMessage = error.message;
     } else if (error.status === 0) {
-      errorMessage = 'Unable to connect to server';
+      errorMessage = 'Unable to connect to server. Please check your internet connection.';
+    } else if (error.status === 400) {
+      errorMessage = 'Bad request. Please check your input data.';
+      detailedError = error.error?.message || error.error?.errors || JSON.stringify(error.error);
+    } else if (error.status === 401) {
+      errorMessage = 'Authentication required. Please log in again.';
+    } else if (error.status === 403) {
+      errorMessage = 'You do not have permission to perform this action.';
+    } else if (error.status === 404) {
+      errorMessage = 'The requested resource was not found.';
     } else if (error.status >= 400 && error.status < 500) {
-      errorMessage = 'Invalid request or authorization failed';
+      errorMessage = 'Invalid request. Please check your input and try again.';
+      detailedError = error.error?.message || error.statusText;
     } else if (error.status >= 500) {
-      errorMessage = 'Server error occurred';
+      errorMessage = 'Server error occurred. Please try again later.';
+      detailedError = error.error?.message || error.statusText;
     }
     
     this._error.set(errorMessage);
-    console.error('MemberCreditService Error:', error);
+    
+    console.group('MemberCreditService Error Details:');
+    console.error('Status:', error.status);
+    console.error('Status Text:', error.statusText);
+    console.error('Error Message:', errorMessage);
+    console.error('Detailed Error:', detailedError);
+    console.error('Full Error Object:', error);
+    console.error('Request URL:', error.url);
+    console.groupEnd();
     
     return throwError(() => new Error(errorMessage));
   };
@@ -847,7 +576,7 @@ export class MemberCreditService {
       return { canUse: false, reason: 'Member is not eligible for credit' };
     }
     
-    if (member.creditStatus === 'Blocked') {
+    if (member.statusDescription === 'Blocked') {
       return { canUse: false, reason: 'Member credit is blocked' };
     }
     

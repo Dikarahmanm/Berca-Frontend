@@ -5,6 +5,16 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
+// NEW: Credit integration imports
+import { MemberCreditService } from '../../../membership/services/member-credit.service';
+import { 
+  POSMemberCreditDto,
+  CreditValidationRequestDto,
+  CreditValidationResultDto,
+  CreateSaleWithCreditDto
+} from '../../../membership/interfaces/member-credit.interfaces';
+import { validateCreditTransaction, formatCurrency as formatCreditCurrency } from '../../../membership/utils/credit-utils';
+
 // Enhanced interfaces for better type safety
 export interface PaymentMethod {
   id: 'cash' | 'card' | 'digital' | 'credit';
@@ -169,7 +179,7 @@ export interface QuickAmount {
       }
 
       <!-- Enhanced Non-Cash Reference Section -->
-      @if (selectedMethod() !== 'cash') {
+      @if (selectedMethod() !== 'cash' && selectedMethod() !== 'credit') {
       <div class="reference-section">
         <div class="form-field">
           <label>Nomor Referensi (Opsional)</label>
@@ -182,6 +192,59 @@ export interface QuickAmount {
             [placeholder]="getReferencePlaceholder()"
             maxlength="50">
           <small class="form-hint">{{ getReferenceHint() }}</small>
+        </div>
+      </div>
+      }
+
+      <!-- NEW: Credit Validation Section -->
+      @if (selectedMethod() === 'credit') {
+      <div class="credit-section">
+        <h3 class="section-title">Informasi Kredit Member</h3>
+        
+        <!-- Member Credit Summary -->
+        @if (memberCredit()) {
+        <div class="credit-summary-card">
+          <div class="credit-info">
+            <div class="credit-info-row">
+              <span class="info-label">Limit Kredit:</span>
+              <span class="info-value">{{ formatCurrency(memberCredit()!.creditLimit) }}</span>
+            </div>
+            <div class="credit-info-row">
+              <span class="info-label">Hutang Saat Ini:</span>
+              <span class="info-value debt">{{ formatCurrency(memberCredit()!.currentDebt) }}</span>
+            </div>
+            <div class="credit-info-row highlight">
+              <span class="info-label">Sisa Limit:</span>
+              <span class="info-value available">{{ formatCurrency(creditAvailableLimit()) }}</span>
+            </div>
+          </div>
+        </div>
+        }
+
+        <!-- Credit Validation Status -->
+        @if (creditValidationLoading()) {
+        <div class="validation-message loading">
+          <div class="loading-spinner-small"></div>
+          <span>Memvalidasi limit kredit...</span>
+        </div>
+        } @else if (creditValidation()) {
+        <div class="validation-message" [class.success]="isCreditValid()" [class.error]="!isCreditValid()">
+          <span class="validation-icon">{{ isCreditValid() ? '✅' : '❌' }}</span>
+          <span>{{ creditValidationMessage() }}</span>
+        </div>
+        }
+
+        <!-- Transaction Amount Display for Credit -->
+        <div class="credit-transaction-info">
+          <div class="transaction-card">
+            <div class="transaction-header">
+              <span class="transaction-label">Jumlah Hutang Baru</span>
+            </div>
+            <div class="transaction-amount">{{ formatCurrency(totalAmount) }}</div>
+            <div class="transaction-note">
+              <small>Jatuh tempo: {{ getCreditDueDate() }}</small>
+            </div>
+          </div>
         </div>
       </div>
       }
@@ -243,20 +306,30 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   @ViewChild('referenceInput') referenceInput!: ElementRef<HTMLInputElement>;
 
   @Input() totalAmount: number = 0;
+  @Input() selectedItems: any[] = [];
   @Input() isVisible: boolean = false;
   @Input() hasMember: boolean = false;
   @Input() memberDiscount: number = 0;
+  
+  @Input() memberId?: number; // NEW: Member ID for credit validation
+  @Input() memberCreditData?: POSMemberCreditDto; // NEW: Member credit info
   
   @Output() paymentComplete = new EventEmitter<PaymentData>();
   @Output() paymentCancelled = new EventEmitter<void>();
 
   private destroy$ = new Subject<void>();
+  private memberCreditService = inject(MemberCreditService); // NEW: Credit service injection
 
   // Signal-based state management
   selectedMethod = signal<'cash' | 'card' | 'digital' | 'credit'>('cash');
   amountPaid = signal<number>(0);
   paymentReference = signal<string>('');
   isProcessing = signal<boolean>(false);
+  
+  // NEW: Credit-specific signals
+  memberCredit = signal<POSMemberCreditDto | null>(null);
+  creditValidation = signal<CreditValidationResultDto | null>(null);
+  creditValidationLoading = signal<boolean>(false);
   
   // Computed properties
   calculatedChange = computed(() => {
@@ -274,7 +347,35 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   });
 
   canProcessPayment = computed(() => {
+    if (this.selectedMethod() === 'credit') {
+      return this.isAmountValid() && 
+             !this.isProcessing() && 
+             !this.creditValidationLoading() &&
+             this.isCreditValid();
+    }
     return this.isAmountValid() && !this.isProcessing();
+  });
+
+  // NEW: Credit-specific computed properties
+  isCreditValid = computed(() => {
+    if (this.selectedMethod() !== 'credit') return true;
+    
+    const validation = this.creditValidation();
+    return validation ? validation.isApproved : false;
+  });
+
+  creditAvailableLimit = computed(() => {
+    const member = this.memberCredit();
+    if (!member) return 0;
+    return member.creditLimit - member.currentDebt;
+  });
+
+  creditValidationMessage = computed(() => {
+    const validation = this.creditValidation();
+    const messages: string[] = [];
+    if (validation?.warnings) messages.push(...validation.warnings);
+    if (validation?.errors) messages.push(...validation.errors);
+    return messages.join(', ') || validation?.decisionReason || '';
   });
 
   // Quick amounts configuration with enhanced options
@@ -320,14 +421,16 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
       }
     ];
 
-    // Add credit option only for members
-    if (this.hasMember) {
+    // Add credit option only for members with credit info
+    if (this.hasMember && this.memberCredit()) {
+      const availableLimit = this.creditAvailableLimit();
+      
       baseMethods.push({
         id: 'credit',
         label: 'Hutang',
-        description: 'Pembayaran kredit member',
+        description: `Sisa limit: ${this.formatCurrency(availableLimit)}`,
         iconPath: '',
-        enabled: true
+        enabled: availableLimit >= this.totalAmount
       });
     }
 
@@ -357,6 +460,20 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
       // Initialize member discount from input
       this.memberDiscountSignal.set(this.memberDiscount || 0);
     });
+
+    // NEW: Effect for credit data initialization
+    effect(() => {
+      if (this.memberCreditData) {
+        this.memberCredit.set(this.memberCreditData);
+      }
+    });
+
+    // NEW: Effect for credit validation when method or amount changes
+    effect(() => {
+      if (this.selectedMethod() === 'credit' && this.memberId) {
+        this.validateCreditTransaction();
+      }
+    });
   }
 
   ngOnInit() {
@@ -374,6 +491,11 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
     // Set default amount for cash payment
     if (this.selectedMethod() === 'cash') {
       this.amountPaid.set(this.totalAmount);
+    }
+
+    // NEW: Initialize member credit data if provided
+    if (this.memberCreditData) {
+      this.memberCredit.set(this.memberCreditData);
     }
 
     // Focus appropriate input
@@ -404,6 +526,14 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
       this.amountPaid.set(this.totalAmount);
     }
 
+    // NEW: Handle credit method selection
+    if (method === 'credit') {
+      this.paymentReference.set(''); // Clear reference for credit
+      if (this.memberId) {
+        this.validateCreditTransaction();
+      }
+    }
+
     this.focusInput();
   }
 
@@ -419,6 +549,58 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
 
   updatePaymentReference(reference: string) {
     this.paymentReference.set(reference);
+  }
+
+  // NEW: Credit validation method
+  private async validateCreditTransaction() {
+    if (!this.memberId || this.selectedMethod() !== 'credit') {
+      return;
+    }
+
+    this.creditValidationLoading.set(true);
+    
+    try {
+      const validationRequest: CreditValidationRequestDto = {
+        memberId: this.memberId,
+        requestedAmount: this.totalAmount,
+        items: this.selectedItems || [],
+        branchId: 1, // Default branch ID
+        description: 'POS Credit Transaction',
+        overrideWarnings: false,
+        managerUserId: 0
+      };
+
+      // Real API call for credit validation
+      const validationResult = await this.memberCreditService.validateMemberCreditForPOS(validationRequest).toPromise();
+
+      if (validationResult) {
+        this.creditValidation.set(validationResult);
+      } else {
+        throw new Error('No validation result received');
+      }
+    } catch (error) {
+      console.error('Credit validation failed:', error);
+      this.creditValidation.set({
+        isApproved: false,
+        approvedAmount: 0,
+        availableCredit: 0,
+        decisionReason: 'Gagal memvalidasi kredit. Silakan coba lagi.',
+        warnings: [],
+        errors: ['Gagal memvalidasi kredit. Silakan coba lagi.'],
+        requiresManagerApproval: false,
+        maxAllowedAmount: 0,
+        riskLevel: 'High',
+        memberName: '',
+        memberTier: '',
+        creditScore: 0,
+        creditUtilization: 0,
+        validationTimestamp: new Date().toISOString(),
+        validatedByUserId: 0,
+        validationId: ''
+      });
+    } finally {
+      this.creditValidationLoading.set(false);
+    }
   }
 
   // Generate smart amount suggestions based on total
@@ -476,15 +658,95 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
     return hints[this.selectedMethod() as keyof typeof hints] || 'Referensi opsional untuk tracking';
   }
 
+  // NEW: Get formatted credit due date (30 days from now)
+  getCreditDueDate(): string {
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 30);
+    return dueDate.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+
   // ===== PAYMENT PROCESSING =====
 
-  processPayment() {
+  async processPayment() {
     if (!this.canProcessPayment()) {
       return;
     }
 
     this.isProcessing.set(true);
 
+    try {
+      // NEW: Handle credit payment processing
+      if (this.selectedMethod() === 'credit' && this.memberId) {
+        await this.processCreditPayment();
+      } else {
+        // Handle regular payment methods
+        await this.processRegularPayment();
+      }
+    } catch (error) {
+      console.error('Payment processing failed:', error);
+      // You might want to show an error message to the user here
+      this.isProcessing.set(false);
+    }
+  }
+
+  // NEW: Process credit payment
+  private async processCreditPayment() {
+    if (!this.memberId || !this.memberCredit()) {
+      throw new Error('Member credit data not available');
+    }
+
+    try {
+      const creditSaleData: CreateSaleWithCreditDto = {
+        memberId: this.memberId,
+        items: this.selectedItems || [],
+        totalAmount: this.totalAmount,
+        creditAmount: this.amountPaid(),
+        cashAmount: this.totalAmount - this.amountPaid(),
+        description: 'POS Sale with Credit Payment',
+        branchId: 1, // Default branch ID
+        cashierId: 1, // Default cashier ID
+        paymentMethod: 1, // Credit payment method (numeric)
+        validationId: this.creditValidation()?.validationId || '',
+        isManagerApproved: false,
+        approvedByManagerId: 0,
+        approvalNotes: '',
+        customerNotes: '',
+        discountAmount: 0,
+        taxAmount: 0,
+        receiptNumber: this.paymentReference() || ''
+      };
+
+      // Create credit sale transaction
+      const response = await this.memberCreditService.createSaleWithCredit(creditSaleData).toPromise();
+      
+      if (response) {
+        const paymentData: PaymentData = {
+          method: 'credit',
+          amountPaid: this.amountPaid(),
+          change: 0, // No change for credit payments
+          reference: response.saleId?.toString() || this.paymentReference()
+        };
+
+        // Simulate processing time for UX
+        setTimeout(() => {
+          this.paymentComplete.emit(paymentData);
+          this.isProcessing.set(false);
+        }, 1500);
+      } else {
+        throw new Error('Credit payment failed');
+      }
+    } catch (error) {
+      console.error('Credit payment processing failed:', error);
+      throw error;
+    }
+  }
+
+  // Process regular (non-credit) payments
+  private async processRegularPayment() {
     // Simulate processing delay with better UX
     setTimeout(() => {
       const paymentData: PaymentData = {
@@ -584,5 +846,9 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
     this.amountPaid.set(this.totalAmount);
     this.paymentReference.set('');
     this.isProcessing.set(false);
+    
+    // NEW: Reset credit-specific state
+    this.creditValidation.set(null);
+    this.creditValidationLoading.set(false);
   }
 }

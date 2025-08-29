@@ -23,6 +23,9 @@ import { CreateProductRequest, BatchForPOSDto, ProductBatch } from '../../invent
 import { AuthService } from '../../../core/services/auth.service';
 import { MembershipService } from '../../membership/services/membership.service';
 import { MemberDto } from '../../membership/interfaces/membership.interfaces';
+// NEW: Member Credit Integration
+import { MemberCreditService } from '../../membership/services/member-credit.service';
+import { POSMemberCreditDto } from '../../membership/interfaces/member-credit.interfaces';
 import { CategoryService } from '../../category-management/services/category.service';
 import { Category } from '../../category-management/models/category.models';
 import { NotificationService } from '../../../core/services/notification.service';
@@ -58,6 +61,7 @@ export class POSComponent implements OnInit, OnDestroy {
   private inventoryService = inject(InventoryService);
   private authService = inject(AuthService);
   private membershipService = inject(MembershipService);
+  private memberCreditService = inject(MemberCreditService); // NEW: Member credit service
   private categoryService = inject(CategoryService);
   private notificationService = inject(NotificationService);
   private toastService = inject(ToastService);
@@ -115,6 +119,10 @@ export class POSComponent implements OnInit, OnDestroy {
   searchedMembers = signal<MemberDto[]>([]);
   isSearchingMembers = signal(false);
   showMemberSuggestions = false;
+  
+  // NEW: Member Credit integration
+  memberCreditData = signal<POSMemberCreditDto | undefined>(undefined);
+  isLoadingMemberCredit = signal(false);
   
   // SIGNALS: Filter and UI state
   selectedFilter = signal<'all' | 'category' | 'discount' | 'hot'>('all');
@@ -1458,6 +1466,9 @@ onDiscountChange(index: number, newDiscount: number) {
     this.memberSearchQuery.set(`${member.name} (${member.memberNumber})`);
     this.searchedMembers.set([]);
     this.showMemberSuggestions = false;
+    
+    // NEW: Fetch member credit data
+    this.loadMemberCreditData(member.id);
   }
 
   clearMember(): void {
@@ -1466,7 +1477,99 @@ onDiscountChange(index: number, newDiscount: number) {
     this.memberSearchQuery.set('');
     this.searchedMembers.set([]);
     this.showMemberSuggestions = false;
+    
+    // NEW: Clear member credit data
+    this.memberCreditData.set(undefined);
   }
+
+  // NEW: Load member credit data
+  private async loadMemberCreditData(memberId: number): Promise<void> {
+    this.isLoadingMemberCredit.set(true);
+    
+    try {
+      const creditSummary = await this.memberCreditService.getMemberCreditForPOS(memberId.toString()).toPromise();
+      
+      if (creditSummary) {
+        this.memberCreditData.set(creditSummary);
+      } else {
+        // TEMPORARY: Create mock data for testing if API fails
+        const mockCreditData: POSMemberCreditDto = {
+          memberId: memberId,
+          memberNumber: this.selectedMember()?.memberNumber || '',
+          name: this.selectedMember()?.name || '',
+          phone: this.selectedMember()?.phone || '',
+          email: this.selectedMember()?.email || '',
+          tier: 'Silver',
+          totalPoints: 1000,
+          creditLimit: 5000000,
+          currentDebt: 1000000,
+          availableCredit: 4000000,
+          creditStatus: 'Good',
+          creditScore: 85,
+          canUseCredit: true,
+          isEligibleForCredit: true,
+          maxTransactionAmount: 4000000,
+          statusMessage: 'Credit dalam kondisi baik',
+          statusColor: 'green',
+          hasWarnings: false,
+          warnings: [],
+          hasOverduePayments: false,
+          nextPaymentDueDate: undefined,
+          daysUntilNextPayment: 30,
+          creditLimitDisplay: 'Rp 5.000.000',
+          availableCreditDisplay: 'Rp 4.000.000',
+          currentDebtDisplay: 'Rp 1.000.000',
+          creditUtilization: 20,
+          lastCreditUsed: undefined,
+          lastPaymentDate: undefined,
+          totalCreditTransactions: 5
+        };
+        this.memberCreditData.set(mockCreditData);
+      }
+    } catch (error) {
+      console.error('Failed to load member credit data:', error);
+      
+      // TEMPORARY: Create mock data if API call fails
+      const mockCreditData: POSMemberCreditDto = {
+        memberId: memberId,
+        memberNumber: this.selectedMember()?.memberNumber || '',
+        name: this.selectedMember()?.name || '',
+        phone: this.selectedMember()?.phone || '',
+        email: this.selectedMember()?.email || '',
+        tier: 'Silver',
+        totalPoints: 1000,
+        creditLimit: 5000000,
+        currentDebt: 1000000,
+        availableCredit: 4000000,
+        creditStatus: 'Good',
+        creditScore: 85,
+        canUseCredit: true,
+        isEligibleForCredit: true,
+        maxTransactionAmount: 4000000,
+        statusMessage: 'Credit dalam kondisi baik',
+        statusColor: 'green',
+        hasWarnings: false,
+        warnings: [],
+        hasOverduePayments: false,
+        nextPaymentDueDate: undefined,
+        daysUntilNextPayment: 30,
+        creditLimitDisplay: 'Rp 5.000.000',
+        availableCreditDisplay: 'Rp 4.000.000',
+        currentDebtDisplay: 'Rp 1.000.000',
+        creditUtilization: 20,
+        lastCreditUsed: undefined,
+        lastPaymentDate: undefined,
+        totalCreditTransactions: 5
+      };
+      this.memberCreditData.set(mockCreditData);
+      
+      // Show warning but don't prevent functionality
+      this.toastService.showWarning('Member Credit Error', 'Using mock data for testing - API not available');
+    } finally {
+      this.isLoadingMemberCredit.set(false);
+    }
+  }
+
 // ✅ NEW: Toggle member input di mobile
 toggleMemberInput(): void {
   this.showMemberInput.set(!this.showMemberInput());

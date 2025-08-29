@@ -1,8 +1,8 @@
 <!-- membership-list.component.html -->
-<!-- Fixed All Signals Errors - Compatible with TypeScript Component -->
+<!-- Clean Design - Similar to Inventory Layout -->
 <div class="membership-container">
 
-  <!-- Header Section with Real-time Status -->
+  <!-- Header Section with Stats -->
   <div class="page-header">
     <div class="header-content">
       <h1 class="page-title">
@@ -13,7 +13,11 @@
           {{ realtimeConnected() ? 'Live' : 'Offline' }}
         </span>
       </h1>
-      <p class="page-subtitle">Kelola data member dan sistem loyalty points</p>
+      <div class="subtitle-stats">
+        <span class="stat-chip members">{{ filteredMembers().length }} Members</span>
+        <span class="stat-chip active" *ngIf="activeMembersCount() > 0">{{ activeMembersCount() }} Active</span>
+        <span class="stat-chip credit" *ngIf="creditEnabledCount() > 0">{{ creditEnabledCount() }} Credit Enabled</span>
+      </div>
     </div>
 
     <div class="header-actions">
@@ -31,6 +35,59 @@
         <span class="btn-icon">⚙</span>
         Actions ({{selectedMembers().length}})
       </button>
+    </div>
+  </div>
+
+  <!-- Enhanced Quick Stats Cards -->
+  <div class="stats-cards">
+    <div class="stat-card total-members">
+      <div class="stat-icon">
+        <span class="icon">👥</span>
+      </div>
+      <div class="stat-info">
+        <div class="stat-value">{{ memberStats().totalMembers }}</div>
+        <div class="stat-label">Total Members</div>
+      </div>
+    </div>
+
+    <div class="stat-card active-members">
+      <div class="stat-icon success">
+        <span class="icon">✅</span>
+      </div>
+      <div class="stat-info">
+        <div class="stat-value">{{ memberStats().activeMembers }}</div>
+        <div class="stat-label">Active Members</div>
+      </div>
+    </div>
+
+    <div class="stat-card credit-enabled" *ngIf="memberStats().creditEnabledMembers > 0">
+      <div class="stat-icon credit">
+        <span class="icon">💳</span>
+      </div>
+      <div class="stat-info">
+        <div class="stat-value">{{ memberStats().creditEnabledMembers }}</div>
+        <div class="stat-label">Credit Enabled</div>
+      </div>
+    </div>
+
+    <div class="stat-card vip-members" *ngIf="memberStats().vipMembers > 0">
+      <div class="stat-icon vip">
+        <span class="icon">⭐</span>
+      </div>
+      <div class="stat-info">
+        <div class="stat-value">{{ memberStats().vipMembers }}</div>
+        <div class="stat-label">VIP Members</div>
+      </div>
+    </div>
+
+    <div class="stat-card total-points">
+      <div class="stat-icon points">
+        <span class="icon">🏆</span>
+      </div>
+      <div class="stat-info">
+        <div class="stat-value">{{ formatCompactNumber(memberStats().totalPoints) }}</div>
+        <div class="stat-label">Total Points</div>
+      </div>
     </div>
   </div>
 
@@ -81,446 +138,506 @@
           </div>
         </div>
 
-        <!-- Spending Range Filter -->
-        <div class="filter-group">
-          <label class="filter-label">Total Spent Range</label>
-          <div class="range-inputs">
-            <input type="number" class="form-control" formControlName="minSpent" placeholder="Min Amount" min="0" />
-            <span class="range-separator">-</span>
-            <input type="number" class="form-control" formControlName="maxSpent" placeholder="Max Amount" min="0" />
-          </div>
-        </div>
-
         <!-- Points Range Filter -->
         <div class="filter-group">
-          <label class="filter-label">Available Points</label>
+          <label class="filter-label">Points Range</label>
           <div class="range-inputs">
             <input type="number" class="form-control" formControlName="minPoints" placeholder="Min Points" min="0" />
-            <span class="range-separator">-</span>
+            <span class="range-separator">to</span>
             <input type="number" class="form-control" formControlName="maxPoints" placeholder="Max Points" min="0" />
           </div>
         </div>
 
-        <!-- Last Transaction Filter -->
+        <!-- Credit Status Filter -->
         <div class="filter-group">
-          <label class="filter-label">Last Transaction</label>
-          <select class="form-control" formControlName="lastTransactionPeriod">
-            <option value="all">Any time</option>
-            <option value="7days">Last 7 days</option>
-            <option value="30days">Last 30 days</option>
-            <option value="90days">Last 3 months</option>
-            <option value="1year">Last year</option>
-            <option value="never">Never transacted</option>
+          <label class="filter-label">Credit Status</label>
+          <select class="form-control" formControlName="creditStatus">
+            <option value="all">All Credit Status</option>
+            <option value="enabled">Credit Enabled</option>
+            <option value="disabled">No Credit</option>
+            <option value="blocked">Credit Blocked</option>
           </select>
         </div>
 
-        <!-- Quick Spending Tier Filters -->
+        <!-- Risk Level Filter -->
         <div class="filter-group">
-          <label class="filter-label">Spending Tier</label>
-          <div class="spending-tier-filters">
-            <button type="button" class="tier-filter-btn" [class.active]="selectedSpendingTier() === 'low'"
-              (click)="setSpendingTierFilter('low')">
-              💰 Low Spenders (&lt;500K)
-            </button>
-            <button type="button" class="tier-filter-btn" [class.active]="selectedSpendingTier() === 'medium'"
-              (click)="setSpendingTierFilter('medium')">
-              💎 Medium Spenders (500K-2M)
-            </button>
-            <button type="button" class="tier-filter-btn" [class.active]="selectedSpendingTier() === 'high'"
-              (click)="setSpendingTierFilter('high')">
-              👑 High Spenders (&gt;2M)
-            </button>
-          </div>
-        </div>
-
-        <!-- Transaction Frequency Filter -->
-        <div class="filter-group">
-          <label class="filter-label">Transaction Frequency</label>
-          <select class="form-control" formControlName="transactionFrequency">
-            <option value="all">All Members</option>
-            <option value="frequent">Frequent (10+ transactions)</option>
-            <option value="regular">Regular (3-9 transactions)</option>
-            <option value="occasional">Occasional (1-2 transactions)</option>
-            <option value="inactive">No transactions</option>
+          <label class="filter-label">Risk Level</label>
+          <select class="form-control" formControlName="riskLevel">
+            <option value="all">All Risk Levels</option>
+            <option value="Low">Low Risk</option>
+            <option value="Medium">Medium Risk</option>
+            <option value="High">High Risk</option>
+            <option value="Critical">Critical Risk</option>
           </select>
         </div>
       </div>
 
-      <!-- Filter Actions -->
-      <div class="advanced-filter-actions">
+      <div class="advanced-actions">
         <button class="btn btn-primary" (click)="applyAdvancedFilters()">
           <span class="btn-icon">🔍</span>
           Apply Filters
         </button>
-        <button class="btn btn-outline" (click)="clearAdvancedFilters()">
-          <span class="btn-icon">🗑</span>
-          Clear All
-        </button>
-        <button class="btn btn-ghost" (click)="saveFilterPreset()">
-          <span class="btn-icon">💾</span>
-          Save Preset
+        <button class="btn btn-ghost" (click)="clearAdvancedFilters()">
+          <span class="btn-icon">↻</span>
+          Reset Advanced
         </button>
       </div>
     </div>
+  </div>
 
-    <!-- Active Filters Display -->
-    <div class="active-filters" *ngIf="hasActiveFilters()">
-      <div class="filter-tags">
-        <span class="filter-tag" *ngFor="let filter of getActiveFilterTags()" (click)="removeFilter(filter.key)">
-          {{ filter.label }}
-          <span class="remove-filter">×</span>
-        </span>
+  <!-- Bulk Actions Menu -->
+  <div class="bulk-menu" *ngIf="showBulkActionsMenu() && selectedMembers().length > 0">
+    <div class="bulk-menu-content">
+      <h4 class="bulk-menu-title">
+        <span class="bulk-icon">⚙</span>
+        Bulk Actions ({{ selectedMembers().length }} selected)
+      </h4>
+      
+      <div class="bulk-actions-grid">
+        <button class="bulk-action-btn activate" (click)="bulkActivateMembers()">
+          <span class="action-icon">✅</span>
+          <span class="action-label">Activate</span>
+        </button>
+        
+        <button class="bulk-action-btn deactivate" (click)="bulkDeactivateMembers()">
+          <span class="action-icon">❌</span>
+          <span class="action-label">Deactivate</span>
+        </button>
+        
+        <button class="bulk-action-btn credit" (click)="bulkGrantCredit()">
+          <span class="action-icon">💳</span>
+          <span class="action-label">Grant Credit</span>
+        </button>
+        
+        <button class="bulk-action-btn export" (click)="bulkExportMembers()">
+          <span class="action-icon">📊</span>
+          <span class="action-label">Export Data</span>
+        </button>
       </div>
-    </div>
-
-    <!-- Selection Summary -->
-    <div class="selection-summary" *ngIf="selectedMembers().length > 0">
-      <div class="selection-info">
-        <span class="selection-badge">{{selectedMembers().length}} selected</span>
-      </div>
-      <div class="selection-actions">
-        <button class="btn btn-sm btn-success" (click)="bulkActivate()">Activate</button>
-        <button class="btn btn-sm btn-secondary" (click)="bulkDeactivate()">Deactivate</button>
-        <button class="btn btn-sm btn-outline" (click)="exportMembers()">Export</button>
-        <button class="btn btn-sm btn-ghost" (click)="clearSelection()">Clear</button>
-      </div>
+      
+      <button class="bulk-close-btn" (click)="closeBulkMenu()">
+        <span class="close-icon">✖</span>
+        Close
+      </button>
     </div>
   </div>
 
   <!-- Loading State -->
-  <div class="loading-container" *ngIf="loading$()">
+  <div class="loading-state" *ngIf="loading$()">
     <div class="loading-spinner"></div>
-    <p class="loading-text">Loading members...</p>
+    <p class="loading-message">Loading members...</p>
   </div>
 
   <!-- Error State -->
-  <div class="error-container card" *ngIf="error$() as error">
+  <div class="error-state" *ngIf="error$() && !loading$()">
     <div class="error-content">
       <span class="error-icon">⚠️</span>
-      <div class="error-message">
-        <h3>Oops! Something went wrong</h3>
-        <p>{{ error }}</p>
-      </div>
+      <h3 class="error-title">Error Loading Members</h3>
+      <p class="error-message">{{ error$() }}</p>
       <button class="btn btn-primary" (click)="loadMembers()">
-        <span class="btn-icon">↻</span>
+        <span class="btn-icon">🔄</span>
         Try Again
       </button>
     </div>
   </div>
 
-  <!-- Content Section -->
-  <div class="content-section" *ngIf="!loading$() && !error$()">
+  <!-- Mobile View (Card Layout) -->
+  <div class="mobile-view" *ngIf="!loading$() && !error$() && isMobileView()">
+    <div class="mobile-members-grid">
+      <div class="member-card" *ngFor="let member of dataSource().data; trackBy: trackByMember" 
+           [class.selected]="isSelected(member)" [class.recent-update]="isRecentlyUpdated(member)">
+        
+        <!-- Selection Checkbox -->
+        <div class="card-selection">
+          <input type="checkbox" [checked]="isSelected(member)" (change)="toggleSelection(member)" 
+                 (click)="$event.stopPropagation()" class="selection-checkbox">
+        </div>
 
-    <!-- Mobile Card View -->
-    <div class="mobile-view">
-      <div class="member-card" *ngFor="let member of dataSource().data; trackBy: trackByMember"
-        [class.selected]="isSelected(member)" (click)="toggleSelection(member)">
-
-        <div class="card-header">
-          <div class="member-info">
-            <div class="member-name">{{ member.name }}</div>
-            <div class="member-number">{{ member.memberNumber }}</div>
+        <!-- Member Info -->
+        <div class="card-content" (click)="showMemberDetail(member)">
+          <div class="member-header">
+            <div class="member-avatar">
+              <span class="avatar-icon">{{ getAvatarIcon(member.tier) }}</span>
+            </div>
+            <div class="member-basic">
+              <h3 class="member-name">{{ member.name }}</h3>
+              <span class="member-number">{{ member.memberNumber }}</span>
+            </div>
+            <div class="member-tier">
+              <span class="tier-badge" [attr.data-tier]="member.tier.toLowerCase()">
+                {{ member.tier }}
+              </span>
+            </div>
           </div>
+
+          <div class="member-details">
+            <div class="detail-row">
+              <span class="detail-label">Contact:</span>
+              <span class="detail-value">{{ member.phone }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Points:</span>
+              <span class="detail-value">{{ formatNumber(member.availablePoints) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Credit:</span>
+              <span class="detail-value credit-value" [class.has-credit]="member.creditLimit > 0">
+                {{ member.creditLimit > 0 ? formatCurrency(member.creditLimit) : 'No Credit' }}
+              </span>
+            </div>
+          </div>
+
           <div class="member-status">
-            <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
-              {{ member.isActive ? 'Active' : 'Inactive' }}
-            </span>
+            <div class="status-indicators">
+              <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
+                {{ member.isActive ? 'Active' : 'Inactive' }}
+              </span>
+              <span class="credit-status" *ngIf="member.creditLimit > 0" [attr.data-risk]="member.riskLevel.toLowerCase()">
+                {{ member.statusDescription }}
+              </span>
+            </div>
+            
+            <div class="last-activity">
+              <span class="activity-label">Last seen:</span>
+              <span class="activity-date">{{ formatDate(member.lastTransactionDate) }}</span>
+            </div>
           </div>
         </div>
 
-        <div class="card-body">
-          <div class="info-row">
-            <span class="info-label">📞 Phone:</span>
-            <span class="info-value">{{ member.phone }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">🏆 Tier:</span>
-            <span class="tier-badge" [attr.data-tier]="member.tier.toLowerCase()">
-              {{ member.tier }}
-            </span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">⭐ Points:</span>
-            <span class="info-value points">{{ formatNumber(member.availablePoints) }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">💰 Total Spent:</span>
-            <span class="info-value amount">{{ formatCurrency(member.totalSpent) }}</span>
-          </div>
-        </div>
-
+        <!-- Quick Actions -->
         <div class="card-actions">
-          <button class="action-btn primary" (click)="openMemberDetailModal(member); $event.stopPropagation()">
-            <span class="btn-icon">👁</span>
-            Quick View
+          <button class="action-btn edit" (click)="editMember(member)" title="Edit Member">
+            <span class="action-icon">✏️</span>
           </button>
-          <button class="action-btn secondary" (click)="editMember(member); $event.stopPropagation()">
-            <span class="btn-icon">✏️</span>
-            Edit
+          <button class="action-btn credit" (click)="manageMemberCredit(member)" title="Manage Credit" 
+                  [class.has-credit]="member.creditLimit > 0">
+            <span class="action-icon">💳</span>
           </button>
-          <button class="action-btn accent" (click)="managePoints(member); $event.stopPropagation()">
-            <span class="btn-icon">⭐</span>
-            Points
+          <button class="action-btn status" (click)="toggleMemberStatus(member)" 
+                  [title]="member.isActive ? 'Deactivate' : 'Activate'">
+            <span class="action-icon">{{ member.isActive ? '❌' : '✅' }}</span>
           </button>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Desktop Table View with Enhanced Sorting -->
-    <div class="desktop-view">
-      <div class="table-container card">
-        <div class="table-header">
-          <div class="table-info">
-            <h3 class="table-title">Members List</h3>
-            <span class="member-count">{{ totalItems() }} total members</span>
-            <span class="last-updated" *ngIf="lastUpdated()">
-              Last updated: {{ formatDate(lastUpdated()!) }}
-            </span>
-          </div>
-          <div class="table-actions">
-            <button class="btn btn-sm btn-ghost" (click)="selectAll()" title="Select All">
-              <span class="btn-icon">☑️</span>
-            </button>
-            <button class="btn btn-sm btn-ghost" (click)="refreshData()" title="Refresh">
-              <span class="btn-icon">↻</span>
-            </button>
-            <button class="btn btn-sm btn-outline" (click)="exportToExcel()" title="Export to Excel">
-              <span class="btn-icon">📊</span>
-            </button>
-          </div>
-        </div>
+  <!-- Desktop View (Table Layout) -->
+  <div class="desktop-view" *ngIf="!loading$() && !error$() && isDesktopView()">
+    <div class="table-container">
+      <div class="members-table-wrapper">
+        <!-- Clean Div-Based Table Layout -->
+        <div class="members-table-container">
+          
+          <!-- Table Header -->
+          <div class="table-header">
+            <div class="header-row">
+              
+              <!-- Selection Column -->
+              <div class="header-cell checkbox-column">
+                <input type="checkbox" [checked]="isAllSelected()" [indeterminate]="isPartiallySelected()" 
+                       (change)="selectAll()" class="header-checkbox">
+              </div>
 
-        <div class="table-wrapper">
-          <table class="members-table">
-            <thead>
-              <tr>
-                <th class="checkbox-col">
-                  <input type="checkbox"
-                    [checked]="selectedMembers().length === dataSource().data.length && dataSource().data.length > 0"
-                    [indeterminate]="selectedMembers().length > 0 && selectedMembers().length < dataSource().data.length"
-                    (change)="$any($event.target)?.checked ? selectAll() : clearSelection()"
-                    class="table-checkbox">
-                </th>
-
-                <!-- Enhanced Sortable Headers -->
-                <th class="sortable-header" (click)="toggleSort('memberNumber')">
-                  Member Number
+              <!-- Member Number Column -->
+              <div class="header-cell member-number-column sortable" (click)="sortBy('memberNumber')">
+                <div class="header-content">
+                  <span class="header-icon">🆔</span>
+                  <span class="header-label">Member #</span>
                   <span class="sort-indicator" [attr.data-direction]="getSortDirection('memberNumber')">
                     {{ getSortIcon('memberNumber') }}
                   </span>
-                </th>
+                </div>
+              </div>
 
-                <th class="sortable-header" (click)="toggleSort('name')">
-                  Name & Contact
+              <!-- Member Info Column -->
+              <div class="header-cell member-info-column sortable" (click)="sortBy('name')">
+                <div class="header-content">
+                  <span class="header-icon">👤</span>
+                  <span class="header-label">Member Information</span>
                   <span class="sort-indicator" [attr.data-direction]="getSortDirection('name')">
                     {{ getSortIcon('name') }}
                   </span>
-                </th>
+                </div>
+              </div>
 
-                <th class="sortable-header" (click)="toggleSort('tier')">
-                  Tier
+              <!-- Tier Column -->
+              <div class="header-cell tier-column sortable" (click)="sortBy('tier')">
+                <div class="header-content">
+                  <span class="header-icon">🏆</span>
+                  <span class="header-label">Tier & Points</span>
                   <span class="sort-indicator" [attr.data-direction]="getSortDirection('tier')">
                     {{ getSortIcon('tier') }}
                   </span>
-                </th>
+                </div>
+              </div>
 
-                <th class="sortable-header" (click)="toggleSort('availablePoints')">
-                  Points
-                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('availablePoints')">
-                    {{ getSortIcon('availablePoints') }}
+              <!-- Credit Status Column -->
+              <div class="header-cell credit-column sortable" (click)="sortBy('creditLimit')">
+                <div class="header-content">
+                  <span class="header-icon">💳</span>
+                  <span class="header-label">Credit Status</span>
+                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('creditLimit')">
+                    {{ getSortIcon('creditLimit') }}
                   </span>
-                </th>
+                </div>
+              </div>
 
-                <th class="sortable-header" (click)="toggleSort('totalSpent')">
-                  Total Spent
-                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('totalSpent')">
-                    {{ getSortIcon('totalSpent') }}
-                  </span>
-                </th>
-
-                <th class="sortable-header" (click)="toggleSort('lastTransactionDate')">
-                  Last Transaction
-                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('lastTransactionDate')">
-                    {{ getSortIcon('lastTransactionDate') }}
-                  </span>
-                </th>
-
-                <th class="sortable-header" (click)="toggleSort('createdAt')">
-                  Registered
-                  <span class="sort-indicator" [attr.data-direction]="getSortDirection('createdAt')">
-                    {{ getSortIcon('createdAt') }}
-                  </span>
-                </th>
-
-                <th class="sortable-header" (click)="toggleSort('isActive')">
-                  Status
+              <!-- Status Column -->
+              <div class="header-cell status-column sortable" (click)="sortBy('isActive')">
+                <div class="header-content">
+                  <span class="header-icon">🔄</span>
+                  <span class="header-label">Status</span>
                   <span class="sort-indicator" [attr.data-direction]="getSortDirection('isActive')">
                     {{ getSortIcon('isActive') }}
                   </span>
-                </th>
+                </div>
+              </div>
 
-                <th class="actions-col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let member of dataSource().data; trackBy: trackByMember" class="member-row"
-                [class.selected]="isSelected(member)" [class.recent-update]="isRecentlyUpdated(member)">
+              <!-- Actions Column -->
+              <div class="header-cell actions-column">
+                <div class="header-content">
+                  <span class="header-icon">⚡</span>
+                  <span class="header-label">Actions</span>
+                </div>
+              </div>
 
-                <td class="checkbox-col">
-                  <input type="checkbox" [checked]="isSelected(member)" (change)="toggleSelection(member)"
-                    (click)="$event.stopPropagation()" class="table-checkbox">
-                </td>
+            </div>
+          </div>
 
-                <td class="member-number-col">
-                  <div class="member-number-cell">
-                    <span class="member-icon">🆔</span>
-                    <span class="member-number">{{ member.memberNumber }}</span>
-                    <span class="update-indicator" *ngIf="isRecentlyUpdated(member)" title="Recently updated">
-                      🆕
-                    </span>
-                  </div>
-                </td>
+          <!-- Table Body -->
+          <div class="table-body">
+            <div 
+              *ngFor="let member of filteredMembers(); trackBy: trackByMember" 
+              class="member-row"
+              [class.selected]="isSelected(member)" 
+              [class.recent-update]="isRecentlyUpdated(member)">
 
-                <td class="member-info-col">
-                  <div class="member-info-cell">
-                    <div class="member-name">{{ member.name }}</div>
-                    <div class="member-contact">
-                      <span class="phone">📞 {{ member.phone }}</span>
-                      <span class="email" *ngIf="member.email">✉️ {{ member.email }}</span>
+              <!-- Selection Cell -->
+              <div class="data-cell checkbox-column">
+                <input type="checkbox" [checked]="isSelected(member)" (change)="toggleSelection(member)"
+                       (click)="$event.stopPropagation()" class="row-checkbox">
+              </div>
+
+              <!-- Member Number Cell -->
+              <div class="data-cell member-number-column">
+                <div class="member-number-content">
+                  <span class="member-number-badge">
+                    <span class="number-icon">🆔</span>
+                    <span class="number-text">{{ member.memberNumber }}</span>
+                  </span>
+                  <span class="update-indicator" *ngIf="isRecentlyUpdated(member)" title="Recently updated">
+                    🆕
+                  </span>
+                </div>
+              </div>
+
+              <!-- Member Info Cell -->
+              <div class="data-cell member-info-column">
+                <div class="member-info-content">
+                  <div class="member-name">{{ member.name }}</div>
+                  <div class="member-contact">
+                    <div class="contact-item phone">
+                      <span class="contact-icon">📞</span>
+                      <span class="contact-text">{{ member.phone }}</span>
+                    </div>
+                    <div class="contact-item email" *ngIf="member.email">
+                      <span class="contact-icon">✉️</span>
+                      <span class="contact-text">{{ member.email }}</span>
                     </div>
                   </div>
-                </td>
+                </div>
+              </div>
 
-                <td class="tier-col">
-                  <span class="tier-badge" [attr.data-tier]="member.tier.toLowerCase()">
+              <!-- Tier & Points Cell -->
+              <div class="data-cell tier-column">
+                <div class="tier-content">
+                  <!-- Tier Badge -->
+                  <div class="tier-badge" [attr.data-tier]="member.tier.toLowerCase()">
                     <span class="tier-icon">{{ getTierIcon(member.tier) }}</span>
-                    {{ member.tier }}
-                  </span>
-                </td>
-
-                <td class="points-col">
-                  <div class="points-cell">
+                    <span class="tier-name">{{ member.tier }}</span>
+                  </div>
+                  
+                  <!-- Points Information -->
+                  <div class="points-info">
                     <div class="available-points">
                       <span class="points-icon">⭐</span>
-                      {{ formatNumber(member.availablePoints) }}
+                      <span class="points-value">{{ formatNumber(member.availablePoints) }}</span>
+                      <span class="points-label">available</span>
                     </div>
-                    <div class="total-points">{{ formatNumber(member.totalPoints) }} earned</div>
-                  </div>
-                </td>
-
-                <td class="amount-col">
-                  <div class="amount-cell">
-                    <div class="total-spent">{{ formatCurrency(member.totalSpent) }}</div>
-                    <div class="transaction-count">{{ member.totalTransactions }} transactions</div>
-                  </div>
-                </td>
-
-                <td class="date-col">
-                  <div class="date-cell">
-                    <div class="last-date">{{ formatDate(member.lastTransactionDate) }}</div>
-                    <div class="avg-amount" *ngIf="member.averageTransactionValue > 0">
-                      Avg: {{ formatCurrency(member.averageTransactionValue) }}
+                    <div class="total-points">
+                      <span class="total-text">Total: {{ formatNumber(member.totalPoints) }}</span>
                     </div>
                   </div>
-                </td>
+                </div>
+              </div>
 
-                <td class="date-col">
-                  <div class="date-cell">
-                    <div class="registration-date">{{ formatDate(member.createdAt) }}</div>
-                    <div class="membership-duration">{{ getMembershipDuration(member.createdAt) }}</div>
+              <!-- Credit Status Cell -->
+              <div class="data-cell credit-column">
+                <div class="credit-content">
+                  <div class="credit-info" *ngIf="member.creditLimit > 0; else noCredit">
+                    
+                    <!-- Credit Limit -->
+                    <div class="credit-limit-info">
+                      <span class="credit-icon">💳</span>
+                      <span class="credit-amount">{{ formatCurrency(member.creditLimit) }}</span>
+                      <span class="limit-label">limit</span>
+                    </div>
+                    
+                    <!-- Credit Status -->
+                    <div class="credit-status" [attr.data-risk]="member.riskLevel?.toLowerCase()">
+                      <span class="status-text">{{ member.statusDescription }}</span>
+                      <span class="risk-badge" [attr.data-risk]="member.riskLevel?.toLowerCase()">
+                        {{ member.riskLevel }}
+                      </span>
+                    </div>
+                    
+                    <!-- Credit Usage (if any debt) -->
+                    <div class="credit-usage" *ngIf="member.currentDebt > 0">
+                      <span class="usage-text">Used: {{ formatCurrency(member.currentDebt) }}</span>
+                      <span class="usage-percentage">({{ getUtilizationPercentage(member) }}%)</span>
+                    </div>
+                    
                   </div>
-                </td>
+                  <ng-template #noCredit>
+                    <div class="no-credit-info">
+                      <span class="no-credit-icon">🚫</span>
+                      <span class="no-credit-text">No Credit</span>
+                    </div>
+                  </ng-template>
+                </div>
+              </div>
 
-                <td class="status-col">
-                  <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
-                    <span class="status-icon">{{ member.isActive ? '✅' : '❌' }}</span>
-                    {{ member.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
+              <!-- Status Cell -->
+              <div class="data-cell status-column">
+                <div class="status-content">
+                  <!-- Active/Inactive Status -->
+                  <div class="member-status">
+                    <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
+                      <span class="status-icon">{{ member.isActive ? '✅' : '❌' }}</span>
+                      <span class="status-text">{{ member.isActive ? 'Active' : 'Inactive' }}</span>
+                    </span>
+                  </div>
+                  
+                  <!-- Last Activity -->
+                  <div class="last-activity">
+                    <span class="activity-label">Last seen:</span>
+                    <span class="activity-date">{{ formatDate(member.lastTransactionDate) }}</span>
+                  </div>
+                </div>
+              </div>
 
-                <td class="actions-col">
-                  <div class="table-actions">
-                    <button class="action-btn small primary" (click)="openMemberDetailModal(member)" title="Quick View">
-                      <span class="btn-icon">👁</span>
-                    </button>
-                    <button class="action-btn small secondary" (click)="editMember(member)" title="Edit Member">
+              <!-- Actions Cell -->
+              <div class="data-cell actions-column">
+                <div class="actions-content">
+                  
+                  <!-- Primary Actions -->
+                  <div class="primary-actions">
+                    <button class="action-btn edit-btn" (click)="editMember(member)" title="Edit Member">
                       <span class="btn-icon">✏️</span>
+                      <span class="btn-text">Edit</span>
                     </button>
-                    <button class="action-btn small accent" (click)="managePoints(member)" title="Manage Points">
-                      <span class="btn-icon">⭐</span>
-                    </button>
-                    <button class="action-btn small dropdown" (click)="toggleMemberMenu(member)" title="More Actions">
-                      <span class="btn-icon">⋮</span>
+
+                    <button class="action-btn credit-btn" (click)="manageMemberCredit(member)" 
+                            [title]="member.creditLimit > 0 ? 'Manage Credit (Limit: ' + formatCurrency(member.creditLimit) + ')' : 'Enable Credit'"
+                            [class.has-credit]="member.creditLimit > 0">
+                      <span class="btn-icon">📋</span>
+                      <span class="btn-text">Credit</span>
                     </button>
                   </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
 
-        <!-- Empty State -->
-        <div class="empty-state" *ngIf="dataSource().data.length === 0">
-          <div class="empty-content">
-            <div class="empty-icon">👥</div>
-            <h3 class="empty-title">No Members Found</h3>
-            <p class="empty-message">No members match your current search criteria.</p>
-            <button class="btn btn-primary" (click)="createMember()">
-              <span class="btn-icon">+</span>
-              Add First Member
-            </button>
-          </div>
-        </div>
+                  <!-- Secondary Actions -->
+                  <div class="secondary-actions">
+                    <button class="action-btn status-btn" (click)="toggleMemberStatus(member)"
+                            [title]="member.isActive ? 'Deactivate Member' : 'Activate Member'"
+                            [class.active]="member.isActive">
+                      <span class="btn-icon">{{ member.isActive ? '❌' : '✅' }}</span>
+                      <span class="btn-text">{{ member.isActive ? 'Deactivate' : 'Activate' }}</span>
+                    </button>
 
-        <!-- Enhanced Pagination with Page Size Options -->
-        <div class="pagination-section" *ngIf="dataSource().data.length > 0">
-          <div class="pagination-info">
-            <span class="info-text">
-              Showing {{ (currentPage() - 1) * pageSize() + 1 }} -
-              {{ getMinValue(currentPage() * pageSize(), totalItems()) }} of {{ totalItems() }} members
-            </span>
-            <div class="page-size-selector">
-              <label>Show:</label>
-                <select class="form-control small" [value]="pageSize()"
-                (change)="onPageSizeSelect($event)">
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-              <span>per page</span>
-            </div>
-          </div>
-          <div class="pagination-controls">
-            <button class="btn btn-sm btn-ghost" [disabled]="currentPage() === 1" (click)="goToFirstPage()">
-              <span class="btn-icon">⏮</span>
-              First
-            </button>
-            <button class="btn btn-sm btn-ghost" [disabled]="currentPage() === 1" (click)="previousPage()">
-              <span class="btn-icon">‹</span>
-              Previous
-            </button>
+                    <!-- More Actions Menu -->
+                    <div class="more-actions">
+                      <button class="action-btn more-btn" (click)="toggleMemberActions(member.id)" title="More Actions">
+                        <span class="btn-icon">⋮</span>
+                      </button>
+                      <div class="actions-menu" *ngIf="showMemberActions() === member.id">
+                        <button class="menu-item" (click)="viewMemberHistory(member)">
+                          <span class="item-icon">📊</span>
+                          <span class="item-text">View History</span>
+                        </button>
+                        <button class="menu-item" (click)="exportMemberData(member)">
+                          <span class="item-icon">📋</span>
+                          <span class="item-text">Export Data</span>
+                        </button>
+                        <div class="menu-divider"></div>
+                        <button class="menu-item danger" (click)="deleteMember(member)" *ngIf="!member.isActive">
+                          <span class="item-icon">🗑️</span>
+                          <span class="item-text">Delete Member</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                </div>
+              </div>
 
-            <!-- Page Numbers -->
-            <div class="page-numbers">
-              <button *ngFor="let page of getVisiblePages()" class="page-btn" [class.active]="page === currentPage()"
-                [class.disabled]="page === '...'" (click)="goToPage(page)">
-                {{ page }}
-              </button>
             </div>
 
-            <button class="btn btn-sm btn-ghost" [disabled]="currentPage() >= Math.ceil(totalItems() / pageSize())"
-              (click)="nextPage()">
-              Next
-              <span class="btn-icon">›</span>
-            </button>
-            <button class="btn btn-sm btn-ghost" [disabled]="currentPage() >= Math.ceil(totalItems() / pageSize())"
-              (click)="goToLastPage()">
-              Last
-              <span class="btn-icon">⏭</span>
-            </button>
+            <!-- Empty State -->
+            <div class="empty-state" *ngIf="filteredMembers().length === 0">
+              <div class="empty-content">
+                <span class="empty-icon">👥</span>
+                <h3 class="empty-title">No Members Found</h3>
+                <p class="empty-message">{{ getEmptyStateMessage() }}</p>
+                <button class="btn btn-primary" (click)="createMember()">
+                  <span class="btn-icon">+</span>
+                  Add First Member
+                </button>
+              </div>
+            </div>
+
           </div>
+          
         </div>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-wrapper" *ngIf="dataSource().totalPages > 1">
+      <div class="pagination-info">
+        Showing {{ dataSource().startItem }} to {{ dataSource().endItem }} 
+        of {{ dataSource().totalItems }} members
+      </div>
+      
+      <div class="pagination-controls">
+        <button class="pagination-btn" (click)="goToFirstPage()" 
+                [disabled]="dataSource().currentPage === 1" title="First Page">
+          <span class="btn-icon">⏮</span>
+        </button>
+        
+        <button class="pagination-btn" (click)="goToPreviousPage()" 
+                [disabled]="dataSource().currentPage === 1" title="Previous Page">
+          <span class="btn-icon">◀</span>
+        </button>
+        
+        <span class="page-numbers">
+          <span class="page-number" *ngFor="let page of getPageNumbers()" 
+                [class.current]="page === dataSource().currentPage"
+                [class.ellipsis]="page === -1"
+                (click)="page !== -1 && goToPage(page)">
+            {{ page === -1 ? '...' : page }}
+          </span>
+        </span>
+        
+        <button class="pagination-btn" (click)="goToNextPage()" 
+                [disabled]="dataSource().currentPage === dataSource().totalPages" title="Next Page">
+          <span class="btn-icon">▶</span>
+        </button>
+        
+        <button class="pagination-btn" (click)="goToLastPage()" 
+                [disabled]="dataSource().currentPage === dataSource().totalPages" title="Last Page">
+          <span class="btn-icon">⏭</span>
+        </button>
       </div>
     </div>
   </div>
@@ -532,146 +649,118 @@
 
 </div>
 
-<!-- Member Detail Modal -->
-<div class="modal-overlay" *ngIf="showMemberDetailModal()" (click)="closeMemberDetailModal()">
-  <div class="member-detail-modal" (click)="$event.stopPropagation()">
+<!-- Credit Management Modal -->
+<div class="modal-backdrop" *ngIf="showCreditModal()">
+  <div class="modal-dialog">
     <div class="modal-header">
       <h2 class="modal-title">
-        <span class="member-avatar">👤</span>
-        Member Details
+        <span class="modal-icon">💳</span>
+        Credit Management - {{ selectedMemberForCredit()?.name }}
       </h2>
-      <button class="close-btn" (click)="closeMemberDetailModal()">
+      <button class="modal-close" (click)="closeCreditModal()">
         <span class="close-icon">×</span>
       </button>
     </div>
 
-    <div class="modal-body" *ngIf="selectedMemberForModal() as member">
-      <!-- Member Summary Card -->
-      <div class="member-summary-card">
-        <div class="summary-header">
-          <div class="member-main-info">
-            <h3 class="member-name">{{ member.name }}</h3>
-            <div class="member-meta">
-              <span class="member-number">{{ member.memberNumber }}</span>
-              <span class="member-tier" [attr.data-tier]="member.tier.toLowerCase()">
-                {{ getTierIcon(member.tier) }} {{ member.tier }}
-              </span>
-              <span class="member-status" [class.active]="member.isActive">
-                {{ member.isActive ? '✅ Active' : '❌ Inactive' }}
-              </span>
-            </div>
+    <div class="modal-body">
+      <!-- Member Credit Summary -->
+      <div class="credit-summary-section">
+        <h3 class="section-title">Current Credit Status</h3>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span class="summary-label">Credit Limit:</span>
+            <span class="summary-value">{{ formatCurrency(selectedMemberForCredit()?.creditLimit || 0) }}</span>
           </div>
-          <div class="quick-actions">
-            <button class="btn btn-sm btn-primary" (click)="editMember(member)">
-              <span class="btn-icon">✏️</span>
-              Edit
-            </button>
-            <button class="btn btn-sm btn-accent" (click)="managePoints(member)">
-              <span class="btn-icon">⭐</span>
-              Points
-            </button>
+          <div class="summary-item">
+            <span class="summary-label">Current Debt:</span>
+            <span class="summary-value">{{ formatCurrency(selectedMemberForCredit()?.currentDebt || 0) }}</span>
           </div>
-        </div>
-      </div>
-
-      <!-- Statistics Grid -->
-      <div class="member-stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon">⭐</div>
-          <div class="stat-content">
-            <div class="stat-value">{{ formatNumber(member.availablePoints) }}</div>
-            <div class="stat-label">Available Points</div>
-            <div class="stat-sub">{{ formatNumber(member.totalPoints) }} total earned</div>
+          <div class="summary-item">
+            <span class="summary-label">Available Credit:</span>
+            <span class="summary-value">{{ formatCurrency(selectedMemberForCredit()?.availableCredit || 0) }}</span>
           </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon">💰</div>
-          <div class="stat-content">
-            <div class="stat-value">{{ formatCurrency(member.totalSpent) }}</div>
-            <div class="stat-label">Total Spent</div>
-            <div class="stat-sub">{{ member.totalTransactions }} transactions</div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon">📅</div>
-          <div class="stat-content">
-            <div class="stat-value">{{ formatDate(member.lastTransactionDate) }}</div>
-            <div class="stat-label">Last Transaction</div>
-            <div class="stat-sub">{{ getMembershipDuration(member.createdAt) }} member</div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon">📊</div>
-          <div class="stat-content">
-            <div class="stat-value">{{ formatCurrency(member.averageTransactionValue) }}</div>
-            <div class="stat-label">Avg Transaction</div>
-            <div class="stat-sub">{{ getTransactionFrequency(member) }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Contact Information -->
-      <div class="info-section">
-        <h4 class="section-title">
-          <span class="section-icon">📞</span>
-          Contact Information
-        </h4>
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">Phone:</span>
-            <span class="info-value">{{ member.phone }}</span>
-          </div>
-          <div class="info-item" *ngIf="member.email">
-            <span class="info-label">Email:</span>
-            <span class="info-value">{{ member.email }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Registered:</span>
-            <span class="info-value">{{ formatDate(member.createdAt) }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Last Updated:</span>
-            <span class="info-value">{{ formatDate(member.updatedAt) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tier Progress -->
-      <div class="info-section" *ngIf="getTierProgress(member) as progress">
-        <h4 class="section-title">
-          <span class="section-icon">🏆</span>
-          Tier Progress
-        </h4>
-        <div class="tier-progress">
-          <div class="progress-info">
-            <span class="current-tier">{{ member.tier }}</span>
-            <span class="progress-text">
-              {{ progress.nextTier === 'Max Tier' ? 'Maximum tier reached!' :
-              'Spend ' + formatCurrency(progress.amountNeeded) + ' more to reach ' + progress.nextTier }}
+          <div class="summary-item">
+            <span class="summary-label">Risk Level:</span>
+            <span class="summary-value risk-level" [attr.data-risk]="selectedMemberForCredit()?.riskLevel?.toLowerCase()">
+              {{ selectedMemberForCredit()?.riskLevel }}
             </span>
           </div>
-          <div class="progress-bar">
-            <div class="progress-fill" [style.width.%]="progress.percentage"></div>
+        </div>
+      </div>
+
+      <!-- Credit Limit Management -->
+      <div class="credit-action-section">
+        <div class="action-header">
+          <h4 class="action-title">
+            <span class="action-icon">📊</span>
+            Update Credit Limit
+          </h4>
+          <div class="action-description">
+            Set or modify the member's credit limit. Higher amounts may require approval.
           </div>
-          <div class="progress-percentage">{{ progress.percentage }}%</div>
+        </div>
+        <div class="action-controls">
+          <div class="form-field">
+            <label>New Credit Limit</label>
+            <input type="number" class="form-control" [(ngModel)]="creditLimitAmount" 
+                   [placeholder]="formatCurrency(selectedMemberForCredit()!.creditLimit)" min="0" max="50000000">
+          </div>
+          <div class="form-field">
+            <label>Reason</label>
+            <input type="text" class="form-control" [(ngModel)]="creditLimitReason" 
+                   placeholder="e.g., Good payment history, Business expansion">
+          </div>
+          <button class="btn btn-primary" (click)="updateCreditLimit()" 
+                  [disabled]="!creditLimitAmount || !creditLimitReason">
+            {{ selectedMemberForCredit()!.creditLimit > 0 ? 'Update Limit' : 'Enable Credit' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Credit Grant -->
+      <div class="credit-action-section">
+        <div class="action-header">
+          <h4 class="action-title">
+            <span class="action-icon">🎁</span>
+            Grant Additional Credit
+          </h4>
+          <div class="action-description">
+            Grant bonus credit or increase available credit without changing the limit.
+          </div>
+        </div>
+        <div class="action-controls">
+          <div class="form-field">
+            <label>Credit Amount</label>
+            <input type="number" class="form-control" [(ngModel)]="grantCreditAmount" 
+                   placeholder="Enter amount to grant" min="1000" max="10000000">
+          </div>
+          <div class="form-field">
+            <label>Credit Type</label>
+            <select class="form-control" [(ngModel)]="grantCreditType">
+              <option value="Bonus_Credit">Bonus Credit</option>
+              <option value="Limit_Increase">Limit Increase</option>
+              <option value="Adjustment">Adjustment</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Description</label>
+            <input type="text" class="form-control" [(ngModel)]="grantCreditDescription" 
+                   placeholder="e.g., Loyalty bonus, Special promotion">
+          </div>
+          <button class="btn btn-accent" (click)="grantCredit()" 
+                  [disabled]="!grantCreditAmount || !grantCreditDescription">
+            Grant Credit
+          </button>
         </div>
       </div>
     </div>
 
     <div class="modal-footer">
-      <button class="btn btn-outline" (click)="closeMemberDetailModal()">
-        Close
+      <button class="btn btn-outline" (click)="closeCreditModal()">
+        Cancel
       </button>
-      <button class="btn btn-primary" (click)="editMember(selectedMemberForModal()!)">
-        <span class="btn-icon">✏️</span>
-        Edit Member
-      </button>
-      <button class="btn btn-accent" (click)="managePoints(selectedMemberForModal()!)">
-        <span class="btn-icon">⭐</span>
-        Manage Points
+      <button class="btn btn-secondary" (click)="viewCreditHistory()">
+        View History
       </button>
     </div>
   </div>

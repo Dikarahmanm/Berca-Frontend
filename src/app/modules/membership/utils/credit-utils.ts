@@ -234,9 +234,9 @@ export function validateCreditTransaction(
   }
 
   // Credit status check
-  if (member.creditStatus === 'Blocked') {
+  if (member.statusDescription === 'Blocked') {
     errors.push('Member credit account is blocked');
-  } else if (member.creditStatus === 'Bad') {
+  } else if (member.statusDescription === 'Bad') {
     errors.push('Member credit status is Bad - requires manager approval');
   }
 
@@ -273,9 +273,9 @@ export function validateCreditTransaction(
     warnings.push('Member risk level is High - consider cash payment instead');
   }
 
-  // Maximum transaction limit check
-  if (requestedAmount > member.maxAllowedTransaction) {
-    errors.push(`Amount exceeds maximum allowed transaction: ${formatCurrency(member.maxAllowedTransaction)}`);
+  // Maximum transaction limit check - only for POSMemberCreditDto
+  if ('maxAllowedTransaction' in member && requestedAmount > (member as any).maxAllowedTransaction) {
+    errors.push(`Amount exceeds maximum allowed transaction: ${formatCurrency((member as any).maxAllowedTransaction)}`);
   }
 
   return {
@@ -526,7 +526,7 @@ export function checkCreditLimitIncreaseEligibility(
   const requirements: string[] = [];
 
   // Basic eligibility checks
-  if (member.creditStatus !== 'Good' && member.creditStatus !== 'Warning') {
+  if (member.statusDescription !== 'Good' && member.statusDescription !== 'Warning') {
     return { eligible: false, reason: 'Credit status must be Good or Warning' };
   }
 
@@ -633,7 +633,7 @@ export function calculateCreditPerformanceMetrics(
   const totalCreditLimit = members.reduce((sum, m) => sum + m.creditLimit, 0);
   const averageUtilization = members.reduce((sum, m) => sum + m.creditUtilization, 0) / members.length;
   const overdueMembers = members.filter(m => m.daysOverdue > 0).length;
-  const badStatusMembers = members.filter(m => m.creditStatus === 'Bad' || m.creditStatus === 'Blocked').length;
+  const badStatusMembers = members.filter(m => m.statusDescription === 'Bad' || m.statusDescription === 'Blocked').length;
   const averagePaymentSuccessRate = members.reduce((sum, m) => sum + m.paymentSuccessRate, 0) / members.length;
 
   return {

@@ -7,26 +7,42 @@ export interface MemberCreditSummaryDto {
   memberId: number;
   memberName: string;
   memberNumber: string;
+  phone: string;
+  tier: number;
   creditLimit: number;
   currentDebt: number;
   availableCredit: number;
-  creditStatus: 'Good' | 'Warning' | 'Bad' | 'Blocked';
-  creditScore: number;
-  paymentSuccessRate: number;
-  isEligibleForCredit: boolean;
   creditUtilization: number;
+  status: number; // API returns number, not string
+  statusDescription: string; // API includes this
   paymentTerms: number;
+  lastPaymentDate?: string;
+  nextPaymentDueDate?: string;
   daysOverdue: number;
   overdueAmount: number;
-  nextPaymentDueDate?: string;
-  lastPaymentDate?: string;
+  creditScore: number;
+  creditGrade: string; // API includes this
+  paymentSuccessRate: number;
+  paymentDelays: number;
+  lifetimeDebt: number;
+  recentTransactions: any[]; // API includes this
+  remindersSent: number;
+  lastReminderDate?: string;
+  isEligible: boolean;
+  isEligibleForCredit: boolean;
+  riskLevel: string; // API returns string like "Very High"
+  requiresAttention: boolean;
+  formattedCreditLimit: string;
+  formattedCurrentDebt: string;
+  formattedAvailableCredit: string;
+  paymentTermDays: number;
+  totalDelayedPayments: number;
+  nextPaymentDue?: string;
+  lastCreditDate?: string;
   totalTransactions: number;
-  avgTransactionAmount: number;
-  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
-  createdAt: string;
-  updatedAt: string;
-  branchId?: number;
-  branchName?: string;
+  totalCreditUsed: number;
+  avgTransactionAmount?: number; // Optional property for average transaction calculation
+  branchName?: string; // Optional property for branch information
 }
 
 export interface CreditTransactionDto {
@@ -52,37 +68,62 @@ export interface CreditTransactionDto {
 
 export interface CreditEligibilityDto {
   memberId: number;
+  memberName: string;
   isEligible: boolean;
-  eligibilityScore: number;
-  maxCreditLimit: number;
-  recommendedLimit: number;
-  reasons: string[];
-  requirements: string[];
+  requestedAmount: number;
+  approvedAmount: number;
+  decisionReason: string;
+  requirementsNotMet: string[];
+  currentUtilization: number;
+  creditScore: number;
+  eligibilityScore: number; // Added missing property
+  status: number;
+  availableCredit: number;
   riskFactors: string[];
-  canIncrease: boolean;
-  nextReviewDate?: string;
+  riskLevel: string;
+  requiresManagerApproval: boolean;
+  recommendations: string[];
+  suggestedCreditLimit: number;
+  maxCreditLimit: number; // Added missing property
+  recommendedLimit: number; // Added missing property
+  nextReviewDate?: string; // Added missing property
+  reasons?: string[]; // Added missing property
+  requirements?: string[]; // Added missing property
+  decisionDetails: string;
 }
 
 // ===== POS INTEGRATION INTERFACES =====
 
 export interface POSMemberCreditDto {
   memberId: number;
-  name: string;
   memberNumber: string;
+  name: string;
   phone: string;
-  email?: string;
-  availableCredit: number;
+  email: string;
+  tier: string;
+  totalPoints: number;
   creditLimit: number;
   currentDebt: number;
+  availableCredit: number;
+  creditStatus: string;
+  creditScore: number;
   canUseCredit: boolean;
+  isEligibleForCredit: boolean;
+  maxTransactionAmount: number;
   statusMessage: string;
-  maxAllowedTransaction: number;
-  creditStatus: 'Good' | 'Warning' | 'Bad' | 'Blocked';
-  paymentTerms: number;
-  daysOverdue: number;
-  memberType: string;
-  joinDate: string;
-  lastTransactionDate?: string;
+  statusColor: string;
+  hasWarnings: boolean;
+  warnings: string[];
+  hasOverduePayments: boolean;
+  nextPaymentDueDate?: string;
+  daysUntilNextPayment: number;
+  creditLimitDisplay: string;
+  availableCreditDisplay: string;
+  currentDebtDisplay: string;
+  creditUtilization: number;
+  lastCreditUsed?: string;
+  lastPaymentDate?: string;
+  totalCreditTransactions: number;
 }
 
 export interface CreditValidationRequestDto {
@@ -90,28 +131,28 @@ export interface CreditValidationRequestDto {
   requestedAmount: number;
   items: POSItemDto[];
   branchId: number;
-  checkCreditLimit: boolean;
-  applyDiscounts: boolean;
+  description: string;
+  overrideWarnings: boolean;
+  managerUserId: number;
 }
 
 export interface CreditValidationResultDto {
-  isValid: boolean;
-  canProceed: boolean;
-  validationMessages: string[];
+  isApproved: boolean;
+  approvedAmount: number;
+  availableCredit: number;
+  decisionReason: string;
   warnings: string[];
+  errors: string[];
+  requiresManagerApproval: boolean;
   maxAllowedAmount: number;
-  recommendedPaymentSplit?: {
-    creditAmount: number;
-    cashAmount: number;
-    reason: string;
-  };
-  member: POSMemberCreditDto;
-  creditImpact: {
-    newDebt: number;
-    newAvailableCredit: number;
-    newUtilization: number;
-    riskLevel: string;
-  };
+  riskLevel: string;
+  memberName: string;
+  memberTier: string;
+  creditScore: number;
+  creditUtilization: number;
+  validationTimestamp: string;
+  validatedByUserId: number;
+  validationId: string;
 }
 
 export interface CreateSaleWithCreditDto {
@@ -120,14 +161,18 @@ export interface CreateSaleWithCreditDto {
   totalAmount: number;
   creditAmount: number;
   cashAmount: number;
-  paymentMethod: 'Credit' | 'Mixed' | 'Cash';
+  description: string;
   branchId: number;
-  salesPersonId?: number;
-  notes?: string;
-  referenceNumber?: string;
-  applyMemberDiscount: boolean;
-  taxAmount: number;
+  cashierId: number;
+  paymentMethod: number;
+  validationId: string;
+  isManagerApproved: boolean;
+  approvedByManagerId: number;
+  approvalNotes: string;
+  customerNotes: string;
   discountAmount: number;
+  taxAmount: number;
+  receiptNumber: string;
 }
 
 export interface POSItemDto {
@@ -162,15 +207,11 @@ export interface POSCreditInfoDto {
 // ===== REQUEST/RESPONSE DTOs =====
 
 export interface GrantCreditRequestDto {
-  memberId: number;
   amount: number;
-  creditType: 'Initial_Limit' | 'Limit_Increase' | 'Bonus_Credit' | 'Adjustment';
   description: string;
+  saleId: number;
   branchId: number;
-  approvedBy?: string;
-  expiryDate?: string;
-  notes?: string;
-  requiresApproval: boolean;
+  notes: string;
 }
 
 export interface CreditPaymentRequestDto {

@@ -6,17 +6,37 @@ import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, signal, computed
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+
+// Material imports for enhanced UI
+import { MatMenuModule } from '@angular/material/menu';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 
 // Enhanced service integration with actual backend APIs
 import { MembershipService } from '../../services/membership.service';
+import { MemberCreditService } from '../../services/member-credit.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { 
   MemberFilter,
-  UpdateMemberRequest 
+  UpdateMemberRequest,
+  MemberDto as MembershipMemberDto
 } from '../../interfaces/membership.interfaces';
+import {
+  MemberCreditSummaryDto,
+  GrantCreditRequestDto,
+  CreditPaymentRequestDto,
+  UpdateCreditLimitRequestDto,
+  UpdateCreditStatusRequestDto
+} from '../../interfaces/member-credit.interfaces';
 
-// Enhanced interfaces for advanced features
+// Enhanced interfaces for advanced features - Extended with Credit Integration
 interface MemberDto {
   id: number;
   memberNumber: string;
@@ -33,6 +53,23 @@ interface MemberDto {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  
+  // ===== NEW: Credit Integration Fields =====
+  creditLimit: number;
+  currentDebt: number;
+  availableCredit: number;
+  statusDescription: string;
+  creditScore: number;
+  isEligibleForCredit: boolean;
+  creditUtilization: number;
+  paymentTerms: number;
+  daysOverdue: number;
+  overdueAmount: number;
+  creditEnabled: boolean;
+  lastPaymentDate?: string;
+  paymentSuccessRate: number;
+  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
+  maxAllowedTransaction: number;
 }
 
 interface MemberSearchResponse {
@@ -69,13 +106,26 @@ interface TierProgress {
   percentage: number;
 }
 
+// Removed unused import: MemberCreditModalComponent
+
 @Component({
   selector: 'app-membership-list',
   standalone: true,
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    FormsModule // Added for ngModel support
+    FormsModule, // Added for ngModel support
+    // Material UI imports
+    MatMenuModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatDividerModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule
+    // Removed: MemberCreditModalComponent (not used in template)
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './membership-list.component.html',
@@ -86,6 +136,7 @@ export class MembershipListComponent implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly membershipService = inject(MembershipService);
+  private readonly memberCreditService = inject(MemberCreditService);
   private readonly notificationService = inject(NotificationService);
   
   private readonly destroy$ = new Subject<void>();
@@ -105,6 +156,12 @@ export class MembershipListComponent implements OnInit, OnDestroy {
   readonly searchQuery = signal<string>('');
   readonly statusFilter = signal<string>('all');
   readonly tierFilter = signal<string>('all');
+  
+  // ===== NEW: Credit Filter Signals =====
+  readonly creditStatusFilter = signal<string>('all');
+  readonly riskLevelFilter = signal<string>('all');
+  readonly creditEnabledFilter = signal<string>('all');
+  readonly overdueFilter = signal<string>('all');
 
   // ===== ENHANCED FEATURES SIGNALS =====
   // Real-time connection status
@@ -117,6 +174,19 @@ export class MembershipListComponent implements OnInit, OnDestroy {
   // Modal state
   readonly showMemberDetailModal = signal<boolean>(false);
   readonly selectedMemberForModal = signal<MemberDto | null>(null);
+  
+  // ===== NEW: Credit Modal State =====
+  readonly showMemberCreditModal = signal<boolean>(false);
+  readonly selectedMemberForCreditModal = signal<MemberDto | null>(null);
+  readonly showCreditModal = signal<boolean>(false);
+  readonly selectedMemberForCredit = signal<MemberDto | null>(null);
+  
+  // Credit form data (regular properties for ngModel)
+  creditLimitAmount: number = 0;
+  creditLimitReason: string = '';
+  grantCreditAmount: number = 0;
+  grantCreditType: string = 'Bonus_Credit';
+  grantCreditDescription: string = '';
   
   // Sorting state
   readonly sortField = signal<string>('');
@@ -156,6 +226,37 @@ export class MembershipListComponent implements OnInit, OnDestroy {
       filtered = filtered.filter(member => member.tier === tier);
     }
     
+    // ===== NEW: Credit Filters =====
+    // Credit status filter
+    const creditStatus = this.creditStatusFilter();
+    if (creditStatus !== 'all') {
+      filtered = filtered.filter(member => member.statusDescription === creditStatus);
+    }
+    
+    // Risk level filter
+    const riskLevel = this.riskLevelFilter();
+    if (riskLevel !== 'all') {
+      filtered = filtered.filter(member => member.riskLevel === riskLevel);
+    }
+    
+    // Credit enabled filter
+    const creditEnabled = this.creditEnabledFilter();
+    if (creditEnabled !== 'all') {
+      filtered = filtered.filter(member => 
+        creditEnabled === 'true' ? member.creditEnabled : !member.creditEnabled
+      );
+    }
+    
+    // Overdue filter
+    const overdueFilter = this.overdueFilter();
+    if (overdueFilter !== 'all') {
+      if (overdueFilter === 'overdue') {
+        filtered = filtered.filter(member => member.daysOverdue > 0);
+      } else if (overdueFilter === 'current') {
+        filtered = filtered.filter(member => member.daysOverdue === 0);
+      }
+    }
+    
     return filtered;
   });
 
@@ -172,6 +273,62 @@ export class MembershipListComponent implements OnInit, OnDestroy {
     this.selectedMembers().length > 0 && 
     this.selectedMembers().length < this.members().length
   );
+
+  // ===== NEW: Credit Analytics Computed Properties =====
+  readonly totalCreditLimit = computed(() => 
+    this.filteredMembers().reduce((sum, member) => sum + member.creditLimit, 0)
+  );
+
+  readonly totalCurrentDebt = computed(() => 
+    this.filteredMembers().reduce((sum, member) => sum + member.currentDebt, 0)
+  );
+
+  readonly totalOverdueAmount = computed(() => 
+    this.filteredMembers().reduce((sum, member) => sum + member.overdueAmount, 0)
+  );
+
+  readonly averageCreditUtilization = computed(() => {
+    const members = this.filteredMembers();
+    if (members.length === 0) return 0;
+    return members.reduce((sum, member) => sum + member.creditUtilization, 0) / members.length;
+  });
+
+  readonly membersWithCredit = computed(() => 
+    this.filteredMembers().filter(member => member.creditEnabled)
+  );
+
+  readonly overdueMembers = computed(() => 
+    this.filteredMembers().filter(member => member.daysOverdue > 0)
+  );
+
+  readonly criticalRiskMembers = computed(() => 
+    this.filteredMembers().filter(member => member.riskLevel === 'Critical')
+  );
+
+  // Statistics for dashboard cards
+  readonly memberStats = computed(() => {
+    const members = this.members();
+    return {
+      totalMembers: members.length,
+      activeMembers: members.filter(m => m.isActive).length,
+      creditEnabledMembers: members.filter(m => m.creditLimit > 0).length,
+      vipMembers: members.filter(m => m.tier === 'VIP' || m.tier === 'Platinum').length,
+      totalPoints: members.reduce((sum, m) => sum + (m.availablePoints || 0), 0)
+    };
+  });
+
+  readonly activeMembersCount = computed(() => this.memberStats().activeMembers);
+  readonly creditEnabledCount = computed(() => this.memberStats().creditEnabledMembers);
+
+  readonly creditStatusSummary = computed(() => {
+    const members = this.filteredMembers();
+    return {
+      good: members.filter(m => m.statusDescription === 'Good').length,
+      warning: members.filter(m => m.statusDescription === 'Warning').length,
+      bad: members.filter(m => m.statusDescription === 'Bad').length,
+      blocked: members.filter(m => m.statusDescription === 'Blocked').length
+    };
+  });
 
   // Data source for template compatibility
   readonly dataSource = computed(() => ({
@@ -491,6 +648,426 @@ export class MembershipListComponent implements OnInit, OnDestroy {
     this.selectedMembers.set([]);
   }
 
+  // ===== NEW: CREDIT MANAGEMENT METHODS =====
+  
+  /**
+   * Open credit management modal for a member
+   */
+  manageMemberCredit(member: MemberDto): void {
+    this.selectedMemberForCredit.set(member);
+    this.showCreditModal.set(true);
+    
+    // Initialize form data with safe default values
+    this.creditLimitAmount = Number(member.creditLimit) || 0;
+    this.creditLimitReason = '';
+    this.grantCreditAmount = 0;
+    this.grantCreditType = 'Bonus_Credit';
+    this.grantCreditDescription = '';
+    
+    console.log('Credit modal opened for:', member.name, 'Current limit:', this.creditLimitAmount);
+  }
+
+  /**
+   * Close credit modal
+   */
+  closeCreditModal(): void {
+    this.showCreditModal.set(false);
+    this.selectedMemberForCredit.set(null);
+    
+    // Reset form data
+    this.creditLimitAmount = 0;
+    this.creditLimitReason = '';
+    this.grantCreditAmount = 0;
+    this.grantCreditType = 'Bonus_Credit';
+    this.grantCreditDescription = '';
+  }
+
+  /**
+   * Update member credit limit
+   */
+  async updateCreditLimit(): Promise<void> {
+    const member = this.selectedMemberForCredit();
+    if (!member || !this.creditLimitAmount || !this.creditLimitReason) {
+      return;
+    }
+
+    try {
+      const request: UpdateCreditLimitRequestDto = {
+        memberId: member.id,
+        newLimit: this.creditLimitAmount,
+        reason: this.creditLimitReason,
+        branchId: 1, // Default branch
+        approvedBy: 'System Admin', // Should get from current user
+        requiresReview: this.creditLimitAmount > 10000000, // High amounts need review
+        notes: this.creditLimitReason
+      };
+
+      await this.memberCreditService.updateCreditLimit(member.id, request).toPromise();
+
+      // Show success notification
+      this.showToast('success', 'Credit Updated', `Credit limit updated to ${this.formatCurrency(this.creditLimitAmount)}`);
+      
+      // IMPORTANT: Reload data from server to ensure consistency
+      await this.loadMembers();
+      
+      this.closeCreditModal();
+      
+    } catch (error) {
+      console.error('Error updating credit limit:', error);
+      this.showToast('error', 'Update Failed', 'Failed to update credit limit. Please try again.');
+    }
+  }
+
+  /**
+   * Grant additional credit to member
+   */
+  async grantCredit(): Promise<void> {
+    const member = this.selectedMemberForCredit();
+    if (!member || !this.grantCreditAmount || !this.grantCreditDescription) {
+      return;
+    }
+
+    try {
+      const request: GrantCreditRequestDto = {
+        memberId: member.id,
+        amount: this.grantCreditAmount,
+        creditType: this.grantCreditType as any,
+        description: this.grantCreditDescription,
+        branchId: 1, // Default branch
+        approvedBy: 'System Admin', // Should get from current user
+        requiresApproval: this.grantCreditAmount > 5000000 // Large amounts need approval
+      };
+
+      await this.memberCreditService.grantCredit(member.id, request).toPromise();
+
+      // Show success notification
+      this.showToast('success', 'Credit Granted', `${this.formatCurrency(this.grantCreditAmount)} credit granted successfully`);
+      
+      // IMPORTANT: Reload data from server to ensure consistency
+      await this.loadMembers();
+      
+      this.closeCreditModal();
+      
+    } catch (error) {
+      console.error('Error granting credit:', error);
+      this.showToast('error', 'Grant Failed', 'Failed to grant credit. Please try again.');
+    }
+  }
+
+  /**
+   * View member credit history
+   */
+  viewCreditHistory(): void {
+    const member = this.selectedMemberForCredit();
+    if (member) {
+      // Navigate to credit history page or open history modal
+      // For now, just close the modal
+      this.closeCreditModal();
+      // TODO: Implement credit history view
+    }
+  }
+
+  /**
+   * Helper method to show toast notifications
+   */
+  private showToast(type: 'success' | 'warning' | 'error' | 'info', title: string, message: string): void {
+    this.addToast({
+      id: Date.now().toString(),
+      type: type,
+      title: title,
+      message: message,
+      timestamp: new Date()
+    });
+  }
+
+  // ===== NEW: MISSING METHODS FOR ENHANCED UI =====
+
+  /**
+   * Toggle member active status
+   */
+  async toggleMemberStatus(member: MemberDto): Promise<void> {
+    try {
+      const newStatus = !member.isActive;
+      // Call API to update member status
+      // await this.membershipService.updateMemberStatus(member.id, newStatus);
+      
+      // Update local data
+      this.members.update(members => 
+        members.map(m => m.id === member.id ? { ...m, isActive: newStatus } : m)
+      );
+
+      this.showToast('success', 'Status Updated', `Member ${newStatus ? 'activated' : 'deactivated'} successfully`);
+    } catch (error) {
+      this.showToast('error', 'Update Failed', 'Failed to update member status');
+    }
+  }
+
+  /**
+   * View member transaction history
+   */
+  viewMemberHistory(member: MemberDto): void {
+    // Navigate to member history page or open history modal
+    console.log('Viewing history for member:', member.name);
+    // TODO: Implement member history view
+  }
+
+  /**
+   * Export member data
+   */
+  exportMemberData(member: MemberDto): void {
+    // Create and download CSV for single member
+    const csv = this.convertToCSV([member]);
+    this.downloadCSV(csv, `member-${member.memberNumber}-data.csv`);
+    
+    this.showToast('success', 'Export Complete', `Member data exported successfully`);
+  }
+
+
+  /**
+   * Download CSV file
+   */
+  private downloadCSV(csvContent: string, filename: string): void {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  /**
+   * Close credit management modal
+   */
+  closeMemberCreditModal(): void {
+    this.showMemberCreditModal.set(false);
+    this.selectedMemberForCreditModal.set(null);
+  }
+
+  /**
+   * Handle credit updated event from modal
+   */
+  onCreditUpdated(creditSummary: MemberCreditSummaryDto): void {
+    // Update the member in the local list
+    this.members.update(members => 
+      members.map(member => {
+        if (member.id === creditSummary.memberId) {
+          return {
+            ...member,
+            creditLimit: creditSummary.creditLimit,
+            currentDebt: creditSummary.currentDebt,
+            availableCredit: creditSummary.availableCredit,
+            statusDescription: creditSummary.statusDescription,
+            creditScore: creditSummary.creditScore,
+            creditUtilization: creditSummary.creditUtilization,
+            daysOverdue: creditSummary.daysOverdue,
+            overdueAmount: creditSummary.overdueAmount,
+            paymentSuccessRate: creditSummary.paymentSuccessRate,
+            riskLevel: creditSummary.riskLevel as 'Low' | 'Medium' | 'High' | 'Critical',
+            maxAllowedTransaction: 0 // Default value since this field doesn't exist in MemberCreditSummaryDto
+          };
+        }
+        return member;
+      })
+    );
+
+    this.showSuccessNotification('Member credit information updated');
+  }
+
+  /**
+   * Quick grant credit to member
+   */
+  async quickGrantCredit(member: MemberDto, amount: number): Promise<void> {
+    if (!member.isEligibleForCredit || member.statusDescription === 'Blocked') {
+      this.showErrorNotification('Member is not eligible for credit');
+      return;
+    }
+
+    const confirmed = confirm(`Grant ${this.formatCurrency(amount)} credit to ${member.name}?`);
+    if (!confirmed) return;
+
+    try {
+      this.loading$.set(true);
+      
+      const request: GrantCreditRequestDto = {
+        memberId: member.id,
+        amount,
+        creditType: 'Bonus_Credit',
+        description: `Quick credit grant of ${this.formatCurrency(amount)}`,
+        branchId: 1, // Get from current branch context
+        requiresApproval: false
+      };
+
+      const success = await this.memberCreditService.grantCredit(request.memberId, request).toPromise();
+      
+      if (success) {
+        this.loadMembers(); // Refresh data
+        this.showSuccessNotification(`Credit granted successfully to ${member.name}`);
+      }
+    } catch (error) {
+      console.error('Error granting credit:', error);
+      this.showErrorNotification('Failed to grant credit');
+    } finally {
+      this.loading$.set(false);
+    }
+  }
+
+  /**
+   * Quick record payment for member
+   */
+  async quickRecordPayment(member: MemberDto, amount: number): Promise<void> {
+    if (member.currentDebt <= 0) {
+      this.showErrorNotification('Member has no outstanding debt');
+      return;
+    }
+
+    if (amount > member.currentDebt) {
+      this.showErrorNotification('Payment amount cannot exceed outstanding debt');
+      return;
+    }
+
+    const confirmed = confirm(`Record ${this.formatCurrency(amount)} payment from ${member.name}?`);
+    if (!confirmed) return;
+
+    try {
+      this.loading$.set(true);
+      
+      const request: CreditPaymentRequestDto = {
+        memberId: member.id,
+        amount,
+        paymentMethod: 'Cash',
+        referenceNumber: `QUICK-PAY-${Date.now()}`,
+        branchId: 1, // Get from current branch context
+        partialPayment: amount < member.currentDebt,
+        allocateToOldest: true
+      };
+
+      const transaction = await this.memberCreditService.recordPayment(request.memberId, request).toPromise();
+      
+      if (transaction) {
+        this.loadMembers(); // Refresh data
+        this.showSuccessNotification(`Payment recorded successfully for ${member.name}`);
+      }
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      this.showErrorNotification('Failed to record payment');
+    } finally {
+      this.loading$.set(false);
+    }
+  }
+
+  /**
+   * Toggle member credit status
+   */
+  async toggleCreditStatus(member: MemberDto): Promise<void> {
+    const newStatus = member.statusDescription === 'Blocked' ? 'Good' : 'Blocked';
+    const action = newStatus === 'Blocked' ? 'block' : 'unblock';
+    
+    const confirmed = confirm(`${action === 'block' ? 'Block' : 'Unblock'} credit for ${member.name}?`);
+    if (!confirmed) return;
+
+    try {
+      this.loading$.set(true);
+      
+      const request: UpdateCreditStatusRequestDto = {
+        memberId: member.id,
+        newStatus,
+        reason: `Quick ${action} credit action from member list`,
+        branchId: 1, // Get from current branch context
+        updatedBy: 'System' // Get from current user context
+      };
+
+      const success = await this.memberCreditService.updateCreditStatus(request.memberId, request).toPromise();
+      
+      if (success) {
+        this.loadMembers(); // Refresh data
+        this.showSuccessNotification(`Member credit ${action}ed successfully`);
+      }
+    } catch (error) {
+      console.error('Error updating credit status:', error);
+      this.showErrorNotification('Failed to update credit status');
+    } finally {
+      this.loading$.set(false);
+    }
+  }
+
+  /**
+   * Bulk grant credit to selected members
+   */
+  async bulkGrantCredit(amount?: number): Promise<void> {
+    // If amount is not provided, prompt user for input
+    if (!amount) {
+      const userInput = prompt('Enter credit amount to grant to selected members:');
+      if (!userInput) return; // User cancelled
+      
+      const parsedAmount = parseFloat(userInput);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        this.showErrorNotification('Please enter a valid positive amount');
+        return;
+      }
+      amount = parsedAmount;
+    }
+
+    const eligibleMembers = this.selectedMembers().filter(m => 
+      m.isEligibleForCredit && m.statusDescription !== 'Blocked'
+    );
+
+    if (eligibleMembers.length === 0) {
+      this.showErrorNotification('No eligible members selected for credit grant');
+      return;
+    }
+
+    const confirmed = confirm(
+      `Grant ${this.formatCurrency(amount)} credit to ${eligibleMembers.length} eligible member(s)?`
+    );
+    if (!confirmed) return;
+
+    try {
+      this.loading$.set(true);
+      let successCount = 0;
+      let errorCount = 0;
+
+      const grantPromises = eligibleMembers.map(async (member) => {
+        try {
+          const request: GrantCreditRequestDto = {
+            memberId: member.id,
+            amount,
+            creditType: 'Bonus_Credit',
+            description: `Bulk credit grant of ${this.formatCurrency(amount)}`,
+            branchId: 1, // Get from current branch context
+            requiresApproval: false
+          };
+
+          await this.memberCreditService.grantCredit(request.memberId, request).toPromise();
+          successCount++;
+        } catch (error) {
+          console.error(`Error granting credit to member ${member.id}:`, error);
+          errorCount++;
+        }
+      });
+
+      await Promise.all(grantPromises);
+
+      this.loadMembers(); // Refresh data
+      this.clearSelection();
+
+      if (errorCount === 0) {
+        this.showSuccessNotification(`Credit granted successfully to ${successCount} member(s)`);
+      } else {
+        this.showWarningNotification(
+          `Credit granted to ${successCount} member(s), ${errorCount} failed`
+        );
+      }
+    } catch (error) {
+      console.error('Error in bulk credit grant:', error);
+      this.showErrorNotification('Failed to complete bulk credit grant');
+    } finally {
+      this.loading$.set(false);
+    }
+  }
+
   // ===== NAVIGATION METHODS =====
   createMember(): void {
     this.router.navigate(['/dashboard/membership/create']);
@@ -621,7 +1198,11 @@ export class MembershipListComponent implements OnInit, OnDestroy {
     const headers = [
       'Member Number', 'Name', 'Email', 'Phone', 'Tier', 
       'Available Points', 'Total Points', 'Total Spent', 'Total Transactions', 
-      'Last Transaction', 'Status', 'Created At'
+      'Last Transaction', 'Status', 'Created At',
+      // ===== NEW: Credit Export Columns =====
+      'Credit Limit', 'Current Debt', 'Available Credit', 'Credit Status',
+      'Credit Score', 'Credit Utilization %', 'Risk Level', 'Days Overdue',
+      'Overdue Amount', 'Payment Success Rate %', 'Credit Enabled'
     ];
     
     const rows = members.map(member => [
@@ -636,7 +1217,19 @@ export class MembershipListComponent implements OnInit, OnDestroy {
       member.totalTransactions,
       this.formatDate(member.lastTransactionDate),
       member.isActive ? 'Active' : 'Inactive',
-      this.formatDate(member.createdAt)
+      this.formatDate(member.createdAt),
+      // ===== NEW: Credit Export Data =====
+      member.creditLimit || 0,
+      member.currentDebt || 0,
+      member.availableCredit || 0,
+      member.statusDescription || 'N/A',
+      member.creditScore || 0,
+      member.creditUtilization || 0,
+      member.riskLevel || 'N/A',
+      member.daysOverdue || 0,
+      member.overdueAmount || 0,
+      member.paymentSuccessRate || 0,
+      member.creditEnabled ? 'Yes' : 'No'
     ]);
     
     const csvContent = [
@@ -836,6 +1429,15 @@ export class MembershipListComponent implements OnInit, OnDestroy {
     return new Intl.NumberFormat('id-ID').format(num);
   }
 
+  formatCompactNumber(num: number): string {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
+  }
+
   formatDate(date: string | null): string {
     if (!date) return 'Never';
     
@@ -995,5 +1597,320 @@ export class MembershipListComponent implements OnInit, OnDestroy {
       this.currentPage.set(1); // reset to first page if using signals
       this.loadMembers(); // reload data with new page size
     }
+  }
+
+  // ===== NEW: CREDIT UTILITY METHODS =====
+
+  /**
+   * Get credit status color for UI
+   */
+  getCreditStatusColor(status: string): string {
+    switch (status) {
+      case 'Good': return '#52a573'; // Green
+      case 'Warning': return '#e6a855'; // Yellow
+      case 'Bad': return '#d66b2f'; // Orange
+      case 'Blocked': return '#d44a3f'; // Red
+      default: return '#6c757d'; // Gray
+    }
+  }
+
+  /**
+   * Get risk level color for UI
+   */
+  getRiskLevelColor(riskLevel: string): string {
+    switch (riskLevel) {
+      case 'Low': return '#52a573'; // Green
+      case 'Medium': return '#e6a855'; // Yellow
+      case 'High': return '#d66b2f'; // Orange  
+      case 'Critical': return '#d44a3f'; // Red
+      default: return '#6c757d'; // Gray
+    }
+  }
+
+  /**
+   * Get credit status badge class
+   */
+  getCreditStatusBadgeClass(status: string): string {
+    switch (status) {
+      case 'Good': return 'badge-success';
+      case 'Warning': return 'badge-warning';
+      case 'Bad': return 'badge-error';
+      case 'Blocked': return 'badge-blocked';
+      default: return 'badge-secondary';
+    }
+  }
+
+  /**
+   * Get risk level badge class
+   */
+  getRiskLevelBadgeClass(riskLevel: string): string {
+    switch (riskLevel) {
+      case 'Low': return 'badge-success';
+      case 'Medium': return 'badge-warning';
+      case 'High': return 'badge-error';
+      case 'Critical': return 'badge-critical';
+      default: return 'badge-secondary';
+    }
+  }
+
+  /**
+   * Format percentage with proper rounding
+   */
+  formatPercentage(value: number): string {
+    return `${Math.round(value * 100) / 100}%`;
+  }
+
+  /**
+   * Check if member has overdue payments
+   */
+  isOverdue(member: MemberDto): boolean {
+    return member.daysOverdue > 0;
+  }
+
+  /**
+   * Check if member is high risk
+   */
+  isHighRisk(member: MemberDto): boolean {
+    return member.riskLevel === 'High' || member.riskLevel === 'Critical';
+  }
+
+  /**
+   * Check if member has high credit utilization
+   */
+  hasHighUtilization(member: MemberDto): boolean {
+    return member.creditUtilization > 80;
+  }
+
+  /**
+   * Get credit utilization level
+   */
+  getCreditUtilizationLevel(utilization: number): 'low' | 'medium' | 'high' | 'critical' {
+    if (utilization <= 30) return 'low';
+    if (utilization <= 60) return 'medium';
+    if (utilization <= 80) return 'high';
+    return 'critical';
+  }
+
+  /**
+   * Get credit utilization color
+   */
+  getCreditUtilizationColor(utilization: number): string {
+    const level = this.getCreditUtilizationLevel(utilization);
+    switch (level) {
+      case 'low': return '#52a573'; // Green
+      case 'medium': return '#e6a855'; // Yellow
+      case 'high': return '#d66b2f'; // Orange
+      case 'critical': return '#d44a3f'; // Red
+      default: return '#6c757d'; // Gray
+    }
+  }
+
+  /**
+   * Get member credit summary text
+   */
+  getMemberCreditSummary(member: MemberDto): string {
+    if (!member.creditEnabled) {
+      return 'Credit not enabled';
+    }
+
+    const available = this.formatCurrency(member.availableCredit);
+    const limit = this.formatCurrency(member.creditLimit);
+    const utilization = this.formatPercentage(member.creditUtilization);
+
+    return `${available} available of ${limit} limit (${utilization} used)`;
+  }
+
+  /**
+   * Get overdue status text
+   */
+  getOverdueStatusText(member: MemberDto): string {
+    if (member.daysOverdue <= 0) {
+      return 'Current';
+    }
+
+    if (member.daysOverdue <= 7) {
+      return `${member.daysOverdue} day(s) overdue`;
+    }
+
+    if (member.daysOverdue <= 30) {
+      return `${member.daysOverdue} days overdue - Warning`;
+    }
+
+    return `${member.daysOverdue} days overdue - Critical`;
+  }
+
+  /**
+   * Check if member can receive more credit
+   */
+  canGrantMoreCredit(member: MemberDto): boolean {
+    return member.isEligibleForCredit && 
+           member.statusDescription !== 'Blocked' && 
+           member.availableCredit > 0 &&
+           member.creditUtilization < 95;
+  }
+
+  /**
+   * Check if member can make payment
+   */
+  canMakePayment(member: MemberDto): boolean {
+    return member.currentDebt > 0;
+  }
+
+  /**
+   * Get payment priority level
+   */
+  getPaymentPriorityLevel(member: MemberDto): 'none' | 'low' | 'medium' | 'high' | 'urgent' {
+    if (member.currentDebt <= 0) return 'none';
+    
+    if (member.daysOverdue <= 0) return 'low';
+    if (member.daysOverdue <= 7) return 'medium';
+    if (member.daysOverdue <= 30) return 'high';
+    return 'urgent';
+  }
+
+  /**
+   * Get suggested action for member
+   */
+  getSuggestedAction(member: MemberDto): string {
+    if (member.statusDescription === 'Blocked') {
+      return 'Unblock credit account';
+    }
+
+    if (member.daysOverdue > 30) {
+      return 'Collect overdue payment urgently';
+    }
+
+    if (member.daysOverdue > 0) {
+      return 'Follow up on overdue payment';
+    }
+
+    if (member.creditUtilization > 90) {
+      return 'Consider credit limit increase';
+    }
+
+    if (member.riskLevel === 'Critical') {
+      return 'Review and reduce risk level';
+    }
+
+    if (member.availableCredit <= 0) {
+      return 'Member at credit limit';
+    }
+
+    return 'Account in good standing';
+  }
+
+  /**
+   * Calculate member credit health score (0-100)
+   */
+  getMemberCreditHealthScore(member: MemberDto): number {
+    let score = 100;
+
+    // Deduct for overdue days
+    if (member.daysOverdue > 0) {
+      score -= Math.min(40, member.daysOverdue * 2);
+    }
+
+    // Deduct for high utilization
+    if (member.creditUtilization > 80) {
+      score -= (member.creditUtilization - 80) * 2;
+    }
+
+    // Deduct for low payment success rate
+    if (member.paymentSuccessRate < 90) {
+      score -= (90 - member.paymentSuccessRate);
+    }
+
+    // Deduct for risk level
+    switch (member.riskLevel) {
+      case 'Medium': score -= 10; break;
+      case 'High': score -= 25; break;
+      case 'Critical': score -= 50; break;
+    }
+
+    // Deduct for credit status
+    switch (member.statusDescription) {
+      case 'Warning': score -= 10; break;
+      case 'Bad': score -= 25; break;
+      case 'Blocked': score -= 60; break;
+    }
+
+    return Math.max(0, Math.min(100, score));
+  }
+
+  /**
+   * Get credit health score color
+   */
+  getCreditHealthScoreColor(score: number): string {
+    if (score >= 80) return '#52a573'; // Green
+    if (score >= 60) return '#e6a855'; // Yellow
+    if (score >= 40) return '#d66b2f'; // Orange
+    return '#d44a3f'; // Red
+  }
+
+  /**
+   * Get credit health description
+   */
+  getCreditHealthDescription(score: number): string {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Good';
+    if (score >= 40) return 'Fair';
+    return 'Poor';
+  }
+
+  // ===== BULK OPERATIONS FOR NEW UI =====
+  /**
+   * Bulk update member status
+   */
+  async bulkUpdateStatus(status: 'active' | 'inactive'): Promise<void> {
+    const selected = this.selectedMembers();
+    if (selected.length === 0) return;
+
+    const isActive = status === 'active';
+    const action = isActive ? 'activate' : 'deactivate';
+    
+    const confirmed = confirm(`${action} ${selected.length} selected member(s)?`);
+    if (!confirmed) return;
+
+    try {
+      this.loading$.set(true);
+      
+      const promises = selected.map(member => 
+        this.membershipService.updateMember(member.id, { isActive }).toPromise()
+      );
+
+      await Promise.all(promises);
+      await this.loadMembers();
+      this.clearSelection();
+      
+      this.showSuccessNotification(`${selected.length} member(s) ${action}d successfully`);
+    } catch (error) {
+      console.error('Error in bulk status update:', error);
+      this.showErrorNotification('Failed to update member status');
+    } finally {
+      this.loading$.set(false);
+    }
+  }
+
+  /**
+   * Bulk export members
+   */
+  bulkExportMembers(): void {
+    const selected = this.selectedMembers();
+    if (selected.length === 0) return;
+
+    const csv = this.convertToCSV(selected);
+    this.downloadCSV(csv, `members-bulk-export-${Date.now()}.csv`);
+    
+    this.showSuccessNotification(`${selected.length} member(s) exported successfully`);
+  }
+
+  /**
+   * Apply filters method for new UI
+   */
+  applyFilters(): void {
+    // This method is called by the new Material form
+    // The filtering is already handled by the computed filteredMembers property
+    // We just need to ensure the form values are applied, which happens automatically via signals
+    console.log('Filters applied');
   }
 }

@@ -29,6 +29,7 @@ export interface MemberDto {
   currentDebt: number;
   availableCredit: number;
   creditStatus: 'Good' | 'Warning' | 'Bad' | 'Blocked';
+  statusDescription: string; // Added missing property for API compatibility
   creditScore: number;
   nextPaymentDueDate?: string;
   isEligibleForCredit: boolean;
@@ -42,6 +43,9 @@ export interface MemberDto {
   riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
   maxAllowedTransaction: number;
 }
+
+// Alias for components using the full member interface with credit data
+export type MemberWithCreditDto = MemberDto;
 
 // Create Member Request
 export interface CreateMemberRequest {

@@ -1360,19 +1360,15 @@ export class CreditPaymentProcessorComponent {
     try {
       const formData = this.singlePaymentForm.value;
       const paymentData: CreatePaymentDto = {
-        memberId: this.selectedMember()!.memberId,
         amount: formData.paymentAmount,
         paymentMethod: formData.paymentMethod,
         referenceNumber: formData.reference || '',
-        branchId: 1, // Default branch ID
-        notes: formData.notes,
-        partialPayment: false,
-        allocateToOldest: true
+        notes: formData.notes
       };
 
       // Process payment via service
       const response = await this.memberCreditService.recordPayment(
-        paymentData.memberId, 
+        this.selectedMember()!.memberId, 
         paymentData
       ).toPromise();
       

@@ -210,20 +210,17 @@ export interface GrantCreditRequestDto {
   amount: number;
   description: string;
   saleId: number;
-  branchId: number;
-  notes: string;
+  branchId?: number;
+  notes?: string;
+  paymentTermDays?: number; // NEW: Custom payment terms (7, 14, 30, 60 days)
+  dueDate?: string; // NEW: Specific due date (ISO format)
 }
 
 export interface CreditPaymentRequestDto {
-  memberId: number;
   amount: number;
   paymentMethod: 'Cash' | 'Transfer' | 'Credit_Card' | 'E_Wallet' | 'Other';
-  referenceNumber: string;
-  branchId: number;
-  receivedBy?: string;
+  referenceNumber?: string;
   notes?: string;
-  partialPayment: boolean;
-  allocateToOldest: boolean;
 }
 
 export interface UpdateCreditStatusRequestDto {
@@ -238,13 +235,8 @@ export interface UpdateCreditStatusRequestDto {
 }
 
 export interface UpdateCreditLimitRequestDto {
-  memberId: number;
-  newLimit: number;
+  newCreditLimit: number; // Changed from newLimit to newCreditLimit
   reason: string;
-  branchId: number;
-  approvedBy: string;
-  effectiveDate?: string;
-  requiresReview: boolean;
   notes?: string;
 }
 

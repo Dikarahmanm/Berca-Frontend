@@ -2000,14 +2000,10 @@ export class MemberCreditModalComponent implements OnInit, OnDestroy {
     try {
       const formValue = this.recordPaymentForm.value;
       const request: CreditPaymentRequestDto = {
-        memberId: member.memberId,
         amount: formValue.amount,
         paymentMethod: formValue.paymentMethod,
         referenceNumber: formValue.referenceNumber,
-        branchId: 1, // Default branch ID
-        notes: formValue.notes || undefined,
-        partialPayment: formValue.partialPayment,
-        allocateToOldest: formValue.allocateToOldest
+        notes: formValue.notes || undefined
       };
 
       const transaction = await this.creditService.recordPayment(member.memberId, request).toPromise();
@@ -2037,13 +2033,8 @@ export class MemberCreditModalComponent implements OnInit, OnDestroy {
     try {
       const formValue = this.updateLimitForm.value;
       const request: UpdateCreditLimitRequestDto = {
-        memberId: member.memberId,
-        newLimit: formValue.newLimit,
+        newCreditLimit: formValue.newLimit,
         reason: formValue.reason,
-        branchId: 1, // Default branch ID since currentBranch is not available
-        approvedBy: formValue.approvedBy || currentUser.username,
-        effectiveDate: formValue.effectiveDate || undefined,
-        requiresReview: formValue.requiresReview,
         notes: formValue.notes || undefined
       };
 

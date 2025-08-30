@@ -111,12 +111,36 @@ export class MemberCreditService {
   /**
    * Grant Credit to Member
    * POST /api/MemberCredit/{id}/credit/grant
+   * 
+   * Expected Response Format (from readme):
+   * {
+   *   "message": "Credit granted successfully",
+   *   "creditSummary": {
+   *     "memberId": 3,
+   *     "memberName": "Bob Wilson",
+   *     "creditLimit": 5000000,
+   *     "currentDebt": 250000,
+   *     "availableCredit": 4750000,
+   *     "nextPaymentDueDate": "2025-09-06T00:13:49",
+   *     "recentTransactions": []
+   *   }
+   * }
    */
   grantCredit(memberId: number, request: GrantCreditRequestDto): Observable<any> {
     this._loading.set(true);
+    console.log('MemberCreditService: Granting credit to member', memberId, 'with request:', request);
+    
     return this.http.post<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/grant`, request)
       .pipe(
-        tap(() => this._loading.set(false)),
+        tap((response) => {
+          console.log('MemberCreditService: Grant credit response:', response);
+          this._loading.set(false);
+          
+          // Update current member credit if response includes creditSummary
+          if (response?.creditSummary) {
+            this._currentMemberCredit.set(response.creditSummary);
+          }
+        }),
         catchError(this.handleError)
       );
   }
@@ -124,12 +148,32 @@ export class MemberCreditService {
   /**
    * Record Credit Payment
    * POST /api/MemberCredit/{id}/credit/payment
+   * 
+   * Expected Response Format:
+   * {
+   *   "message": "Payment recorded successfully",
+   *   "creditSummary": {
+   *     "currentDebt": 0,
+   *     "availableCredit": 5000000,
+   *     "lastPaymentDate": "2025-08-30T00:14:55"
+   *   }
+   * }
    */
   recordPayment(memberId: number, request: CreditPaymentRequestDto): Observable<any> {
     this._loading.set(true);
+    console.log('MemberCreditService: Recording payment for member', memberId, 'with request:', request);
+    
     return this.http.post<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/payment`, request)
       .pipe(
-        tap(() => this._loading.set(false)),
+        tap((response) => {
+          console.log('MemberCreditService: Record payment response:', response);
+          this._loading.set(false);
+          
+          // Update current member credit if response includes creditSummary
+          if (response?.creditSummary) {
+            this._currentMemberCredit.set(response.creditSummary);
+          }
+        }),
         catchError(this.handleError)
       );
   }
@@ -140,12 +184,47 @@ export class MemberCreditService {
    */
   getCreditSummary(memberId: number): Observable<MemberCreditSummaryDto> {
     this._loading.set(true);
-    return this.http.get<CreditApiResponse<MemberCreditSummaryDto>>(`${this.baseUrl}/MemberCredit/${memberId}/credit/summary`)
+    console.log(`MemberCreditService: Getting credit summary for member ${memberId}`);
+    
+    return this.http.get<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/summary`)
       .pipe(
-        map(res => res.data),
-        tap(summary => this._currentMemberCredit.set(summary)),
+        tap((response) => {
+          console.log(`MemberCreditService: Credit summary raw response for member ${memberId}:`, response);
+          console.log(`MemberCreditService: Response type:`, typeof response);
+          console.log(`MemberCreditService: Response keys:`, Object.keys(response || {}));
+        }),
+        map(res => {
+          // Check if response has 'data' property (wrapped response)
+          let creditData;
+          if (res && typeof res === 'object' && res.data) {
+            creditData = res.data;
+            console.log(`MemberCreditService: Extracting from wrapped response for member ${memberId}:`, creditData);
+          } else if (res && typeof res === 'object' && res.memberId) {
+            // Direct response format
+            creditData = res;
+            console.log(`MemberCreditService: Using direct response for member ${memberId}:`, creditData);
+          } else {
+            creditData = null;
+            console.warn(`MemberCreditService: Unknown response format for member ${memberId}:`, res);
+          }
+          
+          console.log(`MemberCreditService: Final extracted credit data for member ${memberId}:`, creditData);
+          return creditData;
+        }),
+        tap(summary => {
+          if (summary) {
+            this._currentMemberCredit.set(summary);
+            console.log(`MemberCreditService: Updated current member credit for member ${memberId}:`, summary);
+          } else {
+            console.warn(`MemberCreditService: No valid credit data to set for member ${memberId}`);
+          }
+        }),
         tap(() => this._loading.set(false)),
-        catchError(this.handleError)
+        catchError((error) => {
+          console.error(`MemberCreditService: Error getting credit summary for member ${memberId}:`, error);
+          this._loading.set(false);
+          return this.handleError(error);
+        })
       );
   }
 
@@ -228,10 +307,37 @@ export class MemberCreditService {
   /**
    * Update Credit Limit
    * PUT /api/MemberCredit/{id}/credit/limit
+   * 
+   * Expected Response Format:
+   * {
+   *   "message": "Credit limit updated successfully",
+   *   "newCreditLimit": 100000000,
+   *   "formattedLimit": "Rp 100.000.000"
+   * }
    */
   updateCreditLimit(memberId: number, request: UpdateCreditLimitRequestDto): Observable<any> {
+    this._loading.set(true);
+    console.log('MemberCreditService: Updating credit limit for member', memberId, 'with request:', request);
+    
     return this.http.put<any>(`${this.baseUrl}/MemberCredit/${memberId}/credit/limit`, request)
-      .pipe(catchError(this.handleError));
+      .pipe(
+        tap((response) => {
+          console.log('MemberCreditService: Update credit limit response:', response);
+          this._loading.set(false);
+          
+          // After successful update, fetch the latest credit summary to ensure consistency
+          console.log('MemberCreditService: Refreshing credit summary after limit update...');
+          this.getCreditSummary(memberId).subscribe({
+            next: (summary) => {
+              console.log('MemberCreditService: Refreshed credit summary after update:', summary);
+            },
+            error: (error) => {
+              console.warn('MemberCreditService: Failed to refresh credit summary after update:', error);
+            }
+          });
+        }),
+        catchError(this.handleError)
+      );
   }
 
   /**

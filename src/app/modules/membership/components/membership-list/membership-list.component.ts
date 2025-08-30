@@ -167,6 +167,14 @@ export class MembershipListComponent implements OnInit, OnDestroy {
   // Real-time connection status
   readonly realtimeConnected = signal<boolean>(false);
   
+  // Sorting signals
+  readonly sortBy_signal = signal<string>('name');
+  readonly sortOrder = signal<'asc' | 'desc'>('asc');
+  
+  // UI state signals
+  readonly showMemberActions = signal<number | null>(null);
+  readonly showBulkActionsMenu = signal<boolean>(false);
+  
   // Advanced filters
   readonly showAdvancedFilters = signal<boolean>(false);
   readonly selectedSpendingTier = signal<string>('all');
@@ -187,6 +195,8 @@ export class MembershipListComponent implements OnInit, OnDestroy {
   grantCreditAmount: number = 0;
   grantCreditType: string = 'Bonus_Credit';
   grantCreditDescription: string = '';
+  grantCreditPaymentTerms: number = 30; // Default 30 days
+  grantCreditDueDate: string = ''; // Custom due date
   
   // Sorting state
   readonly sortField = signal<string>('');
@@ -331,9 +341,20 @@ export class MembershipListComponent implements OnInit, OnDestroy {
   });
 
   // Data source for template compatibility
-  readonly dataSource = computed(() => ({
-    data: this.filteredMembers()
-  }));
+  readonly dataSource = computed(() => {
+    const currentPage = this.currentPage();
+    const pageSize = this.pageSize();
+    const totalItems = this.totalItems();
+    
+    return {
+      data: this.filteredMembers(),
+      currentPage,
+      totalPages: this.totalPages(),
+      totalItems,
+      startItem: ((currentPage - 1) * pageSize) + 1,
+      endItem: Math.min(currentPage * pageSize, totalItems)
+    };
+  });
 
   // Form group for reactive forms
   searchForm: FormGroup;
@@ -423,14 +444,87 @@ export class MembershipListComponent implements OnInit, OnDestroy {
         pageSize: this.pageSize()
       };
 
+      console.log('Loading members with filters:', filters);
+
       this.membershipService.searchMembers(filters)
         .pipe(takeUntil(this.destroy$))
         .subscribe({
-          next: (response: MemberSearchResponse) => {
-            this.members.set(response.members);
+          next: async (response: MemberSearchResponse) => {
+            console.log('Received members from membership service:', response.members.length);
+            
+            // Load basic member data first
+            let membersWithCredit = [...response.members];
+            
+            // Load credit data for each member
+            try {
+              console.log('Loading credit data for each member...', response.members.length, 'members to process');
+              const creditPromises = response.members.map(async (member) => {
+                try {
+                  console.log(`Starting credit data load for member ${member.id} (${member.name})`);
+                  const creditSummary = await this.memberCreditService.getCreditSummary(member.id).toPromise();
+                  console.log(`Credit data received for member ${member.id}:`, creditSummary);
+                  
+                  if (creditSummary) {
+                    const mergedMember = {
+                      ...member,
+                      creditLimit: creditSummary.creditLimit,
+                      currentDebt: creditSummary.currentDebt,
+                      availableCredit: creditSummary.availableCredit,
+                      statusDescription: creditSummary.statusDescription,
+                      creditScore: creditSummary.creditScore,
+                      creditUtilization: creditSummary.creditUtilization,
+                      paymentTerms: creditSummary.paymentTerms || 30,
+                      daysOverdue: creditSummary.daysOverdue || 0,
+                      overdueAmount: creditSummary.overdueAmount || 0,
+                      creditEnabled: creditSummary.creditLimit > 0,
+                      lastPaymentDate: creditSummary.lastPaymentDate,
+                      paymentSuccessRate: creditSummary.paymentSuccessRate || 100,
+                      riskLevel: creditSummary.riskLevel as 'Low' | 'Medium' | 'High' | 'Critical',
+                      isEligibleForCredit: creditSummary.statusDescription !== 'Blocked' && creditSummary.creditScore >= 50,
+                      maxAllowedTransaction: creditSummary.availableCredit * 0.8 // 80% of available credit
+                    };
+                    console.log(`Merged member data for ${member.id}:`, {
+                      creditLimit: mergedMember.creditLimit,
+                      currentDebt: mergedMember.currentDebt,
+                      availableCredit: mergedMember.availableCredit,
+                      creditEnabled: mergedMember.creditEnabled
+                    });
+                    return mergedMember;
+                  }
+                  console.log(`No credit data found for member ${member.id}, using original member data`);
+                  return member; // Return original member if no credit data
+                } catch (creditError) {
+                  console.warn(`Failed to load credit data for member ${member.id}:`, creditError);
+                  return member; // Return original member if credit service fails
+                }
+              });
+
+              console.log('Waiting for all credit data promises to resolve...');
+              membersWithCredit = await Promise.all(creditPromises);
+              console.log('Successfully merged member and credit data. Final member count:', membersWithCredit.length);
+              
+              // Log final results for debugging
+              membersWithCredit.forEach((member, index) => {
+                console.log(`Final member ${index + 1} (${member.name}):`, {
+                  id: member.id,
+                  creditLimit: member.creditLimit,
+                  currentDebt: member.currentDebt,
+                  availableCredit: member.availableCredit,
+                  creditEnabled: member.creditEnabled
+                });
+              });
+              
+            } catch (creditBatchError) {
+              console.error('Error loading credit data batch:', creditBatchError);
+              // Continue with basic member data if credit loading fails
+            }
+            
+            this.members.set(membersWithCredit);
             this.totalItems.set(response.totalItems);
             this.loading$.set(false);
             this.updateLastUpdated();
+            
+            console.log('Final members data with credit:', membersWithCredit.length, 'members loaded');
           },
           error: (error: any) => {
             console.error('Error loading members:', error);
@@ -693,19 +787,22 @@ export class MembershipListComponent implements OnInit, OnDestroy {
 
     try {
       const request: UpdateCreditLimitRequestDto = {
-        memberId: member.id,
-        newLimit: this.creditLimitAmount,
+        newCreditLimit: this.creditLimitAmount,
         reason: this.creditLimitReason,
-        branchId: 1, // Default branch
-        approvedBy: 'System Admin', // Should get from current user
-        requiresReview: this.creditLimitAmount > 10000000, // High amounts need review
-        notes: this.creditLimitReason
+        notes: `Credit limit updated to ${this.formatCurrency(this.creditLimitAmount)} - ${this.creditLimitReason}`
       };
 
-      await this.memberCreditService.updateCreditLimit(member.id, request).toPromise();
+      console.log('Update credit limit request:', request);
+      
+      const response = await this.memberCreditService.updateCreditLimit(member.id, request).toPromise();
+      console.log('Update credit limit response:', response);
 
       // Show success notification
       this.showToast('success', 'Credit Updated', `Credit limit updated to ${this.formatCurrency(this.creditLimitAmount)}`);
+      
+      // Reset form
+      this.creditLimitAmount = 0;
+      this.creditLimitReason = '';
       
       // IMPORTANT: Reload data from server to ensure consistency
       await this.loadMembers();
@@ -729,19 +826,32 @@ export class MembershipListComponent implements OnInit, OnDestroy {
 
     try {
       const request: GrantCreditRequestDto = {
-        memberId: member.id,
         amount: this.grantCreditAmount,
-        creditType: this.grantCreditType as any,
         description: this.grantCreditDescription,
-        branchId: 1, // Default branch
-        approvedBy: 'System Admin', // Should get from current user
-        requiresApproval: this.grantCreditAmount > 5000000 // Large amounts need approval
+        saleId: 0, // Not related to sale
+        notes: this.grantCreditDescription
       };
 
-      await this.memberCreditService.grantCredit(member.id, request).toPromise();
+      // Add payment terms if specified
+      if (this.grantCreditDueDate) {
+        request.dueDate = this.grantCreditDueDate;
+      } else if (this.grantCreditPaymentTerms && this.grantCreditPaymentTerms !== 30) {
+        request.paymentTermDays = this.grantCreditPaymentTerms;
+      }
+
+      console.log('Grant credit request:', request);
+      
+      const response = await this.memberCreditService.grantCredit(member.id, request).toPromise();
+      console.log('Grant credit response:', response);
 
       // Show success notification
       this.showToast('success', 'Credit Granted', `${this.formatCurrency(this.grantCreditAmount)} credit granted successfully`);
+      
+      // Reset form
+      this.grantCreditAmount = 0;
+      this.grantCreditDescription = '';
+      this.grantCreditPaymentTerms = 30;
+      this.grantCreditDueDate = '';
       
       // IMPORTANT: Reload data from server to ensure consistency
       await this.loadMembers();
@@ -892,15 +1002,13 @@ export class MembershipListComponent implements OnInit, OnDestroy {
       this.loading$.set(true);
       
       const request: GrantCreditRequestDto = {
-        memberId: member.id,
         amount,
-        creditType: 'Bonus_Credit',
         description: `Quick credit grant of ${this.formatCurrency(amount)}`,
-        branchId: 1, // Get from current branch context
-        requiresApproval: false
+        saleId: 0, // Not related to sale
+        notes: `Quick credit grant of ${this.formatCurrency(amount)}`
       };
 
-      const success = await this.memberCreditService.grantCredit(request.memberId, request).toPromise();
+      const success = await this.memberCreditService.grantCredit(member.id, request).toPromise();
       
       if (success) {
         this.loadMembers(); // Refresh data
@@ -935,16 +1043,13 @@ export class MembershipListComponent implements OnInit, OnDestroy {
       this.loading$.set(true);
       
       const request: CreditPaymentRequestDto = {
-        memberId: member.id,
         amount,
         paymentMethod: 'Cash',
         referenceNumber: `QUICK-PAY-${Date.now()}`,
-        branchId: 1, // Get from current branch context
-        partialPayment: amount < member.currentDebt,
-        allocateToOldest: true
+        notes: `Quick payment of ${this.formatCurrency(amount)}`
       };
 
-      const transaction = await this.memberCreditService.recordPayment(request.memberId, request).toPromise();
+      const transaction = await this.memberCreditService.recordPayment(member.id, request).toPromise();
       
       if (transaction) {
         this.loadMembers(); // Refresh data
@@ -1032,15 +1137,13 @@ export class MembershipListComponent implements OnInit, OnDestroy {
       const grantPromises = eligibleMembers.map(async (member) => {
         try {
           const request: GrantCreditRequestDto = {
-            memberId: member.id,
             amount,
-            creditType: 'Bonus_Credit',
             description: `Bulk credit grant of ${this.formatCurrency(amount)}`,
-            branchId: 1, // Get from current branch context
-            requiresApproval: false
+            saleId: 0, // Not related to sale
+            notes: `Bulk credit grant of ${this.formatCurrency(amount)}`
           };
 
-          await this.memberCreditService.grantCredit(request.memberId, request).toPromise();
+          await this.memberCreditService.grantCredit(member.id, request).toPromise();
           successCount++;
         } catch (error) {
           console.error(`Error granting credit to member ${member.id}:`, error);
@@ -1912,5 +2015,143 @@ export class MembershipListComponent implements OnInit, OnDestroy {
     // The filtering is already handled by the computed filteredMembers property
     // We just need to ensure the form values are applied, which happens automatically via signals
     console.log('Filters applied');
+  }
+
+  // ===== MISSING TEMPLATE METHODS =====
+  
+  /**
+   * Get empty state message
+   */
+  getEmptyStateMessage(): string {
+    const hasActiveFilters = this.searchQuery() || 
+                           this.statusFilter() !== 'all' || 
+                           this.tierFilter() !== 'all' ||
+                           this.creditStatusFilter() !== 'all';
+    
+    return hasActiveFilters 
+      ? 'No members match the current filters'
+      : 'No members found. Add some members to get started.';
+  }
+
+  /**
+   * Navigation methods for pagination (aliases)
+   */
+  goToPreviousPage(): void {
+    this.previousPage();
+  }
+
+  goToNextPage(): void {
+    this.nextPage();
+  }
+
+  /**
+   * Get page numbers for pagination
+   */
+  getPageNumbers(): (number | string)[] {
+    return this.getVisiblePages();
+  }
+
+  /**
+   * Sort by column
+   */
+  sortBy(column: string): void {
+    const currentSort = this.sortBy_signal();
+    const currentOrder = this.sortOrder();
+    
+    if (currentSort === column) {
+      // Toggle order
+      this.sortOrder.set(currentOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New column, default to asc
+      this.sortBy_signal.set(column);
+      this.sortOrder.set('asc');
+    }
+  }
+
+  /**
+   * Get credit utilization percentage
+   */
+  getUtilizationPercentage(member: any): number {
+    if (!member.creditLimit || member.creditLimit === 0) return 0;
+    return Math.round((member.currentDebt / member.creditLimit) * 100);
+  }
+
+  /**
+   * Toggle member actions menu
+   */
+  toggleMemberActions(memberId: number): void {
+    const currentId = this.showMemberActions();
+    this.showMemberActions.set(currentId === memberId ? null : memberId);
+  }
+
+  /**
+   * Delete member
+   */
+  async deleteMember(member: any): Promise<void> {
+    const confirmed = confirm(`Are you sure you want to delete member ${member.name}? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      this.loading$.set(true);
+      await this.membershipService.deleteMember(member.id).toPromise();
+      await this.loadMembers();
+      this.showSuccessNotification('Member deleted successfully');
+    } catch (error) {
+      console.error('Error deleting member:', error);
+      this.showErrorNotification('Failed to delete member');
+    } finally {
+      this.loading$.set(false);
+    }
+  }
+
+  /**
+   * Bulk actions aliases
+   */
+  bulkActivateMembers(): void {
+    this.bulkUpdateStatus('active');
+  }
+
+  bulkDeactivateMembers(): void {
+    this.bulkUpdateStatus('inactive');
+  }
+
+  /**
+   * Close bulk menu
+   */
+  closeBulkMenu(): void {
+    // Implementation for closing bulk menu
+    console.log('Bulk menu closed');
+  }
+
+  /**
+   * Mobile/Desktop view checks
+   */
+  isMobileView(): boolean {
+    return window.innerWidth <= 768;
+  }
+
+  isDesktopView(): boolean {
+    return window.innerWidth > 768;
+  }
+
+  /**
+   * Show member detail (alias)
+   */
+  showMemberDetail(member: any): void {
+    this.openMemberDetailModal(member);
+  }
+
+  /**
+   * Get avatar icon for tier
+   */
+  getAvatarIcon(tier: string): string {
+    const tierMap: Record<string, string> = {
+      'Bronze': '🥉',
+      'Silver': '🥈',
+      'Gold': '🥇',
+      'Platinum': '💎',
+      'Diamond': '💍'
+    };
+    return tierMap[tier] || '👤';
   }
 }

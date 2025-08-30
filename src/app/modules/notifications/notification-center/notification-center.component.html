@@ -136,7 +136,7 @@
                                 <div class="notification-meta-top">
                                     <div class="notification-badge">{{ getNotificationBadge(notification) }}</div>
                                     <span class="notification-type">{{ getNotificationTypeLabel(notification.type) }}</span>
-                                    <span class="notification-priority priority-{{ notification.priority?.toLowerCase() || 'medium' }}">
+                                    <span class="notification-priority priority-{{ notification.priority.toLowerCase() || 'medium' }}">
                                         {{ getPriorityDisplayText(notification.priority || 'Medium') }}
                                     </span>
                                 </div>

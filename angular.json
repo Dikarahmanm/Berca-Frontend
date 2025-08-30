@@ -81,7 +81,19 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true,
-              "namedChunks": true
+              "namedChunks": true,
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "5MB",
+                  "maximumError": "10MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"

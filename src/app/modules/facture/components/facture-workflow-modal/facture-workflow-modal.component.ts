@@ -128,7 +128,7 @@ export interface CancelFormData {
               <div class="form-section">
                 <h4>Approval Notes</h4>
                 <p class="form-description">
-                  Add notes for approving facture: <strong>{{ facture()?.supplierInvoiceNumber }}</strong>
+                  Add notes for approving facture: <strong>{{ facture()!.supplierInvoiceNumber }}</strong>
                 </p>
                 <textarea 
                   class="form-control" 
@@ -142,15 +142,15 @@ export interface CancelFormData {
                 <h5>Approval Summary</h5>
                 <div class="summary-item">
                   <span>Supplier:</span>
-                  <span>{{ facture()?.supplierName }}</span>
+                  <span>{{ facture()!.supplierName }}</span>
                 </div>
                 <div class="summary-item">
                   <span>Total Amount:</span>
-                  <span>{{ facture()?.totalAmountDisplay }}</span>
+                  <span>{{ facture()!.totalAmountDisplay }}</span>
                 </div>
                 <div class="summary-item">
                   <span>Outstanding:</span>
-                  <span>{{ facture()?.outstandingAmountDisplay }}</span>
+                  <span>{{ facture()!.outstandingAmountDisplay }}</span>
                 </div>
               </div>
             </div>
@@ -160,7 +160,7 @@ export interface CancelFormData {
               <div class="form-section">
                 <h4>Dispute Reason *</h4>
                 <p class="form-description text-error">
-                  Disputing facture: <strong>{{ facture()?.supplierInvoiceNumber }}</strong>
+                  Disputing facture: <strong>{{ facture()!.supplierInvoiceNumber }}</strong>
                 </p>
                 <textarea 
                   class="form-control" 
@@ -202,7 +202,7 @@ export interface CancelFormData {
               <div class="form-section">
                 <h4>Cancellation Reason *</h4>
                 <p class="form-description text-error">
-                  <strong>⚠️ Warning:</strong> This will cancel facture: <strong>{{ facture()?.supplierInvoiceNumber }}</strong>
+                  <strong>⚠️ Warning:</strong> This will cancel facture: <strong>{{ facture()!.supplierInvoiceNumber }}</strong>
                 </p>
                 <textarea 
                   class="form-control" 

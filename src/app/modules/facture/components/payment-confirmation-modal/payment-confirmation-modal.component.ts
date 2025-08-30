@@ -35,7 +35,7 @@ export interface PaymentConfirmationData {
             </button>
           </div>
           <div class="text-sm text-gray-600 mt-2">
-            Payment Amount: <strong>{{ formatCurrency(payment()?.amount || 0) }}</strong> for Facture #{{ facture()?.internalReferenceNumber }}
+            Payment Amount: <strong>{{ formatCurrency(payment()!.amount || 0) }}</strong> for Facture #{{ facture()!.internalReferenceNumber }}
           </div>
         </div>
 

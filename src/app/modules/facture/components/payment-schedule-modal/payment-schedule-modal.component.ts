@@ -25,7 +25,7 @@ import { SchedulePaymentDto, PaymentMethod, FactureDto } from '../../interfaces/
             </button>
           </div>
           <div class="text-sm text-gray-600 mt-2">
-            Facture #{{ facture()?.internalReferenceNumber }} - {{ formatCurrency(facture()?.outstandingAmount || 0) }} Outstanding
+            Facture #{{ facture()!.internalReferenceNumber }} - {{ formatCurrency(facture()!.outstandingAmount || 0) }} Outstanding
           </div>
         </div>
 
@@ -42,7 +42,7 @@ import { SchedulePaymentDto, PaymentMethod, FactureDto } from '../../interfaces/
                 class="form-input pl-10"
                 placeholder="0"
                 min="0"
-                [max]="facture()?.outstandingAmount || 999999999"
+                [max]="facture()!.outstandingAmount || 999999999"
                 step="0.01">
             </div>
             <div *ngIf="scheduleForm.get('amount')?.invalid && scheduleForm.get('amount')?.touched" class="form-error">

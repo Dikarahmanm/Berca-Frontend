@@ -25,7 +25,7 @@ import { FactureDto, FacturePaymentDto, ProcessPaymentDto, ConfirmPaymentDto, Pa
             </button>
           </div>
           <div class="text-sm text-gray-600 mt-2">
-            Facture #{{ facture()?.internalReferenceNumber }} - {{ formatCurrency(facture()?.outstandingAmount || 0) }} Outstanding
+            Facture #{{ facture()!.internalReferenceNumber }} - {{ formatCurrency(facture()!.outstandingAmount || 0) }} Outstanding
           </div>
         </div>
 

@@ -485,9 +485,9 @@
                     </div>
                     
                     <!-- Credit Status -->
-                    <div class="credit-status" [attr.data-risk]="member.riskLevel?.toLowerCase()">
+                    <div class="credit-status" [attr.data-risk]="member.riskLevel.toLowerCase()">
                       <span class="status-text">{{ member.statusDescription }}</span>
-                      <span class="risk-badge" [attr.data-risk]="member.riskLevel?.toLowerCase()">
+                      <span class="risk-badge" [attr.data-risk]="member.riskLevel.toLowerCase()">
                         {{ member.riskLevel }}
                       </span>
                     </div>

@@ -161,30 +161,18 @@ export interface CreateSaleWithCreditDto {
   totalAmount: number;
   creditAmount: number;
   cashAmount: number;
-  description: string;
+  paymentMethod: number;  // Numeric payment method ID
   branchId: number;
   cashierId: number;
-  paymentMethod: number;
-  validationId: string;
-  isManagerApproved: boolean;
-  approvedByManagerId: number;
-  approvalNotes: string;
-  customerNotes: string;
-  discountAmount: number;
-  taxAmount: number;
-  receiptNumber: string;
+  customerName?: string;  // Optional customer name
+  notes?: string;         // Optional notes (was 'description')
 }
 
 export interface POSItemDto {
   productId: number;
-  productName: string;
-  sku: string;
   quantity: number;
   unitPrice: number;
-  totalPrice: number;
-  discount: number;
-  categoryId?: number;
-  categoryName?: string;
+  discountAmount?: number;  // Optional discount amount (was 'discount')
 }
 
 export interface POSCreditInfoDto {

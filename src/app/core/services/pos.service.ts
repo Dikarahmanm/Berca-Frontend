@@ -378,13 +378,21 @@ export class POSService {
       });
     }
 
-    // ✅ FIXED: Map to correct CreateSaleItemRequest format
-    const items: CreateSaleItemRequest[] = cart.map(item => ({
-      productId: item.product.id,
-      quantity: item.quantity,
-      sellPrice: item.product.sellPrice,  // ✅ Use sellPrice from interface
-      discount: item.discount             // ✅ Use discount percentage
-    }));
+    // ✅ FIXED: Map to correct CreateSaleItemRequest format with all required fields
+    const items: CreateSaleItemRequest[] = cart.map(item => {
+      const itemTotalPrice = item.quantity * item.product.sellPrice;
+      const discountAmount = (itemTotalPrice * item.discount) / 100;
+      return {
+        productId: item.product.id,
+        quantity: item.quantity,
+        discount: item.discount,            // Discount percentage
+        sellPrice: item.product.sellPrice,  // Price per unit
+        discountAmount: discountAmount,     // Calculated discount amount
+        notes: '',                         // Optional notes
+        unitPrice: item.product.sellPrice, // Same as sellPrice
+        totalPrice: itemTotalPrice - discountAmount // Final item total
+      };
+    });
 
     return this.calculateTotal(items, globalDiscountPercent).pipe(
       map(response => {

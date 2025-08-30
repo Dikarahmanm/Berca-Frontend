@@ -28,7 +28,7 @@ import { MemberCreditService } from '../../membership/services/member-credit.ser
 import { POSMemberCreditDto } from '../../membership/interfaces/member-credit.interfaces';
 import { CategoryService } from '../../category-management/services/category.service';
 import { Category } from '../../category-management/models/category.models';
-import { NotificationService } from '../../../core/services/notification.service';
+import { NotificationService, CreateNotificationRequest } from '../../../core/services/notification.service';
 import { ToastService } from '../../../shared/services/toast.service';
 
 // Import standalone components
@@ -782,12 +782,20 @@ clearSearch(): void {
     }
 
     // Validate stock before payment using new backend method
-    const saleItems: CreateSaleItemRequest[] = currentCart.map(item => ({
-      productId: item.product.id,
-      quantity: item.quantity,
-      sellPrice: item.product.sellPrice,
-      discount: item.discount
-    }));
+    const saleItems: CreateSaleItemRequest[] = currentCart.map(item => {
+      const itemTotalPrice = item.quantity * item.product.sellPrice;
+      const discountAmount = (itemTotalPrice * item.discount) / 100;
+      return {
+        productId: item.product.id,
+        quantity: item.quantity,
+        discount: item.discount,
+        sellPrice: item.product.sellPrice,
+        discountAmount: discountAmount,
+        notes: '',
+        unitPrice: item.product.sellPrice,
+        totalPrice: itemTotalPrice - discountAmount
+      };
+    });
 
     this.isLoading.set(true);
     this.posService.validateStock(saleItems)
@@ -1005,45 +1013,95 @@ clearSearch(): void {
       .subscribe({
         next: (totals) => {
           const saleRequest: CreateSaleRequest = {
-            items: this.cart().map(item => ({
-              productId: item.product.id,
-              quantity: item.quantity,
-              sellPrice: item.product.sellPrice,
-              discount: item.discount
-            })),
+            items: this.cart().map(item => {
+              const itemTotalPrice = item.quantity * item.product.sellPrice;
+              const discountAmount = (itemTotalPrice * item.discount) / 100;
+              return {
+                productId: item.product.id,
+                quantity: item.quantity,
+                discount: item.discount,
+                sellPrice: item.product.sellPrice,
+                discountAmount: discountAmount,
+                notes: '',
+                unitPrice: item.product.sellPrice,
+                totalPrice: itemTotalPrice - discountAmount
+              };
+            }),
             subTotal: totals.subtotal,
             discountAmount: totals.discountAmount,
             taxAmount: totals.taxAmount,
             total: totals.total,
             amountPaid: paymentData.amountPaid,
+            paidAmount: paymentData.amountPaid,  // Backend field name
             changeAmount: paymentData.change,
             paymentMethod: paymentData.method,
             paymentReference: paymentData.reference,
             memberId: this.selectedMember()?.id,
             customerName: this.customerName() || undefined,
-            customerPhone: this.customerPhone() || undefined,
             notes: this.notes() || undefined,
             redeemedPoints: 0 // TODO: Implement points redemption in payment modal
           };
 
           this.isLoading.set(true);
-          this.posService.createSale(saleRequest)
+          
+          // 🔥 NEW: Use different endpoint for credit payment vs regular payment
+          let saleRequest$: any;
+          
+          if (paymentData.method === 'credit' && this.selectedMember() && this.memberCreditData()) {
+            // Credit payment - use credit-specific endpoint with proper format
+            const creditSaleData = {
+              memberId: this.selectedMember()!.id,
+              items: this.cart().map(item => ({
+                productId: item.product.id,
+                quantity: item.quantity,
+                unitPrice: item.product.sellPrice,
+                discountAmount: (item.quantity * item.product.sellPrice * item.discount) / 100
+              })),
+              totalAmount: totals.total,
+              creditAmount: paymentData.amountPaid,
+              cashAmount: totals.total - paymentData.amountPaid,
+              paymentMethod: 5, // Credit payment method ID
+              branchId: 1,
+              cashierId: 1,
+              customerName: this.selectedMember()!.name || 'Credit Customer',
+              notes: this.notes() || 'POS Credit Transaction'
+            };
+            
+            console.log('🚀 [POS Credit] Using credit endpoint with data:', creditSaleData);
+            saleRequest$ = this.memberCreditService.createSaleWithCredit(creditSaleData);
+          } else {
+            // Regular payment - use standard POS endpoint
+            console.log('🚀 [POS Regular] Using regular endpoint with data:', saleRequest);
+            saleRequest$ = this.posService.createSale(saleRequest);
+          }
+          
+          saleRequest$
             .pipe(takeUntil(this.destroy$))
             .subscribe({
               next: (response: any) => {
                 this.isLoading.set(false);
                 console.log('✅ Sale created successfully:', response);
                 
+                // 🔥 FIXED: Both endpoints now return same wrapper format {success, data, message}
+                console.log('🔍 Processing response format for payment method:', paymentData.method);
+                console.log('🔍 Full response structure:', { 
+                  hasSuccess: !!response.success, 
+                  hasData: !!response.data, 
+                  paymentMethod: paymentData.method 
+                });
+                
                 if (response.success && response.data) {
-                  const saleId = response.data.id;
-                  const saleNumber = response.data.saleNumber;
+                  const saleData = response.data;
+                  const saleId = saleData.id;
+                  const saleNumber = saleData.saleNumber;
+                  const totalAmount = saleData.total || saleData.totalAmount || totals.total;
                   
                   console.log('🧾 Navigating to receipt:', saleId, saleNumber);
                   this.successMessage.set(`Transaksi berhasil! No: ${saleNumber}`);
                   
                   // Process membership benefits (points and tier upgrade) - with error handling
                   try {
-                    this.processMembershipBenefits(saleId, response.data.total);
+                    this.processMembershipBenefits(saleId, totalAmount);
                   } catch (error) {
                     console.error('❌ Error processing membership benefits:', error);
                     // Don't let membership errors stop the transaction completion
@@ -1059,7 +1117,26 @@ clearSearch(): void {
                   // Clear cart
                   this.cart.set([]);
                   
-                  // ✅ NEW: Instant notification refresh after successful transaction
+                  // ✅ ADD TO NOTIFICATION CENTER: Create persistent notification
+                  console.log('🔔 Adding transaction to notification center...');
+                  const paymentMethodText = paymentData.method === 'credit' ? 'Kredit' : 'Tunai';
+                  
+                  this.notificationService.createNotification({
+                    title: '✅ Transaksi Berhasil',
+                    message: `Penjualan ${saleNumber} berhasil diproses dengan pembayaran ${paymentMethodText} - Total: ${this.formatCurrency(totalAmount)}`,
+                    type: 'SALE_COMPLETED',
+                    priority: 'Medium',
+                    actionUrl: `/dashboard/pos/transaction/${saleId}`
+                  }).subscribe({
+                    next: (notification) => {
+                      console.log('✅ Notification added to center:', notification);
+                    },
+                    error: (error) => {
+                      console.warn('⚠️ Failed to add notification to center (non-critical):', error);
+                    }
+                  });
+
+                  // ✅ REFRESH: Update notification list
                   console.log('🔔 Refreshing notifications after successful transaction...');
                   this.notificationService.refreshInstantly().subscribe({
                     next: () => {
@@ -1072,12 +1149,30 @@ clearSearch(): void {
 
                   // ✅ CRITICAL: Show toast notification IMMEDIATELY (before modal)
                   console.log('🍞 Showing success toast BEFORE modal...');
+                  
+                  console.log('🍞 TOAST DEBUG - Calling showSuccess with:', {
+                    saleNumber,
+                    totalAmount,
+                    formattedAmount: this.formatCurrency(totalAmount),
+                    saleId,
+                    paymentMethod: paymentData.method
+                  });
+                  
                   this.toastService.showSuccess(
                     '✅ Transaksi Berhasil!',
-                    `Penjualan ${saleNumber} telah berhasil diproses - Total: ${this.formatCurrency(response.data.total)}`,
+                    `Penjualan ${saleNumber} telah berhasil diproses - Total: ${this.formatCurrency(totalAmount)}`,
                     'Lihat Detail',
                     `/dashboard/pos/transaction/${saleId}`
                   );
+                  
+                  // ✅ FORCE TOAST DEBUG: Check if toast was actually added
+                  setTimeout(() => {
+                    const currentToasts = this.toastService.getCurrentToasts();
+                    console.log('🍞 TOAST CHECK - Current toasts after showSuccess:', {
+                      count: currentToasts.length,
+                      titles: currentToasts.map(t => t.title)
+                    });
+                  }, 100);
 
                   // ✅ NEW: Check for low stock and show warnings IMMEDIATELY  
                   console.log('🔍 Checking low stock BEFORE modal...');
@@ -1086,10 +1181,12 @@ clearSearch(): void {
                   // ✅ DELAY modal to let toasts appear first
                   console.log('🚀 Delaying modal to let toasts show first...');
                   setTimeout(() => {
-                    this.showTransactionSuccessModal(saleId, saleNumber, response.data.total);
+                    this.showTransactionSuccessModal(saleId, saleNumber, totalAmount);
                   }, 1500); // 1.5 second delay to ensure toasts are visible
                 } else {
-                  this.errorMessage.set(response.message || 'Gagal menyimpan transaksi');
+                  console.error('❌ Transaction failed - invalid response format:', { response, paymentMethod: paymentData.method });
+                  const errorMsg = response?.message || (paymentData.method === 'credit' ? 'Gagal menyimpan transaksi kredit' : 'Gagal menyimpan transaksi');
+                  this.errorMessage.set(errorMsg);
                   this.clearMessages();
                 }
               },
@@ -1112,6 +1209,35 @@ clearSearch(): void {
 
   formatCurrency(amount: number): string {
     return this.posService.formatCurrency(amount);
+  }
+  
+  // ✅ DEBUG: Test toast functionality
+  testToast(): void {
+    console.log('🍞 MANUAL TOAST TEST - Calling showSuccess...');
+    this.toastService.showSuccess(
+      '🧪 Test Toast',
+      'This is a manual test toast to verify functionality',
+      'Test Action',
+      '#'
+    );
+    console.log('🍞 MANUAL TOAST TEST - showSuccess called');
+    
+    // Also test notification center
+    console.log('🔔 MANUAL NOTIFICATION TEST - Adding to notification center...');
+    this.notificationService.createNotification({
+      title: '🧪 Test Notification',
+      message: 'This is a manual test notification for notification center',
+      type: 'TEST',
+      priority: 'Low',
+      actionUrl: '#'
+    }).subscribe({
+      next: (notification) => {
+        console.log('✅ Test notification added:', notification);
+      },
+      error: (error) => {
+        console.error('❌ Test notification failed:', error);
+      }
+    });
   }
 
   getFilteredProducts(): Product[] {
@@ -1485,86 +1611,99 @@ onDiscountChange(index: number, newDiscount: number) {
   // NEW: Load member credit data
   private async loadMemberCreditData(memberId: number): Promise<void> {
     this.isLoadingMemberCredit.set(true);
+    console.log(`POS: Loading credit data for member ${memberId}`);
     
     try {
-      const creditSummary = await this.memberCreditService.getMemberCreditForPOS(memberId.toString()).toPromise();
+      // Use the fixed credit summary service instead of POS-specific endpoint
+      const creditSummary = await this.memberCreditService.getCreditSummary(memberId).toPromise();
       
       if (creditSummary) {
-        this.memberCreditData.set(creditSummary);
-      } else {
-        // TEMPORARY: Create mock data for testing if API fails
-        const mockCreditData: POSMemberCreditDto = {
-          memberId: memberId,
-          memberNumber: this.selectedMember()?.memberNumber || '',
-          name: this.selectedMember()?.name || '',
-          phone: this.selectedMember()?.phone || '',
+        console.log('POS: Credit summary loaded successfully:', creditSummary);
+        
+        // Convert MemberCreditSummaryDto to POSMemberCreditDto format
+        const posCredit: POSMemberCreditDto = {
+          memberId: creditSummary.memberId,
+          memberNumber: creditSummary.memberNumber,
+          name: creditSummary.memberName,
+          phone: creditSummary.phone,
           email: this.selectedMember()?.email || '',
-          tier: 'Silver',
-          totalPoints: 1000,
-          creditLimit: 5000000,
-          currentDebt: 1000000,
-          availableCredit: 4000000,
-          creditStatus: 'Good',
-          creditScore: 85,
-          canUseCredit: true,
-          isEligibleForCredit: true,
-          maxTransactionAmount: 4000000,
-          statusMessage: 'Credit dalam kondisi baik',
-          statusColor: 'green',
-          hasWarnings: false,
-          warnings: [],
-          hasOverduePayments: false,
-          nextPaymentDueDate: undefined,
-          daysUntilNextPayment: 30,
-          creditLimitDisplay: 'Rp 5.000.000',
-          availableCreditDisplay: 'Rp 4.000.000',
-          currentDebtDisplay: 'Rp 1.000.000',
-          creditUtilization: 20,
-          lastCreditUsed: undefined,
-          lastPaymentDate: undefined,
-          totalCreditTransactions: 5
+          tier: this.selectedMember()?.tier || 'Bronze',
+          totalPoints: this.selectedMember()?.availablePoints || 0,
+          creditLimit: creditSummary.creditLimit,
+          currentDebt: creditSummary.currentDebt,
+          availableCredit: creditSummary.availableCredit,
+          creditStatus: creditSummary.statusDescription,
+          creditScore: creditSummary.creditScore,
+          canUseCredit: creditSummary.isEligibleForCredit && creditSummary.statusDescription !== 'Blocked',
+          isEligibleForCredit: creditSummary.isEligibleForCredit,
+          maxTransactionAmount: creditSummary.availableCredit * 0.8, // 80% of available credit
+          statusMessage: creditSummary.statusDescription === 'Good' ? 'Credit dalam kondisi baik' : creditSummary.statusDescription,
+          statusColor: creditSummary.statusDescription === 'Good' ? 'green' : 
+                      creditSummary.statusDescription === 'Warning' ? 'yellow' : 'red',
+          hasWarnings: creditSummary.daysOverdue > 0 || creditSummary.overdueAmount > 0,
+          warnings: creditSummary.daysOverdue > 0 ? [`Terlambat ${creditSummary.daysOverdue} hari`] : [],
+          hasOverduePayments: creditSummary.overdueAmount > 0,
+          nextPaymentDueDate: creditSummary.nextPaymentDueDate,
+          daysUntilNextPayment: creditSummary.paymentTerms || 30,
+          creditLimitDisplay: this.formatCurrency(creditSummary.creditLimit),
+          availableCreditDisplay: this.formatCurrency(creditSummary.availableCredit),
+          currentDebtDisplay: this.formatCurrency(creditSummary.currentDebt),
+          creditUtilization: creditSummary.creditUtilization,
+          lastCreditUsed: creditSummary.lastCreditDate,
+          lastPaymentDate: creditSummary.lastPaymentDate,
+          totalCreditTransactions: creditSummary.totalTransactions
         };
-        this.memberCreditData.set(mockCreditData);
+        
+        this.memberCreditData.set(posCredit);
+        console.log('POS: Member credit data converted and set successfully:', posCredit);
+        
+        // Check real eligibility using the working swagger endpoint
+        try {
+          console.log(`POS: Checking eligibility for member ${memberId} with current cart total`);
+          const cartTotal = this.cartSubtotal();
+          const eligibilityResponse = await this.memberCreditService.getMemberCreditEligibility(memberId, cartTotal).toPromise();
+          
+          if (eligibilityResponse) {
+            console.log('POS: Credit eligibility check result:', eligibilityResponse);
+            
+            // Update POS credit data with real eligibility info
+            posCredit.canUseCredit = eligibilityResponse.isEligible === true;
+            posCredit.isEligibleForCredit = eligibilityResponse.isEligible === true;
+            posCredit.statusMessage = eligibilityResponse.decisionReason || posCredit.statusMessage;
+            posCredit.maxTransactionAmount = eligibilityResponse.approvedAmount || posCredit.availableCredit * 0.8;
+            
+            console.log('POS: Updated credit data with eligibility:', {
+              canUseCredit: posCredit.canUseCredit,
+              isEligible: eligibilityResponse.isEligible,
+              decisionReason: eligibilityResponse.decisionReason
+            });
+          }
+        } catch (eligibilityError) {
+          console.warn('POS: Failed to check credit eligibility, using basic credit data:', eligibilityError);
+        }
+        
+        // Show appropriate messages based on updated credit status
+        if (posCredit.canUseCredit && posCredit.availableCredit > 0) {
+          this.toastService.showSuccess('Member Credit', 
+            `Credit tersedia: ${posCredit.availableCreditDisplay}`);
+        } else if (posCredit.hasOverduePayments) {
+          this.toastService.showWarning('Member Credit', 
+            'Member memiliki tunggakan pembayaran');
+        } else if (!posCredit.isEligibleForCredit) {
+          this.toastService.showInfo('Member Credit', 
+            `Member tidak memenuhi syarat: ${posCredit.statusMessage}`);
+        }
+      } else {
+        console.warn('POS: No credit data received for member:', memberId);
+        this.memberCreditData.set(undefined);
+        this.toastService.showInfo('Member Credit', 'Member belum memiliki data kredit');
       }
     } catch (error) {
-      console.error('Failed to load member credit data:', error);
+      console.error('POS: Failed to load member credit data:', error);
+      this.memberCreditData.set(undefined);
       
-      // TEMPORARY: Create mock data if API call fails
-      const mockCreditData: POSMemberCreditDto = {
-        memberId: memberId,
-        memberNumber: this.selectedMember()?.memberNumber || '',
-        name: this.selectedMember()?.name || '',
-        phone: this.selectedMember()?.phone || '',
-        email: this.selectedMember()?.email || '',
-        tier: 'Silver',
-        totalPoints: 1000,
-        creditLimit: 5000000,
-        currentDebt: 1000000,
-        availableCredit: 4000000,
-        creditStatus: 'Good',
-        creditScore: 85,
-        canUseCredit: true,
-        isEligibleForCredit: true,
-        maxTransactionAmount: 4000000,
-        statusMessage: 'Credit dalam kondisi baik',
-        statusColor: 'green',
-        hasWarnings: false,
-        warnings: [],
-        hasOverduePayments: false,
-        nextPaymentDueDate: undefined,
-        daysUntilNextPayment: 30,
-        creditLimitDisplay: 'Rp 5.000.000',
-        availableCreditDisplay: 'Rp 4.000.000',
-        currentDebtDisplay: 'Rp 1.000.000',
-        creditUtilization: 20,
-        lastCreditUsed: undefined,
-        lastPaymentDate: undefined,
-        totalCreditTransactions: 5
-      };
-      this.memberCreditData.set(mockCreditData);
-      
-      // Show warning but don't prevent functionality
-      this.toastService.showWarning('Member Credit Error', 'Using mock data for testing - API not available');
+      // Show error but don't prevent POS functionality
+      this.toastService.showWarning('Member Credit', 'Gagal memuat data kredit member');
     } finally {
       this.isLoadingMemberCredit.set(false);
     }

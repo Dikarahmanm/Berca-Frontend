@@ -11,7 +11,8 @@ import {
   POSMemberCreditDto,
   CreditValidationRequestDto,
   CreditValidationResultDto,
-  CreateSaleWithCreditDto
+  CreateSaleWithCreditDto,
+  POSItemDto
 } from '../../../membership/interfaces/member-credit.interfaces';
 import { validateCreditTransaction, formatCurrency as formatCreditCurrency } from '../../../membership/utils/credit-utils';
 
@@ -700,25 +701,33 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
     }
 
     try {
+      // Transform selectedItems to match backend POSItemDto format
+      const transformedItems: POSItemDto[] = (this.selectedItems || []).map((item: any) => ({
+        productId: item.productId || item.id,
+        quantity: item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || 0,
+        discountAmount: item.discountAmount || 0
+      }));
+
+      // For credit payment, the amount paid should be the credit amount
+      const creditAmount = this.amountPaid();
+      const cashAmount = this.totalAmount - creditAmount;
+      
       const creditSaleData: CreateSaleWithCreditDto = {
         memberId: this.memberId,
-        items: this.selectedItems || [],
+        items: transformedItems,
         totalAmount: this.totalAmount,
-        creditAmount: this.amountPaid(),
-        cashAmount: this.totalAmount - this.amountPaid(),
-        description: 'POS Sale with Credit Payment',
+        creditAmount: creditAmount,
+        cashAmount: Math.max(0, cashAmount), // Ensure non-negative
+        paymentMethod: cashAmount > 0 ? 6 : 5, // Mixed (6) or Credit only (5) payment method
         branchId: 1, // Default branch ID
         cashierId: 1, // Default cashier ID
-        paymentMethod: 1, // Credit payment method (numeric)
-        validationId: this.creditValidation()?.validationId || '',
-        isManagerApproved: false,
-        approvedByManagerId: 0,
-        approvalNotes: '',
-        customerNotes: '',
-        discountAmount: 0,
-        taxAmount: 0,
-        receiptNumber: this.paymentReference() || ''
+        customerName: this.memberCredit()?.name || 'Credit Customer',
+        notes: cashAmount > 0 ? `Mixed payment: Credit ${this.formatCurrency(creditAmount)}, Cash ${this.formatCurrency(cashAmount)}` : `Full credit payment: ${this.formatCurrency(creditAmount)}`
       };
+
+      // Log the request data for debugging
+      console.log('🚀 [POS Credit Payment] Sending request:', creditSaleData);
 
       // Create credit sale transaction
       const response = await this.memberCreditService.createSaleWithCredit(creditSaleData).toPromise();

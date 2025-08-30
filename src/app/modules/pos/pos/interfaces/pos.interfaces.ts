@@ -22,28 +22,32 @@ export interface ProductDto {
 
 export interface CreateSaleRequest {
   items: CreateSaleItemRequest[];
-  subTotal: number;
-  discountAmount: number;
-  discountPercentage?: number;  // ✅ Added for compatibility
-  taxAmount: number;
-  total: number;
-  amountPaid: number;
-  changeAmount: number;
   paymentMethod: string;
   paymentReference?: string;
+  amountPaid: number;
   memberId?: number;
   customerName?: string;
-  customerPhone?: string;
   notes?: string;
+  discountAmount: number;
+  taxAmount: number;
+  subTotal: number;
+  discountPercentage?: number;
+  total: number;
+  paidAmount: number;           // Backend field name
+  changeAmount: number;
   redeemedPoints?: number;
 }
 
-// ✅ ALIGNED WITH BACKEND: Uses sellPrice + discount percentage
+// ✅ ALIGNED WITH BACKEND: Complete item format matching Swagger
 export interface CreateSaleItemRequest {
   productId: number;
   quantity: number;
-  sellPrice: number;    // ✅ Price per unit (from Product)
-  discount: number;     // ✅ Discount percentage (0-100)
+  discount: number;           // Discount percentage (0-100)
+  sellPrice: number;          // Price per unit (from Product)
+  discountAmount: number;     // Calculated discount amount
+  notes?: string;             // Optional item notes
+  unitPrice: number;          // Unit price (same as sellPrice typically)
+  totalPrice: number;         // Total price for this item
 }
 
 export interface SaleDto {

@@ -194,21 +194,42 @@ export class MemberCreditService {
           console.log(`MemberCreditService: Response keys:`, Object.keys(response || {}));
         }),
         map(res => {
-          // Check if response has 'data' property (wrapped response)
-          let creditData;
-          if (res && typeof res === 'object' && res.data) {
-            creditData = res.data;
-            console.log(`MemberCreditService: Extracting from wrapped response for member ${memberId}:`, creditData);
-          } else if (res && typeof res === 'object' && res.memberId) {
-            // Direct response format
-            creditData = res;
-            console.log(`MemberCreditService: Using direct response for member ${memberId}:`, creditData);
+          console.log(`MemberCreditService: Processing response for member ${memberId}:`, res);
+          
+          // Backend always returns wrapped format: {success, data, message, timestamp}
+          let creditData = null;
+          
+          if (res && typeof res === 'object') {
+            // Check for wrapped response format with success flag
+            if (res.hasOwnProperty('data') && res.hasOwnProperty('success')) {
+              if (res.success === true && res.data) {
+                creditData = res.data;
+                console.log(`MemberCreditService: Extracted from wrapped response (success=true):`, creditData);
+              } else if (res.success === false) {
+                console.warn(`MemberCreditService: API returned success=false:`, res.message);
+                creditData = null;
+              } else {
+                console.warn(`MemberCreditService: Wrapped response with no data:`, res);
+                creditData = null;
+              }
+            } 
+            // Fallback: Check if it's direct response format (has memberId directly)
+            else if (res.memberId) {
+              creditData = res;
+              console.log(`MemberCreditService: Using direct response format:`, creditData);
+            } 
+            // Unknown format
+            else {
+              console.warn(`MemberCreditService: Unknown response format for member ${memberId}:`, res);
+              console.warn(`MemberCreditService: Response properties:`, Object.keys(res));
+              creditData = null;
+            }
           } else {
+            console.error(`MemberCreditService: Invalid response type for member ${memberId}:`, typeof res);
             creditData = null;
-            console.warn(`MemberCreditService: Unknown response format for member ${memberId}:`, res);
           }
           
-          console.log(`MemberCreditService: Final extracted credit data for member ${memberId}:`, creditData);
+          console.log(`MemberCreditService: Final credit data for member ${memberId}:`, creditData);
           return creditData;
         }),
         tap(summary => {
@@ -376,8 +397,49 @@ export class MemberCreditService {
    * POST /api/pos/validate-member-credit
    */
   validateMemberCreditForPOS(request: CreditValidationRequestDto): Observable<CreditValidationResultDto> {
-    return this.http.post<CreditApiResponse<CreditValidationResultDto>>(`${this.baseUrl}/pos/validate-member-credit`, request)
-      .pipe(map(res => res.data), catchError(this.handleError));
+    console.log('MemberCreditService: Validating member credit for POS:', request);
+    
+    return this.http.post<any>(`${this.baseUrl}/pos/validate-member-credit`, request)
+      .pipe(
+        tap((response) => {
+          console.log('MemberCreditService: POS credit validation response:', response);
+        }),
+        map(res => {
+          console.log('MemberCreditService: Processing validation response:', res);
+          
+          // Backend returns wrapped format: {success, data, message, timestamp}
+          let validationData = null;
+          
+          if (res && typeof res === 'object') {
+            // Check for wrapped response format with success flag
+            if (res.hasOwnProperty('data') && res.hasOwnProperty('success')) {
+              if (res.success === true && res.data) {
+                validationData = res.data;
+                console.log('MemberCreditService: Extracted validation from wrapped response (success=true):', validationData);
+              } else if (res.success === false) {
+                console.warn('MemberCreditService: Validation API returned success=false:', res.message);
+                // For validation, even success=false might contain useful data
+                validationData = res.data || res;
+              } else {
+                console.warn('MemberCreditService: Wrapped validation response with no data:', res);
+                validationData = res;
+              }
+            } 
+            // Fallback: treat as direct response
+            else {
+              validationData = res;
+              console.log('MemberCreditService: Using direct validation response:', validationData);
+            }
+          } else {
+            console.error('MemberCreditService: Invalid validation response type:', typeof res);
+            validationData = res;
+          }
+          
+          console.log('MemberCreditService: Final validation data:', validationData);
+          return validationData;
+        }),
+        catchError(this.handleError)
+      );
   }
 
   /**
@@ -385,8 +447,21 @@ export class MemberCreditService {
    * POST /api/pos/create-sale-with-credit
    */
   createSaleWithCredit(request: CreateSaleWithCreditDto): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/pos/create-sale-with-credit`, request)
-      .pipe(catchError(this.handleError));
+    console.log('MemberCreditService: Creating sale with credit:', request);
+    
+    // Use correct POS endpoint, not MemberCredit base URL
+    const posEndpoint = `${environment.apiUrl}/pos/create-sale-with-credit`;
+    
+    return this.http.post<any>(posEndpoint, request)
+      .pipe(
+        tap((response) => {
+          console.log('MemberCreditService: Sale with credit response:', response);
+        }),
+        catchError((error) => {
+          console.error('MemberCreditService: Error creating sale with credit:', error);
+          return this.handleError(error);
+        })
+      );
   }
 
   /**
@@ -403,12 +478,79 @@ export class MemberCreditService {
    * GET /api/pos/member-credit-lookup/{id}
    */
   getMemberCreditForPOS(identifier: string): Observable<POSMemberCreditDto> {
-    return this.http.get<CreditApiResponse<POSMemberCreditDto>>(`${this.baseUrl}/pos/member-credit-lookup/${identifier}`)
-      .pipe(map(res => res.data), catchError(this.handleError));
+    console.log('MemberCreditService: Looking up member credit for POS:', identifier);
+    
+    return this.http.get<any>(`${this.baseUrl}/pos/member-credit-lookup/${identifier}`)
+      .pipe(
+        tap((response) => {
+          console.log('MemberCreditService: POS member credit lookup response:', response);
+        }),
+        map(res => {
+          console.log('MemberCreditService: Processing member credit lookup response:', res);
+          
+          // Backend returns wrapped format: {success, data, message, timestamp}
+          let memberCreditData = null;
+          
+          if (res && typeof res === 'object') {
+            // Check for wrapped response format with success flag
+            if (res.hasOwnProperty('data') && res.hasOwnProperty('success')) {
+              if (res.success === true && res.data) {
+                memberCreditData = res.data;
+                console.log('MemberCreditService: Extracted member credit from wrapped response (success=true):', memberCreditData);
+              } else if (res.success === false) {
+                console.warn('MemberCreditService: Member credit lookup returned success=false:', res.message);
+                memberCreditData = null;
+              } else {
+                console.warn('MemberCreditService: Wrapped member credit response with no data:', res);
+                memberCreditData = null;
+              }
+            } 
+            // Fallback: treat as direct response
+            else {
+              memberCreditData = res;
+              console.log('MemberCreditService: Using direct member credit response:', memberCreditData);
+            }
+          } else {
+            console.error('MemberCreditService: Invalid member credit response type:', typeof res);
+            memberCreditData = null;
+          }
+          
+          console.log('MemberCreditService: Final member credit data:', memberCreditData);
+          return memberCreditData;
+        }),
+        catchError((error) => {
+          console.error('MemberCreditService: Error looking up member credit for POS:', error);
+          return this.handleError(error);
+        })
+      );
   }
 
   /**
-   * Check Member Credit Eligibility for POS
+   * Check Member Credit Eligibility - Real endpoint from swagger
+   * GET /api/MemberCredit/{memberId}/credit/eligibility
+   */
+  getMemberCreditEligibility(memberId: number, amount?: number): Observable<any> {
+    console.log(`MemberCreditService: Checking credit eligibility for member ${memberId}, amount: ${amount}`);
+    
+    let url = `${this.baseUrl}/MemberCredit/${memberId}/credit/eligibility`;
+    if (amount && amount > 0) {
+      url += `?amount=${amount}`;
+    }
+    
+    return this.http.get<any>(url)
+      .pipe(
+        tap((response) => {
+          console.log(`MemberCreditService: Credit eligibility response for member ${memberId}:`, response);
+        }),
+        catchError((error) => {
+          console.error(`MemberCreditService: Error checking credit eligibility for member ${memberId}:`, error);
+          return this.handleError(error);
+        })
+      );
+  }
+
+  /**
+   * Check Member Credit Eligibility for POS (Legacy endpoint - may not exist)
    * GET /api/pos/member/{id}/credit-eligibility
    */
   getMemberCreditEligibilityForPOS(memberId: number): Observable<any> {

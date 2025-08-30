@@ -17,16 +17,29 @@ export class ToastService {
    * Show success toast notification
    */
   showSuccess(title: string, message: string, actionText?: string, actionUrl?: string): void {
-    this.addToast({
+    console.log('🍞 TOAST SERVICE - showSuccess called with:', { title, message, actionText, actionUrl });
+    
+    const toast = {
       id: this.nextId++,
       title,
       message,
-      type: 'success',
+      type: 'success' as const,
       actionText,
       actionUrl,
       autoClose: true,
       duration: 5000
-    });
+    };
+    
+    console.log('🍞 TOAST SERVICE - Creating toast object:', toast);
+    this.addToast(toast);
+    
+    // Force debug check
+    setTimeout(() => {
+      console.log('🍞 TOAST SERVICE - Current queue after showSuccess:', {
+        count: this.toastsSubject.value.length,
+        titles: this.toastsSubject.value.map(t => t.title)
+      });
+    }, 50);
   }
 
   /**

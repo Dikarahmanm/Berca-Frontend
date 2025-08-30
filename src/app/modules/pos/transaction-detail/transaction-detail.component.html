@@ -49,13 +49,17 @@
         <span class="status-text">{{ statusInfo.text }}</span>
       </div>
       
+      <!-- Credit transactions now use existing validation workflow -->
+      
       @if (transaction()!.receiptPrinted) {
       <div class="status-badge status-info">
         <span class="status-icon">🖨️</span>
-        <span class="status-text">Receipt Dicetak</span>
+        <span class="status-text">Receipt Printed</span>
       </div>
       }
     </div>
+
+    <!-- Manager approval now handled in payment modal using existing credit validation workflow -->
 
     <!-- Information Cards Grid -->
     <div class="info-grid">
@@ -106,186 +110,99 @@
           <h3>Ringkasan Keuangan</h3>
         </div>
         <div class="card-content">
-          <div class="financial-list">
-            <div class="financial-item">
-              <span class="label">Total Items:</span>
-              <span class="value">{{ transaction()!.totalItems }} items</span>
-            </div>
-            <div class="financial-item">
+          <div class="info-list">
+            <div class="info-item">
               <span class="label">Subtotal:</span>
-              <span class="value">{{ formatCurrency(transaction()!.subtotal) }}</span>
+              <span class="value currency">{{ formatCurrency(transaction()!.subtotal) }}</span>
             </div>
             @if (transaction()!.discountAmount > 0) {
-            <div class="financial-item">
+            <div class="info-item discount">
               <span class="label">Diskon:</span>
-              <span class="value discount">-{{ formatCurrency(transaction()!.discountAmount) }}</span>
+              <span class="value currency">-{{ formatCurrency(transaction()!.discountAmount) }}</span>
             </div>
             }
             @if (transaction()!.taxAmount > 0) {
-            <div class="financial-item">
+            <div class="info-item">
               <span class="label">Pajak:</span>
-              <span class="value">{{ formatCurrency(transaction()!.taxAmount) }}</span>
+              <span class="value currency">{{ formatCurrency(transaction()!.taxAmount) }}</span>
             </div>
             }
-            <div class="financial-item total">
-              <span class="label">TOTAL:</span>
-              <span class="value">{{ formatCurrency(transaction()!.total) }}</span>
+            <div class="info-item total">
+              <span class="label">Total:</span>
+              <span class="value currency">{{ formatCurrency(transaction()!.total) }}</span>
             </div>
-            <div class="financial-item">
+            @if (transaction()!.amountPaid !== transaction()!.total) {
+            <div class="info-item">
               <span class="label">Dibayar:</span>
-              <span class="value">{{ formatCurrency(transaction()!.amountPaid) }}</span>
+              <span class="value currency">{{ formatCurrency(transaction()!.amountPaid) }}</span>
             </div>
-            @if (transaction()!.changeAmount > 0) {
-            <div class="financial-item">
+            <div class="info-item">
               <span class="label">Kembalian:</span>
-              <span class="value">{{ formatCurrency(transaction()!.changeAmount) }}</span>
+              <span class="value currency">{{ formatCurrency(transaction()!.changeAmount) }}</span>
             </div>
             }
-          </div>
-        </div>
-      </div>
-
-      <!-- Profit Analysis -->
-      <div class="card">
-        <div class="card-header">
-          <h3>Analisis Keuntungan</h3>
-        </div>
-        <div class="card-content">
-          <div class="profit-summary">
-            <div class="profit-item">
-              <span class="label">Total Keuntungan:</span>
-              <span class="value profit">{{ formatCurrency(totalProfit()) }}</span>
+            @if (totalProfit() !== 0) {
+            <div class="info-item profit">
+              <span class="label">Keuntungan:</span>
+              <span class="value currency profit-amount">{{ formatCurrency(totalProfit()) }}</span>
             </div>
-            <div class="profit-item">
-              <span class="label">Margin Keuntungan:</span>
-              <span class="value">{{ profitMargin().toFixed(2) }}%</span>
+            <div class="info-item">
+              <span class="label">Margin:</span>
+              <span class="value">{{ profitMargin() | number:'1.1-1' }}%</span>
             </div>
+            }
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Items Table -->
+    <!-- Items Detail -->
     <div class="card items-card">
       <div class="card-header">
-        <h3>Daftar Item ({{ transaction()!.items.length }} items)</h3>
+        <h3>Detail Item ({{ transaction()!.items.length }})</h3>
       </div>
       <div class="card-content">
-        <!-- Mobile View (Card Layout) -->
-        <div class="mobile-view">
+        <div class="items-table">
+          <div class="table-header">
+            <div class="col-name">Produk</div>
+            <div class="col-quantity">Qty</div>
+            <div class="col-price">Harga</div>
+            <div class="col-discount">Diskon</div>
+            <div class="col-subtotal">Subtotal</div>
+          </div>
+          
           @for (item of transaction()!.items; track trackByItem($index, item)) {
-          <div class="item-card">
-            <div class="item-header">
+          <div class="table-row">
+            <div class="col-name">
               <div class="product-info">
-                <h4 class="product-name">{{ item.productName }}</h4>
-                <p class="product-barcode">{{ item.productBarcode }}</p>
-                @if (item.notes) {
-                <p class="product-notes">{{ item.notes }}</p>
+                <span class="product-name">{{ item.productName }}</span>
+                @if (item.productBarcode) {
+                <span class="product-code">{{ item.productBarcode }}</span>
                 }
-              </div>
-              <div class="item-quantity">
-                <span class="qty">{{ item.quantity }}</span>
-                <span class="unit">{{ item.unit }}</span>
               </div>
             </div>
-            
-            <div class="item-details">
-              <div class="price-info">
-                <div class="price-row">
-                  <span class="label">Harga Satuan:</span>
-                  <span class="value">{{ formatCurrency(item.unitPrice) }}</span>
-                </div>
-                <div class="price-row">
-                  <span class="label">HPP:</span>
-                  <span class="value secondary">{{ formatCurrency(item.unitCost) }}</span>
-                </div>
-                @if (item.discountPercentage > 0) {
-                <div class="price-row">
-                  <span class="label">Diskon:</span>
-                  <span class="value discount">{{ item.discountPercentage }}%</span>
-                </div>
-                }
-              </div>
-              
-              <div class="subtotal-info">
-                <div class="subtotal-row total">
-                  <span class="label">Subtotal:</span>
-                  <span class="value">{{ formatCurrency(item.subtotal) }}</span>
-                </div>
-                <div class="subtotal-row">
-                  <span class="label">Profit:</span>
-                  <span class="value profit">{{ formatCurrency(item.totalProfit) }}</span>
-                </div>
-              </div>
+            <div class="col-quantity">
+              <span class="quantity-badge">{{ item.quantity }}</span>
+            </div>
+            <div class="col-price">
+              <span class="price">{{ formatCurrency(item.unitPrice) }}</span>
+            </div>
+            <div class="col-discount">
+              @if (item.discountAmount > 0) {
+              <span class="discount-amount">-{{ formatCurrency(item.discountAmount) }}</span>
+              } @else {
+              <span class="no-discount">-</span>
+              }
+            </div>
+            <div class="col-subtotal">
+              <span class="subtotal">{{ formatCurrency(item.subtotal) }}</span>
             </div>
           </div>
           }
         </div>
-
-        <!-- Desktop View (Table Layout) -->
-        <div class="desktop-view">
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th>Produk</th>
-                <th>Qty</th>
-                <th>Harga Satuan</th>
-                <th>Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of transaction()!.items; track trackByItem($index, item)) {
-              <tr>
-                <td>
-                  <div class="product-cell">
-                    <div class="product-name">{{ item.productName }}</div>
-                    <div class="product-barcode">{{ item.productBarcode }}</div>
-                    @if (item.notes) {
-                    <div class="product-notes">{{ item.notes }}</div>
-                    }
-                  </div>
-                </td>
-                <td class="qty-cell">
-                  <span class="qty">{{ item.quantity }}</span>
-                  <span class="unit">{{ item.unit }}</span>
-                </td>
-                <td>
-                  <div class="price-cell">
-                    <div class="selling-price">{{ formatCurrency(item.unitPrice) }}</div>
-                    <div class="cost-price">HPP: {{ formatCurrency(item.unitCost) }}</div>
-                    @if (item.discountPercentage > 0) {
-                    <div class="discount-info">Diskon: {{ item.discountPercentage }}%</div>
-                    }
-                  </div>
-                </td>
-                <td>
-                  <div class="subtotal-cell">
-                    <div class="subtotal">{{ formatCurrency(item.subtotal) }}</div>
-                    <div class="profit">Profit: {{ formatCurrency(item.totalProfit) }}</div>
-                    @if (item.discountAmount > 0) {
-                    <div class="discount">-{{ formatCurrency(item.discountAmount) }}</div>
-                    }
-                  </div>
-                </td>
-              </tr>
-              }
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
 
-    <!-- Notes Section -->
-    @if (transaction()!.notes) {
-    <div class="card notes-card">
-      <div class="card-header">
-        <h3>Catatan</h3>
-      </div>
-      <div class="card-content">
-        <p class="notes-text">{{ transaction()!.notes }}</p>
-      </div>
-    </div>
-    }
   </div>
   }
 </div>

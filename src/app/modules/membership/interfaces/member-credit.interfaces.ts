@@ -124,6 +124,7 @@ export interface POSMemberCreditDto {
   lastCreditUsed?: string;
   lastPaymentDate?: string;
   totalCreditTransactions: number;
+  paymentTermDays?: number; // Payment terms in days (30, 60, 90, etc.)
 }
 
 export interface CreditValidationRequestDto {
@@ -166,6 +167,8 @@ export interface CreateSaleWithCreditDto {
   cashierId: number;
   customerName?: string;  // Optional customer name
   notes?: string;         // Optional notes (was 'description')
+  useCustomDueDate?: boolean; // NEW: Enable flexible due date feature
+  customDueDate?: string;     // NEW: Custom due date (ISO format: YYYY-MM-DD)
 }
 
 export interface POSItemDto {

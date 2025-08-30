@@ -1,0 +1,515 @@
+<div class="transaction-detail-container">
+  <!-- Loading State -->
+  @if (loading()) {
+  <div class="loading-container">
+    <div class="loading-spinner"></div>
+    <h3>Memuat Detail Transaksi</h3>
+    <p>Mengambil informasi transaksi...</p>
+  </div>
+  }
+
+  <!-- Error State -->
+  @if (error() && !loading()) {
+  <div class="error-container">
+    <div class="error-icon">⚠️</div>
+    <h3>Terjadi Kesalahan</h3>
+    <p>{{ error() }}</p>
+    <button class="btn btn-primary" (click)="goBack()">
+      ← Kembali ke POS
+    </button>
+  </div>
+  }
+
+  <!-- Transaction Detail Content -->
+  @if (transaction() && !loading() && !error()) {
+  <div class="detail-content">
+    <!-- Header -->
+    <div class="detail-header">
+      <div class="header-left">
+        <button class="btn btn-outline back-button" (click)="goBack()">
+          ← Kembali
+        </button>
+        <div class="header-info">
+          <h1>Detail Transaksi</h1>
+          <p class="transaction-number">{{ transaction()!.saleNumber }}</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary print-button" (click)="onPrintReceipt()">
+          🧾 Lihat Receipt
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Section -->
+    <div class="status-section">
+      @let statusInfo = getStatusInfo(transaction()!.status);
+      <div class="status-badge status-{{ statusInfo.color }}">
+        <span class="status-icon">{{ statusInfo.icon }}</span>
+        <span class="status-text">{{ statusInfo.text }}</span>
+      </div>
+      
+      <!-- Credit transactions now use existing validation workflow -->
+      
+      @if (transaction()!.receiptPrinted) {
+      <div class="status-badge status-info">
+        <span class="status-icon">🖨️</span>
+        <span class="status-text">Receipt Dicetak</span>
+      </div>
+      }
+    </div>
+
+    <!-- Manager Approval Section -->
+    @if (requiresApproval() && approval()) {
+    <div class="card approval-card">
+      <div class="card-header">
+        <h3>🔐 Manager Approval Required</h3>
+      </div>
+      <div class="card-content">
+        <div class="approval-info">
+          <div class="approval-details">
+            <div class="detail-item">
+              <span class="label">Requested by:</span>
+              <span class="value">{{ approval()!.requestedByName }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Request Date:</span>
+              <span class="value">{{ formatDate(approval()!.requestedAt) }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Priority:</span>
+              <span class="value priority-{{ approval()!.priority.toLowerCase() }}">{{ approval()!.priority }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Required by:</span>
+              <span class="value">{{ approval()!.requiredBy }}</span>
+            </div>
+          </div>
+
+          @if (approval()!.details.requirementReasons.length > 0) {
+          <div class="requirement-reasons">
+            <h4>Reasons for Approval:</h4>
+            <ul class="reasons-list">
+              @for (reason of approval()!.details.requirementReasons; track $index) {
+              <li>{{ reason }}</li>
+              }
+            </ul>
+          </div>
+          }
+
+          <!-- Member Risk Information -->
+          <div class="risk-info">
+            <h4>Member Information:</h4>
+            <div class="member-grid">
+              <div class="member-item">
+                <span class="label">Member:</span>
+                <span class="value">{{ approval()!.details.memberName }} ({{ approval()!.details.memberCode }})</span>
+              </div>
+              <div class="member-item">
+                <span class="label">Credit Limit:</span>
+                <span class="value">{{ formatCurrency(approval()!.details.memberCreditLimit) }}</span>
+              </div>
+              <div class="member-item">
+                <span class="label">Current Debt:</span>
+                <span class="value">{{ formatCurrency(approval()!.details.memberCurrentDebt) }}</span>
+              </div>
+              <div class="member-item">
+                <span class="label">Status:</span>
+                <span class="value status-{{ approval()!.details.memberCreditStatus.toLowerCase() }}">{{ approval()!.details.memberCreditStatus }}</span>
+              </div>
+            </div>
+          </div>
+
+          @if (approval()!.status === 'approved') {
+          <div class="approval-result approved">
+            <div class="result-header">
+              <span class="result-icon">✅</span>
+              <span class="result-text">Transaction Approved</span>
+            </div>
+            <div class="result-details">
+              <div class="detail-item">
+                <span class="label">Approved by:</span>
+                <span class="value">{{ approval()!.approvedByName }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Approved at:</span>
+                <span class="value">{{ formatDate(approval()!.approvedAt!) }}</span>
+              </div>
+              @if (approval()!.notes) {
+              <div class="detail-item">
+                <span class="label">Notes:</span>
+                <span class="value">{{ approval()!.notes }}</span>
+              </div>
+              }
+            </div>
+          </div>
+          }
+
+          @if (approval()!.status === 'rejected') {
+          <div class="approval-result rejected">
+            <div class="result-header">
+              <span class="result-icon">❌</span>
+              <span class="result-text">Transaction Rejected</span>
+            </div>
+            <div class="result-details">
+              <div class="detail-item">
+                <span class="label">Rejected by:</span>
+                <span class="value">{{ approval()!.rejectedByName }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Rejected at:</span>
+                <span class="value">{{ formatDate(approval()!.rejectedAt!) }}</span>
+              </div>
+              @if (approval()!.rejectionReason) {
+              <div class="detail-item">
+                <span class="label">Reason:</span>
+                <span class="value rejection-reason">{{ approval()!.rejectionReason }}</span>
+              </div>
+              }
+              @if (approval()!.notes) {
+              <div class="detail-item">
+                <span class="label">Notes:</span>
+                <span class="value">{{ approval()!.notes }}</span>
+              </div>
+              }
+            </div>
+          </div>
+          }
+
+          <!-- Approval Actions (only for pending and if user can approve) -->
+          @if (canApprove()) {
+          <div class="approval-actions">
+            <button class="btn btn-success approve-btn" (click)="onApprove()" [disabled]="approvalLoading()">
+              <span class="btn-icon">✅</span>
+              <span class="btn-text">Approve Transaction</span>
+            </button>
+            <button class="btn btn-danger reject-btn" (click)="onReject()" [disabled]="approvalLoading()">
+              <span class="btn-icon">❌</span>
+              <span class="btn-text">Reject Transaction</span>
+            </button>
+          </div>
+          }
+        </div>
+      </div>
+    </div>
+    }
+
+    <!-- Information Cards Grid -->
+    <div class="info-grid">
+      <!-- Basic Transaction Info -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Informasi Transaksi</h3>
+        </div>
+        <div class="card-content">
+          <div class="info-list">
+            <div class="info-item">
+              <span class="label">Tanggal & Waktu:</span>
+              <span class="value">{{ formatDate(transaction()!.saleDate) }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Kasir:</span>
+              <span class="value">{{ transaction()!.cashierName }}</span>
+            </div>
+            @if (transaction()!.customerName) {
+            <div class="info-item">
+              <span class="label">Customer:</span>
+              <span class="value">{{ transaction()!.customerName }}</span>
+            </div>
+            }
+            @if (transaction()!.memberName) {
+            <div class="info-item">
+              <span class="label">Member:</span>
+              <span class="value">{{ transaction()!.memberName }} ({{ transaction()!.memberNumber }})</span>
+            </div>
+            }
+            <div class="info-item">
+              <span class="label">Metode Pembayaran:</span>
+              <span class="value">{{ transaction()!.paymentMethod }}</span>
+            </div>
+            @if (transaction()!.paymentReference) {
+            <div class="info-item">
+              <span class="label">Referensi:</span>
+              <span class="value">{{ transaction()!.paymentReference }}</span>
+            </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Summary -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Ringkasan Keuangan</h3>
+        </div>
+        <div class="card-content">
+          <div class="financial-list">
+            <div class="financial-item">
+              <span class="label">Total Items:</span>
+              <span class="value">{{ transaction()!.totalItems }} items</span>
+            </div>
+            <div class="financial-item">
+              <span class="label">Subtotal:</span>
+              <span class="value">{{ formatCurrency(transaction()!.subtotal) }}</span>
+            </div>
+            @if (transaction()!.discountAmount > 0) {
+            <div class="financial-item">
+              <span class="label">Diskon:</span>
+              <span class="value discount">-{{ formatCurrency(transaction()!.discountAmount) }}</span>
+            </div>
+            }
+            @if (transaction()!.taxAmount > 0) {
+            <div class="financial-item">
+              <span class="label">Pajak:</span>
+              <span class="value">{{ formatCurrency(transaction()!.taxAmount) }}</span>
+            </div>
+            }
+            <div class="financial-item total">
+              <span class="label">TOTAL:</span>
+              <span class="value">{{ formatCurrency(transaction()!.total) }}</span>
+            </div>
+            <div class="financial-item">
+              <span class="label">Dibayar:</span>
+              <span class="value">{{ formatCurrency(transaction()!.amountPaid) }}</span>
+            </div>
+            @if (transaction()!.changeAmount > 0) {
+            <div class="financial-item">
+              <span class="label">Kembalian:</span>
+              <span class="value">{{ formatCurrency(transaction()!.changeAmount) }}</span>
+            </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Profit Analysis -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Analisis Keuntungan</h3>
+        </div>
+        <div class="card-content">
+          <div class="profit-summary">
+            <div class="profit-item">
+              <span class="label">Total Keuntungan:</span>
+              <span class="value profit">{{ formatCurrency(totalProfit()) }}</span>
+            </div>
+            <div class="profit-item">
+              <span class="label">Margin Keuntungan:</span>
+              <span class="value">{{ profitMargin().toFixed(2) }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items Table -->
+    <div class="card items-card">
+      <div class="card-header">
+        <h3>Daftar Item ({{ transaction()!.items.length }} items)</h3>
+      </div>
+      <div class="card-content">
+        <!-- Mobile View (Card Layout) -->
+        <div class="mobile-view">
+          @for (item of transaction()!.items; track trackByItem($index, item)) {
+          <div class="item-card">
+            <div class="item-header">
+              <div class="product-info">
+                <h4 class="product-name">{{ item.productName }}</h4>
+                <p class="product-barcode">{{ item.productBarcode }}</p>
+                @if (item.notes) {
+                <p class="product-notes">{{ item.notes }}</p>
+                }
+              </div>
+              <div class="item-quantity">
+                <span class="qty">{{ item.quantity }}</span>
+                <span class="unit">{{ item.unit }}</span>
+              </div>
+            </div>
+            
+            <div class="item-details">
+              <div class="price-info">
+                <div class="price-row">
+                  <span class="label">Harga Satuan:</span>
+                  <span class="value">{{ formatCurrency(item.unitPrice) }}</span>
+                </div>
+                <div class="price-row">
+                  <span class="label">HPP:</span>
+                  <span class="value secondary">{{ formatCurrency(item.unitCost) }}</span>
+                </div>
+                @if (item.discountPercentage > 0) {
+                <div class="price-row">
+                  <span class="label">Diskon:</span>
+                  <span class="value discount">{{ item.discountPercentage }}%</span>
+                </div>
+                }
+              </div>
+              
+              <div class="subtotal-info">
+                <div class="subtotal-row total">
+                  <span class="label">Subtotal:</span>
+                  <span class="value">{{ formatCurrency(item.subtotal) }}</span>
+                </div>
+                <div class="subtotal-row">
+                  <span class="label">Profit:</span>
+                  <span class="value profit">{{ formatCurrency(item.totalProfit) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          }
+        </div>
+
+        <!-- Desktop View (Table Layout) -->
+        <div class="desktop-view">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Produk</th>
+                <th>Qty</th>
+                <th>Harga Satuan</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of transaction()!.items; track trackByItem($index, item)) {
+              <tr>
+                <td>
+                  <div class="product-cell">
+                    <div class="product-name">{{ item.productName }}</div>
+                    <div class="product-barcode">{{ item.productBarcode }}</div>
+                    @if (item.notes) {
+                    <div class="product-notes">{{ item.notes }}</div>
+                    }
+                  </div>
+                </td>
+                <td class="qty-cell">
+                  <span class="qty">{{ item.quantity }}</span>
+                  <span class="unit">{{ item.unit }}</span>
+                </td>
+                <td>
+                  <div class="price-cell">
+                    <div class="selling-price">{{ formatCurrency(item.unitPrice) }}</div>
+                    <div class="cost-price">HPP: {{ formatCurrency(item.unitCost) }}</div>
+                    @if (item.discountPercentage > 0) {
+                    <div class="discount-info">Diskon: {{ item.discountPercentage }}%</div>
+                    }
+                  </div>
+                </td>
+                <td>
+                  <div class="subtotal-cell">
+                    <div class="subtotal">{{ formatCurrency(item.subtotal) }}</div>
+                    <div class="profit">Profit: {{ formatCurrency(item.totalProfit) }}</div>
+                    @if (item.discountAmount > 0) {
+                    <div class="discount">-{{ formatCurrency(item.discountAmount) }}</div>
+                    }
+                  </div>
+                </td>
+              </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Section -->
+    @if (transaction()!.notes) {
+    <div class="card notes-card">
+      <div class="card-header">
+        <h3>Catatan</h3>
+      </div>
+      <div class="card-content">
+        <p class="notes-text">{{ transaction()!.notes }}</p>
+      </div>
+    </div>
+    }
+  </div>
+  }
+
+  <!-- Approval Action Modal -->
+  @if (showApprovalModal()) {
+  <div class="modal-overlay" (click)="cancelApprovalAction()">
+    <div class="modal-dialog approval-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          @if (approvalAction() === 'approve') {
+            ✅ Approve Transaction
+          } @else {
+            ❌ Reject Transaction  
+          }
+        </h3>
+        <button class="modal-close" (click)="cancelApprovalAction()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="confirmation-text">
+          @if (approvalAction() === 'approve') {
+            <p>Are you sure you want to <strong>approve</strong> this transaction?</p>
+            <p class="transaction-info">Transaction: <strong>{{ approval()?.transactionNumber }}</strong></p>
+          } @else {
+            <p>Are you sure you want to <strong>reject</strong> this transaction?</p>
+            <p class="transaction-info">Transaction: <strong>{{ approval()?.transactionNumber }}</strong></p>
+          }
+        </div>
+
+        @if (approvalAction() === 'reject') {
+        <div class="form-group">
+          <label for="rejectionReason" class="form-label">Rejection Reason <span class="required">*</span></label>
+          <select 
+            id="rejectionReason" 
+            class="form-select" 
+            [(ngModel)]="rejectionReason"
+            required>
+            <option value="">Select reason...</option>
+            <option value="insufficient_credit_history">Insufficient Credit History</option>
+            <option value="high_risk_member">High Risk Member</option>
+            <option value="policy_violation">Policy Violation</option>
+            <option value="incomplete_documentation">Incomplete Documentation</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        }
+
+        <div class="form-group">
+          <label for="approvalNotes" class="form-label">
+            @if (approvalAction() === 'approve') {
+              Approval Notes (Optional)
+            } @else {
+              Additional Notes (Optional)
+            }
+          </label>
+          <textarea 
+            id="approvalNotes"
+            class="form-textarea"
+            rows="4"
+            placeholder="Enter any additional notes..."
+            [(ngModel)]="approvalNotes"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="cancelApprovalAction()" [disabled]="approvalLoading()">
+          Cancel
+        </button>
+        <button 
+          class="btn"
+          [class.btn-success]="approvalAction() === 'approve'"
+          [class.btn-danger]="approvalAction() === 'reject'"
+          (click)="confirmApprovalAction()"
+          [disabled]="approvalLoading() || (approvalAction() === 'reject' && !rejectionReason())">
+          @if (approvalLoading()) {
+            <span class="loading-spinner"></span>
+            Processing...
+          } @else {
+            @if (approvalAction() === 'approve') {
+              ✅ Confirm Approval
+            } @else {
+              ❌ Confirm Rejection
+            }
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+  }
+</div>

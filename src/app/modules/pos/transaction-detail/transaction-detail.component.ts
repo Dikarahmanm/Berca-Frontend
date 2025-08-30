@@ -1,13 +1,16 @@
 import { Component, OnInit, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { POSService } from '../../../core/services/pos.service';
+import { ToastService } from '../../../shared/services/toast.service';
 import { TransactionDetail, TransactionItem } from '../interfaces/transaction-detail.interface';
+// Removed approval service imports - using existing credit validation endpoints instead
 
 @Component({
   selector: 'app-transaction-detail',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './transaction-detail.component.html',
   styleUrls: ['./transaction-detail.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -17,11 +20,14 @@ export class TransactionDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private posService = inject(POSService);
+  private toastService = inject(ToastService);
   
   // Signal-based state
   transaction = signal<TransactionDetail | null>(null);
   loading = signal<boolean>(true);
   error = signal<string | null>(null);
+  
+  // Removed approval-related state - using existing credit validation workflow instead
 
   // Computed properties
   totalProfit = computed(() => {
@@ -35,6 +41,8 @@ export class TransactionDetailComponent implements OnInit {
     if (!trans || trans.total === 0) return 0;
     return (profit / trans.total) * 100;
   });
+
+  // Removed approval computed properties - using existing credit validation workflow instead
 
   ngOnInit(): void {
     this.loadTransactionDetail();
@@ -58,6 +66,8 @@ export class TransactionDetailComponent implements OnInit {
       
       if (transaction) {
         this.transaction.set(transaction);
+        // Load approval data if transaction exists
+        // Approval data is now handled through existing credit validation workflow
       } else {
         this.error.set('Transaksi tidak ditemukan');
       }
@@ -114,6 +124,9 @@ export class TransactionDetailComponent implements OnInit {
         return { text: status, icon: '?', color: 'secondary' };
     }
   }
+
+  // ===== REMOVED APPROVAL METHODS =====
+  // Using existing credit validation endpoints instead of separate approval service
 
   // TrackBy function for performance
   trackByItem = (index: number, item: TransactionItem): number => item.id;

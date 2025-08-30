@@ -16,6 +16,10 @@ import {
 } from '../../../membership/interfaces/member-credit.interfaces';
 import { validateCreditTransaction, formatCurrency as formatCreditCurrency } from '../../../membership/utils/credit-utils';
 
+// Services
+import { ToastService } from '../../../../shared/services/toast.service';
+import { AuthService } from '../../../../core/services/auth.service';
+
 // Enhanced interfaces for better type safety
 export interface PaymentMethod {
   id: 'cash' | 'card' | 'digital' | 'credit';
@@ -235,6 +239,92 @@ export interface QuickAmount {
         </div>
         }
 
+        <!-- NEW: Manager Approval Section -->
+        @if (requiresManagerApproval()) {
+        <div class="manager-approval-section">
+          <div class="approval-card warning">
+            <div class="approval-header">
+              <span class="approval-icon">🔐</span>
+              <span class="approval-title">Manager Approval Required</span>
+            </div>
+            <div class="approval-details">
+              <p class="approval-reason">{{ creditValidation()?.decisionReason }}</p>
+              @if (creditValidation()?.warnings && creditValidation()!.warnings.length > 0) {
+              <ul class="approval-warnings">
+                <li *ngFor="let warning of creditValidation()!.warnings">{{ warning }}</li>
+              </ul>
+              }
+            </div>
+            @if (canManagerApprove()) {
+            <div class="approval-actions">
+              <button 
+                class="btn btn-warning"
+                (click)="openManagerApprovalDialog()"
+                [disabled]="managerApprovalLoading()">
+                @if (managerApprovalLoading()) {
+                <div class="loading-spinner-small"></div>
+                <span>Processing...</span>
+                } @else {
+                <span>🔓 Manager Override</span>
+                }
+              </button>
+            </div>
+            } @else {
+            <div class="approval-notice">
+              <p class="notice-text">🔒 Manager approval is required to proceed with this transaction.</p>
+            </div>
+            }
+          </div>
+        </div>
+        }
+
+        <!-- NEW: Flexible Due Date Section -->
+        <div class="due-date-section">
+          <h4 class="section-subtitle">Payment Due Date</h4>
+          
+          <div class="due-date-options">
+            <div class="form-field checkbox-field">
+              <label class="checkbox-label">
+                <input 
+                  type="checkbox" 
+                  [checked]="useCustomDueDate()"
+                  (change)="onCustomDueDateToggle($event)">
+                <span class="checkbox-text">Use custom due date</span>
+              </label>
+            </div>
+
+            @if (useCustomDueDate()) {
+            <div class="form-field">
+              <label>Custom Due Date</label>
+              <input 
+                type="date"
+                class="form-control"
+                [value]="customDueDate()"
+                (input)="onCustomDueDateChange($event)"
+                [min]="getTomorrowDate()"
+                [max]="getMaxDueDate()">
+              @if (dueDateValidationMessage()) {
+              <div class="validation-message error">
+                <span class="validation-icon">⚠️</span>
+                <span>{{ dueDateValidationMessage() }}</span>
+              </div>
+              }
+            </div>
+            }
+          </div>
+
+          <div class="due-date-summary">
+            <div class="summary-row">
+              <span class="summary-label">Payment Terms:</span>
+              <span class="summary-value">{{ memberCredit()?.paymentTermDays || 30 }} days</span>
+            </div>
+            <div class="summary-row highlight">
+              <span class="summary-label">Due Date:</span>
+              <span class="summary-value">{{ formatDueDate(actualDueDate()) }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Transaction Amount Display for Credit -->
         <div class="credit-transaction-info">
           <div class="transaction-card">
@@ -243,7 +333,7 @@ export interface QuickAmount {
             </div>
             <div class="transaction-amount">{{ formatCurrency(totalAmount) }}</div>
             <div class="transaction-note">
-              <small>Jatuh tempo: {{ getCreditDueDate() }}</small>
+              <small>Jatuh tempo: {{ formatDueDate(actualDueDate()) }}</small>
             </div>
           </div>
         </div>
@@ -299,6 +389,68 @@ export interface QuickAmount {
         </div>
       </div>
     </div>
+
+    <!-- NEW: Manager Approval Dialog Modal -->
+    @if (showManagerApprovalDialog()) {
+    <div class="modal-overlay" (click)="closeManagerApprovalDialog()">
+      <div class="approval-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Manager Approval Required</h3>
+          <button class="close-btn" (click)="closeManagerApprovalDialog()">✕</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="approval-summary">
+            <div class="summary-title">🔐 Transaction Requires Manager Override</div>
+            <div class="summary-details">
+              <div class="detail-row">
+                <span class="label">Amount:</span>
+                <span class="value">{{ formatCurrency(totalAmount) }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Member:</span>
+                <span class="value">{{ creditValidation()?.memberName }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Risk Level:</span>
+                <span class="value risk">{{ creditValidation()?.riskLevel }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Reason:</span>
+                <span class="value">{{ creditValidation()?.decisionReason }}</span>
+              </div>
+            </div>
+          </div>
+
+          @if (creditValidation()?.warnings && creditValidation()!.warnings.length > 0) {
+          <div class="warnings-section">
+            <div class="warnings-title">⚠️ Risk Factors:</div>
+            <ul class="warnings-list">
+              <li *ngFor="let warning of creditValidation()!.warnings">{{ warning }}</li>
+            </ul>
+          </div>
+          }
+        </div>
+        
+        <div class="modal-footer">
+          <button class="btn btn-outline" (click)="closeManagerApprovalDialog()" [disabled]="managerApprovalLoading()">
+            Cancel
+          </button>
+          <button 
+            class="btn btn-warning" 
+            (click)="managerApproveCredit()"
+            [disabled]="managerApprovalLoading()">
+            @if (managerApprovalLoading()) {
+            <div class="loading-spinner"></div>
+            <span>Approving...</span>
+            } @else {
+            <span>🔓 Override & Approve</span>
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+    }
   `,
   styleUrls: ['./payment-modal.component.scss']
 })
@@ -320,6 +472,8 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private memberCreditService = inject(MemberCreditService); // NEW: Credit service injection
+  private toastService = inject(ToastService); // NEW: Toast service injection
+  private authService = inject(AuthService); // NEW: Auth service injection
 
   // Signal-based state management
   selectedMethod = signal<'cash' | 'card' | 'digital' | 'credit'>('cash');
@@ -331,6 +485,14 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   memberCredit = signal<POSMemberCreditDto | null>(null);
   creditValidation = signal<CreditValidationResultDto | null>(null);
   creditValidationLoading = signal<boolean>(false);
+  
+  // NEW: Manager Approval signals (simplified)
+  showManagerApprovalDialog = signal<boolean>(false);
+  managerApprovalLoading = signal<boolean>(false);
+  
+  // NEW: Flexible Due Date signals
+  useCustomDueDate = signal<boolean>(false);
+  customDueDate = signal<string>('');
   
   // Computed properties
   calculatedChange = computed(() => {
@@ -347,15 +509,7 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
     return true;
   });
 
-  canProcessPayment = computed(() => {
-    if (this.selectedMethod() === 'credit') {
-      return this.isAmountValid() && 
-             !this.isProcessing() && 
-             !this.creditValidationLoading() &&
-             this.isCreditValid();
-    }
-    return this.isAmountValid() && !this.isProcessing();
-  });
+  // Removed duplicate - using the more comprehensive version below
 
   // NEW: Credit-specific computed properties
   isCreditValid = computed(() => {
@@ -440,6 +594,86 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
 
   // Member discount signal
   memberDiscountSignal = signal<number>(0);
+  
+  // NEW: Manager Approval computed properties (simplified)
+  requiresManagerApproval = computed(() => {
+    const validation = this.creditValidation();
+    return validation?.requiresManagerApproval || false;
+  });
+  
+  canManagerApprove = computed(() => {
+    const user = this.authService.getCurrentUser();
+    const userRole = user?.role;
+    return ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(userRole || '');
+  });
+  
+  canProcessPayment = computed(() => {
+    if (this.selectedMethod() === 'credit') {
+      const validation = this.creditValidation();
+      
+      // If requires manager approval but not approved yet, can't process
+      if (validation?.requiresManagerApproval && !validation.isApproved) {
+        return false;
+      }
+
+      // Check custom due date validation for credit
+      if (this.useCustomDueDate() && !this.isCustomDueDateValid()) {
+        return false;
+      }
+      
+      return this.isAmountValid() && 
+             !this.isProcessing() && 
+             !this.creditValidationLoading() &&
+             this.isCreditValid();
+    }
+    
+    return this.isAmountValid() && !this.isProcessing();
+  });
+
+  // NEW: Due Date computed properties
+  defaultDueDate = computed(() => {
+    const member = this.memberCredit();
+    if (!member) return '';
+    
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + (member.paymentTermDays || 30));
+    return dueDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+  });
+
+  actualDueDate = computed(() => {
+    return this.useCustomDueDate() ? this.customDueDate() : this.defaultDueDate();
+  });
+
+  isCustomDueDateValid = computed(() => {
+    if (!this.useCustomDueDate()) return true;
+    
+    const customDate = this.customDueDate();
+    if (!customDate) return false;
+    
+    const selectedDate = new Date(customDate);
+    const today = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(today.getDate() + 180); // 6 bulan
+    
+    return selectedDate > today && selectedDate <= maxDate;
+  });
+
+  dueDateValidationMessage = computed(() => {
+    if (!this.useCustomDueDate() || this.isCustomDueDateValid()) return '';
+    
+    const customDate = this.customDueDate();
+    if (!customDate) return 'Custom due date is required';
+    
+    const selectedDate = new Date(customDate);
+    const today = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(today.getDate() + 180);
+    
+    if (selectedDate <= today) return 'Due date must be in the future';
+    if (selectedDate > maxDate) return 'Due date cannot be more than 6 months from today';
+    
+    return '';
+  });
 
   constructor() {
     // Effects for reactive updates
@@ -723,7 +957,9 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
         branchId: 1, // Default branch ID
         cashierId: 1, // Default cashier ID
         customerName: this.memberCredit()?.name || 'Credit Customer',
-        notes: cashAmount > 0 ? `Mixed payment: Credit ${this.formatCurrency(creditAmount)}, Cash ${this.formatCurrency(cashAmount)}` : `Full credit payment: ${this.formatCurrency(creditAmount)}`
+        notes: cashAmount > 0 ? `Mixed payment: Credit ${this.formatCurrency(creditAmount)}, Cash ${this.formatCurrency(cashAmount)}` : `Full credit payment: ${this.formatCurrency(creditAmount)}`,
+        useCustomDueDate: this.useCustomDueDate(), // Flexible due date feature
+        customDueDate: this.useCustomDueDate() ? this.customDueDate() : undefined // Custom due date if enabled
       };
 
       // Log the request data for debugging
@@ -836,6 +1072,135 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ===== MANAGER APPROVAL METHODS (Using Existing Endpoint) =====
+
+  /**
+   * Show manager approval dialog
+   */
+  openManagerApprovalDialog(): void {
+    if (!this.requiresManagerApproval() || !this.canManagerApprove()) return;
+    this.showManagerApprovalDialog.set(true);
+  }
+
+  /**
+   * Close manager approval dialog
+   */
+  closeManagerApprovalDialog(): void {
+    this.showManagerApprovalDialog.set(false);
+  }
+
+  // ===== FLEXIBLE DUE DATE METHODS =====
+
+  /**
+   * Toggle custom due date option
+   */
+  onCustomDueDateToggle(event: Event): void {
+    const checkbox = event.target as HTMLInputElement;
+    this.useCustomDueDate.set(checkbox.checked);
+    
+    if (checkbox.checked && !this.customDueDate()) {
+      // Set default to tomorrow when enabling custom date
+      this.customDueDate.set(this.getTomorrowDate());
+    }
+  }
+
+  /**
+   * Handle custom due date change
+   */
+  onCustomDueDateChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.customDueDate.set(input.value);
+  }
+
+  /**
+   * Get tomorrow's date in YYYY-MM-DD format
+   */
+  getTomorrowDate(): string {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  }
+
+  /**
+   * Get maximum due date (6 months from today)
+   */
+  getMaxDueDate(): string {
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 180);
+    return maxDate.toISOString().split('T')[0];
+  }
+
+  /**
+   * Format due date for display
+   */
+  formatDueDate(dateString: string): string {
+    if (!dateString) return '-';
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+
+  /**
+   * Manager approve credit using existing endpoint with overrideWarnings: true
+   */
+  async managerApproveCredit(): Promise<void> {
+    if (!this.canManagerApprove() || !this.memberId) return;
+
+    this.managerApprovalLoading.set(true);
+
+    try {
+      // Use existing validation endpoint with overrideWarnings: true (manager approval)
+      const transformedItems: POSItemDto[] = (this.selectedItems || []).map((item: any) => ({
+        productId: item.productId || item.id,
+        quantity: item.quantity || 1,
+        unitPrice: item.unitPrice || item.price || 0,
+        discountAmount: item.discountAmount || 0
+      }));
+
+      const validationRequest: CreditValidationRequestDto = {
+        memberId: this.memberId,
+        requestedAmount: this.totalAmount,
+        items: transformedItems,
+        branchId: 1, // Default branch
+        description: 'Manager approved credit transaction',
+        overrideWarnings: true, // KEY: Manager approval override
+        managerUserId: 1 // Current manager user ID
+      };
+
+      // Call existing endpoint with manager override
+      const approvedValidation = await this.memberCreditService.validateMemberCreditForPOS(validationRequest).toPromise();
+
+      if (approvedValidation && approvedValidation.isApproved) {
+        // Update validation result with approved status
+        this.creditValidation.set(approvedValidation);
+        
+        this.toastService.showSuccess(
+          '✅ Credit Approved',
+          'Manager has approved the credit transaction',
+          'OK'
+        );
+        
+        this.closeManagerApprovalDialog();
+      } else {
+        throw new Error('Manager approval failed');
+      }
+      
+    } catch (error: any) {
+      console.error('Manager approval failed:', error);
+      this.toastService.showError(
+        '❌ Manager Approval Failed',
+        error.message || 'Failed to approve credit transaction',
+        'Try Again'
+      );
+    } finally {
+      this.managerApprovalLoading.set(false);
+    }
+  }
+
   // ===== UTILITY METHODS =====
 
   formatCurrency(amount: number): string {
@@ -859,5 +1224,9 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
     // NEW: Reset credit-specific state
     this.creditValidation.set(null);
     this.creditValidationLoading.set(false);
+    
+    // NEW: Reset manager approval state
+    this.showManagerApprovalDialog.set(false);
+    this.managerApprovalLoading.set(false);
   }
 }

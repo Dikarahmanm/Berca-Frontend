@@ -41,3 +41,7 @@ testem.log
 .DS_Store
 Thumbs.db
 src/app/modules/membership/readme.membership.md
+BACKEND-INTEGRATION-COMPLETE.md
+BACKEND-INTEGRATION-REQUIREMENTS.md
+PHASE-4-COMPLETION-SUMMARY.md
+readme.multibranch.md

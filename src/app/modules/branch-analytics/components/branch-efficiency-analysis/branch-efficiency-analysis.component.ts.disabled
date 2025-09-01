@@ -1,0 +1,18 @@
+// src/app/modules/branch-analytics/components/branch-efficiency-analysis/branch-efficiency-analysis.component.ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-branch-efficiency-analysis',
+  template: `
+    <div class="branch-efficiency-analysis">
+      <h2>Branch Efficiency Analysis</h2>
+      <p>Branch efficiency analysis component placeholder</p>
+    </div>
+  `,
+  styles: [`
+    .branch-efficiency-analysis {
+      padding: 16px;
+    }
+  `]
+})
+export class BranchEfficiencyAnalysisComponent {}

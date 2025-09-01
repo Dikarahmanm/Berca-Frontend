@@ -12,6 +12,11 @@
       <div class="subtitle-stats">
         <span class="stat-chip products">{{ filteredProductsCount() }} Products</span>
         <span class="stat-chip batches" *ngIf="batchViewMode()">{{ visibleBatchesCount() }} Batches</span>
+        <!-- NEW: Branch Context Info -->
+        <span class="stat-chip branch-context" *ngIf="availableBranches().length > 1">
+          <mat-icon class="branch-context-icon">store</mat-icon>
+          {{ getBranchContextInfo() }}
+        </span>
       </div>
     </div>
 
@@ -184,6 +189,44 @@
                 <span class="category-option">
                   <span class="category-color" [style.background-color]="category.color"></span>
                   {{ category.name }}
+                </span>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- NEW: Branch Filter -->
+          <mat-form-field class="branch-filter" appearance="outline" *ngIf="canManageBranches() || availableBranches().length > 1">
+            <mat-label>Branch</mat-label>
+            <mat-select [value]="branchFilterType()" (selectionChange)="onBranchFilterChange($event.value)">
+              <mat-option value="current">
+                <span class="branch-option">
+                  <mat-icon class="branch-icon">store</mat-icon>
+                  Current Branch ({{ activeBranch()?.branchName || 'None' }})
+                </span>
+              </mat-option>
+              <mat-option value="all" *ngIf="canManageBranches()">
+                <span class="branch-option">
+                  <mat-icon class="branch-icon">business</mat-icon>
+                  All Branches ({{ availableBranches().length }})
+                </span>
+              </mat-option>
+              <mat-option value="specific" *ngIf="availableBranches().length > 1">
+                <span class="branch-option">
+                  <mat-icon class="branch-icon">tune</mat-icon>
+                  Specific Branches
+                </span>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Branch Selection for Specific Mode -->
+          <mat-form-field class="branch-selection" appearance="outline" *ngIf="branchFilterType() === 'specific' && availableBranches().length > 1">
+            <mat-label>Select Branches</mat-label>
+            <mat-select multiple [value]="selectedBranchIds()" (selectionChange)="onBranchSelectionChange($event.value)">
+              <mat-option *ngFor="let branch of availableBranches()" [value]="branch.branchId">
+                <span class="branch-selection-option">
+                  <span class="branch-code">{{ branch.branchCode }}</span>
+                  {{ branch.branchName }}
                 </span>
               </mat-option>
             </mat-select>

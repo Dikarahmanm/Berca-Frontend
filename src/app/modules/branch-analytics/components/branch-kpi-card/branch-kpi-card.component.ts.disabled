@@ -1,0 +1,18 @@
+// src/app/modules/branch-analytics/components/branch-kpi-card/branch-kpi-card.component.ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-branch-kpi-card',
+  template: `
+    <div class="branch-kpi-card">
+      <h2>Branch KPI Card</h2>
+      <p>Branch KPI card component placeholder</p>
+    </div>
+  `,
+  styles: [`
+    .branch-kpi-card {
+      padding: 16px;
+    }
+  `]
+})
+export class BranchKpiCardComponent {}

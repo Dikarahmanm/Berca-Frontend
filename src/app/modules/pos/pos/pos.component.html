@@ -376,6 +376,26 @@
     
     <!-- Left Panel: Products (4fr) -->
     <section class="left-panel">
+      <!-- NEW: Branch Context Header -->
+      @if (activeBranch()) {
+        <div class="branch-context-header">
+          <div class="branch-info">
+            <span class="branch-icon">🏪</span>
+            <div class="branch-details">
+              <span class="branch-name">{{ activeBranch()!.branchName }}</span>
+              <span class="branch-code">{{ activeBranch()!.branchCode }}</span>
+            </div>
+          </div>
+          <div class="branch-status" [class.active]="canProcessTransaction()">
+            @if (canProcessTransaction()) {
+              <span class="status-indicator success">✓ Active</span>
+            } @else {
+              <span class="status-indicator warning">⚠ Read Only</span>
+            }
+          </div>
+        </div>
+      }
+      
       <!-- Search Section -->
       <div class="search-section">
         <div class="search-input-wrapper">
@@ -796,6 +816,7 @@
         [hasMember]="!!selectedMember()"
         [memberId]="selectedMember()?.id"
         [memberCreditData]="memberCreditData()"
+        [branchContext]="branchContext()"
         (paymentComplete)="onPaymentComplete($event)"
         (paymentCancelled)="onPaymentCancelled()"
       />

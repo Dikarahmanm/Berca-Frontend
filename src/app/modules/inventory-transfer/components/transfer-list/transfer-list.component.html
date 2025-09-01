@@ -1,0 +1,354 @@
+<!-- Transfer List Component Template -->
+<div class="transfer-list-container">
+  <!-- Header Section -->
+  <div class="header-section">
+    <div class="page-title">
+      <mat-icon>swap_horiz</mat-icon>
+      <h1>Inventory Transfer</h1>
+    </div>
+    
+    <div class="header-actions">
+      <button mat-raised-button color="primary" (click)="createTransfer()">
+        <mat-icon>add</mat-icon>
+        Create Transfer
+      </button>
+      
+      <button mat-icon-button [matMenuTriggerFor]="actionMenu" class="action-menu">
+        <mat-icon>more_vert</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-section" *ngIf="transferSummary()">
+    <div class="summary-cards">
+      <div *ngFor="let card of summaryCards()" 
+           class="summary-card" 
+           [class]="'card-' + card.color">
+        <div class="card-icon">
+          <mat-icon>{{ card.icon }}</mat-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-value">{{ card.value }}</div>
+          <div class="card-title">{{ card.title }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Section -->
+  <div class="filter-section">
+    <form [formGroup]="filterForm" class="filter-form">
+      <div class="filter-row">
+        <!-- Search -->
+        <mat-form-field appearance="outline" class="search-field">
+          <mat-label>Search transfers...</mat-label>
+          <input matInput formControlName="search" placeholder="Transfer number, branch, reason">
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+
+        <!-- Branch Filter -->
+        <mat-form-field appearance="outline">
+          <mat-label>Branch</mat-label>
+          <mat-select formControlName="branchId">
+            <mat-option value="">All Branches</mat-option>
+            <mat-option *ngFor="let branch of accessibleBranches()" [value]="branch.branchId">
+              {{ branch.branchName }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Status Filter -->
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select formControlName="status" multiple>
+            <mat-option *ngFor="let status of statusOptions" [value]="status.value">
+              {{ status.label }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Priority Filter -->
+        <mat-form-field appearance="outline">
+          <mat-label>Priority</mat-label>
+          <mat-select formControlName="priority" multiple>
+            <mat-option *ngFor="let priority of priorityOptions" [value]="priority.value">
+              {{ priority.label }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <div class="filter-actions">
+          <button mat-button type="button" (click)="clearFilters()">
+            <mat-icon>clear</mat-icon>
+            Clear
+          </button>
+          
+          <button mat-button type="button" (click)="refreshData()">
+            <mat-icon>refresh</mat-icon>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Date Range (collapsible) -->
+      <div class="date-filter-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Start Date</mat-label>
+          <input matInput [matDatepicker]="startPicker" formControlName="startDate">
+          <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+          <mat-datepicker #startPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>End Date</mat-label>
+          <input matInput [matDatepicker]="endPicker" formControlName="endDate">
+          <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+          <mat-datepicker #endPicker></mat-datepicker>
+        </mat-form-field>
+      </div>
+    </form>
+
+    <!-- View Toggle -->
+    <div class="view-toggle">
+      <mat-button-toggle-group 
+        [value]="currentView()" 
+        (change)="currentView.set($event.value)">>>
+        <mat-button-toggle value="all">All ({{ transfers().length }})</mat-button-toggle>
+        <mat-button-toggle value="pending">Pending ({{ transferService.pendingTransfers().length }})</mat-button-toggle>
+        <mat-button-toggle value="active">Active ({{ transferService.activeTransfers().length }})</mat-button-toggle>
+        <mat-button-toggle value="completed">Completed ({{ transferService.completedTransfers().length }})</mat-button-toggle>
+        <mat-button-toggle value="my">My Requests ({{ transferService.myTransfers().length }})</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading()" class="loading-section">
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <p>Loading transfers...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error()" class="error-section">
+    <mat-icon>error</mat-icon>
+    <p>{{ error() }}</p>
+    <button mat-button (click)="refreshData()">Try Again</button>
+  </div>
+
+  <!-- Transfer Table -->
+  <div class="table-section" *ngIf="!loading() && !error()">
+    <mat-card class="table-card">
+      <mat-card-content>
+        <table mat-table [dataSource]="filteredTransfers()" class="transfer-table">
+          
+          <!-- Transfer Number Column -->
+          <ng-container matColumnDef="transferNumber">
+            <th mat-header-cell *matHeaderCellDef>Transfer #</th>
+            <td mat-cell *matCellDef="let transfer">
+              <div class="transfer-number">
+                <strong>{{ transfer.transferNumber || 'TRN-' + transfer.id }}</strong>
+                <div class="transfer-date">{{ formatDate(transfer.requestDate) }}</div>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Source Branch Column -->
+          <ng-container matColumnDef="sourceBranch">
+            <th mat-header-cell *matHeaderCellDef>From</th>
+            <td mat-cell *matCellDef="let transfer">
+              <div class="branch-info">
+                <mat-icon>store</mat-icon>
+                <span>{{ transfer.sourceBranchName }}</span>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Target Branch Column -->
+          <ng-container matColumnDef="targetBranch">
+            <th mat-header-cell *matHeaderCellDef>To</th>
+            <td mat-cell *matCellDef="let transfer">
+              <div class="branch-info">
+                <mat-icon>store</mat-icon>
+                <span>{{ transfer.targetBranchName }}</span>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Total Items Column -->
+          <ng-container matColumnDef="totalItems">
+            <th mat-header-cell *matHeaderCellDef>Items</th>
+            <td mat-cell *matCellDef="let transfer">
+              <mat-chip-set>
+                <mat-chip>{{ transfer.totalItems }} items</mat-chip>
+              </mat-chip-set>
+            </td>
+          </ng-container>
+
+          <!-- Total Value Column -->
+          <ng-container matColumnDef="totalValue">
+            <th mat-header-cell *matHeaderCellDef>Value</th>
+            <td mat-cell *matCellDef="let transfer">
+              <div class="value-info">{{ formatCurrency(transfer.totalValue) }}</div>
+            </td>
+          </ng-container>
+
+          <!-- Priority Column -->
+          <ng-container matColumnDef="priority">
+            <th mat-header-cell *matHeaderCellDef>Priority</th>
+            <td mat-cell *matCellDef="let transfer">
+              <mat-chip 
+                [style.background-color]="getPriorityColor(transfer.priority)" 
+                style="color: white;">
+                {{ transfer.priority }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <!-- Status Column -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let transfer">
+              <mat-chip 
+                [style.background-color]="getStatusColor(transfer.status)" 
+                style="color: white;">
+                {{ getStatusLabel(transfer.status) }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <!-- Request Date Column -->
+          <ng-container matColumnDef="requestDate">
+            <th mat-header-cell *matHeaderCellDef>Requested</th>
+            <td mat-cell *matCellDef="let transfer">
+              <div class="date-info">
+                <div>{{ formatDate(transfer.requestDate) }}</div>
+                <small>by {{ transfer.requestedByName }}</small>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let transfer">
+              <div class="action-buttons">
+                <button mat-icon-button 
+                        (click)="viewTransferDetails(transfer)"
+                        matTooltip="View Details">
+                  <mat-icon>visibility</mat-icon>
+                </button>
+
+                <button mat-icon-button 
+                        *ngIf="canEdit(transfer)"
+                        (click)="editTransfer(transfer)"
+                        matTooltip="Edit">
+                  <mat-icon>edit</mat-icon>
+                </button>
+
+                <button mat-icon-button 
+                        *ngIf="canApprove(transfer)"
+                        (click)="approveTransfer(transfer)"
+                        matTooltip="Approve"
+                        color="primary">
+                  <mat-icon>check</mat-icon>
+                </button>
+
+                <button mat-icon-button 
+                        *ngIf="canReject(transfer)"
+                        (click)="rejectTransfer(transfer)"
+                        matTooltip="Reject"
+                        color="warn">
+                  <mat-icon>close</mat-icon>
+                </button>
+
+                <button mat-icon-button 
+                        [matMenuTriggerFor]="rowMenu"
+                        matTooltip="More Actions">
+                  <mat-icon>more_horiz</mat-icon>
+                </button>
+
+                <!-- Row Action Menu -->
+                <mat-menu #rowMenu="matMenu">
+                  <button mat-menu-item (click)="duplicateTransfer(transfer)">
+                    <mat-icon>content_copy</mat-icon>
+                    Duplicate
+                  </button>
+                  
+                  <button mat-menu-item 
+                          *ngIf="canCancel(transfer)"
+                          (click)="cancelTransfer(transfer)">
+                    <mat-icon>cancel</mat-icon>
+                    Cancel
+                  </button>
+
+                  <mat-divider></mat-divider>
+                  
+                  <button mat-menu-item (click)="viewTransferDetails(transfer)">
+                    <mat-icon>visibility</mat-icon>
+                    View Full Details
+                  </button>
+                </mat-menu>
+              </div>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;" 
+              class="transfer-row"
+              [class.pending-approval]="row.status === 'PendingApproval'"
+              [class.high-priority]="row.priority === 'High' || row.priority === 'Critical'">
+          </tr>
+        </table>
+
+        <!-- Empty State -->
+        <div *ngIf="filteredTransfers().length === 0" class="empty-state">
+          <mat-icon>swap_horiz</mat-icon>
+          <h3>No transfers found</h3>
+          <p *ngIf="currentView() === 'all'">No transfer requests have been created yet.</p>
+          <p *ngIf="currentView() === 'pending'">No transfers are pending approval.</p>
+          <p *ngIf="currentView() === 'active'">No transfers are currently active.</p>
+          <p *ngIf="currentView() === 'completed'">No completed transfers found.</p>
+          <p *ngIf="currentView() === 'my'">You haven't created any transfer requests yet.</p>
+          
+          <button mat-raised-button color="primary" 
+                  *ngIf="currentView() === 'all' || currentView() === 'my'"
+                  (click)="createTransfer()">
+            <mat-icon>add</mat-icon>
+            Create First Transfer
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
+
+<!-- Action Menu -->
+<mat-menu #actionMenu="matMenu">
+  <button mat-menu-item (click)="exportTransfers()">
+    <mat-icon>download</mat-icon>
+    Export Data
+  </button>
+  
+  <button mat-menu-item routerLink="/dashboard/inventory-transfer/comparison">
+    <mat-icon>compare_arrows</mat-icon>
+    Branch Comparison
+  </button>
+  
+  <button mat-menu-item routerLink="/dashboard/inventory-transfer/approval">
+    <mat-icon>pending_actions</mat-icon>
+    Pending Approvals
+  </button>
+  
+  <button mat-menu-item routerLink="/dashboard/inventory-transfer/history">
+    <mat-icon>history</mat-icon>
+    Transfer History
+  </button>
+  
+  <mat-divider></mat-divider>
+  
+  <button mat-menu-item (click)="refreshData()">
+    <mat-icon>refresh</mat-icon>
+    Refresh Data
+  </button>
+</mat-menu>

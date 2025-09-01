@@ -1,0 +1,335 @@
+<div class="mobile-test-utility" [class.device-frame]="showDeviceFrame()">
+  
+  <!-- Header -->
+  <mat-card class="utility-header">
+    <mat-card-header>
+      <div mat-card-avatar>
+        <mat-icon>smartphone</mat-icon>
+      </div>
+      <mat-card-title>Mobile Responsive Tester</mat-card-title>
+      <mat-card-subtitle>Real-time testing & debugging</mat-card-subtitle>
+    </mat-card-header>
+    
+    <mat-card-actions align="end">
+      <button mat-icon-button (click)="toggleDeviceFrame()" 
+              [matTooltip]="showDeviceFrame() ? 'Hide Frame' : 'Show Frame'">
+        <mat-icon>{{ showDeviceFrame() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+      </button>
+      <button mat-icon-button (click)="exportTestResults()" 
+              matTooltip="Export Results">
+        <mat-icon>download</mat-icon>
+      </button>
+      <button mat-icon-button (click)="clearResults()" 
+              matTooltip="Clear Results">
+        <mat-icon>clear_all</mat-icon>
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <div class="utility-content">
+    
+    <!-- Real-time Status -->
+    <mat-card class="status-card">
+      <mat-card-header>
+        <mat-card-title>Current Status</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="status-grid">
+          @if (isTestingActive()) {
+            <div class="status-overlay">
+              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+              <p>Running tests...</p>
+            </div>
+          }
+          
+          <div class="status-section">
+            <h4>Device Info</h4>
+            <div class="status-details">
+                <div class="status-item">
+                  <strong>Viewport:</strong> 
+                  @if (currentDeviceInfo(); as device) {
+                    {{ device.width }}×{{ device.height }}
+                  } @else {
+                    Unknown
+                  }
+                </div>
+                <div class="status-item">
+                  <strong>Breakpoint:</strong> 
+                  @if (responsiveBreakpoints(); as breakpoints) {
+                    <span class="breakpoint-badge">
+                      @if (breakpoints.isMobile) { Mobile }
+                      @else if (breakpoints.isTablet) { Tablet }
+                      @else if (breakpoints.isDesktop) { Desktop }
+                      @else { Unknown }
+                    </span>
+                  }
+                </div>
+                <div class="status-item">
+                  <strong>Device Type:</strong>
+                  @if (responsiveBreakpoints(); as breakpoints) {
+                    <div class="device-indicators">
+                      <span [class.active]="breakpoints.isMobile">Mobile</span>
+                      <span [class.active]="breakpoints.isTablet">Tablet</span>
+                      <span [class.active]="breakpoints.isDesktop">Desktop</span>
+                    </div>
+                  }
+                </div>
+            </div>
+          </div>
+
+          @if (selectedDevice(); as device) {
+            <div class="status-section">
+              <h4>Simulated Device</h4>
+              <div class="status-details">
+                <div class="status-item">
+                  <strong>Name:</strong> {{ device.name }}
+                </div>
+                <div class="status-item">
+                  <strong>Resolution:</strong> {{ device.width }}×{{ device.height }}
+                </div>
+                <div class="status-item">
+                  <strong>Pixel Ratio:</strong> {{ device.pixelRatio }}x
+                </div>
+              </div>
+            </div>
+          }
+
+          @if (testSummary(); as summary) {
+            <div class="status-section">
+              <h4>Test Summary</h4>
+              <div class="status-details">
+                <div class="status-item">
+                  <strong>Pass Rate:</strong> {{ summary.passRate }}%
+                </div>
+                <div class="status-item">
+                  <strong>Critical Issues:</strong> 
+                  <span class="issue-count critical">{{ summary.criticalIssues }}</span>
+                </div>
+                <div class="status-item">
+                  <strong>High Issues:</strong> 
+                  <span class="issue-count high">{{ summary.highIssues }}</span>
+                </div>
+                <div class="status-item">
+                  <strong>Grade:</strong> 
+                  <span class="grade grade-{{ summary.overallGrade }}">{{ summary.overallGrade }}</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Testing Tabs -->
+    <mat-card class="testing-card">
+      <mat-tab-group>
+        
+        <!-- Device Simulation Tab -->
+        <mat-tab label="Device Simulation">
+          <div class="tab-content">
+            <div class="device-controls">
+              <h3>Device Simulation</h3>
+              
+              <div class="device-grid">
+                @for (device of deviceSimulations; track device.name) {
+                  <button mat-raised-button 
+                          [color]="selectedDevice()?.name === device.name ? 'primary' : ''"
+                          (click)="simulateDevice(device)"
+                          class="device-button">
+                    <mat-icon>{{ getDeviceCategoryIcon(device.width > 800 ? 'tablet' : 'mobile') }}</mat-icon>
+                    <div class="device-info">
+                      <div class="device-name">{{ device.name }}</div>
+                      <div class="device-specs">{{ device.width }}×{{ device.height }}</div>
+                    </div>
+                  </button>
+                }
+              </div>
+
+              <div class="simulation-actions">
+                <button mat-raised-button color="warn" 
+                        (click)="resetSimulation()"
+                        [disabled]="!selectedDevice()">
+                  <mat-icon>refresh</mat-icon>
+                  Reset Simulation
+                </button>
+                
+                <mat-checkbox [checked]="showDeviceFrame()" (change)="toggleDeviceFrame()">
+                  Show Device Frame
+                </mat-checkbox>
+              </div>
+            </div>
+          </div>
+        </mat-tab>
+
+        <!-- Quick Tests Tab -->
+        <mat-tab label="Quick Tests">
+          <div class="tab-content">
+            <div class="quick-tests">
+              <h3>Quick Testing</h3>
+              
+              <div class="test-actions">
+                <button mat-raised-button color="primary" 
+                        (click)="runQuickTest()" 
+                        [disabled]="isRunningTest()">
+                  <mat-icon>play_arrow</mat-icon>
+                  Quick Test
+                </button>
+                
+                <button mat-raised-button color="accent" 
+                        (click)="runFullTest()" 
+                        [disabled]="isRunningTest()">
+                  <mat-icon>assessment</mat-icon>
+                  Full Test Suite
+                </button>
+                
+                <button mat-raised-button 
+                        (click)="scanForIssues()" 
+                        [disabled]="isRunningTest()">
+                  <mat-icon>search</mat-icon>
+                  Scan Issues
+                </button>
+              </div>
+
+              @if (testProgress() > 0 && testProgress() < 100) {
+                <div class="progress-section">
+                  <mat-progress-bar [value]="testProgress()"></mat-progress-bar>
+                  <p>Testing progress: {{ testProgress() }}%</p>
+                </div>
+              }
+
+              @if (criticalIssues().length > 0) {
+                <div class="critical-issues">
+                  <h4>Critical Issues Found</h4>
+                  @for (issue of criticalIssues(); track $index) {
+                    <mat-chip-listbox>
+                      <mat-chip-option [style.background-color]="getSeverityColor(issue.severity)">
+                        {{ issue.element }}: {{ issue.description }}
+                      </mat-chip-option>
+                    </mat-chip-listbox>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </mat-tab>
+
+        <!-- Results Tab -->
+        <mat-tab label="Results">
+          <div class="tab-content">
+            <div class="results-section">
+              <h3>Test Results</h3>
+              
+              @if (lastTestResults().length === 0) {
+                <div class="no-results">
+                  <mat-icon>info</mat-icon>
+                  <p>No test results yet. Run a test to see results here.</p>
+                </div>
+              } @else {
+                <mat-accordion>
+                  @for (result of lastTestResults(); track result.testId) {
+                    <mat-expansion-panel>
+                      <mat-expansion-panel-header>
+                        <mat-panel-title>
+                          {{ result.viewportName }}
+                          <span [class]="result.passed ? 'status-passed' : 'status-failed'">
+                            {{ result.passed ? '✓' : '✗' }}
+                          </span>
+                        </mat-panel-title>
+                        <mat-panel-description>
+                          {{ result.issues.length }} issues found
+                        </mat-panel-description>
+                      </mat-expansion-panel-header>
+                      
+                      <div class="result-details">
+                        <div class="performance-metrics">
+                          <h4>Performance</h4>
+                          <p>Render time: {{ result.performance.renderTime.toFixed(2) }}ms</p>
+                          <p>Layout shift: {{ result.performance.layoutShift.toFixed(3) }}</p>
+                          <p>Touch targets: {{ result.performance.touchTargetSize.toFixed(1) }}px avg</p>
+                        </div>
+
+                        @if (result.issues.length > 0) {
+                          <div class="issues-list">
+                            <h4>Issues ({{ result.issues.length }})</h4>
+                            @for (issue of result.issues; track $index) {
+                              <div class="issue-item" 
+                                   [style.border-left-color]="getSeverityColor(issue.severity)">
+                                <div class="issue-header">
+                                  <span class="severity-badge" 
+                                        [style.background-color]="getSeverityColor(issue.severity)">
+                                    {{ issue.severity }}
+                                  </span>
+                                  <span class="issue-type">{{ issue.type }}</span>
+                                </div>
+                                <div class="issue-description">{{ issue.description }}</div>
+                                <div class="issue-suggestion">💡 {{ issue.suggestion }}</div>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    </mat-expansion-panel>
+                  }
+                </mat-accordion>
+              }
+            </div>
+          </div>
+        </mat-tab>
+
+        <!-- Settings Tab -->
+        <mat-tab label="Settings">
+          <div class="tab-content">
+            <div class="settings-section">
+              <h3>Testing Settings</h3>
+              
+              <div class="settings-grid">
+                <div class="setting-item">
+                  <mat-checkbox [checked]="autoTest()" (change)="toggleAutoTest()">
+                    Auto-test on viewport change
+                  </mat-checkbox>
+                </div>
+                
+                <div class="setting-item">
+                  <mat-checkbox [checked]="showTooltips()" (change)="toggleTooltips()">
+                    Show helpful tooltips
+                  </mat-checkbox>
+                </div>
+                
+                <div class="setting-item">
+                  <mat-checkbox [checked]="highlightIssuesAuto()" (change)="toggleHighlightIssues()">
+                    Auto-highlight issues on page
+                  </mat-checkbox>
+                </div>
+                
+                <div class="setting-item">
+                  <label>Minimum touch target size (px):</label>
+                  <mat-slider min="32" max="64" step="4">
+                    <input matSliderThumb [value]="touchTargetMin()" 
+                           (input)="updateTouchTargetMin(+$any($event.target).value)">
+                  </mat-slider>
+                  <span class="value-display">{{ touchTargetMin() }}px</span>
+                </div>
+              </div>
+
+              <div class="export-section">
+                <h4>Export & Reporting</h4>
+                <div class="export-actions">
+                  <button mat-raised-button (click)="exportTestResults()">
+                    <mat-icon>download</mat-icon>
+                    Export Test Report
+                  </button>
+                  
+                  <button mat-raised-button color="warn" (click)="clearResults()">
+                    <mat-icon>delete</mat-icon>
+                    Clear All Results
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </mat-tab>
+
+      </mat-tab-group>
+    </mat-card>
+  </div>
+</div>

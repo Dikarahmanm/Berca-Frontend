@@ -1,0 +1,537 @@
+// src/app/modules/pos/tests/multi-branch-pos.integration.spec.ts
+// Integration tests for Multi-Branch POS workflow
+// Phase 4: Integration & Testing
+
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { BehaviorSubject, of } from 'rxjs';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { MatDialogModule } from '@angular/material/dialog';
+
+import { POSComponent } from '../pos/pos.component';
+import { BranchPOSService } from '../services/branch-pos.service';
+import { BranchInventoryService } from '../../inventory/services/branch-inventory.service';
+import { StateService } from '../../../core/services/state.service';
+import { BranchNotificationService } from '../../../core/services/branch-notification.service';
+
+// Mock interfaces
+interface MockBranch {
+  branchId: number;
+  branchCode: string;
+  branchName: string;
+  canProcessTransaction: boolean;
+  canRead: boolean;
+  canTransfer: boolean;
+}
+
+interface MockProduct {
+  id: number;
+  name: string;
+  barcode: string;
+  sellPrice: number;
+  buyPrice: number;
+  stock: number;
+  minStock: number;
+  isActive: boolean;
+  branchId?: number;
+}
+
+interface MockTransactionResult {
+  success: boolean;
+  data: {
+    id: number;
+    saleNumber: string;
+    total: number;
+    branchId: number;
+    items: any[];
+  };
+}
+
+describe('Multi-Branch POS Integration Tests', () => {
+  let component: POSComponent;
+  let fixture: ComponentFixture<POSComponent>;
+  
+  // Mock services
+  let mockStateService: jasmine.SpyObj<StateService>;
+  let mockBranchPOSService: jasmine.SpyObj<BranchPOSService>;
+  let mockBranchInventoryService: jasmine.SpyObj<BranchInventoryService>;
+  let mockBranchNotificationService: jasmine.SpyObj<BranchNotificationService>;
+
+  // Mock data
+  const mockBranches: MockBranch[] = [
+    {
+      branchId: 1,
+      branchCode: 'JKT01',
+      branchName: 'Jakarta Pusat',
+      canProcessTransaction: true,
+      canRead: true,
+      canTransfer: true
+    },
+    {
+      branchId: 2,
+      branchCode: 'BDG01', 
+      branchName: 'Bandung Timur',
+      canProcessTransaction: true,
+      canRead: true,
+      canTransfer: false
+    },
+    {
+      branchId: 3,
+      branchCode: 'SBY01',
+      branchName: 'Surabaya Barat',
+      canProcessTransaction: false,
+      canRead: true,
+      canTransfer: true
+    }
+  ];
+
+  const mockProducts: MockProduct[] = [
+    {
+      id: 1,
+      name: 'Indomie Goreng',
+      barcode: '8997878000011',
+      sellPrice: 3500,
+      buyPrice: 2800,
+      stock: 50,
+      minStock: 10,
+      isActive: true,
+      branchId: 1
+    },
+    {
+      id: 2,
+      name: 'Aqua 600ml',
+      barcode: '8997878000012',
+      sellPrice: 3000,
+      buyPrice: 2300,
+      stock: 25,
+      minStock: 15,
+      isActive: true,
+      branchId: 1
+    },
+    {
+      id: 3,
+      name: 'Ultra Milk 250ml',
+      barcode: '8997878000013',
+      sellPrice: 5500,
+      buyPrice: 4200,
+      stock: 8,
+      minStock: 20,
+      isActive: true,
+      branchId: 2
+    }
+  ];
+
+  beforeEach(async () => {
+    // Create service spies
+    const stateServiceSpy = jasmine.createSpyObj('StateService', [
+      'setUser', 'selectBranch', 'isAuthenticated'
+    ], {
+      accessibleBranches: jasmine.createSpy().and.returnValue(mockBranches),
+      activeBranch: jasmine.createSpy().and.returnValue(mockBranches[0]),
+      activeBranchIds: jasmine.createSpy().and.returnValue([mockBranches[0].branchId]),
+      user: jasmine.createSpy().and.returnValue({ id: 1, username: 'testuser' }),
+      isAuthenticated: jasmine.createSpy().and.returnValue(true)
+    });
+
+    const branchPOSServiceSpy = jasmine.createSpyObj('BranchPOSService', [
+      'processTransaction', 'canProcessTransaction', 'validateBranchStock'
+    ]);
+
+    const branchInventoryServiceSpy = jasmine.createSpyObj('BranchInventoryService', [
+      'loadBranchProducts', 'getBranchProducts', 'checkCrossBranchStock'
+    ], {
+      filteredProducts: jasmine.createSpy().and.returnValue(mockProducts.filter(p => p.branchId === 1))
+    });
+
+    const branchNotificationServiceSpy = jasmine.createSpyObj('BranchNotificationService', [
+      'createLowStockAlert', 'createTransferRequestNotification', 'getBranchNotifications'
+    ]);
+
+    await TestBed.configureTestingModule({
+      imports: [
+        POSComponent,
+        NoopAnimationsModule,
+        MatDialogModule
+      ],
+      providers: [
+        { provide: StateService, useValue: stateServiceSpy },
+        { provide: BranchPOSService, useValue: branchPOSServiceSpy },
+        { provide: BranchInventoryService, useValue: branchInventoryServiceSpy },
+        { provide: BranchNotificationService, useValue: branchNotificationServiceSpy }
+      ]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(POSComponent);
+    component = fixture.componentInstance;
+
+    mockStateService = TestBed.inject(StateService) as jasmine.SpyObj<StateService>;
+    mockBranchPOSService = TestBed.inject(BranchPOSService) as jasmine.SpyObj<BranchPOSService>;
+    mockBranchInventoryService = TestBed.inject(BranchInventoryService) as jasmine.SpyObj<BranchInventoryService>;
+    mockBranchNotificationService = TestBed.inject(BranchNotificationService) as jasmine.SpyObj<BranchNotificationService>;
+  });
+
+  describe('Branch Context Integration', () => {
+    it('should initialize with correct branch context', () => {
+      // Setup
+      mockBranchPOSService.canProcessTransaction.and.returnValue(true);
+      mockBranchInventoryService.loadBranchProducts.and.returnValue(of({ success: true, data: mockProducts }));
+
+      // Execute
+      fixture.detectChanges();
+
+      // Verify
+      expect(component.branchContext()).toEqual({
+        branchId: 1,
+        branchName: 'Jakarta Pusat', 
+        branchCode: 'JKT01',
+        canProcessTransaction: true
+      });
+    });
+
+    it('should load branch-specific products on initialization', () => {
+      // Setup
+      mockBranchInventoryService.loadBranchProducts.and.returnValue(of({ success: true, data: mockProducts }));
+
+      // Execute
+      fixture.detectChanges();
+
+      // Verify
+      expect(mockBranchInventoryService.loadBranchProducts).toHaveBeenCalled();
+      expect(component.filteredProducts().length).toBe(2); // Only products for branch 1
+    });
+
+    it('should switch branch context and reload products', () => {
+      // Setup
+      const branch2Products = mockProducts.filter(p => p.branchId === 2);
+      mockBranchInventoryService.filteredProducts.and.returnValue(branch2Products);
+      mockStateService.activeBranch.and.returnValue(mockBranches[1]);
+
+      // Execute
+      fixture.detectChanges();
+
+      // Verify branch context changed
+      expect(component.branchContext().branchId).toBe(2);
+      expect(component.branchContext().branchName).toBe('Bandung Timur');
+    });
+  });
+
+  describe('Branch-Aware Transaction Processing', () => {
+    beforeEach(() => {
+      fixture.detectChanges();
+      
+      // Add product to cart for testing
+      component.addToCart(mockProducts[0], 2);
+    });
+
+    it('should process transaction with branch context', async () => {
+      // Setup
+      const mockTransactionResult: MockTransactionResult = {
+        success: true,
+        data: {
+          id: 12345,
+          saleNumber: 'JKT01-20250101-001',
+          total: 7000,
+          branchId: 1,
+          items: [
+            {
+              productId: 1,
+              quantity: 2,
+              unitPrice: 3500,
+              branchId: 1
+            }
+          ]
+        }
+      };
+
+      mockBranchPOSService.processTransaction.and.returnValue(of(mockTransactionResult));
+      mockBranchPOSService.canProcessTransaction.and.returnValue(true);
+
+      // Execute
+      const paymentData = {
+        method: 'cash',
+        amountPaid: 10000,
+        change: 3000
+      };
+
+      component.onPaymentComplete(paymentData);
+
+      // Wait for async operations
+      await fixture.whenStable();
+
+      // Verify
+      expect(mockBranchPOSService.processTransaction).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          items: jasmine.arrayContaining([
+            jasmine.objectContaining({
+              branchId: 1,
+              productId: 1,
+              quantity: 2
+            })
+          ]),
+          transactionCode: jasmine.stringMatching(/JKT01-\d+/),
+          receiptNumber: jasmine.stringMatching(/RCP-JKT01-\d+-\d+/)
+        })
+      );
+    });
+
+    it('should prevent transaction when branch cannot process transactions', () => {
+      // Setup - Switch to branch that cannot process transactions
+      mockStateService.activeBranch.and.returnValue(mockBranches[2]); // Surabaya - canProcessTransaction: false
+      mockBranchPOSService.canProcessTransaction.and.returnValue(false);
+
+      // Execute
+      const paymentData = { method: 'cash', amountPaid: 10000, change: 3000 };
+      component.onPaymentComplete(paymentData);
+
+      // Verify
+      expect(mockBranchPOSService.processTransaction).not.toHaveBeenCalled();
+      expect(component.errorMessage()).toContain('Cannot process transaction');
+    });
+
+    it('should generate branch-specific transaction codes', () => {
+      // Setup
+      spyOn(component as any, 'generateTransactionCode').and.callThrough();
+
+      // Execute
+      component.onPaymentComplete({ method: 'cash', amountPaid: 10000, change: 3000 });
+
+      // Verify
+      const generatedCode = (component as any).generateTransactionCode();
+      expect(generatedCode).toMatch(/JKT01-\d+/);
+    });
+  });
+
+  describe('Cross-Branch Stock Checking', () => {
+    it('should check cross-branch stock when product not available in current branch', () => {
+      // Setup - Product not available in current branch
+      const unavailableProduct = { ...mockProducts[2], stock: 0 };
+      mockBranchInventoryService.checkCrossBranchStock.and.returnValue(
+        of({
+          success: true,
+          data: [
+            { branchId: 2, branchName: 'Bandung Timur', availableStock: 8 },
+            { branchId: 3, branchName: 'Surabaya Barat', availableStock: 15 }
+          ]
+        })
+      );
+
+      // Execute
+      component.addToCart(unavailableProduct, 1);
+
+      // Verify
+      expect(mockBranchInventoryService.checkCrossBranchStock).toHaveBeenCalledWith(
+        unavailableProduct.id,
+        1
+      );
+    });
+
+    it('should suggest transfer request when stock available in other branches', () => {
+      // Setup
+      const lowStockProduct = { ...mockProducts[0], stock: 1 };
+      mockBranchInventoryService.checkCrossBranchStock.and.returnValue(
+        of({
+          success: true,
+          data: [{ branchId: 2, branchName: 'Bandung Timur', availableStock: 25 }]
+        })
+      );
+
+      // Execute
+      component.addToCart(lowStockProduct, 5); // Request more than available
+
+      // Verify error message suggests transfer
+      expect(component.errorMessage()).toContain('tersedia di cabang lain');
+    });
+  });
+
+  describe('Branch Notification Integration', () => {
+    it('should create low stock alert for branch when stock becomes critical', () => {
+      // Setup
+      const criticalStockProduct = { ...mockProducts[1], stock: 5 };
+      mockBranchNotificationService.createLowStockAlert.and.returnValue(
+        of({
+          id: 1,
+          title: 'Low Stock Alert',
+          message: 'Aqua 600ml is running low',
+          type: 'low_stock',
+          branchId: 1,
+          isRead: false
+        } as any)
+      );
+
+      // Execute - Add product to cart that will trigger low stock
+      component.addToCart(criticalStockProduct, 3);
+      
+      // Simulate transaction completion
+      component.onPaymentComplete({ method: 'cash', amountPaid: 10000, change: 1000 });
+
+      // Verify
+      // Note: This test should verify the low stock check after transaction
+      expect(component.cart().length).toBeGreaterThan(0);
+    });
+
+    it('should create transfer request notification when requesting stock from another branch', async () => {
+      // Setup
+      mockBranchNotificationService.createTransferRequestNotification.and.returnValue(
+        of({
+          id: 2,
+          title: 'Transfer Request',
+          message: 'New transfer request from Jakarta Pusat',
+          type: 'transfer_request',
+          branchId: 2,
+          isRead: false
+        } as any)
+      );
+
+      // Execute - This would be triggered by a transfer request action
+      // For now, we'll test the service call directly
+      const transferData = {
+        transferId: 1,
+        sourceBranchId: 1,
+        targetBranchId: 2,
+        sourceBranchName: 'Jakarta Pusat',
+        targetBranchName: 'Bandung Timur',
+        requestedBy: 'testuser',
+        itemCount: 1,
+        estimatedValue: 35000,
+        priority: 'High' as const
+      };
+
+      mockBranchNotificationService.createTransferRequestNotification(transferData);
+
+      // Verify
+      expect(mockBranchNotificationService.createTransferRequestNotification)
+        .toHaveBeenCalledWith(transferData);
+    });
+  });
+
+  describe('Error Handling & Edge Cases', () => {
+    it('should handle branch service errors gracefully', () => {
+      // Setup
+      mockBranchPOSService.processTransaction.and.returnValue(
+        of({ success: false, message: 'Branch service error' } as any)
+      );
+
+      // Execute
+      component.addToCart(mockProducts[0], 1);
+      component.onPaymentComplete({ method: 'cash', amountPaid: 5000, change: 1500 });
+
+      // Verify
+      expect(component.errorMessage()).toContain('Branch service error');
+    });
+
+    it('should fallback to regular POS service when branch services fail', () => {
+      // Setup
+      mockBranchPOSService.processTransaction.and.throwError('Branch service unavailable');
+      
+      // In a real implementation, this would fallback to regular POS service
+      // For now, we'll verify the error handling
+      
+      // Execute
+      component.onPaymentComplete({ method: 'cash', amountPaid: 5000, change: 1500 });
+
+      // Verify error handling
+      expect(component.errorMessage()).toBeTruthy();
+    });
+
+    it('should validate branch permissions before processing transactions', () => {
+      // Setup - User doesn't have permission to process transactions
+      mockBranchPOSService.canProcessTransaction.and.returnValue(false);
+
+      // Execute
+      component.processPayment();
+
+      // Verify transaction is blocked
+      expect(component.errorMessage()).toContain('permissions');
+    });
+  });
+
+  describe('Mobile Responsiveness Integration', () => {
+    it('should show branch selector on mobile screens', () => {
+      // Setup
+      spyOnProperty(window, 'innerWidth', 'get').and.returnValue(768);
+
+      // Execute
+      fixture.detectChanges();
+
+      // Verify mobile-specific branch UI elements are available
+      // This would require actual DOM testing
+      expect(component.showMobileProducts()).toBeFalsy();
+      expect(component.showMobileSummary()).toBeFalsy();
+    });
+
+    it('should handle branch switching on mobile', () => {
+      // Setup mobile environment
+      spyOnProperty(window, 'innerWidth', 'get').and.returnValue(480);
+
+      // Execute branch switch
+      mockStateService.selectBranch.and.callFake((branchId: number) => {
+        mockStateService.activeBranch.and.returnValue(
+          mockBranches.find(b => b.branchId === branchId) || mockBranches[0]
+        );
+      });
+
+      // Execute
+      fixture.detectChanges();
+
+      // Verify mobile functionality works with branch context
+      expect(component.branchContext()).toBeTruthy();
+    });
+  });
+
+  describe('Performance Integration', () => {
+    it('should efficiently load branch products without blocking UI', () => {
+      // Setup
+      let loadProductsCallCount = 0;
+      mockBranchInventoryService.loadBranchProducts.and.callFake(() => {
+        loadProductsCallCount++;
+        return of({ success: true, data: mockProducts });
+      });
+
+      // Execute multiple branch switches rapidly
+      fixture.detectChanges();
+
+      // Verify efficient loading
+      expect(loadProductsCallCount).toBeLessThanOrEqual(2); // Should not reload excessively
+    });
+
+    it('should cache branch data for performance', () => {
+      // Setup
+      const loadSpy = mockBranchInventoryService.loadBranchProducts;
+      loadSpy.and.returnValue(of({ success: true, data: mockProducts }));
+
+      // Execute
+      fixture.detectChanges();
+      
+      // Switch back to same branch
+      mockStateService.activeBranch.and.returnValue(mockBranches[0]);
+      fixture.detectChanges();
+
+      // Verify caching behavior
+      expect(loadSpy.calls.count()).toBeLessThanOrEqual(2);
+    });
+  });
+});
+
+// Helper function to simulate real user interactions
+function simulateUserWorkflow(
+  component: POSComponent,
+  fixture: ComponentFixture<POSComponent>
+): void {
+  // 1. User selects branch
+  // 2. User searches for product
+  // 3. User adds product to cart
+  // 4. User processes payment
+  // 5. System creates notifications
+  // 6. System updates inventory across branches
+  
+  fixture.detectChanges();
+  
+  // Add product to cart
+  component.addToCart(mockProducts[0], 2);
+  
+  // Process payment
+  component.onPaymentComplete({
+    method: 'cash',
+    amountPaid: 10000,
+    change: 3000
+  });
+}

@@ -1,0 +1,395 @@
+// src/app/modules/inventory-transfer/components/create-transfer/create-transfer.component.scss
+// Styles for Create Transfer Component - Clean Simple Design
+
+.create-transfer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--s6);
+
+  .form-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--s8);
+    padding-bottom: var(--s4);
+    border-bottom: 2px solid var(--border);
+
+    .title-section {
+      h1 {
+        font-size: var(--text-2xl) !important;
+        font-weight: var(--font-bold) !important;
+        color: var(--text) !important;
+        margin: 0 !important;
+      }
+
+      .subtitle {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        margin-top: var(--s1);
+      }
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: var(--s3);
+    }
+  }
+
+  .form-content {
+    .form-section {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--s6);
+      margin-bottom: var(--s6);
+
+      .section-title {
+        font-size: var(--text-lg) !important;
+        font-weight: var(--font-semibold) !important;
+        color: var(--text) !important;
+        margin: 0 0 var(--s4) 0 !important;
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+
+        mat-icon {
+          color: var(--primary);
+        }
+      }
+
+      .form-grid {
+        display: grid;
+        gap: var(--s4);
+
+        &.grid-2 {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        &.grid-3 {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+    }
+
+    .transfer-items {
+      .items-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--s4);
+
+        .items-summary {
+          font-size: var(--text-sm);
+          color: var(--text-secondary);
+
+          .summary-item {
+            margin-right: var(--s4);
+
+            .label {
+              font-weight: var(--font-medium);
+            }
+
+            .value {
+              color: var(--primary);
+              font-weight: var(--font-semibold);
+            }
+          }
+        }
+      }
+
+      .transfer-item {
+        background: var(--bg);
+        border: 2px solid var(--border-light);
+        border-radius: var(--radius);
+        padding: var(--s4);
+        margin-bottom: var(--s3);
+        position: relative;
+        transition: var(--transition);
+
+        &:hover {
+          border-color: var(--primary);
+        }
+
+        .item-header {
+          display: flex;
+          justify-content: between;
+          align-items: center;
+          margin-bottom: var(--s3);
+
+          .item-number {
+            font-size: var(--text-sm);
+            font-weight: var(--font-semibold);
+            color: var(--primary);
+          }
+
+          .item-actions {
+            display: flex;
+            gap: var(--s2);
+          }
+        }
+
+        .item-content {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr;
+          gap: var(--s4);
+          align-items: end;
+
+          .product-info {
+            .stock-info {
+              font-size: var(--text-xs);
+              color: var(--text-secondary);
+              margin-top: var(--s1);
+
+              &.low-stock {
+                color: var(--warning);
+              }
+
+              &.out-of-stock {
+                color: var(--error);
+              }
+            }
+          }
+        }
+      }
+
+      .add-item-button {
+        width: 100%;
+        padding: var(--s4);
+        border: 2px dashed var(--border);
+        border-radius: var(--radius);
+        background: var(--bg);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: var(--transition);
+
+        &:hover {
+          border-color: var(--primary);
+          background: var(--primary-light);
+          color: var(--primary);
+        }
+
+        mat-icon {
+          margin-right: var(--s2);
+        }
+      }
+    }
+
+    .transfer-summary {
+      background: var(--primary-light);
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-lg);
+      padding: var(--s6);
+
+      .summary-title {
+        font-size: var(--text-lg) !important;
+        font-weight: var(--font-semibold) !important;
+        color: var(--primary) !important;
+        margin: 0 0 var(--s4) 0 !important;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: var(--s4);
+
+        .summary-item {
+          .label {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            margin-bottom: var(--s1);
+          }
+
+          .value {
+            font-size: var(--text-xl);
+            font-weight: var(--font-bold);
+            color: var(--text);
+
+            &.total-value {
+              color: var(--primary);
+            }
+          }
+        }
+      }
+    }
+
+    .priority-selection {
+      .priority-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: var(--s3);
+        margin-top: var(--s3);
+
+        .priority-option {
+          border: 2px solid var(--border);
+          border-radius: var(--radius);
+          padding: var(--s4);
+          cursor: pointer;
+          transition: var(--transition);
+
+          &:hover {
+            border-color: var(--primary);
+          }
+
+          &.selected {
+            border-color: var(--primary);
+            background: var(--primary-light);
+          }
+
+          .priority-label {
+            font-weight: var(--font-semibold);
+            margin-bottom: var(--s1);
+
+            &.low { color: var(--info); }
+            &.medium { color: var(--warning); }
+            &.high { color: var(--error); }
+            &.critical { 
+              color: var(--error); 
+              font-weight: var(--font-bold);
+            }
+          }
+
+          .priority-description {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+          }
+        }
+      }
+    }
+  }
+
+  .form-actions {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--s6);
+    margin-top: var(--s8);
+
+    .actions-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .secondary-actions {
+        display: flex;
+        gap: var(--s3);
+      }
+
+      .primary-actions {
+        display: flex;
+        gap: var(--s3);
+      }
+    }
+  }
+
+  // Error states
+  .field-error {
+    font-size: var(--text-xs) !important;
+    color: var(--error) !important;
+    margin-top: var(--s1) !important;
+  }
+
+  .form-field-invalid {
+    .mat-mdc-form-field {
+      .mat-mdc-text-field-wrapper {
+        .mat-mdc-form-field-flex {
+          .mat-mdc-form-field-infix {
+            .mat-mdc-input-element {
+              border-color: var(--error) !important;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Loading states
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border);
+    border-top: 4px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Mobile responsive
+@media (max-width: 768px) {
+  .create-transfer-container {
+    padding: var(--s4);
+
+    .form-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--s4);
+
+      .action-buttons {
+        justify-content: center;
+      }
+    }
+
+    .form-content {
+      .form-section {
+        padding: var(--s4);
+
+        .form-grid {
+          &.grid-2, &.grid-3 {
+            grid-template-columns: 1fr;
+          }
+        }
+      }
+
+      .transfer-items {
+        .transfer-item {
+          .item-content {
+            grid-template-columns: 1fr;
+            gap: var(--s3);
+          }
+        }
+      }
+
+      .transfer-summary {
+        .summary-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .priority-selection {
+        .priority-options {
+          grid-template-columns: 1fr;
+        }
+      }
+    }
+
+    .form-actions {
+      .actions-content {
+        flex-direction: column;
+        gap: var(--s4);
+
+        .secondary-actions,
+        .primary-actions {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
+  }
+}

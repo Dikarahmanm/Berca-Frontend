@@ -6,7 +6,10 @@
       "Bash(sed:*)",
       "Bash(grep:*)",
       "Bash(ng build:*)",
-      "Bash(ng serve:*)"
+      "Bash(ng serve:*)",
+      "Bash(npx ng test:*)",
+      "Bash(node -e:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

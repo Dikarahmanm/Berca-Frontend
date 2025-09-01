@@ -1,0 +1,18 @@
+// src/app/modules/branch-analytics/components/branch-trend-analysis/branch-trend-analysis.component.ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-branch-trend-analysis',
+  template: `
+    <div class="branch-trend-analysis">
+      <h2>Branch Trend Analysis</h2>
+      <p>Branch trend analysis component placeholder</p>
+    </div>
+  `,
+  styles: [`
+    .branch-trend-analysis {
+      padding: 16px;
+    }
+  `]
+})
+export class BranchTrendAnalysisComponent {}

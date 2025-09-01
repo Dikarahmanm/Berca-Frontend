@@ -1,8 +1,13 @@
-// src/app/core/services/auth.service.ts - FIXED for Cookie-Based Auth
+// src/app/core/services/auth.service.ts - Enhanced with Multi-Branch Support
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, tap, catchError, throwError, map, of } from 'rxjs';
+import { 
+  BranchAccessDto, 
+  BranchHierarchyDto, 
+  BranchUserRoleDto 
+} from '../interfaces/branch.interfaces';
 
 interface LoginRequest {
   username: string;
@@ -48,12 +53,29 @@ export interface UpdateUserRequest {
   isActive: boolean;
 }
 
-// Current user interface for POS Component
+// Current user interface for POS Component - Enhanced with Branch Support
 export interface CurrentUser {
   id: number;
   username: string;
   role: string;
   isActive: boolean;
+  // NEW: Multi-branch properties
+  defaultBranchId?: number;
+  accessibleBranches?: number[];
+  branchRole?: string;
+  canSwitchBranches?: boolean;
+}
+
+// NEW: Branch access response interface
+export interface UserBranchAccessResponse {
+  success: boolean;
+  data: {
+    accessibleBranches: BranchAccessDto[];
+    branchHierarchy: BranchHierarchyDto[];
+    userBranchRoles: BranchUserRoleDto[];
+    defaultBranchId: number;
+  };
+  message?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -67,6 +89,10 @@ export class AuthService {
   // Current user data
   private currentUserSubject = new BehaviorSubject<CurrentUser | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
+
+  // NEW: Multi-branch data
+  private userBranchAccessSubject = new BehaviorSubject<UserBranchAccessResponse | null>(null);
+  public userBranchAccess$ = this.userBranchAccessSubject.asObservable();
 
   constructor(private http: HttpClient, private router: Router) {
     console.log('🔧 AuthService initialized with DIRECT URL:', this.baseUrl);
@@ -95,7 +121,8 @@ export class AuthService {
             id: 1, // Will be set properly when we get user profile
             username: response.body.user,
             role: response.body.role,
-            isActive: true
+            isActive: true,
+            canSwitchBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(response.body.role)
           };
           
           localStorage.setItem('username', response.body.user);
@@ -105,6 +132,26 @@ export class AuthService {
           this.currentUserSubject.next(userData);
           this.isLoggedInSubject.next(true);
           console.log('💾 User data stored in localStorage and state');
+          
+          // Load user branch access after successful login
+          this.loadUserBranchAccess().subscribe({
+            next: (branchAccess) => {
+              if (branchAccess?.success) {
+                console.log('🏢 Branch access loaded successfully');
+                
+                // Update user data with branch info
+                const updatedUser = {
+                  ...userData,
+                  defaultBranchId: branchAccess.data.defaultBranchId,
+                  accessibleBranches: branchAccess.data.accessibleBranches.map(b => b.branchId)
+                };
+                this.currentUserSubject.next(updatedUser);
+              }
+            },
+            error: (error) => {
+              console.warn('⚠️ Failed to load branch access, continuing without branch data:', error);
+            }
+          });
           
           // Navigate to dashboard after state is updated
           setTimeout(() => {
@@ -150,7 +197,14 @@ export class AuthService {
         localStorage.removeItem('role');
         this.currentUserSubject.next(null);
         this.isLoggedInSubject.next(false);
-        console.log('✅ Logged out and cleared localStorage + state');
+        
+        // Clear branch data
+        this.userBranchAccessSubject.next(null);
+        localStorage.removeItem('selected-branch-id');
+        localStorage.removeItem('selected-branch-ids');
+        localStorage.removeItem('is-multi-select-mode');
+        
+        console.log('✅ Logged out and cleared all localStorage + state');
         
         // Navigate to login page after successful logout
         this.router.navigate(['/login']);
@@ -162,6 +216,12 @@ export class AuthService {
         localStorage.removeItem('role');
         this.currentUserSubject.next(null);
         this.isLoggedInSubject.next(false);
+        
+        // Clear branch data on logout error
+        this.userBranchAccessSubject.next(null);
+        localStorage.removeItem('selected-branch-id');
+        localStorage.removeItem('selected-branch-ids');
+        localStorage.removeItem('is-multi-select-mode');
         
         // Still redirect to login
         this.router.navigate(['/login']);
@@ -288,9 +348,27 @@ export class AuthService {
         id: 1, // Will be updated when we get full profile
         username: username,
         role: role,
-        isActive: true
+        isActive: true,
+        canSwitchBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(role)
       };
       this.currentUserSubject.next(userData);
+      
+      // Load branch access for existing user
+      this.loadUserBranchAccess().subscribe({
+        next: (branchAccess) => {
+          if (branchAccess?.success) {
+            const updatedUser = {
+              ...userData,
+              defaultBranchId: branchAccess.data.defaultBranchId,
+              accessibleBranches: branchAccess.data.accessibleBranches.map(b => b.branchId)
+            };
+            this.currentUserSubject.next(updatedUser);
+          }
+        },
+        error: (error) => {
+          console.warn('⚠️ Failed to load branch access during auth check:', error);
+        }
+      });
       
       // Test auth status
       this.testAuthStatus().subscribe({
@@ -439,5 +517,262 @@ export class AuthService {
       }),
       catchError(this.handleError.bind(this))
     );
+  }
+
+  // ===== NEW: MULTI-BRANCH METHODS =====
+
+  /**
+   * Load user's accessible branches and roles
+   */
+  loadUserBranchAccess(): Observable<UserBranchAccessResponse> {
+    const url = `${this.baseUrl}/branch/user-access`;
+    console.log('🏢 Loading user branch access...');
+    
+    return this.http.get<UserBranchAccessResponse>(url, {
+      withCredentials: true
+    }).pipe(
+      tap(response => {
+        if (response.success) {
+          console.log('✅ User branch access loaded:', {
+            accessibleBranches: response.data.accessibleBranches.length,
+            defaultBranchId: response.data.defaultBranchId,
+            userRoles: response.data.userBranchRoles.length
+          });
+          
+          // Store branch access data
+          this.userBranchAccessSubject.next(response);
+          
+          // Store default branch ID
+          if (response.data.defaultBranchId) {
+            localStorage.setItem('default-branch-id', response.data.defaultBranchId.toString());
+          }
+        } else {
+          console.warn('⚠️ Branch access request failed:', response.message);
+        }
+      }),
+      catchError(error => {
+        console.error('❌ Error loading user branch access:', error);
+        
+        // Return mock data for development
+        const mockResponse: UserBranchAccessResponse = {
+          success: true,
+          data: {
+            accessibleBranches: this.generateMockBranchAccess(),
+            branchHierarchy: this.generateMockBranchHierarchy(),
+            userBranchRoles: this.generateMockUserBranchRoles(),
+            defaultBranchId: 1
+          },
+          message: 'Using mock branch data for development'
+        };
+        
+        this.userBranchAccessSubject.next(mockResponse);
+        console.log('📝 Using mock branch access data');
+        
+        return of(mockResponse);
+      })
+    );
+  }
+
+  /**
+   * Get current branch access data
+   */
+  getCurrentBranchAccess(): UserBranchAccessResponse | null {
+    return this.userBranchAccessSubject.value;
+  }
+
+  /**
+   * Refresh user branch access (after role changes, etc.)
+   */
+  refreshBranchAccess(): Observable<UserBranchAccessResponse> {
+    console.log('🔄 Refreshing user branch access...');
+    return this.loadUserBranchAccess();
+  }
+
+  /**
+   * Check if user can access specific branch
+   */
+  canAccessBranch(branchId: number): boolean {
+    const branchAccess = this.userBranchAccessSubject.value;
+    if (!branchAccess?.success) return false;
+    
+    return branchAccess.data.accessibleBranches.some(b => 
+      b.branchId === branchId && b.canRead
+    );
+  }
+
+  /**
+   * Check if user can manage specific branch
+   */
+  canManageBranch(branchId: number): boolean {
+    const branchAccess = this.userBranchAccessSubject.value;
+    if (!branchAccess?.success) return false;
+    
+    return branchAccess.data.accessibleBranches.some(b => 
+      b.branchId === branchId && b.canManage
+    );
+  }
+
+  // ===== MOCK DATA GENERATORS FOR DEVELOPMENT =====
+
+  private generateMockBranchAccess(): BranchAccessDto[] {
+    const currentUser = this.getCurrentUser();
+    const isAdmin = currentUser?.role === 'Admin';
+    const isManager = ['Manager', 'BranchManager', 'HeadManager'].includes(currentUser?.role || '');
+    
+    return [
+      {
+        branchId: 1,
+        branchCode: 'HQ001',
+        branchName: 'Cabang Utama Jakarta',
+        branchType: 'Head',
+        isHeadOffice: true,
+        level: 0,
+        canRead: true,
+        canWrite: isAdmin || isManager,
+        canManage: isAdmin,
+        canTransfer: isAdmin || isManager,
+        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly'
+      },
+      {
+        branchId: 2,
+        branchCode: 'BR002',
+        branchName: 'Cabang Bekasi Timur',
+        branchType: 'Branch',
+        isHeadOffice: false,
+        level: 1,
+        canRead: true,
+        canWrite: isAdmin || isManager,
+        canManage: isAdmin,
+        canTransfer: isAdmin || isManager,
+        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly'
+      },
+      {
+        branchId: 3,
+        branchCode: 'BR003',
+        branchName: 'Cabang Tangerang Selatan',
+        branchType: 'Branch',
+        isHeadOffice: false,
+        level: 1,
+        canRead: true,
+        canWrite: isAdmin || (isManager && currentUser?.username !== 'cashier'),
+        canManage: isAdmin,
+        canTransfer: isAdmin || isManager,
+        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly'
+      },
+      {
+        branchId: 4,
+        branchCode: 'BR004',
+        branchName: 'Cabang Depok Margonda',
+        branchType: 'SubBranch',
+        isHeadOffice: false,
+        level: 2,
+        canRead: true,
+        canWrite: isAdmin,
+        canManage: isAdmin,
+        canTransfer: isAdmin || isManager,
+        accessLevel: isAdmin ? 'Full' : 'ReadOnly'
+      }
+    ];
+  }
+
+  private generateMockBranchHierarchy(): BranchHierarchyDto[] {
+    return [
+      {
+        branchId: 1,
+        branchName: 'Cabang Utama Jakarta',
+        branchCode: 'HQ001',
+        branchType: 'Head',
+        level: 0,
+        children: [
+          {
+            branchId: 2,
+            branchName: 'Cabang Bekasi Timur',
+            branchCode: 'BR002',
+            branchType: 'Branch',
+            level: 1,
+            parentBranchId: 1,
+            children: [],
+            isExpanded: false
+          },
+          {
+            branchId: 3,
+            branchName: 'Cabang Tangerang Selatan',
+            branchCode: 'BR003',
+            branchType: 'Branch',
+            level: 1,
+            parentBranchId: 1,
+            children: [
+              {
+                branchId: 4,
+                branchName: 'Cabang Depok Margonda',
+                branchCode: 'BR004',
+                branchType: 'SubBranch',
+                level: 2,
+                parentBranchId: 3,
+                children: [],
+                isExpanded: false
+              }
+            ],
+            isExpanded: false
+          }
+        ],
+        isExpanded: true
+      }
+    ];
+  }
+
+  private generateMockUserBranchRoles(): BranchUserRoleDto[] {
+    const currentUser = this.getCurrentUser();
+    const userRole = currentUser?.role || 'User';
+    
+    const basePermissions = this.getRolePermissions(userRole);
+    
+    return [
+      {
+        branchId: 1,
+        branchName: 'Cabang Utama Jakarta',
+        role: userRole as any,
+        permissions: basePermissions,
+        canSwitchToOtherBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(userRole),
+        defaultBranch: true
+      },
+      {
+        branchId: 2,
+        branchName: 'Cabang Bekasi Timur',
+        role: userRole as any,
+        permissions: userRole === 'Admin' ? basePermissions : basePermissions.filter(p => p !== 'branch.manage'),
+        canSwitchToOtherBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(userRole),
+        defaultBranch: false
+      },
+      {
+        branchId: 3,
+        branchName: 'Cabang Tangerang Selatan',
+        role: userRole as any,
+        permissions: userRole === 'Admin' ? basePermissions : basePermissions.filter(p => p !== 'branch.manage'),
+        canSwitchToOtherBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(userRole),
+        defaultBranch: false
+      },
+      {
+        branchId: 4,
+        branchName: 'Cabang Depok Margonda',
+        role: userRole as any,
+        permissions: userRole === 'Admin' ? basePermissions : ['inventory.read', 'pos.operate'],
+        canSwitchToOtherBranches: ['Admin', 'Manager'].includes(userRole),
+        defaultBranch: false
+      }
+    ];
+  }
+
+  private getRolePermissions(role: string): string[] {
+    const rolePermissions: Record<string, string[]> = {
+      'Admin': ['inventory.write', 'facture.write', 'reports.export', 'users.manage', 'supplier.write', 'branch.manage', 'member-debt.write', 'pos.operate'],
+      'HeadManager': ['inventory.write', 'facture.write', 'reports.export', 'supplier.write', 'branch.read', 'member-debt.write', 'pos.operate'],
+      'BranchManager': ['inventory.write', 'reports.read', 'member-debt.write', 'pos.operate', 'branch.read'],
+      'Manager': ['inventory.write', 'pos.operate', 'supplier.read', 'member-debt.read'],
+      'User': ['inventory.read', 'pos.operate', 'member-debt.read'],
+      'Cashier': ['pos.operate']
+    };
+    
+    return rolePermissions[role] || ['pos.operate'];
   }
 }

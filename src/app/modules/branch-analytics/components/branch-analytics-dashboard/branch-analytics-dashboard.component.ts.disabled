@@ -1,0 +1,349 @@
+// src/app/modules/branch-analytics/components/branch-analytics-dashboard/branch-analytics-dashboard.component.ts
+// Main dashboard component for comprehensive branch analytics overview
+
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { FormBuilder, FormGroup } from '@angular/forms';
+
+import { BranchAnalyticsService } from '../../../../core/services/branch-analytics.service';
+import { StateService } from '../../../../core/services/state.service';
+
+export interface DashboardTimeRange {
+  label: string;
+  value: string;
+  days: number;
+}
+
+@Component({
+  selector: 'app-branch-analytics-dashboard',
+  templateUrl: './branch-analytics-dashboard.component.html',
+  styleUrls: ['./branch-analytics-dashboard.component.scss']
+})
+export class BranchAnalyticsDashboardComponent implements OnInit {
+  
+  constructor(
+    private analyticsService: BranchAnalyticsService,
+    private stateService: StateService,
+    private router: Router,
+    private fb: FormBuilder
+  ) {}
+
+  // Signals for reactive state
+  selectedTimeRange = signal<string>('30d');
+  selectedBranches = signal<number[]>([]);
+  showDetailsPanel = signal<boolean>(false);
+  selectedBranchDetail = signal<number | null>(null);
+
+  // Data from analytics service
+  readonly analyticsOverview = this.analyticsService.analyticsOverview;
+  readonly branchPerformances = this.analyticsService.branchPerformances;
+  readonly branchComparisons = this.analyticsService.branchComparisons;
+  readonly branchAlerts = this.analyticsService.branchAlerts;
+  readonly topPerformingBranches = this.analyticsService.topPerformingBranches;
+  readonly underperformingBranches = this.analyticsService.underperformingBranches;
+  readonly criticalAlerts = this.analyticsService.criticalAlerts;
+  readonly branchHealthScores = this.analyticsService.branchHealthScores;
+  readonly capacityUtilizationSummary = this.analyticsService.capacityUtilizationSummary;
+  readonly performanceTrends = this.analyticsService.performanceTrends;
+  readonly loading = this.analyticsService.loading;
+  readonly error = this.analyticsService.error;
+
+  // User permissions and context
+  readonly user = this.stateService.user;
+  readonly accessibleBranches = this.stateService.accessibleBranches;
+
+  // Time range options
+  timeRangeOptions: DashboardTimeRange[] = [
+    { label: 'Last 7 Days', value: '7d', days: 7 },
+    { label: 'Last 30 Days', value: '30d', days: 30 },
+    { label: 'Last 90 Days', value: '90d', days: 90 },
+    { label: 'Last 6 Months', value: '180d', days: 180 },
+    { label: 'Last Year', value: '365d', days: 365 }
+  ];
+
+  // Filter form
+  filterForm: FormGroup = this.fb.group({
+    timeRange: [this.selectedTimeRange()],
+    branchFilter: ['all'],
+    metricType: ['all'],
+    alertLevel: ['all']
+  });
+
+  // Computed properties
+  readonly filteredBranchPerformances = computed(() => {
+    const performances = this.branchPerformances();
+    const selectedBranches = this.selectedBranches();
+    
+    if (selectedBranches.length === 0) return performances;
+    
+    return performances.filter(p => selectedBranches.includes(p.branchId));
+  });
+
+  readonly dashboardKpis = computed(() => {
+    const overview = this.analyticsOverview();
+    const trends = this.performanceTrends();
+    
+    if (!overview) return [];
+
+    return [
+      {
+        title: 'Total Revenue',
+        value: this.formatCurrency(overview.totalRevenue),
+        change: trends?.overallTrend === 'positive' ? '+12.3%' : 
+                trends?.overallTrend === 'negative' ? '-5.2%' : '0%',
+        trend: trends?.overallTrend || 'stable',
+        icon: 'trending_up',
+        color: 'primary'
+      },
+      {
+        title: 'Active Branches',
+        value: `${overview.activeBranches}/${overview.totalBranches}`,
+        change: overview.activeBranches === overview.totalBranches ? '100%' : '95%',
+        trend: 'stable',
+        icon: 'store',
+        color: 'success'
+      },
+      {
+        title: 'Avg Performance Score',
+        value: `${overview.averagePerformanceScore.toFixed(1)}/100`,
+        change: '+3.2%',
+        trend: 'up',
+        icon: 'speed',
+        color: 'info'
+      },
+      {
+        title: 'Total Transactions',
+        value: this.formatNumber(overview.totalTransactions),
+        change: '+8.7%',
+        trend: 'up',
+        icon: 'receipt',
+        color: 'warning'
+      },
+      {
+        title: 'Waste Percentage',
+        value: `${overview.wastePercentage.toFixed(2)}%`,
+        change: '-0.3%',
+        trend: 'down',
+        icon: 'eco',
+        color: 'success'
+      },
+      {
+        title: 'Critical Alerts',
+        value: this.criticalAlerts().length.toString(),
+        change: this.criticalAlerts().length === 0 ? '0' : '-2',
+        trend: this.criticalAlerts().length === 0 ? 'stable' : 'down',
+        icon: 'warning',
+        color: this.criticalAlerts().length > 0 ? 'error' : 'success'
+      }
+    ];
+  });
+
+  readonly branchHealthSummary = computed(() => {
+    const healthScores = this.branchHealthScores();
+    
+    const excellent = healthScores.filter(h => h.status === 'excellent').length;
+    const good = healthScores.filter(h => h.status === 'good').length;
+    const fair = healthScores.filter(h => h.status === 'fair').length;
+    const poor = healthScores.filter(h => h.status === 'poor').length;
+    const critical = healthScores.filter(h => h.status === 'critical').length;
+
+    return { excellent, good, fair, poor, critical, total: healthScores.length };
+  });
+
+  ngOnInit(): void {
+    this.setupFormSubscriptions();
+    this.initializeDashboard();
+  }
+
+  private setupFormSubscriptions(): void {
+    this.filterForm.get('timeRange')?.valueChanges.subscribe(value => {
+      this.selectedTimeRange.set(value);
+      this.refreshAnalytics();
+    });
+
+    this.filterForm.get('branchFilter')?.valueChanges.subscribe(value => {
+      if (value === 'all') {
+        this.selectedBranches.set([]);
+      } else {
+        this.selectedBranches.set([parseInt(value)]);
+      }
+    });
+  }
+
+  private initializeDashboard(): void {
+    // Analytics service will auto-load data on initialization
+    // We can add additional dashboard-specific initialization here
+    console.log('🏪 Branch Analytics Dashboard initialized');
+  }
+
+  // Action methods
+  refreshAnalytics(): void {
+    this.analyticsService.refreshAllAnalytics();
+  }
+
+  viewBranchDetail(branchId: number): void {
+    this.selectedBranchDetail.set(branchId);
+    this.showDetailsPanel.set(true);
+  }
+
+  closeBranchDetail(): void {
+    this.showDetailsPanel.set(false);
+    this.selectedBranchDetail.set(null);
+  }
+
+  navigateToPerformanceComparison(): void {
+    this.router.navigate(['/dashboard/branch-analytics/performance-comparison']);
+  }
+
+  navigateToEfficiencyAnalysis(): void {
+    this.router.navigate(['/dashboard/branch-analytics/efficiency-analysis']);
+  }
+
+  navigateToCapacityPlanning(): void {
+    this.router.navigate(['/dashboard/branch-analytics/capacity-planning']);
+  }
+
+  navigateToTrendAnalysis(): void {
+    this.router.navigate(['/dashboard/branch-analytics/trend-analysis']);
+  }
+
+  navigateToBenchmarking(): void {
+    this.router.navigate(['/dashboard/branch-analytics/benchmarking']);
+  }
+
+  navigateToAlerts(): void {
+    this.router.navigate(['/dashboard/branch-analytics/alerts']);
+  }
+
+  resolveAlert(alertId: string): void {
+    this.analyticsService.resolveAlert(alertId);
+  }
+
+  // Branch selection methods
+  selectBranch(branchId: number): void {
+    const selected = this.selectedBranches();
+    if (selected.includes(branchId)) {
+      this.selectedBranches.set(selected.filter(id => id !== branchId));
+    } else {
+      this.selectedBranches.set([...selected, branchId]);
+    }
+  }
+
+  selectAllBranches(): void {
+    const allBranchIds = this.accessibleBranches().map(b => b.branchId);
+    this.selectedBranches.set(allBranchIds);
+  }
+
+  clearBranchSelection(): void {
+    this.selectedBranches.set([]);
+  }
+
+  // Export methods
+  exportAnalyticsReport(): void {
+    // TODO: Implement export functionality
+    console.log('Exporting analytics report...');
+  }
+
+  exportPerformanceData(): void {
+    // TODO: Implement export functionality
+    console.log('Exporting performance data...');
+  }
+
+  // Utility methods
+  formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  }
+
+  formatNumber(num: number): string {
+    return new Intl.NumberFormat('id-ID').format(num);
+  }
+
+  formatPercentage(value: number): string {
+    return `${value.toFixed(2)}%`;
+  }
+
+  getBranchName(branchId: number): string {
+    const branch = this.accessibleBranches().find(b => b.branchId === branchId);
+    return branch?.branchName || 'Unknown Branch';
+  }
+
+  getBranchHealthColor(status: string): string {
+    const colors: Record<string, string> = {
+      'excellent': 'success',
+      'good': 'info',
+      'fair': 'warning',
+      'poor': 'error',
+      'critical': 'error'
+    };
+    return colors[status] || 'secondary';
+  }
+
+  getTrendIcon(trend: string): string {
+    const icons: Record<string, string> = {
+      'up': 'trending_up',
+      'down': 'trending_down',
+      'stable': 'trending_flat',
+      'positive': 'trending_up',
+      'negative': 'trending_down'
+    };
+    return icons[trend] || 'trending_flat';
+  }
+
+  getTrendColor(trend: string): string {
+    const colors: Record<string, string> = {
+      'up': 'success',
+      'down': 'error',
+      'stable': 'secondary',
+      'positive': 'success',
+      'negative': 'error'
+    };
+    return colors[trend] || 'secondary';
+  }
+
+  getAlertSeverityColor(severity: string): string {
+    const colors: Record<string, string> = {
+      'critical': 'error',
+      'high': 'warning',
+      'medium': 'info',
+      'low': 'secondary'
+    };
+    return colors[severity] || 'secondary';
+  }
+
+  getPerformanceScoreColor(score: number): string {
+    if (score >= 90) return 'success';
+    if (score >= 80) return 'info';
+    if (score >= 70) return 'warning';
+    if (score >= 60) return 'error';
+    return 'error';
+  }
+
+  // Chart data preparation methods
+  getRevenueChartData() {
+    const performances = this.filteredBranchPerformances();
+    return {
+      labels: performances.map(p => p.branchName),
+      data: performances.map(p => p.revenue),
+      backgroundColor: ['#FF914D', '#4BBF7B', '#3B82F6', '#F59E0B', '#EF4444']
+    };
+  }
+
+  getPerformanceChartData() {
+    const performances = this.filteredBranchPerformances();
+    return {
+      labels: performances.map(p => p.branchName),
+      data: performances.map(p => p.performanceScore),
+      backgroundColor: performances.map(p => this.getPerformanceScoreColor(p.performanceScore))
+    };
+  }
+
+  // TrackBy functions for performance optimization
+  trackByBranch = (index: number, branch: any): number => branch.branchId;
+  trackByAlert = (index: number, alert: any): string => alert.id;
+  trackByKpi = (index: number, kpi: any): string => kpi.title;
+}

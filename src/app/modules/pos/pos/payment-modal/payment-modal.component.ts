@@ -63,6 +63,14 @@ export interface QuickAmount {
           <div class="header-info">
             <h2 class="modal-title">Proses Pembayaran</h2>
             <p class="modal-subtitle">Pilih metode dan jumlah pembayaran</p>
+            @if (branchContext && branchContext.branchName) {
+              <div class="branch-context-info">
+                <span class="branch-indicator">🏪 {{ branchContext.branchName }}</span>
+                @if (!branchContext.canProcessTransaction) {
+                  <span class="warning-badge">⚠ Read Only Mode</span>
+                }
+              </div>
+            }
           </div>
         </div>
         <button class="btn btn-outline close-btn" (click)="onCancel()" title="Tutup (ESC)">
@@ -466,6 +474,7 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   
   @Input() memberId?: number; // NEW: Member ID for credit validation
   @Input() memberCreditData?: POSMemberCreditDto; // NEW: Member credit info
+  @Input() branchContext?: { branchId: number | null, branchName: string, canProcessTransaction: boolean } = undefined; // NEW: Branch context
   
   @Output() paymentComplete = new EventEmitter<PaymentData>();
   @Output() paymentCancelled = new EventEmitter<void>();
@@ -608,6 +617,11 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   });
   
   canProcessPayment = computed(() => {
+    // NEW: Check branch permissions first
+    if (this.branchContext && !this.branchContext.canProcessTransaction) {
+      return false;
+    }
+    
     if (this.selectedMethod() === 'credit') {
       const validation = this.creditValidation();
       

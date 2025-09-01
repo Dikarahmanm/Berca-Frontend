@@ -1,0 +1,18 @@
+// src/app/modules/branch-analytics/components/branch-chart/branch-chart.component.ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-branch-chart',
+  template: `
+    <div class="branch-chart">
+      <h2>Branch Chart</h2>
+      <p>Branch chart component placeholder</p>
+    </div>
+  `,
+  styles: [`
+    .branch-chart {
+      padding: 16px;
+    }
+  `]
+})
+export class BranchChartComponent {}

@@ -24,6 +24,9 @@ import { MatDividerModule } from '@angular/material/divider';
 import { Subscription, debounceTime, distinctUntilChanged, firstValueFrom } from 'rxjs';
 
 import { InventoryService } from '../../services/inventory.service';
+// NEW: Branch-aware services
+import { BranchInventoryService, BranchProductDto, BranchInventoryFilter } from '../../services/branch-inventory.service';
+import { StateService } from '../../../../core/services/state.service';
 import { CategoryService } from '../../../category-management/services/category.service';
 import { ExpiryManagementService } from '../../../../core/services/expiry-management.service';
 import { Product, ProductFilter, ProductWithBatchSummaryDto } from '../../interfaces/inventory.interfaces';
@@ -47,6 +50,13 @@ export enum ExpiryFilterType {
   CRITICAL = 'critical',
   EXPIRED = 'expired',
   MISSING = 'missing'
+}
+
+// NEW: Branch filter enum
+export enum BranchFilterType {
+  ALL = 'all',
+  CURRENT = 'current',
+  SPECIFIC = 'specific'
 }
 
 // ✅ ENHANCED: Interface for product with both expiry and batch information
@@ -141,6 +151,19 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   private isMobile = computed(() => this.screenWidth() < 768);
   private isTablet = computed(() => this.screenWidth() >= 768 && this.screenWidth() < 1024);
   private isDesktop = computed(() => this.screenWidth() >= 1024);
+
+  // NEW: Branch-aware signals and computed properties
+  readonly activeBranch = computed(() => this.stateService.activeBranch());
+  readonly availableBranches = computed(() => this.stateService.accessibleBranches());
+  readonly canManageBranches = computed(() => this.stateService.hasPermission('branch.manage'));
+  
+  // Branch filter state
+  selectedBranchIds = signal<number[]>([]);
+  branchFilterType = signal<BranchFilterType>(BranchFilterType.CURRENT);
+  
+  // Branch products from branch inventory service  
+  readonly branchProducts = computed(() => this.branchInventoryService.filteredProducts());
+  readonly branchLoading = computed(() => this.branchInventoryService.loading());
 
   // Enhanced data sources with batch support
   products = new MatTableDataSource<ProductWithExpiryAndBatch>([]);
@@ -281,6 +304,9 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
     private fb: FormBuilder,
     private router: Router,
     private inventoryService: InventoryService,
+    // NEW: Branch-aware services
+    private branchInventoryService: BranchInventoryService,
+    private stateService: StateService,
     private categoryService: CategoryService,
     private expiryService: ExpiryManagementService,
     private snackBar: MatSnackBar
@@ -300,6 +326,8 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
     this.loadExpiryAnalytics(); // ✅ NEW: Load expiry data
     this.loadExpiringProducts(); // ✅ NEW: Load expiring products
     this.loadFifoRecommendations(); // ✅ NEW: Load FIFO recommendations
+    // NEW: Load branch-aware data
+    this.initializeBranchData();
     this.setupFilterWatchers();
   }
 
@@ -2464,6 +2492,151 @@ onCategoryFilterChange(event: any): void {
    */
   private preventDashboardRedirect(): void {
     console.log('🛡️ Staying within inventory module - no dashboard redirects');
+  }
+
+  // ===== NEW: BRANCH-AWARE INVENTORY METHODS =====
+
+  /**
+   * Initialize branch data and setup branch effects
+   */
+  private initializeBranchData(): void {
+    console.log('🏢 Initializing branch-aware inventory data...');
+    
+    // Set initial branch filter to current active branch
+    const activeBranch = this.activeBranch();
+    if (activeBranch) {
+      this.selectedBranchIds.set([activeBranch.branchId]);
+      this.loadBranchInventory();
+    }
+    
+    // Load branch data for all accessible branches
+    this.loadAllBranchesInventory();
+  }
+
+  /**
+   * Load inventory data for currently selected branches
+   */
+  private loadBranchInventory(): void {
+    const branchIds = this.selectedBranchIds();
+    
+    if (branchIds.length === 0) {
+      console.log('⚠️ No branches selected for inventory loading');
+      return;
+    }
+
+    console.log('🏢 Loading branch inventory for branches:', branchIds);
+    
+    // Use BranchInventoryService to load branch-specific data
+    this.branchInventoryService.loadBranchProducts({ branchIds }).subscribe({
+      next: (response) => {
+        if (response.success) {
+          console.log('✅ Branch inventory loaded:', response.data.length, 'products');
+        } else {
+          console.error('❌ Failed to load branch inventory:', response.message);
+          this.showError('Failed to load branch inventory data');
+        }
+      },
+      error: (error) => {
+        console.error('❌ Branch inventory loading error:', error);
+        this.showError('Error loading branch inventory data');
+      }
+    });
+  }
+
+  /**
+   * Load inventory data for all accessible branches
+   */
+  private loadAllBranchesInventory(): void {
+    const allBranchIds = this.availableBranches().map(b => b.branchId);
+    
+    if (allBranchIds.length === 0) {
+      console.log('⚠️ No accessible branches found');
+      return;
+    }
+
+    console.log('🏢 Loading inventory for all accessible branches:', allBranchIds);
+    
+    this.branchInventoryService.loadBranchProducts({ branchIds: allBranchIds }).subscribe({
+      next: (response) => {
+        if (response.success) {
+          console.log('✅ All branches inventory loaded:', response.data.length, 'products');
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading all branches inventory:', error);
+      }
+    });
+  }
+
+  /**
+   * Handle branch filter change
+   */
+  onBranchFilterChange(branchFilterType: BranchFilterType): void {
+    console.log('🏢 Branch filter changed:', branchFilterType);
+    
+    this.branchFilterType.set(branchFilterType);
+    
+    switch (branchFilterType) {
+      case BranchFilterType.ALL:
+        // Load all branches
+        const allBranchIds = this.availableBranches().map(b => b.branchId);
+        this.selectedBranchIds.set(allBranchIds);
+        break;
+        
+      case BranchFilterType.CURRENT:
+        // Load only current active branch
+        const activeBranch = this.activeBranch();
+        if (activeBranch) {
+          this.selectedBranchIds.set([activeBranch.branchId]);
+        }
+        break;
+        
+      case BranchFilterType.SPECIFIC:
+        // Keep current selected branches or prompt for selection
+        break;
+    }
+    
+    this.loadBranchInventory();
+  }
+
+  /**
+   * Handle specific branch selection
+   */
+  onBranchSelectionChange(branchIds: number[]): void {
+    console.log('🏢 Branch selection changed:', branchIds);
+    
+    this.selectedBranchIds.set(branchIds);
+    this.branchFilterType.set(BranchFilterType.SPECIFIC);
+    this.loadBranchInventory();
+  }
+
+  /**
+   * Get branch context info for display
+   */
+  getBranchContextInfo(): string {
+    const branchType = this.branchFilterType();
+    const selectedBranches = this.selectedBranchIds();
+    const availableBranches = this.availableBranches();
+    
+    switch (branchType) {
+      case BranchFilterType.ALL:
+        return `All Branches (${availableBranches.length})`;
+        
+      case BranchFilterType.CURRENT:
+        const activeBranch = this.activeBranch();
+        return activeBranch ? `Current: ${activeBranch.branchName}` : 'No Active Branch';
+        
+      case BranchFilterType.SPECIFIC:
+        if (selectedBranches.length === 1) {
+          const branch = availableBranches.find(b => b.branchId === selectedBranches[0]);
+          return branch ? branch.branchName : 'Selected Branch';
+        } else {
+          return `${selectedBranches.length} Branches Selected`;
+        }
+        
+      default:
+        return 'Unknown Filter';
+    }
   }
 
 }

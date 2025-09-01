@@ -9,6 +9,7 @@
       <h2 class="config-title">📄 Preview & Konfigurasi Struk</h2>
 
       <div class="quick-actions">
+        <!-- Regular Receipt Actions -->
         <button 
           class="btn btn-primary" 
           (click)="printReceipt()" 
@@ -26,6 +27,23 @@
           (click)="shareReceipt()" 
           [disabled]="!canPrint()">
           📤 Share
+        </button>
+
+        <!-- Branch-Aware Receipt Actions -->
+        <div class="action-divider"></div>
+        <button 
+          class="btn btn-branch" 
+          (click)="printBranchReceipt()" 
+          [disabled]="!canPrint()"
+          title="Print dengan format branch-specific">
+          🏢 Branch Print
+        </button>
+        <button 
+          class="btn btn-branch-outline" 
+          (click)="downloadBranchPDF()" 
+          [disabled]="!canPrint()"
+          title="Download PDF dengan branding branch">
+          🏪 Branch PDF
         </button>
       </div>
     </div>

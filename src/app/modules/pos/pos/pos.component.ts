@@ -1,5 +1,5 @@
 // src/app/modules/pos/pos/pos.component.ts - SIGNALS + ONPUSH MIGRATION
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener, ChangeDetectionStrategy, signal, computed, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -30,6 +30,10 @@ import { CategoryService } from '../../category-management/services/category.ser
 import { Category } from '../../category-management/models/category.models';
 import { NotificationService, CreateNotificationRequest } from '../../../core/services/notification.service';
 import { ToastService } from '../../../shared/services/toast.service';
+// NEW: Branch-aware services
+import { BranchPOSService } from '../services/branch-pos.service';
+import { BranchInventoryService } from '../../inventory/services/branch-inventory.service';
+import { StateService } from '../../../core/services/state.service';
 
 // Import standalone components
 import { BarcodeToolsComponent } from './barcode-tools/barcode-tools.component';
@@ -67,6 +71,11 @@ export class POSComponent implements OnInit, OnDestroy {
   private toastService = inject(ToastService);
   private router = inject(Router);
   private dialog = inject(MatDialog);
+  
+  // NEW: Branch-aware services
+  private branchPOSService = inject(BranchPOSService);
+  private branchInventoryService = inject(BranchInventoryService);
+  private stateService = inject(StateService);
 
   // SIGNALS: Template-driven form state
   searchQuery = signal('');
@@ -138,6 +147,9 @@ export class POSComponent implements OnInit, OnDestroy {
   
   // SIGNALS: Infinite scrolling and pagination
   isLoadingMore = signal(false);
+  
+  // NEW: Branch-aware signals
+  branchProducts = signal<Product[]>([]);
   currentPage = signal(1);
   hasMoreProducts = signal(true);
   allProducts = signal<Product[]>([]); // Store all loaded products
@@ -145,7 +157,10 @@ export class POSComponent implements OnInit, OnDestroy {
 
   // COMPUTED: Filtered products based on search and filters
   filteredProducts = computed(() => {
-    let products = this.allProducts(); // Use allProducts instead of products
+    // NEW: Use branch-aware filtering - prioritize branch products if available
+    const branchProducts = this.branchInventoryService.filteredProducts();
+    let products = branchProducts.length > 0 ? branchProducts : this.allProducts();
+    
     const query = this.searchQuery().toLowerCase();
     const filter = this.selectedFilter();
     const categoryId = this.selectedCategoryId();
@@ -231,6 +246,19 @@ export class POSComponent implements OnInit, OnDestroy {
     return !this.isCartEmpty() && this.cartTotal() > 0;
   });
 
+  // NEW: Branch-aware computed properties
+  readonly activeBranch = this.stateService.activeBranch;
+  readonly activeBranchIds = this.stateService.activeBranchIds;
+  readonly canProcessTransaction = this.branchPOSService.canProcessTransaction;
+  
+  
+  readonly branchContext = computed(() => ({
+    branchId: this.activeBranch()?.branchId || null,
+    branchName: this.activeBranch()?.branchName || 'No Branch Selected',
+    branchCode: this.activeBranch()?.branchCode || '',
+    canProcessTransaction: this.canProcessTransaction() || false
+  }));
+
   constructor() {
     // Setup search subject subscription in constructor
     this.setupSearchSubscription();
@@ -253,6 +281,7 @@ export class POSComponent implements OnInit, OnDestroy {
     this.setupCartSubscription();
     this.setupSearchListener();
     this.loadCategories();
+    this.loadBranchData();
     this.loadProducts();
   }
 
@@ -418,6 +447,39 @@ export class POSComponent implements OnInit, OnDestroy {
 
     // Load initial products if needed
     this.performSearch('');
+  }
+
+  // NEW: Load branch-aware data
+  private loadBranchData(): void {
+    console.log('🏢 Loading branch data for POS...');
+    
+    // Load branch inventory data
+    this.branchInventoryService.loadBranchProducts()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            console.log('✅ Branch products loaded:', response.data.length);
+            // Branch inventory service will update its internal signals
+            // which will automatically update our branchFilteredProducts computed
+          } else {
+            console.warn('⚠️ Failed to load branch products:', response.message);
+          }
+        },
+        error: (error) => {
+          console.error('❌ Error loading branch products:', error);
+        }
+      });
+
+    // Subscribe to branch context changes using effect
+    effect(() => {
+      const branch = this.activeBranch();
+      if (branch) {
+        console.log('🔄 Active branch changed:', branch.branchName);
+        // Note: We don't recursively call loadBranchData here to avoid infinite loop
+        // The branchFilteredProducts computed will automatically update
+      }
+    });
   }
 
   private setupCartSubscription(): void {
@@ -1044,38 +1106,85 @@ clearSearch(): void {
 
           this.isLoading.set(true);
           
-          // 🔥 NEW: Use different endpoint for credit payment vs regular payment
-          let saleRequest$: any;
+          // NEW: Use BranchPOSService for branch-aware transaction processing
+          const branchContext = this.branchContext();
           
-          if (paymentData.method === 'credit' && this.selectedMember() && this.memberCreditData()) {
-            // Credit payment - use credit-specific endpoint with proper format
-            const creditSaleData = {
-              memberId: this.selectedMember()!.id,
-              items: this.cart().map(item => ({
-                productId: item.product.id,
-                quantity: item.quantity,
-                unitPrice: item.product.sellPrice,
-                discountAmount: (item.quantity * item.product.sellPrice * item.discount) / 100
-              })),
-              totalAmount: totals.total,
-              creditAmount: paymentData.amountPaid,
-              cashAmount: totals.total - paymentData.amountPaid,
-              paymentMethod: 5, // Credit payment method ID
-              branchId: 1,
-              cashierId: 1,
-              customerName: this.selectedMember()!.name || 'Credit Customer',
-              notes: this.notes() || 'POS Credit Transaction'
-            };
-            
-            console.log('🚀 [POS Credit] Using credit endpoint with data:', creditSaleData);
-            saleRequest$ = this.memberCreditService.createSaleWithCredit(creditSaleData);
-          } else {
-            // Regular payment - use standard POS endpoint
-            console.log('🚀 [POS Regular] Using regular endpoint with data:', saleRequest);
-            saleRequest$ = this.posService.createSale(saleRequest);
+          // Check if branch can process transactions
+          if (!branchContext.canProcessTransaction || !branchContext.branchId) {
+            this.isLoading.set(false);
+            this.errorMessage.set(`Cannot process transaction: ${branchContext.branchName} does not have transaction permissions or no branch selected`);
+            this.clearMessages();
+            return;
           }
           
-          saleRequest$
+          // Create branch transaction data
+          const branchTransaction = {
+            transactionCode: this.generateTransactionCode(),
+            items: this.cart().map(item => ({
+              productId: item.product.id,
+              productName: item.product.name,
+              productCode: item.product.barcode,
+              barcode: item.product.barcode,
+              quantity: item.quantity,
+              unitPrice: item.product.sellPrice,
+              discount: (item.quantity * item.product.sellPrice * item.discount) / 100,
+              subtotal: (item.quantity * item.product.sellPrice) - ((item.quantity * item.product.sellPrice * item.discount) / 100),
+              branchId: branchContext.branchId!,
+              availableStock: item.product.stock,
+              category: item.product.categoryName || 'Uncategorized',
+              unit: item.product.unit || 'pcs'
+            })),
+            subtotal: totals.subtotal,
+            discount: totals.discountAmount,
+            tax: totals.taxAmount,
+            total: totals.total,
+            paymentMethod: this.mapPaymentMethod(paymentData.method),
+            amountPaid: paymentData.amountPaid,
+            change: paymentData.change,
+            memberId: this.selectedMember()?.id,
+            memberName: this.selectedMember()?.name,
+            memberDiscount: this.memberDiscount(),
+            cashierId: this.currentUser()?.id || 1,
+            cashierName: this.currentUser()?.username || 'POS Cashier',
+            transactionDate: new Date().toISOString(),
+            receiptNumber: this.generateReceiptNumber(),
+            status: 'Completed' as const,
+            notes: this.notes() || undefined
+          };
+          
+          console.log('🏢 [Branch POS] Processing transaction:', {
+            branchId: branchContext.branchId,
+            branchName: branchContext.branchName,
+            total: branchTransaction.total,
+            items: branchTransaction.items.length
+          });
+          
+          let transactionRequest$: Observable<any>;
+          
+          if (paymentData.method === 'credit' && this.selectedMember() && this.memberCreditData()) {
+            // Credit payment - use member credit service but with branch context
+            const creditSaleData = {
+              memberId: this.selectedMember()!.id,
+              items: branchTransaction.items,
+              totalAmount: branchTransaction.total,
+              creditAmount: paymentData.amountPaid,
+              cashAmount: branchTransaction.total - paymentData.amountPaid,
+              paymentMethod: 5,
+              branchId: branchContext.branchId,
+              cashierId: branchTransaction.cashierId,
+              customerName: branchTransaction.memberName || 'Credit Customer',
+              notes: branchTransaction.notes || 'Branch Credit Transaction'
+            };
+            
+            console.log('🚀 [Branch Credit] Using credit endpoint with branch data:', creditSaleData);
+            transactionRequest$ = this.memberCreditService.createSaleWithCredit(creditSaleData);
+          } else {
+            // Use BranchPOSService for regular transactions
+            console.log('🚀 [Branch Regular] Using BranchPOSService with data:', branchTransaction);
+            transactionRequest$ = this.branchPOSService.processTransaction(branchTransaction);
+          }
+          
+          transactionRequest$
             .pipe(takeUntil(this.destroy$))
             .subscribe({
               next: (response: any) => {
@@ -1909,6 +2018,41 @@ focusMemberSearch(): void {
   closeMobilePanels(): void {
     this.showMobileProducts.set(false);
     this.showMobileSummary.set(false);
+  }
+
+  // NEW: Helper methods for branch-aware transaction processing
+  
+  private generateTransactionCode(): string {
+    const branchCode = this.branchContext().branchCode || 'GEN';
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    return `${branchCode}-${timestamp}${random}`;
+  }
+
+  private generateReceiptNumber(): string {
+    const branchCode = this.branchContext().branchCode || 'GEN';
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const time = Date.now().toString().slice(-6);
+    return `RCP-${branchCode}-${year}${month}${day}-${time}`;
+  }
+
+  private mapPaymentMethod(method: string): 'cash' | 'card' | 'digital' | 'credit' {
+    const methodMap: Record<string, 'cash' | 'card' | 'digital' | 'credit'> = {
+      'cash': 'cash',
+      'card': 'card', 
+      'debit': 'card',
+      'credit_card': 'card',
+      'digital': 'digital',
+      'ewallet': 'digital',
+      'qris': 'digital',
+      'credit': 'credit',
+      'member_credit': 'credit'
+    };
+    
+    return methodMap[method] || 'cash';
   }
 
   // ===== REAL-TIME NOTIFICATION TESTING =====

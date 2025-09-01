@@ -57,6 +57,16 @@ import {
   StockTransferOpportunityDto
 } from '../../core/services/multi-branch-coordination.service';
 
+import {
+  BranchAnalyticsService,
+  BranchAnalyticsOverview,
+  BranchPerformanceData,
+  BranchComparisonMetrics,
+  BranchEfficiencyMetrics,
+  BranchTrendAnalysis,
+  BranchAlertData
+} from '../../core/services/branch-analytics.service';
+
 // Import Modal Components
 import { ProductQuickViewModalComponent, ProductQuickViewData } from '../../shared/components/product-quick-view-modal/product-quick-view-modal.component';
 import { TransactionQuickViewModalComponent, TransactionQuickViewData } from '../../shared/components/transaction-quick-view-modal/transaction-quick-view-modal.component';
@@ -93,6 +103,7 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
   private expiryAnalyticsService = inject(ExpiryAnalyticsService);
   private smartNotificationsService = inject(SmartNotificationsService);
   private multiBranchService = inject(MultiBranchCoordinationService);
+  private branchAnalyticsService = inject(BranchAnalyticsService);
 
   // ===== EXISTING DATA OBSERVABLES =====
   kpis$: Observable<DashboardKPIDto | null>;
@@ -114,6 +125,14 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
   smartNotifications = signal<SmartNotificationDto[]>([]);
   crossBranchAnalytics = signal<CrossBranchAnalyticsDto | null>(null);
   transferOpportunities = signal<StockTransferOpportunityDto[]>([]);
+
+  // ===== BRANCH ANALYTICS DATA SIGNALS =====
+  branchAnalyticsOverview = signal<BranchAnalyticsOverview | null>(null);
+  branchPerformances = signal<BranchPerformanceData[]>([]);
+  branchComparisons = signal<BranchComparisonMetrics[]>([]);
+  branchEfficiencies = signal<BranchEfficiencyMetrics[]>([]);
+  branchTrends = signal<BranchTrendAnalysis[]>([]);
+  branchAlerts = signal<BranchAlertData[]>([]);
 
   // ===== EXISTING DATA SIGNALS =====
   currentKPIs = signal<DashboardKPIDto | null>(null);
@@ -170,6 +189,52 @@ export class DashboardAnalyticsComponent implements OnInit, OnDestroy {
     } : null;
   });
 
+  // ===== BRANCH ANALYTICS COMPUTED PROPERTIES =====
+  readonly topPerformingBranches = computed(() => 
+    this.branchPerformances()
+      .filter(branch => branch.performanceScore > 0)
+      .sort((a, b) => b.performanceScore - a.performanceScore)
+      .slice(0, 3)
+  );
+
+  readonly underperformingBranches = computed(() => 
+    this.branchPerformances()
+      .filter(branch => branch.performanceScore < 70)
+      .sort((a, b) => a.performanceScore - b.performanceScore)
+  );
+
+  readonly criticalBranchAlerts = computed(() => {
+    const allAlerts = this.branchAlerts().flatMap(branch => 
+      branch.alerts.filter(alert => 
+        alert.severity === 'critical' && !alert.resolved
+      )
+    );
+    return allAlerts.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  });
+
+  readonly branchPerformanceSummary = computed(() => {
+    const performances = this.branchPerformances();
+    if (performances.length === 0) return null;
+
+    const avgScore = performances.reduce((sum, p) => sum + p.performanceScore, 0) / performances.length;
+    const totalRevenue = performances.reduce((sum, p) => sum + p.revenue, 0);
+    const totalWaste = performances.reduce((sum, p) => sum + p.wasteValue, 0);
+    const excellentCount = performances.filter(p => p.performanceScore >= 90).length;
+    const poorCount = performances.filter(p => p.performanceScore < 70).length;
+
+    return {
+      averageScore: avgScore,
+      totalRevenue,
+      totalWaste,
+      excellentBranches: excellentCount,
+      poorBranches: poorCount,
+      totalBranches: performances.length,
+      performanceStatus: avgScore >= 85 ? 'excellent' : avgScore >= 75 ? 'good' : avgScore >= 65 ? 'fair' : 'poor'
+    };
+  });
+
   // Chart colors
   readonly chartColors = {
     primary: '#FF914D',
@@ -199,6 +264,7 @@ constructor(
   ngOnInit() {
     this.loadDashboardData();
     this.loadSmartAnalyticsData();
+    this.loadBranchAnalyticsData();
     this.setupRealTimeUpdates();
     this.subscribeToData();
   }
@@ -395,6 +461,29 @@ constructor(
     }
   }
 
+  // ===== BRANCH ANALYTICS DATA LOADING =====
+
+  async loadBranchAnalyticsData(): Promise<void> {
+    console.log('🏢 Loading enhanced branch analytics data...');
+    
+    try {
+      // Update local signals from service signals
+      this.branchAnalyticsOverview.set(this.branchAnalyticsService.analyticsOverview());
+      this.branchPerformances.set(this.branchAnalyticsService.branchPerformances());
+      this.branchComparisons.set(this.branchAnalyticsService.branchComparisons());
+      this.branchEfficiencies.set(this.branchAnalyticsService.branchEfficiencies());
+      this.branchTrends.set(this.branchAnalyticsService.branchTrends());
+      this.branchAlerts.set(this.branchAnalyticsService.branchAlerts());
+
+      console.log('✅ Enhanced branch analytics data loaded');
+      
+    } catch (error) {
+      console.error('❌ Error loading branch analytics data:', error);
+      this.showError('Gagal memuat branch analytics. Menggunakan data dasar saja.');
+    }
+  }
+
+
   private subscribeToData() {
     // Subscribe to real-time KPIs
     this.kpis$.pipe(takeUntil(this.destroy$)).subscribe(kpis => {
@@ -431,6 +520,7 @@ constructor(
     this.dashboardService.refreshAllData();
     this.loadDashboardData();
     this.loadSmartAnalyticsData();
+    this.loadBranchAnalyticsData();
   }
 
   // ===== SMART ANALYTICS EVENT HANDLERS =====
@@ -506,6 +596,69 @@ constructor(
     this.router.navigate(['/dashboard/notifications'], {
       queryParams: { type: 'smart' }
     });
+  }
+
+  // ===== ENHANCED BRANCH ANALYTICS EVENT HANDLERS =====
+
+  navigateToBranchDetails(branchId: number): void {
+    console.log('🏢 Navigating to branch details:', branchId);
+    this.router.navigate(['/dashboard/branch', branchId]);
+  }
+
+  navigateToBranchComparison(): void {
+    console.log('📊 Navigating to branch comparison');
+    this.router.navigate(['/dashboard/branch/comparison']);
+  }
+
+  navigateToBranchEfficiency(): void {
+    console.log('⚡ Navigating to branch efficiency analysis');
+    this.router.navigate(['/dashboard/branch/efficiency']);
+  }
+
+  async resolveBranchAlert(alertId: string): Promise<void> {
+    console.log('✅ Resolving branch alert:', alertId);
+    
+    try {
+      const success = await this.branchAnalyticsService.resolveAlert(alertId);
+      
+      if (success) {
+        this.showSuccess('Alert berhasil diselesaikan');
+        await this.loadBranchAnalyticsData(); // Refresh data
+      } else {
+        this.showError('Gagal menyelesaikan alert');
+      }
+    } catch (error) {
+      console.error('❌ Error resolving alert:', error);
+      this.showError('Error saat menyelesaikan alert');
+    }
+  }
+
+  onViewBranchPerformanceDetails(branch: BranchPerformanceData): void {
+    console.log('📈 Viewing branch performance details:', branch.branchName);
+    this.router.navigate(['/dashboard/branch', branch.branchId, 'performance']);
+  }
+
+  onCompareBranches(branchIds: number[]): void {
+    console.log('🔍 Comparing branches:', branchIds);
+    this.router.navigate(['/dashboard/branch/comparison'], {
+      queryParams: { branches: branchIds.join(',') }
+    });
+  }
+
+  onOptimizeBranchCapacity(branchId: number): void {
+    console.log('🔧 Optimizing branch capacity for:', branchId);
+    this.router.navigate(['/dashboard/branch', branchId, 'capacity-optimization']);
+  }
+
+  onViewBranchTrends(branchId: number): void {
+    console.log('📊 Viewing branch trends for:', branchId);
+    this.router.navigate(['/dashboard/branch', branchId, 'trends']);
+  }
+
+  onExportBranchAnalytics(): void {
+    console.log('📁 Exporting branch analytics data');
+    // Implementation for exporting branch analytics
+    this.showInfo('Fitur export analytics akan segera tersedia');
   }
 
   // ===== SMART ANALYTICS HELPERS =====
@@ -1124,6 +1277,124 @@ showTransactionQuickView(transaction: RecentTransactionDto) {
     console.log('🔍 Viewing item details:', item);
     // Implementation will depend on the specific item type
     this.showInfo('Membuka detail...');
+  }
+
+  // ===== BRANCH ANALYTICS HELPER METHODS =====
+
+  getBranchPerformanceStatusClass(score: number): string {
+    if (score >= 90) return 'performance-excellent';
+    if (score >= 80) return 'performance-good';
+    if (score >= 70) return 'performance-fair';
+    if (score >= 60) return 'performance-poor';
+    return 'performance-critical';
+  }
+
+  getBranchPerformanceIcon(score: number): string {
+    if (score >= 90) return 'star';
+    if (score >= 80) return 'trending_up';
+    if (score >= 70) return 'trending_flat';
+    if (score >= 60) return 'trending_down';
+    return 'warning';
+  }
+
+  getBranchTrendIcon(trend: 'up' | 'down' | 'stable'): string {
+    switch (trend) {
+      case 'up': return 'trending_up';
+      case 'down': return 'trending_down';
+      case 'stable': return 'trending_flat';
+      default: return 'help_outline';
+    }
+  }
+
+  getBranchTrendColor(trend: 'up' | 'down' | 'stable'): string {
+    switch (trend) {
+      case 'up': return this.chartColors.success;
+      case 'down': return this.chartColors.error;
+      case 'stable': return this.chartColors.info;
+      default: return this.chartColors.info;
+    }
+  }
+
+  getAlertSeverityColor(severity: 'critical' | 'high' | 'medium' | 'low'): string {
+    switch (severity) {
+      case 'critical': return this.chartColors.critical;
+      case 'high': return this.chartColors.error;
+      case 'medium': return this.chartColors.warning;
+      case 'low': return this.chartColors.info;
+      default: return this.chartColors.info;
+    }
+  }
+
+  getAlertSeverityIcon(severity: 'critical' | 'high' | 'medium' | 'low'): string {
+    switch (severity) {
+      case 'critical': return 'error';
+      case 'high': return 'warning';
+      case 'medium': return 'info';
+      case 'low': return 'notification_important';
+      default: return 'help_outline';
+    }
+  }
+
+  getBranchHealthColor(status: 'excellent' | 'good' | 'fair' | 'poor' | 'critical'): string {
+    switch (status) {
+      case 'excellent': return this.chartColors.success;
+      case 'good': return this.chartColors.primary;
+      case 'fair': return this.chartColors.info;
+      case 'poor': return this.chartColors.warning;
+      case 'critical': return this.chartColors.error;
+      default: return this.chartColors.info;
+    }
+  }
+
+  formatBranchMetric(value: number, type: 'currency' | 'percentage' | 'number'): string {
+    switch (type) {
+      case 'currency':
+        return this.formatCurrency(value);
+      case 'percentage':
+        return this.formatPercentage(value);
+      case 'number':
+        return this.formatNumber(value);
+      default:
+        return String(value);
+    }
+  }
+
+  getBranchRankBadgeClass(rank: number, totalBranches: number): string {
+    const percentile = rank / totalBranches;
+    
+    if (percentile <= 0.25) return 'rank-excellent';
+    if (percentile <= 0.5) return 'rank-good';
+    if (percentile <= 0.75) return 'rank-average';
+    return 'rank-poor';
+  }
+
+  getBranchEfficiencyStatus(efficiency: number): 'excellent' | 'good' | 'fair' | 'poor' {
+    if (efficiency >= 90) return 'excellent';
+    if (efficiency >= 80) return 'good';
+    if (efficiency >= 70) return 'fair';
+    return 'poor';
+  }
+
+  formatTrendChange(changePercent: number): string {
+    const sign = changePercent >= 0 ? '+' : '';
+    return `${sign}${changePercent.toFixed(1)}%`;
+  }
+
+  getBranchCapacityStatus(utilization: number): 'optimal' | 'over_capacity' | 'under_capacity' | 'critical' {
+    if (utilization >= 95) return 'critical';
+    if (utilization >= 85) return 'over_capacity';
+    if (utilization >= 65 && utilization <= 84) return 'optimal';
+    return 'under_capacity';
+  }
+
+  getCapacityStatusColor(status: 'optimal' | 'over_capacity' | 'under_capacity' | 'critical'): string {
+    switch (status) {
+      case 'optimal': return this.chartColors.success;
+      case 'over_capacity': return this.chartColors.warning;
+      case 'under_capacity': return this.chartColors.info;
+      case 'critical': return this.chartColors.error;
+      default: return this.chartColors.info;
+    }
   }
 
   // ===== HELPER METHODS =====

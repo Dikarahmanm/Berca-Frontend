@@ -1,0 +1,173 @@
+<!-- src/app/modules/consolidated-reports/components/consolidated-reports-dashboard/consolidated-reports-dashboard.component.html -->
+<!-- Consolidated Reports Dashboard - Main dashboard for multi-branch reporting -->
+
+<div class="consolidated-reports-dashboard">
+  <!-- Header Section -->
+  <div class="dashboard-header">
+    <div class="title-section">
+      <h1>
+        <mat-icon>analytics</mat-icon>
+        Consolidated Reports
+      </h1>
+      <p class="subtitle">Multi-branch reporting and analytics dashboard</p>
+    </div>
+    
+    <div class="header-actions">
+      <form [formGroup]="filterForm" class="filter-form">
+        <mat-form-field appearance="outline" class="period-selector">
+          <mat-label>Period</mat-label>
+          <mat-select formControlName="period" 
+                     (selectionChange)="onPeriodChange($event.value)">
+            <mat-option value="7d">Last 7 Days</mat-option>
+            <mat-option value="30d">Last 30 Days</mat-option>
+            <mat-option value="90d">Last 90 Days</mat-option>
+            <mat-option value="1y">Last Year</mat-option>
+          </mat-select>
+        </mat-form-field>
+        
+        <button mat-raised-button color="primary" (click)="refreshReports()">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Summary Section -->
+  <div class="summary-section" *ngIf="reportSummary()">
+    <div class="summary-cards">
+      <mat-card class="summary-card revenue">
+        <mat-card-content>
+          <div class="card-header">
+            <mat-icon>trending_up</mat-icon>
+            <h3>Total Revenue</h3>
+          </div>
+          <div class="card-value">
+            {{ formatCurrency(reportSummary().totalRevenue) }}
+          </div>
+          <div class="card-trend" [class]="'trend-' + reportSummary().trends.revenue.trend">
+            <mat-icon>{{ getTrendIcon(reportSummary().trends.revenue.trend) }}</mat-icon>
+            {{ reportSummary().trends.revenue.value }}%
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card transactions">
+        <mat-card-content>
+          <div class="card-header">
+            <mat-icon>receipt</mat-icon>
+            <h3>Transactions</h3>
+          </div>
+          <div class="card-value">
+            {{ formatNumber(reportSummary().totalTransactions) }}
+          </div>
+          <div class="card-trend" [class]="'trend-' + reportSummary().trends.transactions.trend">
+            <mat-icon>{{ getTrendIcon(reportSummary().trends.transactions.trend) }}</mat-icon>
+            {{ reportSummary().trends.transactions.value }}%
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card profit">
+        <mat-card-content>
+          <div class="card-header">
+            <mat-icon>account_balance_wallet</mat-icon>
+            <h3>Net Profit</h3>
+          </div>
+          <div class="card-value">
+            {{ formatCurrency(reportSummary().totalProfit) }}
+          </div>
+          <div class="card-trend" [class]="'trend-' + reportSummary().trends.profit.trend">
+            <mat-icon>{{ getTrendIcon(reportSummary().trends.profit.trend) }}</mat-icon>
+            {{ reportSummary().trends.profit.value }}%
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card reports">
+        <mat-card-content>
+          <div class="card-header">
+            <mat-icon>assessment</mat-icon>
+            <h3>Active Reports</h3>
+          </div>
+          <div class="card-value">
+            {{ reportSummary().activeReports }}
+          </div>
+          <div class="card-info">
+            Updated {{ formatDateTime(reportSummary().lastUpdated) }}
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- Reports Grid -->
+  <div class="reports-section">
+    <h2>Available Reports</h2>
+    <div class="reports-grid">
+      <mat-card class="report-card" 
+               *ngFor="let report of reportCards(); trackBy: trackByReport"
+               [class]="'report-' + report.color"
+               (click)="navigateToReport(report.route)">
+        <mat-card-content>
+          <div class="report-header">
+            <mat-icon [class]="'icon-' + report.color">{{ report.icon }}</mat-icon>
+            <h3>{{ report.title }}</h3>
+          </div>
+          
+          <p class="report-description">{{ report.description }}</p>
+          
+          <div class="report-summary" *ngIf="report.summary">
+            <div class="summary-value">
+              {{ formatNumber(report.summary.total) }}
+            </div>
+            <div class="summary-change" [class]="'change-' + report.summary.trend">
+              <mat-icon>{{ getTrendIcon(report.summary.trend) }}</mat-icon>
+              {{ report.summary.change }}
+            </div>
+          </div>
+          
+          <div class="report-actions" *ngIf="report.quickActions">
+            <button mat-icon-button 
+                   *ngFor="let action of report.quickActions"
+                   [matTooltip]="action.label"
+                   (click)="executeQuickAction(action, $event)">
+              <mat-icon>{{ action.icon }}</mat-icon>
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- Quick Actions Section -->
+  <div class="quick-actions-section">
+    <h2>Quick Actions</h2>
+    <div class="action-buttons">
+      <button mat-raised-button color="primary" (click)="openCustomReportBuilder()">
+        <mat-icon>build</mat-icon>
+        Custom Report Builder
+      </button>
+      
+      <button mat-raised-button (click)="openReportScheduler()">
+        <mat-icon>schedule</mat-icon>
+        Schedule Reports
+      </button>
+      
+      <button mat-raised-button (click)="openExportManager()">
+        <mat-icon>file_download</mat-icon>
+        Export Manager
+      </button>
+      
+      <button mat-raised-button (click)="viewReportHistory()">
+        <mat-icon>history</mat-icon>
+        Report History
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-overlay" *ngIf="isLoading()">
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  </div>
+</div>

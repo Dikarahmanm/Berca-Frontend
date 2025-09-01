@@ -348,6 +348,78 @@ export class ReceiptPreviewComponent implements OnInit {
     }
   }
 
+  // ===== NEW: BRANCH-AWARE RECEIPT ACTIONS =====
+
+  async printBranchReceipt(): Promise<void> {
+    const saleData = this.sale();
+    if (!saleData) {
+      this.showErrorMessage('Tidak ada data struk untuk dicetak');
+      return;
+    }
+
+    try {
+      this.loading.set(true);
+      console.log('🖨️🏢 Starting branch-aware print process for sale:', saleData.id);
+      
+      // Create branch-specific config from current header settings
+      const branchReceiptConfig = this.getBranchReceiptConfig();
+      const printOptions = this.printOptions();
+      
+      await this.receiptService.printBranchReceipt(saleData.id, branchReceiptConfig, printOptions);
+      this.showSuccessMessage('Struk branch berhasil dicetak');
+    } catch (error: any) {
+      console.error('❌ Branch print failed:', error);
+      this.showErrorMessage(error.message || 'Gagal mencetak struk branch');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async downloadBranchPDF(): Promise<void> {
+    const saleData = this.sale();
+    if (!saleData) {
+      this.showErrorMessage('Tidak ada data struk untuk diunduh');
+      return;
+    }
+
+    try {
+      this.loading.set(true);
+      console.log('📄🏢 Starting branch-aware PDF download for sale:', saleData.id);
+      
+      // Create branch-specific config from current header settings
+      const branchReceiptConfig = this.getBranchReceiptConfig();
+      const printOptions = this.printOptions();
+      
+      await this.receiptService.downloadBranchReceiptPDF(saleData.id, branchReceiptConfig, printOptions);
+      this.showSuccessMessage('PDF struk branch berhasil didownload!');
+    } catch (error: any) {
+      console.error('❌ Branch PDF download error:', error);
+      this.showErrorMessage(error.message || 'Gagal mengunduh PDF branch');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  /**
+   * Helper method to convert current receipt header to branch receipt config
+   */
+  private getBranchReceiptConfig(): any {
+    const headerConfig = this.receiptHeader();
+    
+    return {
+      storeName: headerConfig.storeName,
+      storeAddress: headerConfig.storeAddress,
+      storePhone: headerConfig.storePhone,
+      storeEmail: headerConfig.storeEmail,
+      footerMessage: headerConfig.footerMessage,
+      theme: headerConfig.theme,
+      fontSize: headerConfig.fontSize,
+      includeQR: this.printOptions().includeQR,
+      includeLogo: this.printOptions().includeLogo,
+      includeFooter: this.printOptions().includeFooter
+    };
+  }
+
   async downloadPDF(): Promise<void> {
     const saleData = this.sale();
     if (!saleData) {

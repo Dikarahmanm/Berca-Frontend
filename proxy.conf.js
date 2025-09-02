@@ -4,7 +4,8 @@ const PROXY_CONFIG = [
     target: 'http://localhost:5171',
     secure: false,
     changeOrigin: true,
-    logLevel: 'debug'
+    logLevel: 'debug',
+    bypass: null
   },
   {
     context: ['/auth/**'],

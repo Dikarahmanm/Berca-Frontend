@@ -93,7 +93,7 @@ export class BranchPOSService {
   private readonly stateService = inject(StateService);
   private readonly inventoryService = inject(BranchInventoryService);
   // ✅ Use relative URL for proxy routing
-  private readonly apiUrl = '/api/BranchPOS';
+  private readonly apiUrl = '/api';
 
   // Signal-based state
   private _recentTransactions = signal<BranchTransactionDto[]>([]);
@@ -191,8 +191,26 @@ export class BranchPOSService {
             
             return {
               success: true,
-              transactionId: response.data.id,
-              receiptData,
+              data: {
+                id: response.data.id,
+                saleNumber: response.data.saleNumber,
+                total: branchTransaction.total,
+                totalAmount: branchTransaction.total,
+                date: new Date().toISOString(), // Use current date since API doesn't return it
+                subtotal: branchTransaction.subtotal,
+                discountAmount: branchTransaction.discount,
+                taxAmount: branchTransaction.tax,
+                amountPaid: branchTransaction.amountPaid,
+                changeAmount: branchTransaction.change,
+                paymentMethod: branchTransaction.paymentMethod,
+                memberId: branchTransaction.memberId,
+                memberName: branchTransaction.memberName,
+                cashierId: branchTransaction.cashierId,
+                cashierName: branchTransaction.cashierName,
+                status: branchTransaction.status,
+                notes: branchTransaction.notes,
+                receiptData
+              },
               message: 'Transaction processed successfully'
             };
           } else {
@@ -213,10 +231,29 @@ export class BranchPOSService {
 
           this._recentTransactions.update(transactions => [branchTransaction, ...transactions.slice(0, 9)]);
 
+          const mockId = Date.now();
           return of({
             success: true,
-            transactionId: Date.now(),
-            receiptData: mockReceiptData,
+            data: {
+              id: mockId,
+              saleNumber: `MOCK-${mockId}`,
+              total: branchTransaction.total,
+              totalAmount: branchTransaction.total,
+              saleDate: new Date().toISOString(),
+              subtotal: branchTransaction.subtotal,
+              discountAmount: branchTransaction.discount,
+              taxAmount: branchTransaction.tax,
+              amountPaid: branchTransaction.amountPaid,
+              changeAmount: branchTransaction.change,
+              paymentMethod: branchTransaction.paymentMethod,
+              memberId: branchTransaction.memberId,
+              memberName: branchTransaction.memberName,
+              cashierId: branchTransaction.cashierId,
+              cashierName: branchTransaction.cashierName,
+              status: branchTransaction.status,
+              notes: branchTransaction.notes,
+              receiptData: mockReceiptData
+            },
             message: 'Transaction processed (mock mode)'
           });
         }),
@@ -268,7 +305,7 @@ export class BranchPOSService {
       return of([]);
     }
 
-    return this.http.get<{success: boolean, data: BranchTransactionDto[]}>(`${this.apiUrl}/recent/${branchId}?limit=${limit}`)
+    return this.http.get<{success: boolean, data: BranchTransactionDto[]}>(`${this.apiUrl}/POS/recent/${branchId}?limit=${limit}`)
       .pipe(
         map(response => {
           if (response.success) {
@@ -296,7 +333,7 @@ export class BranchPOSService {
 
     const params = { startDate, endDate };
     
-    return this.http.get<{success: boolean, data: BranchSalesReport}>(`${this.apiUrl}/report/${branchId}`, { params })
+    return this.http.get<{success: boolean, data: BranchSalesReport}>(`${this.apiUrl}/POS/report/${branchId}`, { params })
       .pipe(
         map(response => response.success ? response.data : {} as BranchSalesReport),
         catchError(error => {

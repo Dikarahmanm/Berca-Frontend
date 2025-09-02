@@ -657,6 +657,13 @@ export class POSService {
       errorMessage = 'Endpoint tidak ditemukan - periksa URL API';
     } else if (error.status === 401) {
       errorMessage = 'Unauthorized - silakan login ulang';
+      
+      // ✅ DEVELOPMENT: Show auth guidance in console
+      console.warn('🔐 Authentication Required - Please check:');
+      console.warn('1. Navigate to /auth/login and login again');
+      console.warn('2. Check if backend authentication cookies are valid');
+      console.warn('3. Verify backend API is running on port 5171');
+      
     } else if (error.status === 400) {
       errorMessage = error.error?.message || 'Data tidak valid';
     } else if (error.error?.message) {

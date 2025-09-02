@@ -92,7 +92,8 @@ export class BranchPOSService {
   private readonly http = inject(HttpClient);
   private readonly stateService = inject(StateService);
   private readonly inventoryService = inject(BranchInventoryService);
-  private readonly apiUrl = `${environment.apiUrl}/BranchPOS`;
+  // ✅ Use relative URL for proxy routing
+  private readonly apiUrl = '/api/BranchPOS';
 
   // Signal-based state
   private _recentTransactions = signal<BranchTransactionDto[]>([]);
@@ -170,25 +171,27 @@ export class BranchPOSService {
       items: branchTransaction.items.length
     });
 
-    return this.http.post<{success: boolean, transactionId?: number, message?: string}>(`${this.apiUrl}/process`, branchTransaction)
+    return this.http.post<{success: boolean, data?: {id: number, saleNumber: string}, message?: string}>(`${this.apiUrl}/POS/sales`, branchTransaction, {
+      withCredentials: true
+    })
       .pipe(
         map(response => {
-          if (response.success) {
+          if (response.success && response.data) {
             // Create receipt data
             const receiptData: BranchReceiptDto = {
               ...branchTransaction,
-              id: response.transactionId,
+              id: response.data.id,
               ...this.branchReceiptConfig()!
             };
 
             // Update local state
             this._recentTransactions.update(transactions => [branchTransaction, ...transactions.slice(0, 9)]);
             
-            console.log('✅ Transaction processed successfully:', response.transactionId);
+            console.log('✅ Transaction processed successfully:', response.data.id);
             
             return {
               success: true,
-              transactionId: response.transactionId,
+              transactionId: response.data.id,
               receiptData,
               message: 'Transaction processed successfully'
             };

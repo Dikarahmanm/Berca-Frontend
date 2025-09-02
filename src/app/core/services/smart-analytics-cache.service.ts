@@ -415,11 +415,11 @@ export class SmartAnalyticsCacheService {
   private createApiCall(key: string): Observable<any> {
     // Create appropriate API calls based on key
     const apiEndpoints: Record<string, string> = {
-      'expiry-analytics': `${environment.apiUrl}/ExpiryManagement/comprehensive-analytics`,
-      'fifo-recommendations': `${environment.apiUrl}/ExpiryManagement/smart-fifo-recommendations`,
-      'category-analytics': `${environment.apiUrl}/Analytics/category-performance`,
-      'branch-analytics': `${environment.apiUrl}/Analytics/branch-comparison`,
-      'smart-notifications': `${environment.apiUrl}/SmartNotifications/dashboard-summary`,
+      'expiry-analytics': '/api/ExpiryManagement/comprehensive-analytics',
+      'fifo-recommendations': '/api/ExpiryManagement/smart-fifo-recommendations',
+      'category-analytics': '/api/Analytics/category-performance',
+      'branch-analytics': '/api/Analytics/branch-comparison',
+      'smart-notifications': '/api/SmartNotifications/dashboard-summary',
       'transfer-opportunities': `${environment.apiUrl}/MultiBranch/transfer-opportunities`,
       'dashboard-metrics': `${environment.apiUrl}/Dashboard/smart-metrics`
     };

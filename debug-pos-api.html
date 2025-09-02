@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug POS API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .endpoint { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 3px; }
+        .result { background: #e8f4f8; padding: 10px; margin: 10px 0; border-radius: 3px; white-space: pre-wrap; }
+        .error { background: #ffeaea; color: #d8000c; }
+        .success { background: #d4edda; color: #155724; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        input, select { padding: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug POS API Endpoints</h1>
+        
+        <div class="section">
+            <h3>Backend Status Check</h3>
+            <button onclick="checkBackendStatus()">Check Backend Health</button>
+            <div id="backend-status" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>Test Product Endpoints</h3>
+            
+            <div class="endpoint">
+                <strong>GET /api/Product/by-branch</strong><br>
+                Branch IDs: <input type="text" id="branchIds" value="1,2" placeholder="1,2,3">
+                <button onclick="testProductByBranch()">Test by-branch</button>
+            </div>
+            
+            <div class="endpoint">
+                <strong>GET /api/POS/products</strong><br>
+                <button onclick="testPOSProducts()">Test POS products</button>
+            </div>
+            
+            <div class="endpoint">
+                <strong>GET /api/Product</strong><br>
+                <button onclick="testProducts()">Test general products</button>
+            </div>
+            
+            <div id="product-results" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>Test Branch Endpoints</h3>
+            
+            <div class="endpoint">
+                <strong>GET /api/Branch</strong><br>
+                <button onclick="testBranches()">Test branches</button>
+            </div>
+            
+            <div id="branch-results" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>Manual URL Test</h3>
+            <input type="text" id="manualUrl" placeholder="/api/Product/by-branch?branchIds=1" style="width: 300px;">
+            <button onclick="testManualUrl()">Test URL</button>
+            <div id="manual-results" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost:5171';
+        
+        async function makeRequest(endpoint, params = {}) {
+            try {
+                let url = `${baseUrl}${endpoint}`;
+                if (Object.keys(params).length > 0) {
+                    const urlParams = new URLSearchParams(params);
+                    url += `?${urlParams.toString()}`;
+                }
+                
+                console.log('🔍 Testing URL:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const data = await response.text();
+                let jsonData;
+                
+                try {
+                    jsonData = JSON.parse(data);
+                } catch (e) {
+                    jsonData = data;
+                }
+                
+                return {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: jsonData,
+                    url: url
+                };
+            } catch (error) {
+                return {
+                    status: 0,
+                    statusText: 'Network Error',
+                    data: error.message,
+                    url: endpoint
+                };
+            }
+        }
+        
+        async function checkBackendStatus() {
+            const result = document.getElementById('backend-status');
+            result.textContent = 'Checking backend status...';
+            
+            try {
+                const response = await fetch(`${baseUrl}/health`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    result.className = 'result success';
+                    result.textContent = `✅ Backend is running (${response.status})`;
+                } else {
+                    result.className = 'result error';
+                    result.textContent = `❌ Backend responded with ${response.status}`;
+                }
+            } catch (error) {
+                try {
+                    // Try a simple endpoint
+                    const response = await fetch(`${baseUrl}/api/Branch`, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    
+                    result.className = 'result success';
+                    result.textContent = `✅ Backend is running (test endpoint responded with ${response.status})`;
+                } catch (err) {
+                    result.className = 'result error';
+                    result.textContent = `❌ Backend is not responding: ${error.message}`;
+                }
+            }
+        }
+        
+        async function testProductByBranch() {
+            const branchIds = document.getElementById('branchIds').value;
+            const result = document.getElementById('product-results');
+            
+            result.textContent = 'Testing /api/Product/by-branch...';
+            
+            const response = await makeRequest('/api/Product/by-branch', {
+                branchIds: branchIds,
+                page: 1,
+                pageSize: 10
+            });
+            
+            displayResult(result, response);
+        }
+        
+        async function testPOSProducts() {
+            const result = document.getElementById('product-results');
+            
+            result.textContent = 'Testing /api/POS/products...';
+            
+            const response = await makeRequest('/api/POS/products', {
+                page: 1,
+                pageSize: 10
+            });
+            
+            displayResult(result, response);
+        }
+        
+        async function testProducts() {
+            const result = document.getElementById('product-results');
+            
+            result.textContent = 'Testing /api/Product...';
+            
+            const response = await makeRequest('/api/Product', {
+                page: 1,
+                pageSize: 10
+            });
+            
+            displayResult(result, response);
+        }
+        
+        async function testBranches() {
+            const result = document.getElementById('branch-results');
+            
+            result.textContent = 'Testing /api/Branch...';
+            
+            const response = await makeRequest('/api/Branch');
+            
+            displayResult(result, response);
+        }
+        
+        async function testManualUrl() {
+            const url = document.getElementById('manualUrl').value;
+            const result = document.getElementById('manual-results');
+            
+            result.textContent = 'Testing manual URL...';
+            
+            const response = await makeRequest(url);
+            
+            displayResult(result, response);
+        }
+        
+        function displayResult(element, response) {
+            if (response.status >= 200 && response.status < 300) {
+                element.className = 'result success';
+                element.textContent = `✅ SUCCESS (${response.status})\nURL: ${response.url}\n\nResponse:\n${JSON.stringify(response.data, null, 2)}`;
+            } else if (response.status === 404) {
+                element.className = 'result error';
+                element.textContent = `❌ NOT FOUND (404)\nURL: ${response.url}\n\nThis endpoint does not exist. Available endpoints might be different.`;
+            } else {
+                element.className = 'result error';
+                element.textContent = `❌ ERROR (${response.status})\nURL: ${response.url}\n\nResponse:\n${JSON.stringify(response.data, null, 2)}`;
+            }
+        }
+        
+        // Auto-check backend on load
+        window.onload = function() {
+            checkBackendStatus();
+        };
+    </script>
+</body>
+</html>

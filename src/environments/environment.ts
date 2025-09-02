@@ -13,10 +13,10 @@ export const environment = {
   // ✅ REAL: API Endpoints sesuai Controllers di backend
   endpoints: {
     // Authentication
-    auth: '/Auth',
-    login: '/Auth/login',
-    logout: '/Auth/logout',
-    register: '/Auth/register',
+    auth: '/auth',
+    login: '/auth/login',
+    logout: '/auth/logout',
+    register: '/auth/register',
     
     // User Management
     userProfile: '/UserProfile',

@@ -192,7 +192,8 @@ export interface CapacityConstraint {
 })
 export class BranchAnalyticsService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/BranchAnalytics`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api/BranchAnalytics';
 
   // Signal-based state management
   private _analyticsOverview = signal<BranchAnalyticsOverview | null>(null);

@@ -20,7 +20,7 @@ import {
 })
 export class FactureAnalyticsService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl || 'http://localhost:5171/api'}/Facture`;
+  private readonly baseUrl = '/api/Facture';
 
   // Signal-based state for caching
   private _outstandingFactures = signal<OutstandingFactureDto[]>([]);

@@ -25,7 +25,7 @@ import { BranchAccessDto } from '../../core/interfaces/branch.interfaces';
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [
     CommonModule,
     RouterModule,

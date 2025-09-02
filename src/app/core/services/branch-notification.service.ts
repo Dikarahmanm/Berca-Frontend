@@ -77,7 +77,8 @@ export class BranchNotificationService {
   private readonly baseNotificationService = inject(NotificationService);
   private readonly stateService = inject(StateService);
   
-  private readonly apiUrl = `${environment.apiUrl}/BranchNotification`;
+  // ✅ Use relative URL for proxy routing
+  private readonly apiUrl = '/api/BranchNotification';
 
   // Signal-based state management
   private _branchNotifications = signal<Map<number, BranchNotificationDto[]>>(new Map());

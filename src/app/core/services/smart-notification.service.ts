@@ -103,7 +103,8 @@ export interface IntelligentRecommendation {
 })
 export class SmartNotificationService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/SmartNotification`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api/SmartNotification';
 
   // Signal-based state management
   private _notifications = signal<ExpiryNotification[]>([]);

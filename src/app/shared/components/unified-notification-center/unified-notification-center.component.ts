@@ -367,8 +367,17 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
   }
   
   private navigateToUrl(url: string): void {
-    this.router.navigate([url]).catch(error => {
-      console.error('Navigation error:', error);
+    console.log('🔍 Notification - Navigating to:', url);
+    console.log('🔍 Router instance:', this.router);
+    
+    this.router.navigate([url]).then(success => {
+      console.log('🔍 Navigation success:', success);
+      if (!success) {
+        console.error('❌ Router navigation failed, using window.location');
+        window.location.href = url;
+      }
+    }).catch(error => {
+      console.error('❌ Navigation error:', error);
       window.location.href = url;
     });
   }

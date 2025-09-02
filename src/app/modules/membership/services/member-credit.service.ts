@@ -59,7 +59,8 @@ import {
 @Injectable({ providedIn: 'root' })
 export class MemberCreditService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api';
 
   // Signal-based reactive state management
   private _loading = signal<boolean>(false);
@@ -450,7 +451,7 @@ export class MemberCreditService {
     console.log('MemberCreditService: Creating sale with credit:', request);
     
     // Use correct POS endpoint, not MemberCredit base URL
-    const posEndpoint = `${environment.apiUrl}/pos/create-sale-with-credit`;
+    const posEndpoint = '/api/pos/create-sale-with-credit';
     
     return this.http.post<any>(posEndpoint, request)
       .pipe(

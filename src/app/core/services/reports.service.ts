@@ -20,7 +20,8 @@ import {
   providedIn: 'root'
 })
 export class ReportsService {
-  private readonly apiUrl = `${environment.apiUrl}`;
+  // ✅ Use relative URLs for proxy routing
+  private readonly baseUrl = '/api';
   
   // Loading state management
   private loadingSubject = new BehaviorSubject<boolean>(false);
@@ -31,7 +32,7 @@ export class ReportsService {
   public error$ = this.errorSubject.asObservable();
 
   constructor(private http: HttpClient) { 
-    console.log('🔧 Reports Service initialized with API URL:', this.apiUrl);
+    console.log('🔧 Reports Service initialized with base URL:', this.baseUrl);
   }
 
   // ===== SALES REPORTS =====
@@ -48,14 +49,14 @@ export class ReportsService {
       .set('startDate', filter.startDate.toISOString().split('T')[0])
       .set('endDate', filter.endDate.toISOString().split('T')[0]);
 
-    console.log('🔄 Reports DEBUG: Using original POS endpoint for comparison:', {
-      url: `${this.apiUrl}/pos/reports/summary`,
+    console.log('🔄 Reports DEBUG: Using POS endpoint:', {
+      url: `${this.baseUrl}/pos/reports/summary`,
       params: params.toString(),
       withCredentials: true
     });
 
-    // ✅ DEBUG: Back to original POS endpoint to compare with Analytics KPI
-    return this.http.get<any>(`${this.apiUrl}/pos/reports/summary`, {
+    // ✅ Use relative URL for proxy routing
+    return this.http.get<any>(`${this.baseUrl}/pos/reports/summary`, {
       params,
       withCredentials: true
     }).pipe(
@@ -167,7 +168,7 @@ export class ReportsService {
       .set('startDate', filter.startDate.toISOString().split('T')[0])
       .set('endDate', filter.endDate.toISOString().split('T')[0]);
 
-    return this.http.get<any[]>(`${this.apiUrl}/pos/reports/daily-sales`, {
+    return this.http.get<any[]>(`${this.baseUrl}/pos/reports/daily-sales`, {
       params,
       withCredentials: true
     }).pipe(
@@ -184,7 +185,7 @@ export class ReportsService {
       .set('startDate', filter.startDate.toISOString().split('T')[0])
       .set('endDate', filter.endDate.toISOString().split('T')[0]);
 
-    return this.http.get<any[]>(`${this.apiUrl}/pos/reports/payment-methods`, {
+    return this.http.get<any[]>(`${this.baseUrl}/pos/reports/payment-methods`, {
       params,
       withCredentials: true
     }).pipe(
@@ -205,7 +206,7 @@ export class ReportsService {
       .set('endDate', request.endDate.toISOString().split('T')[0])
       .set('format', request.format);
 
-    return this.http.post<any>(`${this.apiUrl}/pos/reports/sales/export`, {}, {
+    return this.http.post<any>(`${this.baseUrl}/pos/reports/sales/export`, {}, {
       params,
       withCredentials: true
     }).pipe(
@@ -279,11 +280,11 @@ export class ReportsService {
     this.clearError();
 
     console.log('🔄 Loading Inventory Report:', {
-      url: `${this.apiUrl}/dashboard/reports/inventory`,
+      url: `${this.baseUrl}/dashboard/reports/inventory`,
       withCredentials: true
     });
 
-    return this.http.get<any>(`${this.apiUrl}/dashboard/reports/inventory`, {
+    return this.http.get<any>(`${this.baseUrl}/dashboard/reports/inventory`, {
       withCredentials: true
     }).pipe(
       map(response => {
@@ -305,7 +306,7 @@ export class ReportsService {
    * API: GET /api/dashboard/reports/product-details
    */
   getProductDetailsData(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/dashboard/reports/product-details`, {
+    return this.http.get<any[]>(`${this.baseUrl}/dashboard/reports/product-details`, {
       withCredentials: true
     }).pipe(
       catchError(error => this.handleError('Failed to load product details', error))
@@ -317,7 +318,7 @@ export class ReportsService {
    * API: GET /api/dashboard/reports/product-categories
    */
   getProductCategoriesData(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/dashboard/reports/product-categories`, {
+    return this.http.get<any[]>(`${this.baseUrl}/dashboard/reports/product-categories`, {
       withCredentials: true
     }).pipe(
       catchError(error => this.handleError('Failed to load product categories', error))
@@ -329,7 +330,7 @@ export class ReportsService {
    * API: GET /api/dashboard/reports/product-valuation
    */
   getProductValuationData(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/dashboard/reports/product-valuation`, {
+    return this.http.get<any[]>(`${this.baseUrl}/dashboard/reports/product-valuation`, {
       withCredentials: true
     }).pipe(
       catchError(error => this.handleError('Failed to load product valuation', error))
@@ -354,7 +355,7 @@ export class ReportsService {
 
     const params = new HttpParams().set('format', format);
 
-    return this.http.post<any>(`${this.apiUrl}/dashboard/reports/inventory/export`, {}, {
+    return this.http.post<any>(`${this.baseUrl}/dashboard/reports/inventory/export`, {}, {
       params,
       withCredentials: true
     }).pipe(
@@ -413,12 +414,12 @@ export class ReportsService {
       .set('endDate', filter.endDate.toISOString().split('T')[0]);
 
     console.log('🔄 Loading Financial Report:', {
-      url: `${this.apiUrl}/dashboard/reports/financial`,
+      url: `${this.baseUrl}/dashboard/reports/financial`,
       params: params.toString(),
       withCredentials: true
     });
 
-    return this.http.get<any>(`${this.apiUrl}/dashboard/reports/financial`, {
+    return this.http.get<any>(`${this.baseUrl}/dashboard/reports/financial`, {
       params,
       withCredentials: true
     }).pipe(
@@ -471,7 +472,7 @@ export class ReportsService {
       .set('startDate', filter.startDate.toISOString().split('T')[0])
       .set('endDate', filter.endDate.toISOString().split('T')[0]);
 
-    return this.http.get<any[]>(`${this.apiUrl}/dashboard/reports/revenue-trend`, {
+    return this.http.get<any[]>(`${this.baseUrl}/dashboard/reports/revenue-trend`, {
       params,
       withCredentials: true
     }).pipe(
@@ -488,7 +489,7 @@ export class ReportsService {
       .set('startDate', filter.startDate.toISOString().split('T')[0])
       .set('endDate', filter.endDate.toISOString().split('T')[0]);
 
-    return this.http.get<any[]>(`${this.apiUrl}/dashboard/reports/category-performance`, {
+    return this.http.get<any[]>(`${this.baseUrl}/dashboard/reports/category-performance`, {
       params,
       withCredentials: true
     }).pipe(
@@ -509,7 +510,7 @@ export class ReportsService {
       .set('endDate', request.endDate.toISOString())
       .set('format', request.format);
 
-    return this.http.post<any>(`${this.apiUrl}/dashboard/reports/financial/export`, {}, {
+    return this.http.post<any>(`${this.baseUrl}/dashboard/reports/financial/export`, {}, {
       params,
       withCredentials: true
     }).pipe(
@@ -534,12 +535,12 @@ export class ReportsService {
       .set('endDate', filter.endDate.toISOString().split('T')[0]);
 
     console.log('🔄 Loading Customer Report:', {
-      url: `${this.apiUrl}/dashboard/reports/customer`,
+      url: `${this.baseUrl}/dashboard/reports/customer`,
       params: params.toString(),
       withCredentials: true
     });
 
-    return this.http.get<any>(`${this.apiUrl}/dashboard/reports/customer`, {
+    return this.http.get<any>(`${this.baseUrl}/dashboard/reports/customer`, {
       params,
       withCredentials: true
     }).pipe(
@@ -615,7 +616,7 @@ export class ReportsService {
       .set('startDate', filter.startDate.toISOString().split('T')[0])
       .set('endDate', filter.endDate.toISOString().split('T')[0]);
 
-    return this.http.get<any[]>(`${this.apiUrl}/dashboard/reports/member-statistics`, {
+    return this.http.get<any[]>(`${this.baseUrl}/dashboard/reports/member-statistics`, {
       params,
       withCredentials: true
     }).pipe(
@@ -632,7 +633,7 @@ export class ReportsService {
       .set('startDate', filter.startDate.toISOString().split('T')[0])
       .set('endDate', filter.endDate.toISOString().split('T')[0]);
 
-    return this.http.get<any[]>(`${this.apiUrl}/dashboard/reports/member-acquisition`, {
+    return this.http.get<any[]>(`${this.baseUrl}/dashboard/reports/member-acquisition`, {
       params,
       withCredentials: true
     }).pipe(
@@ -653,7 +654,7 @@ export class ReportsService {
       .set('endDate', request.endDate.toISOString().split('T')[0])
       .set('format', request.format);
 
-    return this.http.post<any>(`${this.apiUrl}/dashboard/reports/customer/export`, {}, {
+    return this.http.post<any>(`${this.baseUrl}/dashboard/reports/customer/export`, {}, {
       params,
       withCredentials: true
     }).pipe(
@@ -677,7 +678,7 @@ export class ReportsService {
    * API: GET /api/dashboard/reports/export-history
    */
   getExportHistory(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/dashboard/reports/export-history`, {
+    return this.http.get<any[]>(`${this.baseUrl}/dashboard/reports/export-history`, {
       withCredentials: true
     }).pipe(
       catchError(error => this.handleError('Failed to load export history', error))
@@ -691,7 +692,7 @@ export class ReportsService {
   deleteExportFile(filePath: string): Observable<any> {
     const params = new HttpParams().set('filePath', filePath);
     
-    return this.http.delete(`${this.apiUrl}/dashboard/reports/delete-export`, {
+    return this.http.delete(`${this.baseUrl}/dashboard/reports/delete-export`, {
       params,
       withCredentials: true
     }).pipe(
@@ -713,7 +714,7 @@ export class ReportsService {
       console.log('🔗 Using backend download URL:', downloadUrl);
     } else {
       // Fallback: construct URL from file path
-      finalDownloadUrl = `${environment.apiUrl}/files${filePath}`;
+      finalDownloadUrl = `/api/files${filePath}`;
       console.log('🔗 Using constructed download URL:', finalDownloadUrl);
     }
 

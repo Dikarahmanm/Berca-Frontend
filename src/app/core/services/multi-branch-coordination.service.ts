@@ -247,7 +247,8 @@ export interface OptimizationConstraint {
 })
 export class MultiBranchCoordinationService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/BranchCoordination`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api/BranchCoordination';
 
   // Signal-based state management
   private _branches = signal<BranchDto[]>([]);

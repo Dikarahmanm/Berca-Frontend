@@ -1,5 +1,6 @@
 // src/app/modules/pos/pos/pos.component.ts - SIGNALS + ONPUSH MIGRATION
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener, ChangeDetectionStrategy, signal, computed, inject, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
+import { effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -17,7 +18,7 @@ import { AddStockToBatchModalComponent, AddStockToBatchModalData, AddStockToBatc
 import { BatchSelectionModalComponent, BatchSelectionModalData, BatchSelectionResult } from '../../inventory/components/batch-selection-modal/batch-selection-modal.component';
 
 // Services
-import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData, ProductListResponseApiResponse } from '../../../core/services/pos.service';
+import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData, ProductListResponseApiResponse, ProductByBranchApiResponse } from '../../../core/services/pos.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { CreateProductRequest, BatchForPOSDto, ProductBatch } from '../../inventory/interfaces/inventory.interfaces';
 import { AuthService } from '../../../core/services/auth.service';
@@ -27,13 +28,13 @@ import { MemberDto } from '../../membership/interfaces/membership.interfaces';
 import { MemberCreditService } from '../../membership/services/member-credit.service';
 import { POSMemberCreditDto } from '../../membership/interfaces/member-credit.interfaces';
 import { CategoryService } from '../../category-management/services/category.service';
-import { Category } from '../../category-management/models/category.models';
+import { Category, CategoryFilter } from '../../category-management/models/category.models';
 import { NotificationService, CreateNotificationRequest } from '../../../core/services/notification.service';
 import { ToastService } from '../../../shared/services/toast.service';
 // NEW: Branch-aware services
 import { BranchPOSService } from '../services/branch-pos.service';
-import { BranchInventoryService } from '../../inventory/services/branch-inventory.service';
 import { StateService } from '../../../core/services/state.service';
+// ✅ REMOVED: BranchInventoryService - now using POSService directly
 
 // Import standalone components
 import { BarcodeToolsComponent } from './barcode-tools/barcode-tools.component';
@@ -74,8 +75,8 @@ export class POSComponent implements OnInit, OnDestroy {
   
   // NEW: Branch-aware services
   private branchPOSService = inject(BranchPOSService);
-  private branchInventoryService = inject(BranchInventoryService);
   private stateService = inject(StateService);
+  // ✅ REMOVED: branchInventoryService - now using POSService directly
 
   // SIGNALS: Template-driven form state
   searchQuery = signal('');
@@ -154,12 +155,15 @@ export class POSComponent implements OnInit, OnDestroy {
   hasMoreProducts = signal(true);
   allProducts = signal<Product[]>([]); // Store all loaded products
   displayedProducts = signal<Product[]>([]); // Products currently displayed
+  
+  // ✅ NEW: Branch stock tracking
+  productBranchStocks = signal<Map<number, {[branchId: number]: number}>>(new Map());
+  loadingBranchStock = signal<Set<number>>(new Set());
 
   // COMPUTED: Filtered products based on search and filters
   filteredProducts = computed(() => {
-    // NEW: Use branch-aware filtering - prioritize branch products if available
-    const branchProducts = this.branchInventoryService.filteredProducts();
-    let products = branchProducts.length > 0 ? branchProducts : this.allProducts();
+    // ✅ FIX: Use allProducts from POSService, not branchInventoryService
+    let products = this.allProducts();
     
     const query = this.searchQuery().toLowerCase();
     const filter = this.selectedFilter();
@@ -280,8 +284,9 @@ export class POSComponent implements OnInit, OnDestroy {
     this.initializeComponent();
     this.setupCartSubscription();
     this.setupSearchListener();
+    this.setupBranchListener();
     this.loadCategories();
-    this.loadBranchData();
+    // ✅ FIX: Only use loadProducts - no more loadBranchData
     this.loadProducts();
   }
 
@@ -327,7 +332,7 @@ export class POSComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Load more products for infinite scrolling
+   * ✅ UPDATED: Load more products for infinite scrolling with branch awareness
    */
   private loadMoreProducts(): void {
     if (this.isLoadingMore() || !this.hasMoreProducts() || this.searchQuery().length > 0) {
@@ -337,17 +342,27 @@ export class POSComponent implements OnInit, OnDestroy {
     this.isLoadingMore.set(true);
     const nextPage = this.currentPage() + 1;
 
-    this.posService.getProducts(nextPage, 20).subscribe({
+    // ✅ Use updated branch-aware method
+    const filters = {
+      page: nextPage,
+      pageSize: 20,
+      isActive: true,
+      search: this.searchQuery() || undefined,
+      categoryId: this.selectedCategoryId() || undefined
+    };
+
+    this.posService.getProducts(filters).subscribe({
       next: (response) => {
         this.isLoadingMore.set(false);
         
-        if (response.success && response.data?.products) {
-          const newProducts = response.data.products;
+        if (response.success && response.data) {
+          const newProducts = response.data.products || [];
           
           if (newProducts.length > 0) {
-            // Add new products to existing list
+            // Add new branch-aware products to existing list
             this.allProducts.update(existing => [...existing, ...newProducts]);
             this.currentPage.set(nextPage);
+            console.log('✅ Loaded more branch products:', newProducts.length);
           } else {
             // No more products to load
             this.hasMoreProducts.set(false);
@@ -358,7 +373,7 @@ export class POSComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.isLoadingMore.set(false);
-        console.error('Error loading more products:', error);
+        console.error('❌ Error loading more branch products:', error);
       }
     });
   }
@@ -378,43 +393,86 @@ export class POSComponent implements OnInit, OnDestroy {
 
   // ===== INITIALIZATION =====
 
-  // Load products with signals and infinite scroll support
+  // ✅ UPDATED: Load branch-aware products using new endpoint
   loadProducts(): void {
     this.isLoading.set(true);
     this.currentPage.set(1);
     this.hasMoreProducts.set(true);
     
-    this.posService.getProducts(1, 20).subscribe({
+    // ✅ Use the updated branch-aware getProducts method
+    const filters = {
+      page: 1,
+      pageSize: 20,
+      isActive: true,
+      search: this.searchQuery() || undefined,
+      categoryId: this.selectedCategoryId() || undefined
+    };
+
+    console.log('🏢 [FIXED] Loading branch-aware products with filters:', filters);
+    
+    this.posService.getProducts(filters).subscribe({
       next: (response) => {
-        console.log('🔍 Full Response:', response);
+        console.log('🔍 Branch Products Response:', response);
         console.log('🔍 Response Success:', response.success);
         console.log('🔍 Response Data:', response.data);
         
         if (response.success && response.data) {
-          // ✅ FIX: Use allProducts for infinite scroll
-          const products = response.data.products || [];
+          // ✅ Handle both formats: direct array or wrapped in pagination structure
+          let products: Product[] = [];
+          
+          if (Array.isArray(response.data)) {
+            // Direct array format from /api/Product/by-branch
+            products = response.data;
+            console.log('📦 Direct array format detected');
+          } else if (response.data.products) {
+            // Pagination format from /api/POS/products
+            products = response.data.products;
+            console.log('📦 Pagination format detected');
+          } else {
+            console.warn('⚠️ Unexpected response format:', response.data);
+            products = [];
+          }
+          
           this.allProducts.set(products);
-          this.products.set(products); // Keep for backward compatibility
-          console.log('✅ Products loaded:', products.length);
-          console.log('✅ First product:', products[0]);
+          this.products.set(products);
+          console.log('✅ Branch products loaded:', products.length);
+          
+          if (products.length > 0) {
+            console.log('✅ First product:', products[0]);
+            console.log('🏢 Products from branches with stock validation');
+          }
           
           // Check if we can load more
           if (products.length < 20) {
             this.hasMoreProducts.set(false);
           }
         } else {
-          console.warn('⚠️ Response not successful:', response.message);
+          console.warn('⚠️ Branch products response not successful:', response.message);
           this.allProducts.set([]);
           this.products.set([]);
+          
+          // Show user-friendly message
+          this.errorMessage.set('Tidak ada produk yang tersedia di branch ini atau Anda tidak memiliki akses');
+          this.clearMessages();
         }
         
         this.isLoading.set(false);
       },
       error: (error) => {
-        console.error('❌ Load Products Error:', error);
+        console.error('❌ Load Branch Products Error:', error);
         this.allProducts.set([]);
         this.products.set([]);
         this.isLoading.set(false);
+        
+        // Show branch-specific error message
+        if (error.status === 403) {
+          this.errorMessage.set('Anda tidak memiliki akses ke branch ini');
+        } else if (error.status === 404) {
+          this.errorMessage.set('Tidak ada produk yang tersedia di branch ini');
+        } else {
+          this.errorMessage.set('Gagal memuat produk branch. Periksa koneksi dan branch yang dipilih.');
+        }
+        this.clearMessages();
       }
     });
   }
@@ -449,38 +507,7 @@ export class POSComponent implements OnInit, OnDestroy {
     this.performSearch('');
   }
 
-  // NEW: Load branch-aware data
-  private loadBranchData(): void {
-    console.log('🏢 Loading branch data for POS...');
-    
-    // Load branch inventory data
-    this.branchInventoryService.loadBranchProducts()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response) => {
-          if (response.success) {
-            console.log('✅ Branch products loaded:', response.data.length);
-            // Branch inventory service will update its internal signals
-            // which will automatically update our branchFilteredProducts computed
-          } else {
-            console.warn('⚠️ Failed to load branch products:', response.message);
-          }
-        },
-        error: (error) => {
-          console.error('❌ Error loading branch products:', error);
-        }
-      });
-
-    // Subscribe to branch context changes using effect
-    effect(() => {
-      const branch = this.activeBranch();
-      if (branch) {
-        console.log('🔄 Active branch changed:', branch.branchName);
-        // Note: We don't recursively call loadBranchData here to avoid infinite loop
-        // The branchFilteredProducts computed will automatically update
-      }
-    });
-  }
+  // ✅ REMOVED: loadBranchData - now using POSService directly
 
   private setupCartSubscription(): void {
     this.posService.cart$
@@ -512,6 +539,39 @@ export class POSComponent implements OnInit, OnDestroy {
       });
   }
 
+  /**
+   * Set up branch listener for automatic data reload when branch changes
+   */
+  private setupBranchListener(): void {
+    let currentBranchId: number | null = null;
+    
+    // Poll for branch changes every 2 seconds
+    const branchPolling = setInterval(() => {
+      const branch = this.activeBranch();
+      
+      if (branch && branch.branchId !== currentBranchId) {
+        console.log('🏢 Branch changed detected:', branch.branchName);
+        currentBranchId = branch.branchId;
+        
+        // Clear current products first
+        this.allProducts.set([]);
+        this.products.set([]);
+        this.isLoading.set(true);
+        
+        // Reload products for new branch
+        setTimeout(() => {
+          console.log('🏢 Reloading products for branch:', branch.branchId);
+          this.loadProducts();
+        }, 300);
+      }
+    }, 2000);
+    
+    // Cleanup polling on destroy
+    this.destroy$.subscribe(() => {
+      clearInterval(branchPolling);
+    });
+  }
+
   // ===== PRODUCT OPERATIONS =====
 
   onSearchInput(event: any): void {
@@ -521,6 +581,7 @@ export class POSComponent implements OnInit, OnDestroy {
   }
 
   // ✅ ADD: Auto-show products panel on search
+// ✅ UPDATED: Branch-aware search method
 private performSearch(query: string) {
   if (query.length < 2 && query.length > 0) {
     this.products.set([]);
@@ -537,27 +598,51 @@ private performSearch(query: string) {
     this.showMobileSummary.set(false);
   }
 
-  const searchObservable = query.length === 0 
-    ? this.posService.getProducts()
-    : this.posService.searchProducts(query);
+  // ✅ Use branch-aware search with new endpoint
+  const filters = {
+    page: 1,
+    pageSize: 50, // More results for search
+    isActive: true,
+    search: query.length === 0 ? undefined : query,
+    categoryId: this.selectedCategoryId() || undefined
+  };
 
-  searchObservable
+  console.log('🔍 Performing branch-aware search:', filters);
+
+  this.posService.getProducts(filters)
     .pipe(takeUntil(this.destroy$))
     .subscribe({
-      next: (response: ProductListResponseApiResponse) => {
+      next: (response) => {
         this.isSearching.set(false);
         if (response.success && response.data) {
           const products = response.data.products || [];
-          this.products.set(products.filter((p: Product) => p.isActive && p.stock > 0));
+          // ✅ Filter active products with stock (already filtered by backend but double-check)
+          const filteredProducts = products.filter((p: Product) => p.isActive && p.stock > 0);
+          this.products.set(filteredProducts);
+          
+          console.log('✅ Branch search results:', filteredProducts.length, 'products');
+          
+          if (filteredProducts.length === 0 && query.length > 0) {
+            this.errorMessage.set('Tidak ada produk ditemukan di branch ini');
+            this.clearMessages();
+          }
         } else {
           this.products.set([]);
-          this.errorMessage.set(response.message || 'Failed to load products');
+          this.errorMessage.set(response.message || 'Gagal mencari produk');
+          this.clearMessages();
         }
       },
       error: (error: any) => {
         this.isSearching.set(false);
         this.products.set([]);
-        this.errorMessage.set(error.message || 'Failed to load products');
+        
+        // Branch-specific error handling
+        if (error.status === 403) {
+          this.errorMessage.set('Tidak memiliki akses untuk mencari produk di branch ini');
+        } else {
+          this.errorMessage.set(error.message || 'Gagal mencari produk');
+        }
+        this.clearMessages();
       }
     });
   }
@@ -1048,10 +1133,20 @@ clearSearch(): void {
   }
 
   private loadCategories() {
-    this.categoryService.getCategoriesSimple()
+    // ✅ FIX: Use getCategories with proper filter parameter
+    const filter: CategoryFilter = {
+      page: 1,
+      pageSize: 100,
+      sortBy: 'name',
+      sortOrder: 'asc'
+    };
+    
+    this.categoryService.getCategories(filter)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (categories) => {
+        next: (response) => {
+          // Handle CategoryListResponse structure
+          const categories = response.categories || [];
           this.categories.set(categories);
           console.log('✅ Categories loaded for POS:', categories.length);
         },
@@ -2274,5 +2369,140 @@ focusMemberSearch(): void {
     }
     
     return `${product.stock} units available (batch managed)`;
+  }
+
+  // ===== NEW: BRANCH STOCK MANAGEMENT =====
+
+  /**
+   * ✅ NEW: Load branch stock for a specific product
+   */
+  loadProductBranchStock(productId: number): void {
+    const loadingSet = this.loadingBranchStock();
+    if (loadingSet.has(productId)) {
+      return; // Already loading
+    }
+
+    // Add to loading set
+    this.loadingBranchStock.update(set => new Set([...set, productId]));
+
+    this.posService.getProductBranchStock(productId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            // Update branch stock map
+            this.productBranchStocks.update(map => {
+              const newMap = new Map(map);
+              newMap.set(productId, response.data!);
+              return newMap;
+            });
+            console.log('✅ Branch stock loaded for product:', productId, response.data);
+          }
+        },
+        error: (error) => {
+          console.error('❌ Error loading branch stock for product:', productId, error);
+        },
+        complete: () => {
+          // Remove from loading set
+          this.loadingBranchStock.update(set => {
+            const newSet = new Set(set);
+            newSet.delete(productId);
+            return newSet;
+          });
+        }
+      });
+  }
+
+  /**
+   * ✅ NEW: Get branch stock for a product
+   */
+  getProductBranchStock(productId: number): {[branchId: number]: number} | null {
+    return this.productBranchStocks().get(productId) || null;
+  }
+
+  /**
+   * ✅ NEW: Check if product has stock in current branch
+   */
+  hasStockInCurrentBranch(product: Product): boolean {
+    const branchStock = this.getProductBranchStock(product.id);
+    const currentBranchId = this.activeBranch()?.branchId;
+    
+    if (!branchStock || !currentBranchId) {
+      return product.stock > 0; // Fallback to product stock
+    }
+    
+    return (branchStock[currentBranchId] || 0) > 0;
+  }
+
+  /**
+   * ✅ NEW: Get stock for current branch
+   */
+  getCurrentBranchStock(product: Product): number {
+    const branchStock = this.getProductBranchStock(product.id);
+    const currentBranchId = this.activeBranch()?.branchId;
+    
+    if (!branchStock || !currentBranchId) {
+      return product.stock; // Fallback to product stock
+    }
+    
+    return branchStock[currentBranchId] || 0;
+  }
+
+  /**
+   * ✅ NEW: Get total stock across all accessible branches
+   */
+  getTotalBranchStock(productId: number): number {
+    const branchStock = this.getProductBranchStock(productId);
+    if (!branchStock) return 0;
+    
+    return Object.values(branchStock).reduce((total, stock) => total + stock, 0);
+  }
+
+  /**
+   * ✅ NEW: Format branch stock display
+   */
+  formatBranchStockDisplay(product: Product): string {
+    const branchStock = this.getProductBranchStock(product.id);
+    const currentBranchId = this.activeBranch()?.branchId;
+    
+    if (!branchStock || !currentBranchId) {
+      return `${product.stock} tersedia`;
+    }
+    
+    const currentStock = branchStock[currentBranchId] || 0;
+    const totalStock = this.getTotalBranchStock(product.id);
+    
+    if (Object.keys(branchStock).length === 1) {
+      return `${currentStock} tersedia`;
+    }
+    
+    return `${currentStock} di branch ini, ${totalStock} total`;
+  }
+
+  /**
+   * ✅ NEW: Show detailed branch stock in modal/tooltip
+   */
+  showBranchStockDetails(product: Product): void {
+    const branchStock = this.getProductBranchStock(product.id);
+    const branches = this.stateService.accessibleBranches();
+    
+    if (!branchStock) {
+      alert(`Stock untuk ${product.name}:\nTotal: ${product.stock} unit`);
+      return;
+    }
+    
+    let message = `Stock ${product.name} per Branch:\n\n`;
+    
+    Object.entries(branchStock).forEach(([branchIdStr, stock]) => {
+      const branchId = parseInt(branchIdStr);
+      const branch = branches.find(b => b.branchId === branchId);
+      const branchName = branch?.branchName || `Branch ${branchId}`;
+      message += `${branchName}: ${stock} unit\n`;
+    });
+    
+    const total = this.getTotalBranchStock(product.id);
+    message += `\nTotal Semua Branch: ${total} unit`;
+    
+    alert(message);
   }
 }

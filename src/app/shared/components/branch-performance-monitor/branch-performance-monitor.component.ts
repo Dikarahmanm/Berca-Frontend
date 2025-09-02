@@ -117,18 +117,18 @@ import { StateService } from '../../../core/services/state.service';
           <div>
             <div class="flex justify-between items-center mb-2">
               <span class="text-sm">Cache Usage</span>
-              <span class="text-sm font-medium">{{ cacheStats()?.totalSizeMB }}MB</span>
+              <span class="text-sm font-medium">{{ cacheStats().totalSizeMB }}MB</span>
             </div>
             <div class="progress-bar mb-3">
               <div 
                 class="progress-fill" 
-                [style.width.%]="cacheStats()?.utilizationPercent"
-                [class.progress-warning]="(cacheStats()?.utilizationPercent || 0) > 80"
-                [class.progress-danger]="(cacheStats()?.utilizationPercent || 0) > 95"
+                [style.width.%]="cacheStats().utilizationPercent"
+                [class.progress-warning]="cacheStats().utilizationPercent > 80"
+                [class.progress-danger]="cacheStats().utilizationPercent > 95"
               ></div>
             </div>
             <div class="text-xs text-secondary">
-              {{ cacheStats()?.totalEntries }} entries • {{ cacheStats()?.utilizationPercent }}% utilized
+              {{ cacheStats().totalEntries }} entries • {{ cacheStats().utilizationPercent }}% utilized
             </div>
           </div>
 

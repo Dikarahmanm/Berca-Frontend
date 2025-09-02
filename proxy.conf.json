@@ -1,9 +1,10 @@
 {
-  "/admin/*": {
+  "/api/*": {
     "target": "http://localhost:5171",
     "secure": false,
     "changeOrigin": true,
-    "logLevel": "debug"
+    "logLevel": "debug",
+    "bypass": null
   },
   "/auth/*": {
     "target": "http://localhost:5171",
@@ -11,7 +12,13 @@
     "changeOrigin": true,
     "logLevel": "debug"
   },
-  "/api/*": {
+  "/admin/*": {
+    "target": "http://localhost:5171",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/hubs/*": {
     "target": "http://localhost:5171",
     "secure": false,
     "changeOrigin": true,

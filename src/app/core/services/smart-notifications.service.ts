@@ -125,7 +125,8 @@ export interface ApiResponse<T> {
 @Injectable({ providedIn: 'root' })
 export class SmartNotificationsService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/SmartNotification`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api/SmartNotification';
 
   // ===== STATE SIGNALS =====
   private _notifications = signal<SmartNotificationDto[]>([]);

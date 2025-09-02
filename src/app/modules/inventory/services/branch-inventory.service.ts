@@ -73,7 +73,8 @@ export interface BranchStockTransferDto {
 export class BranchInventoryService {
   private readonly http = inject(HttpClient);
   private readonly stateService = inject(StateService);
-  private readonly apiUrl = `${environment.apiUrl}/Inventory`;
+  // ✅ Use relative URL for proxy routing
+  private readonly apiUrl = '/api/Inventory';
 
   // Signal-based state management
   private _branchProducts = signal<BranchProductDto[]>([]);

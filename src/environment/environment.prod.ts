@@ -2,6 +2,7 @@
 export const environment = {
   production: true,
   apiUrl: 'https://api.tokoeniwan.com/api', // Update dengan URL production
+  baseUrl: 'https://api.tokoeniwan.com', // For auth and admin endpoints
   appName: 'Toko Eniwan POS',
   version: '2.0.0',
   

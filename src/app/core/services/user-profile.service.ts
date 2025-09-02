@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { environment } from '../../../environment/environment';
 
 export interface UserProfileDto {
   id: number;
@@ -44,7 +45,7 @@ export interface ApiResponse<T> {
   providedIn: 'root'
 })
 export class UserProfileService {
-  private readonly baseUrl = 'http://localhost:5171/api/UserProfile';
+  private readonly baseUrl = '/api/UserProfile';
   private currentProfileSubject = new BehaviorSubject<UserProfileDto | null>(null);
   public currentProfile$ = this.currentProfileSubject.asObservable();
 
@@ -188,7 +189,7 @@ export class UserProfileService {
   // Get full avatar URL
   getAvatarUrl(photoUrl?: string): string {
     if (photoUrl) {
-      return `http://localhost:5171${photoUrl}`;
+      return `${environment.baseUrl || 'http://localhost:5171'}${photoUrl}`;
     }
     return 'https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/ae0514bb-6c45-45fa-a431-f0d5fbd2a2ae.png';
   }

@@ -80,7 +80,7 @@ export interface UserBranchAccessResponse {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  // DIRECT URLS TO BACKEND (Cookie-based auth)
+  // BACKEND API URLS - Updated untuk backend integration baru
   private baseUrl = 'http://localhost:5171';
   
   private isLoggedInSubject = new BehaviorSubject<boolean>(false);
@@ -101,57 +101,50 @@ export class AuthService {
 
   login(data: LoginRequest): Observable<LoginResponse> {
     const url = `${this.baseUrl}/auth/login`;
-    console.log('🔐 === LOGIN ATTEMPT (COOKIE-BASED) ===');
+    console.log('🔐 === LOGIN ATTEMPT (NEW BACKEND API) ===');
     console.log('URL:', url);
     console.log('Username:', data.username);
+    console.log('Password length:', data.password?.length || 0);
     console.log('🍪 Cookies BEFORE login:', document.cookie);
     
-    return this.http.post<LoginResponse>(url, data, { 
-      withCredentials: true,
-      observe: 'response'
+    // Send username and password as expected by backend
+    const loginPayload = {
+      username: data.username,
+      password: data.password
+    };
+    
+    console.log('📤 Sending payload:', loginPayload);
+    
+    return this.http.post<any>(url, loginPayload, { 
+      withCredentials: true
     }).pipe(
       tap((response: any) => {
-        console.log('✅ === LOGIN SUCCESS (COOKIE-BASED) ===');
-        console.log('Status:', response.status);
-        console.log('Response body:', response.body);
+        console.log('✅ === LOGIN SUCCESS (NEW BACKEND) ===');
+        console.log('Response:', response);
         
-        if (response.body?.success) {
-          // Store user data immediately
+        if (response?.success && response?.data?.user) {
+          const user = response.data.user;
+          
+          // Store user data immediately - updated untuk backend baru format
           const userData: CurrentUser = {
-            id: 1, // Will be set properly when we get user profile
-            username: response.body.user,
-            role: response.body.role,
+            id: user.id,
+            username: user.name, // Backend returns 'name' field
+            role: user.role,
             isActive: true,
-            canSwitchBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(response.body.role)
+            defaultBranchId: user.branchId, // Backend returns 'branchId'
+            accessibleBranches: response.data.accessibleBranches || [user.branchId],
+            canSwitchBranches: ['Admin', 'HeadManager', 'BranchManager'].includes(user.role)
           };
           
-          localStorage.setItem('username', response.body.user);
-          localStorage.setItem('role', response.body.role);
+          localStorage.setItem('username', user.name); // Use 'name' from backend
+          localStorage.setItem('role', user.role);
+          localStorage.setItem('userId', user.id.toString());
+          localStorage.setItem('userBranchId', user.branchId?.toString() || ''); // Use 'branchId'
           
           // Update state immediately
           this.currentUserSubject.next(userData);
           this.isLoggedInSubject.next(true);
           console.log('💾 User data stored in localStorage and state');
-          
-          // Load user branch access after successful login
-          this.loadUserBranchAccess().subscribe({
-            next: (branchAccess) => {
-              if (branchAccess?.success) {
-                console.log('🏢 Branch access loaded successfully');
-                
-                // Update user data with branch info
-                const updatedUser = {
-                  ...userData,
-                  defaultBranchId: branchAccess.data.defaultBranchId,
-                  accessibleBranches: branchAccess.data.accessibleBranches.map(b => b.branchId)
-                };
-                this.currentUserSubject.next(updatedUser);
-              }
-            },
-            error: (error) => {
-              console.warn('⚠️ Failed to load branch access, continuing without branch data:', error);
-            }
-          });
           
           // Navigate to dashboard after state is updated
           setTimeout(() => {
@@ -159,13 +152,24 @@ export class AuthService {
           }, 50);
         }
         
-        // Check cookies after login (for debugging)
+        // Check cookies after login (for debugging) - updated cookie names
         setTimeout(() => {
           console.log('🍪 Cookies AFTER login:', document.cookie);
           this.debugCookies();
         }, 100);
       }),
-      map((response: any) => response.body!),
+      map((response: any) => {
+        // Map new backend response to old format for compatibility
+        if (response?.success && response?.data?.user) {
+          return {
+            success: true,
+            message: response.message || 'Login successful',
+            user: response.data.user.name, // Use 'name' field from backend
+            role: response.data.user.role
+          };
+        }
+        return response;
+      }),
       catchError(this.handleError.bind(this))
     );
   }
@@ -233,8 +237,8 @@ export class AuthService {
 
   // Auth status testing
   testAuthStatus(): Observable<any> {
-    const url = `${this.baseUrl}/auth/debug-auth`;
-    console.log('🧪 === TESTING AUTH STATUS (COOKIE-BASED) ===');
+    const url = `${this.baseUrl}/auth/me`;
+    console.log('🧪 === TESTING AUTH STATUS (NEW BACKEND API) ===');
     console.log('URL:', url);
     console.log('🍪 Current cookies:', document.cookie);
     
@@ -243,6 +247,24 @@ export class AuthService {
     }).pipe(
       tap((response: any) => {
         console.log('✅ Auth status response:', response);
+        
+        // Update user data if we get valid response from /me endpoint
+        if (response?.success && response?.data) {
+          const user = response.data;
+          const userData: CurrentUser = {
+            id: user.id,
+            username: user.name,
+            role: user.role,
+            isActive: true,
+            defaultBranchId: user.currentBranch?.id,
+            accessibleBranches: user.accessibleBranches?.map((b: any) => b.id) || [],
+            canSwitchBranches: ['Admin', 'HeadManager', 'BranchManager'].includes(user.role)
+          };
+          
+          this.currentUserSubject.next(userData);
+          this.isLoggedInSubject.next(true);
+          console.log('✅ User data updated from /me endpoint');
+        }
       }),
       catchError((error: any) => {
         console.error('❌ Auth status failed:', error);
@@ -325,11 +347,19 @@ export class AuthService {
         console.log(`🍪 ${name}: ${value ? value.substring(0, 20) + '...' : 'empty'}`);
       });
       
-      const authCookie = cookieArray.find(c => c.startsWith('.AspNetCore.Cookies'));
-      if (authCookie) {
-        console.log('✅ Auth cookie FOUND!');
+      const sessionCookie = cookieArray.find(c => c.startsWith('.TokoEniwan.Session'));
+      const branchCookie = cookieArray.find(c => c.startsWith('.TokoEniwan.BranchContext'));
+      
+      if (sessionCookie) {
+        console.log('✅ Session cookie FOUND!');
       } else {
-        console.log('❌ Auth cookie NOT FOUND!');
+        console.log('❌ Session cookie NOT FOUND!');
+      }
+      
+      if (branchCookie) {
+        console.log('✅ Branch context cookie FOUND!');
+      } else {
+        console.log('❌ Branch context cookie NOT FOUND!');
       }
     } else {
       console.log('❌ NO COOKIES AT ALL!');
@@ -340,8 +370,12 @@ export class AuthService {
     const username = localStorage.getItem('username');
     const role = localStorage.getItem('role');
     
+    console.log('🔍 AuthService - Checking auth status on startup');
+    console.log('🔍 localStorage username:', username);
+    console.log('🔍 localStorage role:', role);
+    
     if (username && role) {
-      console.log('🔍 Found user data in localStorage, testing auth...');
+      console.log('🔍 Found user data in localStorage, setting as authenticated...');
       
       // Set user data immediately
       const userData: CurrentUser = {
@@ -351,7 +385,11 @@ export class AuthService {
         isActive: true,
         canSwitchBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(role)
       };
+      
+      // Set authentication immediately - don't wait for server confirmation
       this.currentUserSubject.next(userData);
+      this.isLoggedInSubject.next(true);
+      console.log('✅ User set as authenticated immediately');
       
       // Load branch access for existing user
       this.loadUserBranchAccess().subscribe({
@@ -363,6 +401,7 @@ export class AuthService {
               accessibleBranches: branchAccess.data.accessibleBranches.map(b => b.branchId)
             };
             this.currentUserSubject.next(updatedUser);
+            console.log('✅ User data updated with branch access');
           }
         },
         error: (error) => {
@@ -370,20 +409,20 @@ export class AuthService {
         }
       });
       
-      // Test auth status
+      // Test auth status in background (don't fail if server unavailable)
       this.testAuthStatus().subscribe({
         next: () => {
-          this.isLoggedInSubject.next(true);
-          console.log('✅ Auth status confirmed');
+          console.log('✅ Auth status confirmed by server');
         },
         error: () => {
-          console.log('❌ Auth status failed, clearing data');
-          this.currentUserSubject.next(null);
-          this.isLoggedInSubject.next(false);
-          localStorage.removeItem('username');
-          localStorage.removeItem('role');
+          console.log('⚠️ Auth status test failed, but keeping local authentication');
+          // Don't clear authentication if server test fails
         }
       });
+    } else {
+      console.log('❌ No user data in localStorage');
+      this.currentUserSubject.next(null);
+      this.isLoggedInSubject.next(false);
     }
   }
 
@@ -431,7 +470,7 @@ export class AuthService {
       params = params.set('search', search);
     }
 
-    const url = `${this.baseUrl}/admin/users`;
+    const url = `${this.baseUrl}/api/admin/users`;
     console.log('🔄 GET Request (with cookies):', { url, params: params.toString() });
 
     return this.http.get<UsersResponse>(url, {
@@ -448,7 +487,7 @@ export class AuthService {
   updateUser(id: number, userData: UpdateUserRequest): Observable<any> {
     this.debugAuth('UPDATE_USER');
     
-    const url = `${this.baseUrl}/admin/users/${id}`;
+    const url = `${this.baseUrl}/api/admin/users/${id}`;
     console.log('🔄 PUT Request (with cookies):', { 
       url, 
       payload: userData, 
@@ -469,7 +508,7 @@ export class AuthService {
   deleteUser(id: number): Observable<any> {
     this.debugAuth('DELETE_USER');
     
-    const url = `${this.baseUrl}/admin/users/${id}`;
+    const url = `${this.baseUrl}/api/admin/users/${id}`;
     console.log('🔄 DELETE Request (with cookies):', { url, withCredentials: true });
 
     return this.http.delete(url, {
@@ -489,7 +528,7 @@ export class AuthService {
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
 
-    const url = `${this.baseUrl}/admin/users/deleted`;
+    const url = `${this.baseUrl}/api/admin/users/deleted`;
     console.log('🔄 GET Deleted Users (with cookies):', { url, params: params.toString() });
 
     return this.http.get<UsersResponse>(url, {
@@ -506,7 +545,7 @@ export class AuthService {
   restoreUser(id: number): Observable<any> {
     this.debugAuth('RESTORE_USER');
     
-    const url = `${this.baseUrl}/admin/users/${id}/restore`;
+    const url = `${this.baseUrl}/api/admin/users/${id}/restore`;
     console.log('🔄 PUT Restore (with cookies):', { url, withCredentials: true });
 
     return this.http.put(url, {}, {
@@ -525,7 +564,7 @@ export class AuthService {
    * Load user's accessible branches and roles
    */
   loadUserBranchAccess(): Observable<UserBranchAccessResponse> {
-    const url = `${this.baseUrl}/branch/user-access`;
+    const url = `${this.baseUrl}/api/branch/user-access`;
     console.log('🏢 Loading user branch access...');
     
     return this.http.get<UserBranchAccessResponse>(url, {

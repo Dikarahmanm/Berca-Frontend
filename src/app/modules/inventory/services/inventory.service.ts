@@ -29,7 +29,8 @@ import {
   providedIn: 'root'
 })
 export class InventoryService {
-  private readonly apiUrl = `${environment.apiUrl}/Product`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api/Product';
   
   // State management
   private productsSubject = new BehaviorSubject<Product[]>([]);
@@ -61,7 +62,7 @@ export class InventoryService {
     if (filter?.sortBy) params = params.set('sortBy', filter.sortBy);
     if (filter?.sortOrder) params = params.set('sortOrder', filter.sortOrder);
 
-    return this.http.get<ApiResponse<ProductListResponse>>(this.apiUrl, { params })
+    return this.http.get<ApiResponse<ProductListResponse>>(this.baseUrl, { params })
       .pipe(
         map(response => {
           if (response.success) {
@@ -79,7 +80,7 @@ export class InventoryService {
    * Backend: GET /api/Product/{id}
    */
   getProduct(id: number): Observable<Product> {
-    return this.http.get<ApiResponse<Product>>(`${this.apiUrl}/${id}`)
+    return this.http.get<ApiResponse<Product>>(`${this.baseUrl}/${id}`)
       .pipe(
         map(response => {
           if (response.success) {
@@ -97,7 +98,7 @@ export class InventoryService {
    * Returns null if product not found (non-throwing version)
    */
   getProductByBarcode(barcode: string): Observable<Product | null> {
-    return this.http.get<ApiResponse<Product>>(`${this.apiUrl}/barcode/${barcode}`)
+    return this.http.get<ApiResponse<Product>>(`${this.baseUrl}/barcode/${barcode}`)
       .pipe(
         map(response => {
           if (response.success) {
@@ -122,7 +123,7 @@ export class InventoryService {
   createProduct(request: CreateProductRequest): Observable<Product> {
     console.log('🆕 Creating Product:', request);
     
-    return this.http.post<ApiResponse<Product>>(this.apiUrl, request)
+    return this.http.post<ApiResponse<Product>>(this.baseUrl, request)
       .pipe(
         map(response => {
           console.log('✅ Product Created:', response);
@@ -153,7 +154,7 @@ export class InventoryService {
   updateProduct(id: number, request: UpdateProductRequest): Observable<Product> {
     console.log('📝 Updating Product:', { id, request });
     
-    return this.http.put<ApiResponse<Product>>(`${this.apiUrl}/${id}`, request)
+    return this.http.put<ApiResponse<Product>>(`${this.baseUrl}/${id}`, request)
       .pipe(
         map(response => {
           console.log('✅ Product Updated:', response);
@@ -184,7 +185,7 @@ export class InventoryService {
   deleteProduct(id: number): Observable<boolean> {
     console.log('🗑️ Deleting Product:', id);
     
-    return this.http.delete<ApiResponse<boolean>>(`${this.apiUrl}/${id}`)
+    return this.http.delete<ApiResponse<boolean>>(`${this.baseUrl}/${id}`)
       .pipe(
         map(response => {
           console.log('✅ Product Deleted:', response);
@@ -221,7 +222,7 @@ export class InventoryService {
    */
   // ✅ FIXED: Stock update endpoint 
   updateStock(productId: number, request: StockUpdateRequest): Observable<boolean> {
-    const url = `${this.apiUrl}/${productId}/stock`;
+    const url = `${this.baseUrl}/${productId}/stock`;
     // Pastikan payload dikirim langsung sebagai objek, tidak dibungkus field 'request'
     // Juga pastikan mutationType dikirim sebagai string
     const plainRequest = {
@@ -252,7 +253,7 @@ export class InventoryService {
   getLowStockProducts(threshold: number = 10): Observable<Product[]> {
     const params = new HttpParams().set('threshold', threshold.toString());
     
-    return this.http.get<ApiResponse<Product[]>>(`${this.apiUrl}/alerts/low-stock`, { params })
+    return this.http.get<ApiResponse<Product[]>>(`${this.baseUrl}/alerts/low-stock`, { params })
       .pipe(
         map(response => {
           if (response.success) {
@@ -269,7 +270,7 @@ export class InventoryService {
    * Backend: GET /api/Product/alerts/out-of-stock
    */
   getOutOfStockProducts(): Observable<Product[]> {
-    return this.http.get<ApiResponse<Product[]>>(`${this.apiUrl}/alerts/out-of-stock`)
+    return this.http.get<ApiResponse<Product[]>>(`${this.baseUrl}/alerts/out-of-stock`)
       .pipe(
         map(response => {
           if (response.success) {
@@ -289,7 +290,7 @@ export class InventoryService {
     if (startDate) params = params.set('startDate', startDate.toISOString());
     if (endDate) params = params.set('endDate', endDate.toISOString());
 
-    return this.http.get<ApiResponse<InventoryMutation[]>>(`${this.apiUrl}/${productId}/history`, { params })
+    return this.http.get<ApiResponse<InventoryMutation[]>>(`${this.baseUrl}/${productId}/history`, { params })
       .pipe(
         map(response => {
           if (response.success) {
@@ -306,7 +307,7 @@ export class InventoryService {
    * Backend: GET /api/Product/reports/inventory-value
    */
   getInventoryValue(): Observable<number> {
-    return this.http.get<ApiResponse<number>>(`${this.apiUrl}/reports/inventory-value`)
+    return this.http.get<ApiResponse<number>>(`${this.baseUrl}/reports/inventory-value`)
       .pipe(
         map(response => {
           if (response.success) {
@@ -328,7 +329,7 @@ export class InventoryService {
     let params = new HttpParams();
     if (excludeId) params = params.set('excludeId', excludeId.toString());
 
-    return this.http.get<ApiResponse<boolean>>(`${this.apiUrl}/validate/barcode/${barcode}`, { params })
+    return this.http.get<ApiResponse<boolean>>(`${this.baseUrl}/validate/barcode/${barcode}`, { params })
       .pipe(
         map(response => {
           if (response.success) {
@@ -370,7 +371,7 @@ export class InventoryService {
    * Backend: GET /api/Product/{productId}/batch/generate
    */
   generateBatchNumber(productId: number): Observable<{ batchNumber: string }> {
-    return this.http.get<ApiResponse<{ batchNumber: string }>>(`${this.apiUrl}/${productId}/batch/generate`)
+    return this.http.get<ApiResponse<{ batchNumber: string }>>(`${this.baseUrl}/${productId}/batch/generate`)
       .pipe(
         map(response => {
           if (response.success) {
@@ -414,7 +415,7 @@ export class InventoryService {
 
     console.log('🚀 Calling REAL API: /Product/with-batch-summary', params.toString());
 
-    return this.http.get<ApiResponse<ProductWithBatchSummaryDto[]>>(`${this.apiUrl}/with-batch-summary`, { params })
+    return this.http.get<ApiResponse<ProductWithBatchSummaryDto[]>>(`${this.baseUrl}/with-batch-summary`, { params })
       .pipe(
         tap(response => console.log('✅ Real API Response:', response)),
         map(response => {
@@ -442,7 +443,7 @@ export class InventoryService {
 
     console.log(`🚀 Calling REAL API: /Product/${productId}/batches`);
 
-    return this.http.get<ApiResponse<ProductBatch[]>>(`${this.apiUrl}/${productId}/batches`, { params })
+    return this.http.get<ApiResponse<ProductBatch[]>>(`${this.baseUrl}/${productId}/batches`, { params })
       .pipe(
         tap(response => console.log('✅ Real API Response - batches:', response)),
         map(response => {
@@ -466,7 +467,7 @@ export class InventoryService {
   createBatch(productId: number, batchData: CreateBatchRequest): Observable<ProductBatch> {
     console.log(`🚀 Calling REAL API: POST /Product/${productId}/batches`, batchData);
 
-    return this.http.post<ApiResponse<ProductBatch>>(`${this.apiUrl}/${productId}/batches`, batchData)
+    return this.http.post<ApiResponse<ProductBatch>>(`${this.baseUrl}/${productId}/batches`, batchData)
       .pipe(
         tap(response => console.log('✅ Real API Response - create batch:', response)),
         map(response => {
@@ -489,7 +490,7 @@ export class InventoryService {
   updateBatch(productId: number, batchId: number, batchData: any): Observable<ProductBatch> {
     console.log(`🚀 Calling REAL API: PUT /Product/${productId}/batches/${batchId}`, batchData);
 
-    return this.http.put<ApiResponse<ProductBatch>>(`${this.apiUrl}/${productId}/batches/${batchId}`, batchData)
+    return this.http.put<ApiResponse<ProductBatch>>(`${this.baseUrl}/${productId}/batches/${batchId}`, batchData)
       .pipe(
         tap(response => console.log('✅ Real API Response - update batch:', response)),
         map(response => {
@@ -513,7 +514,7 @@ export class InventoryService {
     const disposeData = { reason: reason || 'Manual disposal' };
     console.log(`🚀 Calling REAL API: POST /Product/${productId}/batches/${batchId}/dispose`, disposeData);
 
-    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/${productId}/batches/${batchId}/dispose`, disposeData)
+    return this.http.post<ApiResponse<boolean>>(`${this.baseUrl}/${productId}/batches/${batchId}/dispose`, disposeData)
       .pipe(
         tap(response => console.log('✅ Real API Response - dispose batch:', response)),
         map(response => {
@@ -536,7 +537,7 @@ export class InventoryService {
   getBatch(productId: number, batchId: number): Observable<ProductBatch> {
     console.log(`🚀 Calling REAL API: GET /Product/${productId}/batches/${batchId}`);
 
-    return this.http.get<ApiResponse<ProductBatch>>(`${this.apiUrl}/${productId}/batches/${batchId}`)
+    return this.http.get<ApiResponse<ProductBatch>>(`${this.baseUrl}/${productId}/batches/${batchId}`)
       .pipe(
         tap(response => console.log('✅ Real API Response - single batch:', response)),
         map(response => {
@@ -561,7 +562,7 @@ export class InventoryService {
   addStockToBatch(batchId: number, request: AddStockToBatchRequest): Observable<ProductBatch> {
     console.log('📦 Adding Stock to Batch:', { batchId, request });
     
-    return this.http.post<ApiResponse<ProductBatch>>(`${this.apiUrl}/batches/${batchId}/add-stock`, request)
+    return this.http.post<ApiResponse<ProductBatch>>(`${this.baseUrl}/batches/${batchId}/add-stock`, request)
       .pipe(
         map(response => {
           console.log('✅ Stock Added to Batch:', response);
@@ -587,7 +588,7 @@ export class InventoryService {
    * Backend: GET /api/Product/{productId}/batches/for-pos
    */
   getBatchesForPOS(productId: number): Observable<BatchForPOSDto[]> {
-    return this.http.get<ApiResponse<BatchForPOSDto[]>>(`${this.apiUrl}/${productId}/batches/for-pos`)
+    return this.http.get<ApiResponse<BatchForPOSDto[]>>(`${this.baseUrl}/${productId}/batches/for-pos`)
       .pipe(
         map(response => {
           if (response.success) {

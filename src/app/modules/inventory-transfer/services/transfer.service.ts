@@ -28,7 +28,8 @@ export class TransferService {
   private readonly http = inject(HttpClient);
   private readonly stateService = inject(StateService);
   private readonly notificationService = inject(NotificationService);
-  private readonly baseUrl = `${environment.apiUrl}/Transfer`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api/Transfer';
 
   // Signal-based state management
   private _transfers = signal<TransferRequestDto[]>([]);

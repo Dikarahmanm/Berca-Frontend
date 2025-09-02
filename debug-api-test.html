@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Debug Test</title>
+</head>
+<body>
+    <h1>API Debug Test</h1>
+    
+    <div>
+        <h2>1. Test Login</h2>
+        <button onclick="testLogin()">Test Login</button>
+        <div id="loginResult"></div>
+    </div>
+    
+    <div>
+        <h2>2. Test Dashboard KPIs</h2>
+        <button onclick="testDashboard()">Test Dashboard</button>
+        <div id="dashboardResult"></div>
+    </div>
+    
+    <div>
+        <h2>3. Test Suppliers</h2>
+        <button onclick="testSuppliers()">Test Suppliers</button>
+        <div id="suppliersResult"></div>
+    </div>
+    
+    <div>
+        <h2>4. Test Factures</h2>
+        <button onclick="testFactures()">Test Factures</button>
+        <div id="facturesResult"></div>
+    </div>
+
+    <script>
+        async function testLogin() {
+            try {
+                const response = await fetch('http://localhost:5171/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username: 'admin123',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                document.getElementById('loginResult').innerHTML = 
+                    `<strong>Status:</strong> ${response.status}<br>
+                     <strong>Response:</strong> <pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('loginResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+        
+        async function testDashboard() {
+            try {
+                const response = await fetch('http://localhost:5171/api/Dashboard/kpis', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                document.getElementById('dashboardResult').innerHTML = 
+                    `<strong>Status:</strong> ${response.status}<br>
+                     <strong>Response:</strong> <pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('dashboardResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+        
+        async function testSuppliers() {
+            try {
+                const response = await fetch('http://localhost:5171/api/Supplier?page=1&pageSize=10&sortBy=companyName&sortOrder=asc', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                document.getElementById('suppliersResult').innerHTML = 
+                    `<strong>Status:</strong> ${response.status}<br>
+                     <strong>Response:</strong> <pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('suppliersResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+        
+        async function testFactures() {
+            try {
+                const response = await fetch('http://localhost:5171/api/Facture?page=1&pageSize=10&sortBy=dateReceived&sortOrder=desc', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                document.getElementById('facturesResult').innerHTML = 
+                    `<strong>Status:</strong> ${response.status}<br>
+                     <strong>Response:</strong> <pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('facturesResult').innerHTML = 
+                    `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

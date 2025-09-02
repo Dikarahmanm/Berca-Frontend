@@ -17,7 +17,8 @@ import {
   providedIn: 'root'
 })
 export class CategoryService {
-  private readonly apiUrl = `${environment.apiUrl}/Category`;
+  // ✅ Use relative URL for proxy routing
+  private readonly apiUrl = '/api/Category';
   
   // State management dengan BehaviorSubject
   private categoriesSubject = new BehaviorSubject<Category[]>([]);

@@ -9,7 +9,9 @@
       "Bash(ng serve:*)",
       "Bash(npx ng test:*)",
       "Bash(node -e:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

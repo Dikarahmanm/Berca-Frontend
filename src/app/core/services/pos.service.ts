@@ -1,10 +1,11 @@
 // ✅ COMPLETE FIX: src/app/core/services/pos.service.ts
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, BehaviorSubject, throwError } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environment/environment';
 import { ApiResponse } from './user-profile.service';
+import { StateService } from './state.service';
 
 // ✅ IMPORT AND RE-EXPORT FROM CENTRALIZED INTERFACES
 import {
@@ -57,6 +58,16 @@ export interface ProductListResponseApiResponse {
   message?: string;
 }
 
+// ✅ NEW: Response interface for /api/Product/by-branch endpoint
+export interface ProductByBranchApiResponse {
+  success: boolean;
+  message: string;
+  data: ProductDto[]; // Direct array, not paginated
+  timestamp: string;
+  errors: string[] | null;
+  error: string | null;
+}
+
 export interface ProductDtoApiResponse {
   success: boolean;
   data: ProductDto;
@@ -90,7 +101,11 @@ export interface CalculateTotalRequest {
   providedIn: 'root'
 })
 export class POSService {
-  private readonly apiUrl = environment.apiUrl;
+  private readonly http = inject(HttpClient);
+  private readonly stateService = inject(StateService);
+  
+  // ✅ Use relative URL for proxy routing
+  private readonly apiUrl = '/api';
   
   private cartSubject = new BehaviorSubject<CartItem[]>([]);
   public cart$ = this.cartSubject.asObservable();
@@ -98,24 +113,151 @@ export class POSService {
   private currentSaleSubject = new BehaviorSubject<Sale | null>(null);
   public currentSale$ = this.currentSaleSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
-
   // ===== PRODUCT METHODS =====
-  getProducts(page: number = 1, pageSize: number = 20, search?: string): Observable<ProductListResponseApiResponse> {
+  
+  /**
+   * ✅ FALLBACK: Get products using /api/POS/products endpoint first,
+   * fallback to /api/Product/by-branch if that fails
+   */
+  getProducts(filters: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    categoryId?: number;
+    isActive?: boolean;
+  } = {}): Observable<ProductListResponseApiResponse> {
+    
+    // Try /api/POS/products first (original endpoint)
+    return this.getAllProducts(filters).pipe(
+      catchError(error => {
+        console.log('⚠️ /api/POS/products failed, trying branch fallback:', error.status);
+        
+        // If fails, try branch-specific endpoint
+        const activeBranch = this.stateService.activeBranch();
+        if (!activeBranch) {
+          console.warn('⚠️ No active branch found, cannot use branch fallback');
+          return throwError(() => new Error('No products endpoint available'));
+        }
+
+        // Use the by-branch endpoint and convert response format
+        return this.getProductsByBranch([activeBranch.branchId], filters).pipe(
+          map(branchResponse => {
+            // Convert ProductByBranchApiResponse to ProductListResponseApiResponse
+            const products = branchResponse.data || [];
+            const page = filters.page || 1;
+            const pageSize = filters.pageSize || 20;
+            
+            console.log('✅ Using branch fallback, got', products.length, 'products');
+            
+            return {
+              success: branchResponse.success,
+              message: branchResponse.message,
+              data: {
+                products: products,
+                totalItems: products.length,
+                currentPage: page,
+                totalPages: Math.ceil(products.length / pageSize),
+                pageSize: pageSize
+              }
+            } as ProductListResponseApiResponse;
+          })
+        );
+      })
+    );
+  }
+
+  /**
+   * ✅ LEGACY: Get all products without branch filtering (for compatibility)
+   * Uses the original /api/POS/products endpoint
+   */
+  getAllProducts(filters: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    categoryId?: number;
+    isActive?: boolean;
+  } = {}): Observable<ProductListResponseApiResponse> {
     let params = new HttpParams()
-      .set('page', page.toString())
-      .set('pageSize', pageSize.toString());
+      .set('page', (filters.page || 1).toString())
+      .set('pageSize', (filters.pageSize || 20).toString())
+      .set('isActive', (filters.isActive !== undefined ? filters.isActive : true).toString());
       
-    if (search) {
-      params = params.set('search', search);
+    if (filters.search) {
+      params = params.set('search', filters.search);
+    }
+    
+    if (filters.categoryId) {
+      params = params.set('categoryId', filters.categoryId.toString());
     }
 
-    return this.http.get<ProductListResponseApiResponse>(`${this.apiUrl}/Product`, { 
+    console.log('🏢 Loading all products (legacy method):', filters);
+
+    // ✅ Use the legacy POS endpoint
+    return this.http.get<ProductListResponseApiResponse>(`${this.apiUrl}/POS/products`, { 
       params,
       withCredentials: true 
     }).pipe(
       tap(response => {
-        console.log('✅ Products loaded:', response?.data?.products?.length || 0);
+        console.log('✅ Products loaded (legacy):', response?.data?.products?.length || 0);
+      }),
+      catchError(this.handleError.bind(this))
+    );
+  }
+
+  /**
+   * ✅ CORRECTED: Get products by specific branch IDs  
+   * Uses the /api/Product/by-branch endpoint (returns direct array in data)
+   */
+  getProductsByBranch(branchIds: number[], filters: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    categoryId?: number;
+    isActive?: boolean;
+  } = {}): Observable<ProductByBranchApiResponse> {
+    let params = new HttpParams()
+      .set('branchIds', branchIds.join(','))
+      .set('page', (filters.page || 1).toString())
+      .set('pageSize', (filters.pageSize || 20).toString())
+      .set('isActive', (filters.isActive !== undefined ? filters.isActive : true).toString());
+      
+    if (filters.search) {
+      params = params.set('search', filters.search);
+    }
+    
+    if (filters.categoryId) {
+      params = params.set('categoryId', filters.categoryId.toString());
+    }
+
+    console.log('🏢 Loading products for specific branches via /api/Product/by-branch:', branchIds);
+
+    // ✅ Use the by-branch endpoint (returns direct array in data)
+    return this.http.get<ProductByBranchApiResponse>(`${this.apiUrl}/Product/by-branch`, { 
+      params,
+      withCredentials: true 
+    }).pipe(
+      tap(response => {
+        console.log('✅ Branch-specific products loaded:', response?.data?.length || 0);
+      }),
+      catchError(this.handleError.bind(this))
+    );
+  }
+
+  /**
+   * ✅ NEW: Get product stock across branches
+   * Uses the /api/POS/products/{productId}/branch-stock endpoint
+   */
+  getProductBranchStock(productId: number): Observable<ApiResponse<{[branchId: number]: number}>> {
+    console.log('📦 Loading branch stock for product:', productId);
+
+    return this.http.get<ApiResponse<{[branchId: number]: number}>>(`${this.apiUrl}/POS/products/${productId}/branch-stock`, {
+      withCredentials: true
+    }).pipe(
+      tap(response => {
+        if (response.success && response.data) {
+          const branchCount = Object.keys(response.data).length;
+          console.log('✅ Branch stock loaded for', branchCount, 'branches');
+        }
       }),
       catchError(this.handleError.bind(this))
     );

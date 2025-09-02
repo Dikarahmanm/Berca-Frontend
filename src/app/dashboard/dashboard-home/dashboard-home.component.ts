@@ -619,8 +619,21 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
 
   // ===== PUBLIC METHODS =====
   navigateTo(route: string): void {
-    console.log('🧭 Navigating to:', route);
-    this.router.navigate([route]);
+    console.log('🧭 Dashboard Home - Navigate clicked:', route);
+    console.log('🧭 Router instance:', this.router);
+    
+    try {
+      this.router.navigate([route]).then((success) => {
+        console.log('🧭 Navigation result:', success);
+        if (!success) {
+          console.error('❌ Navigation failed for route:', route);
+        }
+      }).catch((error) => {
+        console.error('❌ Navigation error:', error);
+      });
+    } catch (error) {
+      console.error('❌ Navigation exception:', error);
+    }
   }
 
   executeQuickAction(action: QuickAction): void {

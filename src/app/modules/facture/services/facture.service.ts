@@ -34,7 +34,7 @@ interface ApiResponse<T> {
 })
 export class FactureService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl || 'http://localhost:5171/api'}/Facture`;
+  private readonly baseUrl = '/api/Facture';
 
   // Signal-based state management
   private _factures = signal<FactureListDto[]>([]);

@@ -4,6 +4,7 @@ export const environment = {
   
   // ✅ REAL: Backend API URLs sesuai .NET 9 API
   apiUrl: 'http://localhost:5171/api', // HTTP as required, not HTTPS due to SSL cert issues
+  baseUrl: 'http://localhost:5171', // For auth and admin endpoints
   apiVersion: 'v1',
   
   // App Configuration
@@ -13,10 +14,10 @@ export const environment = {
   // ✅ REAL: API Endpoints sesuai Controllers di backend
   endpoints: {
     // Authentication
-    auth: '/Auth',
-    login: '/Auth/login',
-    logout: '/Auth/logout',
-    register: '/Auth/register',
+    auth: '/auth',
+    login: '/auth/login',
+    logout: '/auth/logout',
+    register: '/auth/register',
     
     // User Management
     userProfile: '/UserProfile',

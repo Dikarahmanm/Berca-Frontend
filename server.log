@@ -1,5 +1,919 @@
 
-> berca-frontend@0.0.0 start:safe
-> ng serve --configuration development --proxy-config proxy.conf.json --disable-host-check --poll 2000
+> berca-frontend@0.0.0 start
+> ng serve --proxy-config proxy.conf.json
 
-[1m[31mError: Unknown argument: disable-host-check[39m[22m
+[33m❯[39m Building...
+[32m✔[39m Building...
+Application bundle generation failed. [22.659 seconds]
+
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:120:65:
+[37m      120 │ ...ss="text-sm font-medium">{{ cacheStats()?.[32mtotalSizeMB[37m }}MB</span>
+          ╵                                              [32m~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:125:47:
+[37m      125 │                 [style.width.%]="cacheStats()?.[32mutilizationPercent[37m"
+          ╵                                                [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:126:57:
+[37m      126 │ ....progress-warning]="(cacheStats()?.[32mutilizationPercent[37m || 0) > 80"
+          ╵                                       [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:127:56:
+[37m      127 │ ...s.progress-danger]="(cacheStats()?.[32mutilizationPercent[37m || 0) > 95"
+          ╵                                       [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:131:31:
+[37m      131 │ ...        {{ cacheStats()?.[32mtotalEntries[37m }} entries • {{ cacheS...
+          ╵                             [32m~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:131:74:
+[37m      131 │ ...s }} entries • {{ cacheStats()[32m?.utilizationPerce[37mnt }}% utilized
+          ╵                                  [32m~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2769: No overload matches this call.
+  Overload 1 of 2, '(o: {}): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{}'.
+      Type 'undefined' is not assignable to type '{}'.
+  Overload 2 of 2, '(o: object): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type 'object'.
+      Type 'undefined' is not assignable to type 'object'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/core/services/pos.service.ts:194:42:
+[37m      194 │           const branchCount = Object.keys([32mresponse.data[37m).length;
+          ╵                                           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2337:36:
+[37m      2337 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+Watch mode enabled. Watching for file changes...
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [16.534 seconds]
+
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:120:65:
+[37m      120 │ ...ss="text-sm font-medium">{{ cacheStats()?.[32mtotalSizeMB[37m }}MB</span>
+          ╵                                              [32m~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:125:47:
+[37m      125 │                 [style.width.%]="cacheStats()?.[32mutilizationPercent[37m"
+          ╵                                                [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:126:57:
+[37m      126 │ ....progress-warning]="(cacheStats()?.[32mutilizationPercent[37m || 0) > 80"
+          ╵                                       [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:127:56:
+[37m      127 │ ...s.progress-danger]="(cacheStats()?.[32mutilizationPercent[37m || 0) > 95"
+          ╵                                       [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:131:31:
+[37m      131 │ ...        {{ cacheStats()?.[32mtotalEntries[37m }} entries • {{ cacheS...
+          ╵                             [32m~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:131:74:
+[37m      131 │ ...s }} entries • {{ cacheStats()[32m?.utilizationPerce[37mnt }}% utilized
+          ╵                                  [32m~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2769: No overload matches this call.
+  Overload 1 of 2, '(o: {}): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{}'.
+      Type 'undefined' is not assignable to type '{}'.
+  Overload 2 of 2, '(o: object): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type 'object'.
+      Type 'undefined' is not assignable to type 'object'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/core/services/pos.service.ts:194:42:
+[37m      194 │           const branchCount = Object.keys([32mresponse.data[37m).length;
+          ╵                                           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2337:36:
+[37m      2337 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [1.173 seconds]
+
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:120:65:
+[37m      120 │ ...ss="text-sm font-medium">{{ cacheStats()?.[32mtotalSizeMB[37m }}MB</span>
+          ╵                                              [32m~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:125:47:
+[37m      125 │                 [style.width.%]="cacheStats()?.[32mutilizationPercent[37m"
+          ╵                                                [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:126:57:
+[37m      126 │ ....progress-warning]="(cacheStats()?.[32mutilizationPercent[37m || 0) > 80"
+          ╵                                       [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:127:56:
+[37m      127 │ ...s.progress-danger]="(cacheStats()?.[32mutilizationPercent[37m || 0) > 95"
+          ╵                                       [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:131:31:
+[37m      131 │ ...        {{ cacheStats()?.[32mtotalEntries[37m }} entries • {{ cacheS...
+          ╵                             [32m~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:131:74:
+[37m      131 │ ...s }} entries • {{ cacheStats()[32m?.utilizationPerce[37mnt }}% utilized
+          ╵                                  [32m~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2769: No overload matches this call.
+  Overload 1 of 2, '(o: {}): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{}'.
+      Type 'undefined' is not assignable to type '{}'.
+  Overload 2 of 2, '(o: object): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type 'object'.
+      Type 'undefined' is not assignable to type 'object'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/core/services/pos.service.ts:194:42:
+[37m      194 │           const branchCount = Object.keys([32mresponse.data[37m).length;
+          ╵                                           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2554: Expected 1 arguments, but got 0.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:1088:25:
+[37m      1088 │     this.categoryService.[32mgetCategories[37m()
+           ╵                          [32m~~~~~~~~~~~~~[0m
+
+  An argument for 'filter' was not provided.
+
+    src/app/modules/category-management/services/category.service.ts:38:16:
+[37m      38 │   getCategories([32mfilter: CategoryFilter[37m): Observable<CategoryListRe...
+         ╵                 [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'data' does not exist on type 'CategoryListResponse'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:1093:75:
+[37m      1093 │ ...ries = Array.isArray(response) ? response : response.[32mdata[37m || [];
+           ╵                                                         [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2340:36:
+[37m      2340 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [3.748 seconds]
+
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:120:65:
+[37m      120 │ ...ss="text-sm font-medium">{{ cacheStats()?.[32mtotalSizeMB[37m }}MB</span>
+          ╵                                              [32m~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:125:47:
+[37m      125 │                 [style.width.%]="cacheStats()?.[32mutilizationPercent[37m"
+          ╵                                                [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:126:57:
+[37m      126 │ ....progress-warning]="(cacheStats()?.[32mutilizationPercent[37m || 0) > 80"
+          ╵                                       [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:127:56:
+[37m      127 │ ...s.progress-danger]="(cacheStats()?.[32mutilizationPercent[37m || 0) > 95"
+          ╵                                       [32m~~~~~~~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:131:31:
+[37m      131 │ ...        {{ cacheStats()?.[32mtotalEntries[37m }} entries • {{ cacheS...
+          ╵                             [32m~~~~~~~~~~~~[0m
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mNG8107: The left side of this optional chain operation does not include 'null' or 'undefined' in its type, therefore the '?.' operator can be replaced with the '.' operator.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/shared/components/branch-performance-monitor/branch-performance-monitor.component.ts:131:74:
+[37m      131 │ ...s }} entries • {{ cacheStats()[32m?.utilizationPerce[37mnt }}% utilized
+          ╵                                  [32m~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2769: No overload matches this call.
+  Overload 1 of 2, '(o: {}): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{}'.
+      Type 'undefined' is not assignable to type '{}'.
+  Overload 2 of 2, '(o: object): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type 'object'.
+      Type 'undefined' is not assignable to type 'object'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/core/services/pos.service.ts:194:42:
+[37m      194 │           const branchCount = Object.keys([32mresponse.data[37m).length;
+          ╵                                           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2554: Expected 1 arguments, but got 0.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:1088:25:
+[37m      1088 │     this.categoryService.[32mgetCategories[37m()
+           ╵                          [32m~~~~~~~~~~~~~[0m
+
+  An argument for 'filter' was not provided.
+
+    src/app/modules/category-management/services/category.service.ts:38:16:
+[37m      38 │   getCategories([32mfilter: CategoryFilter[37m): Observable<CategoryListRe...
+         ╵                 [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'data' does not exist on type 'CategoryListResponse'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:1093:75:
+[37m      1093 │ ...ries = Array.isArray(response) ? response : response.[32mdata[37m || [];
+           ╵                                                         [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2340:36:
+[37m      2340 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [1.166 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2769: No overload matches this call.
+  Overload 1 of 2, '(o: {}): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{}'.
+      Type 'undefined' is not assignable to type '{}'.
+  Overload 2 of 2, '(o: object): string[]', gave the following error.
+    Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type 'object'.
+      Type 'undefined' is not assignable to type 'object'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/core/services/pos.service.ts:194:42:
+[37m      194 │           const branchCount = Object.keys([32mresponse.data[37m).length;
+          ╵                                           [32m~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2554: Expected 1 arguments, but got 0.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:1088:25:
+[37m      1088 │     this.categoryService.[32mgetCategories[37m()
+           ╵                          [32m~~~~~~~~~~~~~[0m
+
+  An argument for 'filter' was not provided.
+
+    src/app/modules/category-management/services/category.service.ts:38:16:
+[37m      38 │   getCategories([32mfilter: CategoryFilter[37m): Observable<CategoryListRe...
+         ╵                 [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'data' does not exist on type 'CategoryListResponse'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:1093:75:
+[37m      1093 │ ...ries = Array.isArray(response) ? response : response.[32mdata[37m || [];
+           ╵                                                         [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2340:36:
+[37m      2340 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [3.285 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2554: Expected 1 arguments, but got 0.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:1088:25:
+[37m      1088 │     this.categoryService.[32mgetCategories[37m()
+           ╵                          [32m~~~~~~~~~~~~~[0m
+
+  An argument for 'filter' was not provided.
+
+    src/app/modules/category-management/services/category.service.ts:38:16:
+[37m      38 │   getCategories([32mfilter: CategoryFilter[37m): Observable<CategoryListRe...
+         ╵                 [32m~~~~~~~~~~~~~~~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'data' does not exist on type 'CategoryListResponse'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:1093:75:
+[37m      1093 │ ...ries = Array.isArray(response) ? response : response.[32mdata[37m || [];
+           ╵                                                         [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2340:36:
+[37m      2340 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [2.224 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2347:36:
+[37m      2347 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [2.390 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2347:36:
+[37m      2347 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [1.801 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2347:36:
+[37m      2347 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [1.733 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2347:36:
+[37m      2347 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m                               [2m | [22m[2mstyles[22m                       [2m | [22m[36m245.59 kB[39m[2m | [22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+[32mchunk-IVIGKTF5.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m26.71 kB[39m[2m | [22m
+[32mchunk-QHJSKMVP.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m22.79 kB[39m[2m | [22m
+[32mchunk-LVPK2Y64.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m10.76 kB[39m[2m | [22m
+[32mchunk-GPYCGAR4.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.72 kB[39m[2m | [22m
+[32mchunk-64ODIZRF.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.16 kB[39m[2m | [22m
+[32mchunk-EVSPGG2W.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m1.64 kB[39m[2m | [22m
+[32mchunk-XTEXBAZB.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m756 bytes[39m[2m | [22m
+[32mchunk-2P27KT5M.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m510 bytes[39m[2m | [22m
+[32mpolyfills.js[39m                             [2m | [22m[2mpolyfills[22m                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                                        [2m | [22m[1mInitial total[22m                [2m | [22m[1m359.42 kB[22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-W4YKJGFT.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.77 kB[39m[2m | [22m
+[32minventory-list.component-DJBQZHZ6.js[39m     [2m | [22m[2minventory-list-component[22m     [2m | [22m[36m606.53 kB[39m[2m | [22m
+[32mdashboard-analytics.component-PCAT2BXR.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.72 kB[39m[2m | [22m
+[32msupplier.module-W7JA47JH.js[39m              [2m | [22m[2msupplier-module[22m              [2m | [22m[36m418.78 kB[39m[2m | [22m
+[32mfacture.module-EAOUSFHQ.js[39m               [2m | [22m[2mfacture-module[22m               [2m | [22m[36m412.28 kB[39m[2m | [22m
+[32mdashboard.component-KOP46LU3.js[39m          [2m | [22m[2mdashboard-component[22m          [2m | [22m[36m402.42 kB[39m[2m | [22m
+[32mmembership-list.component-7AP2IONX.js[39m    [2m | [22m[2mmembership-list-component[22m    [2m | [22m[36m331.89 kB[39m[2m | [22m
+[32mcategory-management.module-6JTUYWRA.js[39m   [2m | [22m[2mcategory-management-module[22m   [2m | [22m[36m268.76 kB[39m[2m | [22m
+[32mproduct-form.component-KF3T2W55.js[39m       [2m | [22m[2mproduct-form-component[22m       [2m | [22m[36m191.31 kB[39m[2m | [22m
+[32mdashboard-home.component-4UV3T4BY.js[39m     [2m | [22m[2mdashboard-home-component[22m     [2m | [22m[36m179.48 kB[39m[2m | [22m
+[32mstock-mutation.component-OMYKGS62.js[39m     [2m | [22m[2mstock-mutation-component[22m     [2m | [22m[36m162.21 kB[39m[2m | [22m
+[32mreports-dashboard.component-JOSWPP2C.js[39m  [2m | [22m[2mreports-dashboard-component[22m  [2m | [22m[36m159.59 kB[39m[2m | [22m
+[32mmember-points.component-WI6SUOCW.js[39m      [2m | [22m[2mmember-points-component[22m      [2m | [22m[36m137.81 kB[39m[2m | [22m
+[32mactivity-log.module-4QTFYGHW.js[39m          [2m | [22m[2mactivity-log-module[22m          [2m | [22m[36m137.04 kB[39m[2m | [22m
+[32muser-profile.component-AKQ77DNR.js[39m       [2m | [22m[2muser-profile-component[22m       [2m | [22m[36m132.52 kB[39m[2m | [22m
+[2m...and 29 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [1.901 seconds]
+
+NOTE: Raw file sizes do not reflect development server per-request transformations.
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m4200[22m/[39m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [1.169 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2345: Argument of type '{ [branchId: number]: number; } | undefined' is not assignable to parameter of type '{ [branchId: number]: number; }'.
+  Type 'undefined' is not assignable to type '{ [branchId: number]: number; }'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:2347:36:
+[37m      2347 │               newMap.set(productId, [32mresponse.data[37m);
+           ╵                                     [32m~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m                               [2m | [22m[2mstyles[22m                       [2m | [22m[36m245.59 kB[39m[2m | [22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+[32mchunk-IVIGKTF5.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m26.71 kB[39m[2m | [22m
+[32mchunk-QHJSKMVP.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m22.79 kB[39m[2m | [22m
+[32mchunk-LVPK2Y64.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m10.76 kB[39m[2m | [22m
+[32mchunk-GPYCGAR4.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.72 kB[39m[2m | [22m
+[32mchunk-64ODIZRF.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.16 kB[39m[2m | [22m
+[32mchunk-EVSPGG2W.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m1.64 kB[39m[2m | [22m
+[32mchunk-XTEXBAZB.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m756 bytes[39m[2m | [22m
+[32mchunk-2P27KT5M.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m510 bytes[39m[2m | [22m
+[32mpolyfills.js[39m                             [2m | [22m[2mpolyfills[22m                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                                        [2m | [22m[1mInitial total[22m                [2m | [22m[1m359.42 kB[22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-SU3AKMVN.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.76 kB[39m[2m | [22m
+[32minventory-list.component-DJBQZHZ6.js[39m     [2m | [22m[2minventory-list-component[22m     [2m | [22m[36m606.53 kB[39m[2m | [22m
+[32mdashboard-analytics.component-PCAT2BXR.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.72 kB[39m[2m | [22m
+[32msupplier.module-W7JA47JH.js[39m              [2m | [22m[2msupplier-module[22m              [2m | [22m[36m418.78 kB[39m[2m | [22m
+[32mfacture.module-EAOUSFHQ.js[39m               [2m | [22m[2mfacture-module[22m               [2m | [22m[36m412.28 kB[39m[2m | [22m
+[32mdashboard.component-KOP46LU3.js[39m          [2m | [22m[2mdashboard-component[22m          [2m | [22m[36m402.42 kB[39m[2m | [22m
+[32mmembership-list.component-7AP2IONX.js[39m    [2m | [22m[2mmembership-list-component[22m    [2m | [22m[36m331.89 kB[39m[2m | [22m
+[32mcategory-management.module-6JTUYWRA.js[39m   [2m | [22m[2mcategory-management-module[22m   [2m | [22m[36m268.76 kB[39m[2m | [22m
+[32mproduct-form.component-KF3T2W55.js[39m       [2m | [22m[2mproduct-form-component[22m       [2m | [22m[36m191.31 kB[39m[2m | [22m
+[32mdashboard-home.component-4UV3T4BY.js[39m     [2m | [22m[2mdashboard-home-component[22m     [2m | [22m[36m179.48 kB[39m[2m | [22m
+[32mstock-mutation.component-OMYKGS62.js[39m     [2m | [22m[2mstock-mutation-component[22m     [2m | [22m[36m162.21 kB[39m[2m | [22m
+[32mreports-dashboard.component-JOSWPP2C.js[39m  [2m | [22m[2mreports-dashboard-component[22m  [2m | [22m[36m159.59 kB[39m[2m | [22m
+[32mmember-points.component-WI6SUOCW.js[39m      [2m | [22m[2mmember-points-component[22m      [2m | [22m[36m137.81 kB[39m[2m | [22m
+[32mactivity-log.module-4QTFYGHW.js[39m          [2m | [22m[2mactivity-log-module[22m          [2m | [22m[36m137.04 kB[39m[2m | [22m
+[32muser-profile.component-AKQ77DNR.js[39m       [2m | [22m[2muser-profile-component[22m       [2m | [22m[36m132.52 kB[39m[2m | [22m
+[2m...and 29 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [1.336 seconds]
+
+Page reload sent to client(s).
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m                               [2m | [22m[2mstyles[22m                       [2m | [22m[36m245.59 kB[39m[2m | [22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+[32mchunk-IVIGKTF5.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m26.71 kB[39m[2m | [22m
+[32mchunk-QHJSKMVP.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m22.79 kB[39m[2m | [22m
+[32mchunk-LVPK2Y64.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m10.76 kB[39m[2m | [22m
+[32mchunk-GPYCGAR4.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.72 kB[39m[2m | [22m
+[32mchunk-64ODIZRF.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.16 kB[39m[2m | [22m
+[32mchunk-EVSPGG2W.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m1.64 kB[39m[2m | [22m
+[32mchunk-XTEXBAZB.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m756 bytes[39m[2m | [22m
+[32mchunk-2P27KT5M.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m510 bytes[39m[2m | [22m
+[32mpolyfills.js[39m                             [2m | [22m[2mpolyfills[22m                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                                        [2m | [22m[1mInitial total[22m                [2m | [22m[1m359.42 kB[22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-SU3AKMVN.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.76 kB[39m[2m | [22m
+[32minventory-list.component-DJBQZHZ6.js[39m     [2m | [22m[2minventory-list-component[22m     [2m | [22m[36m606.53 kB[39m[2m | [22m
+[32mdashboard-analytics.component-PCAT2BXR.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.72 kB[39m[2m | [22m
+[32msupplier.module-W7JA47JH.js[39m              [2m | [22m[2msupplier-module[22m              [2m | [22m[36m418.78 kB[39m[2m | [22m
+[32mfacture.module-EAOUSFHQ.js[39m               [2m | [22m[2mfacture-module[22m               [2m | [22m[36m412.28 kB[39m[2m | [22m
+[32mdashboard.component-KOP46LU3.js[39m          [2m | [22m[2mdashboard-component[22m          [2m | [22m[36m402.42 kB[39m[2m | [22m
+[32mmembership-list.component-7AP2IONX.js[39m    [2m | [22m[2mmembership-list-component[22m    [2m | [22m[36m331.89 kB[39m[2m | [22m
+[32mcategory-management.module-6JTUYWRA.js[39m   [2m | [22m[2mcategory-management-module[22m   [2m | [22m[36m268.76 kB[39m[2m | [22m
+[32mproduct-form.component-KF3T2W55.js[39m       [2m | [22m[2mproduct-form-component[22m       [2m | [22m[36m191.31 kB[39m[2m | [22m
+[32mdashboard-home.component-4UV3T4BY.js[39m     [2m | [22m[2mdashboard-home-component[22m     [2m | [22m[36m179.48 kB[39m[2m | [22m
+[32mstock-mutation.component-OMYKGS62.js[39m     [2m | [22m[2mstock-mutation-component[22m     [2m | [22m[36m162.21 kB[39m[2m | [22m
+[32mreports-dashboard.component-JOSWPP2C.js[39m  [2m | [22m[2mreports-dashboard-component[22m  [2m | [22m[36m159.59 kB[39m[2m | [22m
+[32mmember-points.component-WI6SUOCW.js[39m      [2m | [22m[2mmember-points-component[22m      [2m | [22m[36m137.81 kB[39m[2m | [22m
+[32mactivity-log.module-4QTFYGHW.js[39m          [2m | [22m[2mactivity-log-module[22m          [2m | [22m[36m137.04 kB[39m[2m | [22m
+[32muser-profile.component-AKQ77DNR.js[39m       [2m | [22m[2muser-profile-component[22m       [2m | [22m[36m132.52 kB[39m[2m | [22m
+[2m...and 29 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [1.015 seconds]
+
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-PBSTLKVO.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.76 kB[39m[2m | [22m
+[32mdashboard-analytics.component-6CFHIMUR.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.72 kB[39m[2m | [22m
+[32mreceipt-preview.component-BDG3TKNL.js[39m    [2m | [22m[2mreceipt-preview-component[22m    [2m | [22m[36m119.95 kB[39m[2m | [22m
+[32mtransaction-detail.component-PRHGB6IW.js[39m [2m | [22m[2mtransaction-detail-component[22m [2m | [22m[36m102.59 kB[39m[2m | [22m
+[32mchunk-YZSWZCJ2.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m49.73 kB[39m[2m | [22m
+[32mchunk-CR4IQ773.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m15.33 kB[39m[2m | [22m
+[32mpos.module-YPZW7WEN.js[39m                   [2m | [22m[2mpos-module[22m                   [2m | [22m  [36m6.38 kB[39m[2m | [22m
+
+Application bundle generation complete. [1.302 seconds]
+
+Page reload sent to client(s).
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-5EDJ65VW.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.76 kB[39m[2m | [22m
+[32mdashboard-analytics.component-2FACJLPY.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.72 kB[39m[2m | [22m
+[32mreceipt-preview.component-OKBQMIFT.js[39m    [2m | [22m[2mreceipt-preview-component[22m    [2m | [22m[36m119.95 kB[39m[2m | [22m
+[32mtransaction-detail.component-PZBQICL2.js[39m [2m | [22m[2mtransaction-detail-component[22m [2m | [22m[36m102.59 kB[39m[2m | [22m
+[32mchunk-V6XMF6VB.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m49.73 kB[39m[2m | [22m
+[32mchunk-M6WSO6MK.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m15.32 kB[39m[2m | [22m
+[32mpos.module-QTCNJL2Y.js[39m                   [2m | [22m[2mpos-module[22m                   [2m | [22m  [36m6.38 kB[39m[2m | [22m
+
+Application bundle generation complete. [0.992 seconds]
+
+Page reload sent to client(s).
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-HY54YXCH.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.76 kB[39m[2m | [22m
+[32mdashboard-analytics.component-RICVETJB.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.72 kB[39m[2m | [22m
+[32mreceipt-preview.component-YAOLHFLY.js[39m    [2m | [22m[2mreceipt-preview-component[22m    [2m | [22m[36m119.95 kB[39m[2m | [22m
+[32mtransaction-detail.component-FJFVTNQG.js[39m [2m | [22m[2mtransaction-detail-component[22m [2m | [22m[36m102.59 kB[39m[2m | [22m
+[32mchunk-4OEWIVY2.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m49.73 kB[39m[2m | [22m
+[32mchunk-6Q44SBJR.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m15.32 kB[39m[2m | [22m
+[32mpos.module-JIKVHYQA.js[39m                   [2m | [22m[2mpos-module[22m                   [2m | [22m  [36m6.38 kB[39m[2m | [22m
+
+Application bundle generation complete. [0.804 seconds]
+
+Page reload sent to client(s).
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [0.777 seconds]
+
+[1m[33m[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mDuplicate member "http" in class body[0m [duplicate-class-member]
+
+    src/app/core/services/pos.service.ts:11:4:
+[37m      11 │     [32mhttp[37m = inject(HttpClient);
+         ╵     [32m~~~~[0m
+
+  The original member "http" is here:
+
+    src/app/core/services/pos.service.ts:10:4:
+[37m      10 │     [32mhttp[37m;
+         ╵     [32m~~~~[0m
+
+[39m[22m
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2687: All declarations of 'http' must have identical modifiers.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/core/services/pos.service.ts:104:19:
+[37m      104 │   private readonly [32mhttp[37m = inject(HttpClient);
+          ╵                    [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2300: Duplicate identifier 'http'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/core/services/pos.service.ts:116:22:
+[37m      116 │   constructor(private [32mhttp[37m: HttpClient) {}
+          ╵                       [32m~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2687: All declarations of 'http' must have identical modifiers.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/core/services/pos.service.ts:116:22:
+[37m      116 │   constructor(private [32mhttp[37m: HttpClient) {}
+          ╵                       [32m~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m                               [2m | [22m[2mstyles[22m                       [2m | [22m[36m245.59 kB[39m[2m | [22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+[32mchunk-IVIGKTF5.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m26.71 kB[39m[2m | [22m
+[32mchunk-QHJSKMVP.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m22.79 kB[39m[2m | [22m
+[32mchunk-LVPK2Y64.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m10.76 kB[39m[2m | [22m
+[32mchunk-GPYCGAR4.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.72 kB[39m[2m | [22m
+[32mchunk-64ODIZRF.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.16 kB[39m[2m | [22m
+[32mchunk-EVSPGG2W.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m1.64 kB[39m[2m | [22m
+[32mchunk-XTEXBAZB.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m756 bytes[39m[2m | [22m
+[32mchunk-2P27KT5M.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m510 bytes[39m[2m | [22m
+[32mpolyfills.js[39m                             [2m | [22m[2mpolyfills[22m                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                                        [2m | [22m[1mInitial total[22m                [2m | [22m[1m359.42 kB[22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-VEN7V5G5.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.76 kB[39m[2m | [22m
+[32minventory-list.component-VUJCLCRN.js[39m     [2m | [22m[2minventory-list-component[22m     [2m | [22m[36m606.53 kB[39m[2m | [22m
+[32mdashboard-analytics.component-WCE63WQK.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.87 kB[39m[2m | [22m
+[32msupplier.module-W7JA47JH.js[39m              [2m | [22m[2msupplier-module[22m              [2m | [22m[36m418.78 kB[39m[2m | [22m
+[32mfacture.module-EAOUSFHQ.js[39m               [2m | [22m[2mfacture-module[22m               [2m | [22m[36m412.28 kB[39m[2m | [22m
+[32mdashboard.component-D4LDPFKE.js[39m          [2m | [22m[2mdashboard-component[22m          [2m | [22m[36m402.42 kB[39m[2m | [22m
+[32mmembership-list.component-7AP2IONX.js[39m    [2m | [22m[2mmembership-list-component[22m    [2m | [22m[36m331.89 kB[39m[2m | [22m
+[32mcategory-management.module-6JTUYWRA.js[39m   [2m | [22m[2mcategory-management-module[22m   [2m | [22m[36m268.76 kB[39m[2m | [22m
+[32mproduct-form.component-KF3T2W55.js[39m       [2m | [22m[2mproduct-form-component[22m       [2m | [22m[36m191.31 kB[39m[2m | [22m
+[32mdashboard-home.component-4UV3T4BY.js[39m     [2m | [22m[2mdashboard-home-component[22m     [2m | [22m[36m179.48 kB[39m[2m | [22m
+[32mstock-mutation.component-OMYKGS62.js[39m     [2m | [22m[2mstock-mutation-component[22m     [2m | [22m[36m162.21 kB[39m[2m | [22m
+[32mreports-dashboard.component-JOSWPP2C.js[39m  [2m | [22m[2mreports-dashboard-component[22m  [2m | [22m[36m159.59 kB[39m[2m | [22m
+[32mmember-points.component-WI6SUOCW.js[39m      [2m | [22m[2mmember-points-component[22m      [2m | [22m[36m137.81 kB[39m[2m | [22m
+[32mactivity-log.module-4QTFYGHW.js[39m          [2m | [22m[2mactivity-log-module[22m          [2m | [22m[36m137.04 kB[39m[2m | [22m
+[32muser-profile.component-AKQ77DNR.js[39m       [2m | [22m[2muser-profile-component[22m       [2m | [22m[36m132.52 kB[39m[2m | [22m
+[2m...and 29 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [0.940 seconds]
+
+Page reload sent to client(s).
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [0.836 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'products' does not exist on type 'ProductDto[]'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:356:47:
+[37m      356 │         if (response.success && response.data?.[32mproducts[37m) {
+          ╵                                                [32m~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'products' does not exist on type 'ProductDto[]'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:357:44:
+[37m      357 │           const newProducts = response.data.[32mproducts[37m;
+          ╵                                             [32m~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'products' does not exist on type 'ProductDto[]'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:419:41:
+[37m      419 │           const products = response.data.[32mproducts[37m || [];
+          ╵                                          [32m~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2769: No overload matches this call.
+  Overload 1 of 2, '(observerOrNext?: Partial<Observer<ProductByBranchApiResponse>> | ((value: ProductByBranchApiResponse) => void) | undefined): Subscription', gave the following error.
+    Type '(response: ProductListResponseApiResponse) => void' is not assignable to type '(value: ProductByBranchApiResponse) => void'.
+      Types of parameters 'response' and 'value' are incompatible.
+        Type 'ProductByBranchApiResponse' is not assignable to type 'ProductListResponseApiResponse'.
+          Types of property 'data' are incompatible.
+            Type 'ProductDto[]' is missing the following properties from type '{ products: ProductDto[]; totalItems: number; currentPage: number; totalPages: number; pageSize: number; }': products, totalItems, currentPage, totalPages, pageSize
+  Overload 2 of 2, '(next?: ((value: ProductByBranchApiResponse) => void) | null | undefined, error?: ((error: any) => void) | null | undefined, complete?: (() => void) | null | undefined): Subscription', gave the following error.
+    Object literal may only specify known properties, and 'next' does not exist in type '(value: ProductByBranchApiResponse) => void'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:566:6:
+[37m      566 │       [32mnext[37m: (response: ProductListResponseApiResponse) => {
+          ╵       [32m~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [1.200 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'products' does not exist on type 'ProductDto[]'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:356:47:
+[37m      356 │         if (response.success && response.data?.[32mproducts[37m) {
+          ╵                                                [32m~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2339: Property 'products' does not exist on type 'ProductDto[]'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:357:44:
+[37m      357 │           const newProducts = response.data.[32mproducts[37m;
+          ╵                                             [32m~~~~~~~~[0m
+
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2769: No overload matches this call.
+  Overload 1 of 2, '(observerOrNext?: Partial<Observer<ProductByBranchApiResponse>> | ((value: ProductByBranchApiResponse) => void) | undefined): Subscription', gave the following error.
+    Type '(response: ProductListResponseApiResponse) => void' is not assignable to type '(value: ProductByBranchApiResponse) => void'.
+      Types of parameters 'response' and 'value' are incompatible.
+        Type 'ProductByBranchApiResponse' is not assignable to type 'ProductListResponseApiResponse'.
+          Types of property 'data' are incompatible.
+            Type 'ProductDto[]' is missing the following properties from type '{ products: ProductDto[]; totalItems: number; currentPage: number; totalPages: number; pageSize: number; }': products, totalItems, currentPage, totalPages, pageSize
+  Overload 2 of 2, '(next?: ((value: ProductByBranchApiResponse) => void) | null | undefined, error?: ((error: any) => void) | null | undefined, complete?: (() => void) | null | undefined): Subscription', gave the following error.
+    Object literal may only specify known properties, and 'next' does not exist in type '(value: ProductByBranchApiResponse) => void'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:566:6:
+[37m      566 │       [32mnext[37m: (response: ProductListResponseApiResponse) => {
+          ╵       [32m~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [1.148 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2769: No overload matches this call.
+  Overload 1 of 2, '(observerOrNext?: Partial<Observer<ProductByBranchApiResponse>> | ((value: ProductByBranchApiResponse) => void) | undefined): Subscription', gave the following error.
+    Type '(response: ProductListResponseApiResponse) => void' is not assignable to type '(value: ProductByBranchApiResponse) => void'.
+      Types of parameters 'response' and 'value' are incompatible.
+        Type 'ProductByBranchApiResponse' is not assignable to type 'ProductListResponseApiResponse'.
+          Types of property 'data' are incompatible.
+            Type 'ProductDto[]' is missing the following properties from type '{ products: ProductDto[]; totalItems: number; currentPage: number; totalPages: number; pageSize: number; }': products, totalItems, currentPage, totalPages, pageSize
+  Overload 2 of 2, '(next?: ((value: ProductByBranchApiResponse) => void) | null | undefined, error?: ((error: any) => void) | null | undefined, complete?: (() => void) | null | undefined): Subscription', gave the following error.
+    Object literal may only specify known properties, and 'next' does not exist in type '(value: ProductByBranchApiResponse) => void'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/modules/pos/pos/pos.component.ts:566:6:
+[37m      566 │       [32mnext[37m: (response: ProductListResponseApiResponse) => {
+          ╵       [32m~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m                               [2m | [22m[2mstyles[22m                       [2m | [22m[36m245.59 kB[39m[2m | [22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+[32mchunk-IVIGKTF5.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m26.71 kB[39m[2m | [22m
+[32mchunk-QHJSKMVP.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m22.79 kB[39m[2m | [22m
+[32mchunk-LVPK2Y64.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m10.76 kB[39m[2m | [22m
+[32mchunk-GPYCGAR4.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.72 kB[39m[2m | [22m
+[32mchunk-64ODIZRF.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.16 kB[39m[2m | [22m
+[32mchunk-EVSPGG2W.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m1.64 kB[39m[2m | [22m
+[32mchunk-XTEXBAZB.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m756 bytes[39m[2m | [22m
+[32mchunk-2P27KT5M.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m510 bytes[39m[2m | [22m
+[32mpolyfills.js[39m                             [2m | [22m[2mpolyfills[22m                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                                        [2m | [22m[1mInitial total[22m                [2m | [22m[1m359.42 kB[22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-K3HVKGNB.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.82 kB[39m[2m | [22m
+[32minventory-list.component-VUJCLCRN.js[39m     [2m | [22m[2minventory-list-component[22m     [2m | [22m[36m606.53 kB[39m[2m | [22m
+[32mdashboard-analytics.component-66CFBCJ2.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.87 kB[39m[2m | [22m
+[32msupplier.module-W7JA47JH.js[39m              [2m | [22m[2msupplier-module[22m              [2m | [22m[36m418.78 kB[39m[2m | [22m
+[32mfacture.module-EAOUSFHQ.js[39m               [2m | [22m[2mfacture-module[22m               [2m | [22m[36m412.28 kB[39m[2m | [22m
+[32mdashboard.component-D4LDPFKE.js[39m          [2m | [22m[2mdashboard-component[22m          [2m | [22m[36m402.42 kB[39m[2m | [22m
+[32mmembership-list.component-7AP2IONX.js[39m    [2m | [22m[2mmembership-list-component[22m    [2m | [22m[36m331.89 kB[39m[2m | [22m
+[32mcategory-management.module-6JTUYWRA.js[39m   [2m | [22m[2mcategory-management-module[22m   [2m | [22m[36m268.76 kB[39m[2m | [22m
+[32mproduct-form.component-KF3T2W55.js[39m       [2m | [22m[2mproduct-form-component[22m       [2m | [22m[36m191.31 kB[39m[2m | [22m
+[32mdashboard-home.component-4UV3T4BY.js[39m     [2m | [22m[2mdashboard-home-component[22m     [2m | [22m[36m179.48 kB[39m[2m | [22m
+[32mstock-mutation.component-OMYKGS62.js[39m     [2m | [22m[2mstock-mutation-component[22m     [2m | [22m[36m162.21 kB[39m[2m | [22m
+[32mreports-dashboard.component-JOSWPP2C.js[39m  [2m | [22m[2mreports-dashboard-component[22m  [2m | [22m[36m159.59 kB[39m[2m | [22m
+[32mmember-points.component-WI6SUOCW.js[39m      [2m | [22m[2mmember-points-component[22m      [2m | [22m[36m137.81 kB[39m[2m | [22m
+[32mactivity-log.module-4QTFYGHW.js[39m          [2m | [22m[2mactivity-log-module[22m          [2m | [22m[36m137.04 kB[39m[2m | [22m
+[32muser-profile.component-AKQ77DNR.js[39m       [2m | [22m[2muser-profile-component[22m       [2m | [22m[36m132.52 kB[39m[2m | [22m
+[2m...and 29 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [1.169 seconds]
+
+Page reload sent to client(s).
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m      [2m | [22m[1mNames[22m        [2m | [22m [1mRaw size[22m
+[32mmain.js[39m                  [2m | [22m[2mmain[22m         [2m | [22m [36m39.69 kB[39m[2m | [22m
+
+[1mLazy chunk files[22m         [2m | [22m[1mNames[22m        [2m | [22m [1mRaw size[22m
+[32mpos.component-IRXCETP3.js[39m[2m | [22m[2mpos-component[22m[2m | [22m[36m753.82 kB[39m[2m | [22m
+[32mpos.module-C6I7DZDJ.js[39m   [2m | [22m[2mpos-module[22m   [2m | [22m  [36m6.38 kB[39m[2m | [22m
+
+Application bundle generation complete. [1.473 seconds]
+
+Page reload sent to client(s).
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+Application bundle generation failed. [1.253 seconds]
+
+[1m[31m[31mX [41;31m[[41;97mERROR[41;31m][0m [1mTS2484: Export declaration conflicts with exported declaration of 'ProductByBranchApiResponse'.[0m [1m[35m[plugin angular-compiler][0m
+
+    src/app/core/services/pos.service.ts:46:2:
+[37m      46 │   [32mProductByBranchApiResponse[37m
+         ╵   [32m~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[39m[22m
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m                               [2m | [22m[2mstyles[22m                       [2m | [22m[36m245.59 kB[39m[2m | [22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+[32mchunk-IVIGKTF5.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m26.71 kB[39m[2m | [22m
+[32mchunk-QHJSKMVP.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m22.79 kB[39m[2m | [22m
+[32mchunk-LVPK2Y64.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m10.76 kB[39m[2m | [22m
+[32mchunk-GPYCGAR4.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.72 kB[39m[2m | [22m
+[32mchunk-64ODIZRF.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.16 kB[39m[2m | [22m
+[32mchunk-EVSPGG2W.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m1.64 kB[39m[2m | [22m
+[32mchunk-XTEXBAZB.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m756 bytes[39m[2m | [22m
+[32mchunk-2P27KT5M.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m510 bytes[39m[2m | [22m
+[32mpolyfills.js[39m                             [2m | [22m[2mpolyfills[22m                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                                        [2m | [22m[1mInitial total[22m                [2m | [22m[1m359.42 kB[22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-IRXCETP3.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.82 kB[39m[2m | [22m
+[32minventory-list.component-VUJCLCRN.js[39m     [2m | [22m[2minventory-list-component[22m     [2m | [22m[36m606.53 kB[39m[2m | [22m
+[32mdashboard-analytics.component-66CFBCJ2.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.87 kB[39m[2m | [22m
+[32msupplier.module-W7JA47JH.js[39m              [2m | [22m[2msupplier-module[22m              [2m | [22m[36m418.78 kB[39m[2m | [22m
+[32mfacture.module-EAOUSFHQ.js[39m               [2m | [22m[2mfacture-module[22m               [2m | [22m[36m412.28 kB[39m[2m | [22m
+[32mdashboard.component-D4LDPFKE.js[39m          [2m | [22m[2mdashboard-component[22m          [2m | [22m[36m402.42 kB[39m[2m | [22m
+[32mmembership-list.component-7AP2IONX.js[39m    [2m | [22m[2mmembership-list-component[22m    [2m | [22m[36m331.89 kB[39m[2m | [22m
+[32mcategory-management.module-6JTUYWRA.js[39m   [2m | [22m[2mcategory-management-module[22m   [2m | [22m[36m268.76 kB[39m[2m | [22m
+[32mproduct-form.component-KF3T2W55.js[39m       [2m | [22m[2mproduct-form-component[22m       [2m | [22m[36m191.31 kB[39m[2m | [22m
+[32mdashboard-home.component-4UV3T4BY.js[39m     [2m | [22m[2mdashboard-home-component[22m     [2m | [22m[36m179.48 kB[39m[2m | [22m
+[32mstock-mutation.component-OMYKGS62.js[39m     [2m | [22m[2mstock-mutation-component[22m     [2m | [22m[36m162.21 kB[39m[2m | [22m
+[32mreports-dashboard.component-JOSWPP2C.js[39m  [2m | [22m[2mreports-dashboard-component[22m  [2m | [22m[36m159.59 kB[39m[2m | [22m
+[32mmember-points.component-WI6SUOCW.js[39m      [2m | [22m[2mmember-points-component[22m      [2m | [22m[36m137.81 kB[39m[2m | [22m
+[32mactivity-log.module-4QTFYGHW.js[39m          [2m | [22m[2mactivity-log-module[22m          [2m | [22m[36m137.04 kB[39m[2m | [22m
+[32muser-profile.component-AKQ77DNR.js[39m       [2m | [22m[2muser-profile-component[22m       [2m | [22m[36m132.52 kB[39m[2m | [22m
+[2m...and 29 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [1.000 seconds]
+
+Page reload sent to client(s).
+[33m❯[39m Changes detected. Rebuilding...
+[32m✔[39m Changes detected. Rebuilding...
+[1mInitial chunk files[22m                      [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m                               [2m | [22m[2mstyles[22m                       [2m | [22m[36m245.59 kB[39m[2m | [22m
+[32mmain.js[39m                                  [2m | [22m[2mmain[22m                         [2m | [22m [36m39.69 kB[39m[2m | [22m
+[32mchunk-IVIGKTF5.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m26.71 kB[39m[2m | [22m
+[32mchunk-QHJSKMVP.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m22.79 kB[39m[2m | [22m
+[32mchunk-LVPK2Y64.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m [36m10.76 kB[39m[2m | [22m
+[32mchunk-GPYCGAR4.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.72 kB[39m[2m | [22m
+[32mchunk-64ODIZRF.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m5.16 kB[39m[2m | [22m
+[32mchunk-EVSPGG2W.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m  [36m1.64 kB[39m[2m | [22m
+[32mchunk-XTEXBAZB.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m756 bytes[39m[2m | [22m
+[32mchunk-2P27KT5M.js[39m                        [2m | [22m[2m-[22m                            [2m | [22m[36m510 bytes[39m[2m | [22m
+[32mpolyfills.js[39m                             [2m | [22m[2mpolyfills[22m                    [2m | [22m [36m95 bytes[39m[2m | [22m
+
+[1m [22m                                        [2m | [22m[1mInitial total[22m                [2m | [22m[1m359.42 kB[22m
+
+[1mLazy chunk files[22m                         [2m | [22m[1mNames[22m                        [2m | [22m [1mRaw size[22m
+[32mpos.component-IRXCETP3.js[39m                [2m | [22m[2mpos-component[22m                [2m | [22m[36m753.82 kB[39m[2m | [22m
+[32minventory-list.component-VUJCLCRN.js[39m     [2m | [22m[2minventory-list-component[22m     [2m | [22m[36m606.53 kB[39m[2m | [22m
+[32mdashboard-analytics.component-66CFBCJ2.js[39m[2m | [22m[2mdashboard-analytics-component[22m[2m | [22m[36m552.87 kB[39m[2m | [22m
+[32msupplier.module-W7JA47JH.js[39m              [2m | [22m[2msupplier-module[22m              [2m | [22m[36m418.78 kB[39m[2m | [22m
+[32mfacture.module-EAOUSFHQ.js[39m               [2m | [22m[2mfacture-module[22m               [2m | [22m[36m412.28 kB[39m[2m | [22m
+[32mdashboard.component-D4LDPFKE.js[39m          [2m | [22m[2mdashboard-component[22m          [2m | [22m[36m402.42 kB[39m[2m | [22m
+[32mmembership-list.component-7AP2IONX.js[39m    [2m | [22m[2mmembership-list-component[22m    [2m | [22m[36m331.89 kB[39m[2m | [22m
+[32mcategory-management.module-6JTUYWRA.js[39m   [2m | [22m[2mcategory-management-module[22m   [2m | [22m[36m268.76 kB[39m[2m | [22m
+[32mproduct-form.component-KF3T2W55.js[39m       [2m | [22m[2mproduct-form-component[22m       [2m | [22m[36m191.31 kB[39m[2m | [22m
+[32mdashboard-home.component-4UV3T4BY.js[39m     [2m | [22m[2mdashboard-home-component[22m     [2m | [22m[36m179.48 kB[39m[2m | [22m
+[32mstock-mutation.component-OMYKGS62.js[39m     [2m | [22m[2mstock-mutation-component[22m     [2m | [22m[36m162.21 kB[39m[2m | [22m
+[32mreports-dashboard.component-JOSWPP2C.js[39m  [2m | [22m[2mreports-dashboard-component[22m  [2m | [22m[36m159.59 kB[39m[2m | [22m
+[32mmember-points.component-WI6SUOCW.js[39m      [2m | [22m[2mmember-points-component[22m      [2m | [22m[36m137.81 kB[39m[2m | [22m
+[32mactivity-log.module-4QTFYGHW.js[39m          [2m | [22m[2mactivity-log-module[22m          [2m | [22m[36m137.04 kB[39m[2m | [22m
+[32muser-profile.component-AKQ77DNR.js[39m       [2m | [22m[2muser-profile-component[22m       [2m | [22m[36m132.52 kB[39m[2m | [22m
+[2m...and 29 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [1.012 seconds]
+

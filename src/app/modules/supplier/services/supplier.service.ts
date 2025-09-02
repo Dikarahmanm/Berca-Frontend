@@ -28,7 +28,7 @@ interface ApiResponse<T> {
 })
 export class SupplierService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl || 'http://localhost:5171'}/Supplier`;
+  private readonly baseUrl = '/api/Supplier';
 
   // Signal-based state management
   private _suppliers = signal<SupplierDto[]>([]);

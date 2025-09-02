@@ -564,35 +564,71 @@ export class AuthService {
    * Load user's accessible branches and roles
    */
   loadUserBranchAccess(): Observable<UserBranchAccessResponse> {
-    const url = `${this.baseUrl}/api/branch/user-access`;
-    console.log('🏢 Loading user branch access...');
+    const url = `${this.baseUrl}/api/UserBranchAssignment/user-access`;
+    console.log('🏢 Loading user branch access from real API...');
     
-    return this.http.get<UserBranchAccessResponse>(url, {
+    return this.http.get<any>(url, {
       withCredentials: true
     }).pipe(
+      map(response => {
+        // Transform API response to expected format
+        if (response.success && response.data) {
+          const transformedResponse: UserBranchAccessResponse = {
+            success: true,
+            data: {
+              accessibleBranches: response.data.map((branch: any) => ({
+                branchId: branch.branchId,
+                branchCode: branch.branchCode,
+                branchName: branch.branchName,
+                branchType: this.mapBranchType(branch.branchType),
+                isHeadOffice: branch.isHeadOffice || false,
+                level: branch.level || (branch.isHeadOffice ? 0 : 1),
+                canRead: branch.canRead || true,
+                canWrite: branch.canWrite || false,
+                canManage: branch.canManage || false,
+                canTransfer: branch.canTransfer || false,
+                canApprove: branch.canApprove || false,
+                accessLevel: branch.accessLevel || 'ReadOnly',
+                isActive: branch.isActive,
+                address: branch.address || 'Alamat tidak tersedia',
+                managerName: branch.managerName || 'Manager tidak diketahui',
+                phone: branch.phone || '-',
+                parentBranchId: branch.parentBranchId,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              })),
+              branchHierarchy: this.generateBranchHierarchy(response.data),
+              userBranchRoles: this.generateUserBranchRoles(response.data),
+              defaultBranchId: response.data.find((b: any) => b.isDefaultBranch)?.branchId || response.data[0]?.branchId || 1
+            },
+            message: response.message || 'User branch access loaded from API'
+          };
+          
+          return transformedResponse;
+        }
+        
+        throw new Error('Invalid API response format');
+      }),
       tap(response => {
-        if (response.success) {
-          console.log('✅ User branch access loaded:', {
-            accessibleBranches: response.data.accessibleBranches.length,
-            defaultBranchId: response.data.defaultBranchId,
-            userRoles: response.data.userBranchRoles.length
-          });
-          
-          // Store branch access data
-          this.userBranchAccessSubject.next(response);
-          
-          // Store default branch ID
-          if (response.data.defaultBranchId) {
-            localStorage.setItem('default-branch-id', response.data.defaultBranchId.toString());
-          }
-        } else {
-          console.warn('⚠️ Branch access request failed:', response.message);
+        console.log('✅ User branch access loaded from API:', {
+          accessibleBranches: response.data.accessibleBranches.length,
+          defaultBranchId: response.data.defaultBranchId,
+          userRoles: response.data.userBranchRoles.length
+        });
+        
+        // Store branch access data
+        this.userBranchAccessSubject.next(response);
+        
+        // Store default branch ID
+        if (response.data.defaultBranchId) {
+          localStorage.setItem('default-branch-id', response.data.defaultBranchId.toString());
         }
       }),
       catchError(error => {
-        console.error('❌ Error loading user branch access:', error);
+        console.error('❌ Error loading user branch access from API:', error);
+        console.error('⚠️ Falling back to mock data - please check backend connectivity');
         
-        // Return mock data for development
+        // Fallback to mock data only if API is completely unreachable
         const mockResponse: UserBranchAccessResponse = {
           success: true,
           data: {
@@ -601,11 +637,10 @@ export class AuthService {
             userBranchRoles: this.generateMockUserBranchRoles(),
             defaultBranchId: 1
           },
-          message: 'Using mock branch data for development'
+          message: 'Using mock data - API unavailable'
         };
         
         this.userBranchAccessSubject.next(mockResponse);
-        console.log('📝 Using mock branch access data');
         
         return of(mockResponse);
       })
@@ -651,7 +686,72 @@ export class AuthService {
     );
   }
 
-  // ===== MOCK DATA GENERATORS FOR DEVELOPMENT =====
+  // ===== DATA TRANSFORMATION HELPERS =====
+
+  private mapBranchType(branchType: number): 'Head' | 'Branch' | 'SubBranch' {
+    switch (branchType) {
+      case 0: return 'Head';
+      case 1: return 'Branch';
+      case 2: return 'SubBranch';
+      default: return 'Branch';
+    }
+  }
+
+  private generateBranchHierarchy(branches: any[]): BranchHierarchyDto[] {
+    // Convert flat branch list to hierarchical structure
+    const branchMap = new Map<number, any>();
+    const rootBranches: BranchHierarchyDto[] = [];
+    
+    // First pass: create all nodes
+    branches.forEach(branch => {
+      const hierarchyBranch: BranchHierarchyDto = {
+        branchId: branch.branchId,
+        branchName: branch.branchName,
+        branchCode: branch.branchCode,
+        branchType: this.mapBranchType(branch.branchType),
+        level: branch.level || (branch.isHeadOffice ? 0 : 1),
+        parentBranchId: branch.parentBranchId,
+        children: [],
+        isExpanded: branch.isHeadOffice || false
+      };
+      
+      branchMap.set(branch.branchId, hierarchyBranch);
+      
+      // Add to roots if no parent
+      if (!branch.parentBranchId) {
+        rootBranches.push(hierarchyBranch);
+      }
+    });
+    
+    // Second pass: build hierarchy
+    branches.forEach(branch => {
+      if (branch.parentBranchId) {
+        const parent = branchMap.get(branch.parentBranchId);
+        const child = branchMap.get(branch.branchId);
+        if (parent && child) {
+          parent.children.push(child);
+        }
+      }
+    });
+    
+    return rootBranches;
+  }
+
+  private generateUserBranchRoles(branches: any[]): BranchUserRoleDto[] {
+    const currentUser = this.getCurrentUser();
+    const userRole = currentUser?.role || 'User';
+    
+    return branches.map(branch => ({
+      branchId: branch.branchId,
+      branchName: branch.branchName,
+      role: userRole as any,
+      permissions: this.getRolePermissions(userRole),
+      canSwitchToOtherBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(userRole),
+      defaultBranch: branch.isDefaultBranch || false
+    }));
+  }
+
+  // ===== MOCK DATA GENERATORS FOR DEVELOPMENT (FALLBACK ONLY) =====
 
   private generateMockBranchAccess(): BranchAccessDto[] {
     const currentUser = this.getCurrentUser();
@@ -670,7 +770,15 @@ export class AuthService {
         canWrite: isAdmin || isManager,
         canManage: isAdmin,
         canTransfer: isAdmin || isManager,
-        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly'
+        canApprove: isAdmin,
+        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly',
+        isActive: true,
+        address: 'Jl. Raya Jakarta No. 123',
+        managerName: 'Budi Santoso',
+        phone: '021-1234567',
+        parentBranchId: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       },
       {
         branchId: 2,
@@ -683,7 +791,15 @@ export class AuthService {
         canWrite: isAdmin || isManager,
         canManage: isAdmin,
         canTransfer: isAdmin || isManager,
-        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly'
+        canApprove: isAdmin,
+        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly',
+        isActive: true,
+        address: 'Jl. Ahmad Yani No. 45, Bekasi',
+        managerName: 'Siti Rahmatika',
+        phone: '021-8765-4321',
+        parentBranchId: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       },
       {
         branchId: 3,
@@ -696,7 +812,15 @@ export class AuthService {
         canWrite: isAdmin || (isManager && currentUser?.username !== 'cashier'),
         canManage: isAdmin,
         canTransfer: isAdmin || isManager,
-        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly'
+        canApprove: isAdmin,
+        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly',
+        isActive: true,
+        address: 'Jl. BSD Raya No. 789, Tangerang Selatan',
+        managerName: 'Ahmad Hidayat',
+        phone: '021-5555-6666',
+        parentBranchId: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       },
       {
         branchId: 4,
@@ -709,7 +833,15 @@ export class AuthService {
         canWrite: isAdmin,
         canManage: isAdmin,
         canTransfer: isAdmin || isManager,
-        accessLevel: isAdmin ? 'Full' : 'ReadOnly'
+        canApprove: isAdmin,
+        accessLevel: isAdmin ? 'Full' : 'ReadOnly',
+        isActive: true,
+        address: 'Jl. Margonda Raya No. 100, Depok',
+        managerName: 'Siti Nurhaliza',
+        phone: '021-7863456',
+        parentBranchId: 3,
+        createdAt: new Date('2024-01-15').toISOString(),
+        updatedAt: new Date('2024-08-15').toISOString()
       }
     ];
   }

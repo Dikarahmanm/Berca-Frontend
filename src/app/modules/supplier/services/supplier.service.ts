@@ -28,7 +28,7 @@ interface ApiResponse<T> {
 })
 export class SupplierService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = '/api/Supplier';
+  private readonly baseUrl = '/api/Supplier'; // Will be proxied to localhost:5171
 
   // Signal-based state management
   private _suppliers = signal<SupplierDto[]>([]);

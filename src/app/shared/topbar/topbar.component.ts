@@ -19,6 +19,7 @@ import { toObservable } from '@angular/core/rxjs-interop';
 
 import { AuthService } from '../../core/services/auth.service';
 import { StateService } from '../../core/services/state.service';
+import { BranchService } from '../../core/services/branch.service';
 import { UnifiedNotificationCenterComponent } from '../components/unified-notification-center/unified-notification-center.component';
 import { BranchAccessDto } from '../../core/interfaces/branch.interfaces';
 
@@ -83,6 +84,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
   // ===== NEW: Multi-Branch Service Injection =====
   private state = inject(StateService);
+  private branchService = inject(BranchService);
   
   // ===== NEW: Multi-Branch Computed Properties =====
   readonly accessibleBranches = this.state.accessibleBranches;
@@ -147,6 +149,24 @@ export class TopbarComponent implements OnInit, OnDestroy {
     
     // Load theme preference
     this.isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+    // Initialize branch data if user is logged in
+    const currentUser = this.state.user();
+    if (currentUser) {
+      this.initializeBranchData();
+    }
+  }
+
+  private async initializeBranchData(): Promise<void> {
+    try {
+      this.branchLoading.set(true);
+      await this.state.loadMyAccessibleBranches();
+      console.log('✅ Branch data initialized in topbar');
+    } catch (error) {
+      console.error('❌ Error initializing branch data:', error);
+    } finally {
+      this.branchLoading.set(false);
+    }
   }
 
 
@@ -269,71 +289,20 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
   // ===== NEW: Multi-Branch Methods =====
 
-  private initializeBranchData(): void {
-    console.log('🔧 Starting initializeBranchData...');
-    
-    // Load branch access data when component initializes
-    const branchAccess = this.authService.getCurrentBranchAccess();
-    console.log('🔍 Branch access from AuthService:', branchAccess);
-    
-    if (branchAccess?.success) {
-      this.state.setAccessibleBranches(branchAccess.data.accessibleBranches);
-      this.state.setBranchHierarchy(branchAccess.data.branchHierarchy);
-      this.state.setUserBranchRoles(branchAccess.data.userBranchRoles);
-      console.log('✅ Branch data loaded from AuthService');
-    } else {
-      console.log('⚠️ No branch access from AuthService, trying API load...');
-      // Try to load branch access from API, fallback to mock data
-      this.loadBranchAccess();
-    }
-
-    // TEMPORARY: For testing, always load mock data if no branches are available
-    setTimeout(() => {
-      console.log('🔍 Final branch data check:', {
-        accessibleBranches: this.state.accessibleBranches().length,
-        canSwitchBranches: this.state.canSwitchBranches(),
-        hasMultipleBranches: this.state.hasMultipleBranches(),
-        currentUser: this.authService.getCurrentUser(),
-        actualBranches: this.state.accessibleBranches()
-      });
-      
-      if (this.state.accessibleBranches().length === 0) {
-        console.log('🧪 Loading mock branch data for testing...');
-        this.loadMockBranchData();
-        
-        // Verify mock data was loaded
-        setTimeout(() => {
-          console.log('📋 After mock data load:', {
-            accessibleBranches: this.state.accessibleBranches().length,
-            canSwitchBranches: this.state.canSwitchBranches(),
-            actualBranches: this.state.accessibleBranches()
-          });
-        }, 100);
-      }
-    }, 1000);
-  }
-
   private loadBranchAccess(): void {
     this.branchLoading.set(true);
     
-    this.authService.loadUserBranchAccess()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (branchAccess) => {
-          if (branchAccess.success) {
-            this.state.setAccessibleBranches(branchAccess.data.accessibleBranches);
-            this.state.setBranchHierarchy(branchAccess.data.branchHierarchy);
-            this.state.setUserBranchRoles(branchAccess.data.userBranchRoles);
-            console.log('🏢 Branch access loaded in TopbarComponent');
-          }
-        },
-        error: (error) => {
-          console.error('❌ Failed to load branch access:', error);
-          this.showErrorMessage('Failed to load branch data');
-        },
-        complete: () => {
-          this.branchLoading.set(false);
-        }
+    // Use new BranchService for dynamic branch loading - NO MORE MOCK FALLBACK
+    this.state.loadMyAccessibleBranches()
+      .then(() => {
+        console.log('✅ Branch data loaded from real API');
+      })
+      .catch((error) => {
+        console.error('❌ Error loading branch data from API:', error);
+        this.showErrorMessage('Unable to load branch data. Please check your connection and try again.');
+      })
+      .finally(() => {
+        this.branchLoading.set(false);
       });
   }
 
@@ -447,140 +416,12 @@ export class TopbarComponent implements OnInit, OnDestroy {
     this.showSuccessMessage('Branch selection cleared');
   }
 
-  // TEMPORARY: Load mock branch data for testing
-  private loadMockBranchData(): void {
-    const currentUser = this.authService.getCurrentUser();
-    const mockBranchAccess = {
-      success: true,
-      data: {
-        accessibleBranches: this.generateMockBranchAccess(currentUser),
-        branchHierarchy: this.generateMockBranchHierarchy(),
-        userBranchRoles: this.generateMockUserBranchRoles(currentUser),
-        defaultBranchId: 1
-      },
-      message: 'Mock branch data loaded for testing'
-    };
+  // REMOVED: Mock data methods - now using real API endpoints
 
-    this.state.setAccessibleBranches(mockBranchAccess.data.accessibleBranches);
-    this.state.setBranchHierarchy(mockBranchAccess.data.branchHierarchy);
-    this.state.setUserBranchRoles(mockBranchAccess.data.userBranchRoles);
-    
-    console.log('🧪 Mock branch data loaded:', mockBranchAccess.data.accessibleBranches.length, 'branches');
-  }
-
-  private generateMockBranchAccess(currentUser: any): BranchAccessDto[] {
-    const isAdmin = currentUser?.role === 'Admin';
-    const isManager = ['Manager', 'BranchManager', 'HeadManager'].includes(currentUser?.role || '');
-    
-    return [
-      {
-        branchId: 1,
-        branchCode: 'HQ001',
-        branchName: 'Cabang Utama Jakarta',
-        branchType: 'Head',
-        isHeadOffice: true,
-        level: 0,
-        canRead: true,
-        canWrite: isAdmin || isManager,
-        canManage: isAdmin,
-        canTransfer: isAdmin || isManager,
-        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly'
-      },
-      {
-        branchId: 2,
-        branchCode: 'BR002',
-        branchName: 'Cabang Bekasi Timur',
-        branchType: 'Branch',
-        isHeadOffice: false,
-        level: 1,
-        canRead: true,
-        canWrite: isAdmin || isManager,
-        canManage: isAdmin,
-        canTransfer: isAdmin || isManager,
-        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly'
-      },
-      {
-        branchId: 3,
-        branchCode: 'BR003',
-        branchName: 'Cabang Tangerang Selatan',
-        branchType: 'Branch',
-        isHeadOffice: false,
-        level: 1,
-        canRead: true,
-        canWrite: isAdmin || isManager,
-        canManage: isAdmin,
-        canTransfer: isAdmin || isManager,
-        accessLevel: isAdmin ? 'Full' : isManager ? 'Limited' : 'ReadOnly'
-      }
-    ];
-  }
-
-  private generateMockBranchHierarchy(): any[] {
-    return [
-      {
-        branchId: 1,
-        branchName: 'Cabang Utama Jakarta',
-        branchCode: 'HQ001',
-        branchType: 'Head',
-        level: 0,
-        children: [
-          {
-            branchId: 2,
-            branchName: 'Cabang Bekasi Timur',
-            branchCode: 'BR002',
-            branchType: 'Branch',
-            level: 1,
-            parentBranchId: 1,
-            children: []
-          },
-          {
-            branchId: 3,
-            branchName: 'Cabang Tangerang Selatan',
-            branchCode: 'BR003',
-            branchType: 'Branch',
-            level: 1,
-            parentBranchId: 1,
-            children: []
-          }
-        ]
-      }
-    ];
-  }
-
-  private generateMockUserBranchRoles(currentUser: any): any[] {
-    const userRole = currentUser?.role || 'User';
-    const basePermissions = this.getRolePermissions(userRole);
-    
-    return [
-      {
-        branchId: 1,
-        branchName: 'Cabang Utama Jakarta',
-        role: userRole,
-        permissions: basePermissions,
-        canSwitchToOtherBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(userRole),
-        defaultBranch: true
-      },
-      {
-        branchId: 2,
-        branchName: 'Cabang Bekasi Timur',
-        role: userRole,
-        permissions: basePermissions.filter(p => p !== 'branch.manage'),
-        canSwitchToOtherBranches: ['Admin', 'Manager', 'BranchManager', 'HeadManager'].includes(userRole),
-        defaultBranch: false
-      }
-    ];
-  }
-
-  private getRolePermissions(role: string): string[] {
-    const rolePermissions: Record<string, string[]> = {
-      'Admin': ['inventory.write', 'facture.write', 'reports.export', 'users.manage', 'supplier.write', 'branch.manage'],
-      'Manager': ['inventory.write', 'pos.operate', 'supplier.read'],
-      'User': ['inventory.read', 'pos.operate'],
-      'Cashier': ['pos.operate']
-    };
-    
-    return rolePermissions[role] || ['pos.operate'];
-  }
+  // ✅ All mock data methods removed - now using real API endpoints:
+  // - AuthService.loadUserBranchAccess() → /api/UserBranchAssignment/user-access
+  // - BranchService.getAccessibleBranches() → /api/UserBranchAssignment/user-access
+  // - StateService.loadMyAccessibleBranches() → /api/UserBranchAssignment/user-access
 
   // TrackBy function for branch list performance
   trackByBranch = (index: number, branch: BranchAccessDto): number => branch.branchId;

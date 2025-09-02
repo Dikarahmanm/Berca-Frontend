@@ -42,7 +42,15 @@ export interface BranchAccessDto {
   canWrite: boolean;
   canManage: boolean;
   canTransfer: boolean;
+  canApprove?: boolean;
   accessLevel: 'Full' | 'Limited' | 'ReadOnly';
+  isActive: boolean;
+  address: string;
+  managerName: string;
+  phone: string;
+  parentBranchId?: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface BranchHierarchyDto {

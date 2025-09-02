@@ -34,7 +34,7 @@ interface ApiResponse<T> {
 })
 export class FactureService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = '/api/Facture';
+  private readonly baseUrl = '/api/Facture'; // Will be proxied to localhost:5171
 
   // Signal-based state management
   private _factures = signal<FactureListDto[]>([]);

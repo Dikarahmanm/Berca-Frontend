@@ -4,6 +4,7 @@ import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { AuthService, CurrentUser } from './auth.service';
 import { NotificationService } from './notification.service';
 import { LayoutService } from '../../shared/services/layout.service';
+import { BranchService } from './branch.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { 
   BranchAccessDto, 
@@ -13,6 +14,7 @@ import {
   BranchUserRoleDto,
   MultiBranchFilterDto
 } from '../interfaces/branch.interfaces';
+import { AccessibleBranchDto } from '../models/branch.interface';
 
 @Injectable({ providedIn: 'root' })
 export class StateService {
@@ -168,6 +170,7 @@ export class StateService {
   private auth = inject(AuthService);
   private layout = inject(LayoutService);
   private notif = inject(NotificationService);
+  private branchService = inject(BranchService);
 
   constructor() {
     // Seed awal (kalau AuthService sudah punya user dari cookie/localStorage)
@@ -184,7 +187,16 @@ export class StateService {
     this.auth.isLoggedIn$
       .pipe(takeUntilDestroyed())
       .subscribe((logged) => {
-        if (!logged) this._user.set(null);
+        if (!logged) {
+          this._user.set(null);
+          // Clear branch data on logout
+          this._accessibleBranches.set([]);
+          this._selectedBranchId.set(null);
+          this._selectedBranchIds.set([]);
+        } else {
+          // Load accessible branches on login
+          this.loadMyAccessibleBranches();
+        }
       });
 
     // Mirror LayoutService → signals
@@ -292,6 +304,116 @@ export class StateService {
 
   setUserBranchRoles(roles: BranchUserRoleDto[]): void {
     this._userBranchRoles.set(roles);
+  }
+
+  // ===== NEW: Dynamic API Integration Methods =====
+
+  /**
+   * Load accessible branches from API
+   */
+  async loadAccessibleBranches(): Promise<void> {
+    try {
+      this._loading.set(true);
+      console.log('🔄 Loading accessible branches from API...');
+      
+      const branches = await this.branchService.getAccessibleBranches().toPromise();
+      if (branches && branches.length > 0) {
+        // Convert AccessibleBranchDto to BranchAccessDto format
+        const accessibleBranches: BranchAccessDto[] = branches.map(branch => {
+          // Determine access level based on permissions
+          let accessLevel: 'Full' | 'Limited' | 'ReadOnly' = 'ReadOnly';
+          if (branch.canApprove && branch.canWrite) {
+            accessLevel = 'Full';
+          } else if (branch.canWrite) {
+            accessLevel = 'Limited';
+          }
+
+          return {
+            branchId: branch.branchId,
+            branchName: branch.branchName,
+            branchCode: branch.branchCode,
+            branchType: branch.branchType as 'Head' | 'Branch' | 'SubBranch',
+            address: branch.address,
+            managerName: branch.managerName,
+            phone: branch.phone,
+            isActive: branch.isActive,
+            canRead: branch.canRead,
+            canWrite: branch.canWrite,
+            canManage: branch.canApprove || false,
+            canApprove: branch.canApprove,
+            canTransfer: branch.canTransfer,
+            level: branch.level,
+            parentBranchId: branch.parentBranchId,
+            isHeadOffice: branch.isHeadOffice,
+            accessLevel: accessLevel,
+            createdAt: branch.createdAt,
+            updatedAt: branch.updatedAt
+          };
+        });
+
+        this._accessibleBranches.set(accessibleBranches);
+        
+        // Set default branch if none selected
+        if (!this._selectedBranchId() && accessibleBranches.length > 0) {
+          // Prioritize head office or first active branch
+          const defaultBranch = accessibleBranches.find(b => b.isHeadOffice) || accessibleBranches[0];
+          this.selectBranch(defaultBranch.branchId);
+        }
+
+        console.log('✅ Loaded', accessibleBranches.length, 'accessible branches');
+      }
+    } catch (error) {
+      console.error('❌ Error loading accessible branches:', error);
+      this.notif.showError('Failed to load branches');
+    } finally {
+      this._loading.set(false);
+    }
+  }
+
+  /**
+   * Refresh branch data from API
+   */
+  async refreshBranchData(): Promise<void> {
+    await this.loadAccessibleBranches();
+    await this.syncBranchSummaries();
+  }
+
+  /**
+   * Load branches for user selection dropdown
+   */
+  async loadMyAccessibleBranches(): Promise<void> {
+    try {
+      const simpleBranches = await this.branchService.getMyAccessibleBranches().toPromise();
+      if (simpleBranches && simpleBranches.length > 0) {
+        // Update accessible branches with simple data
+        const accessibleBranches: BranchAccessDto[] = simpleBranches.map(branch => ({
+          branchId: branch.branchId,
+          branchName: branch.branchName,
+          branchCode: branch.branchCode,
+          branchType: branch.branchType === 0 ? 'Head' as const : 'Branch' as const,
+          address: '',
+          managerName: '',
+          phone: '',
+          isActive: branch.isActive,
+          canRead: true,
+          canWrite: true,
+          canManage: false,
+          canApprove: false,
+          canTransfer: false,
+          level: 0,
+          parentBranchId: null,
+          isHeadOffice: branch.branchType === 0,
+          accessLevel: 'Limited' as const,
+          createdAt: '',
+          updatedAt: ''
+        }));
+
+        this._accessibleBranches.set(accessibleBranches);
+        console.log('✅ Loaded', accessibleBranches.length, 'simple accessible branches');
+      }
+    } catch (error) {
+      console.error('❌ Error loading my accessible branches:', error);
+    }
   }
 
   setBranchLoading(branchId: number, loading: boolean): void {

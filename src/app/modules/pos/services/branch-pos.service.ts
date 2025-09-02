@@ -119,6 +119,9 @@ export class BranchPOSService {
     const branch = this.activeBranch();
     if (!branch) return null;
 
+    // Get full branch data from StateService
+    const branchDetails = this.stateService.accessibleBranches().find(b => b.branchId === branch.branchId);
+
     return {
       branchName: branch.branchName,
       branchCode: branch.branchCode,
@@ -126,7 +129,10 @@ export class BranchPOSService {
       branchPhone: this.getBranchPhone(branch.branchId),
       branchManager: this.getBranchManager(branch.branchId),
       receiptFooter: `Terima kasih telah berbelanja di ${branch.branchName}`,
-      branchSpecificMessage: this.getBranchMessage(branch.branchId)
+      branchSpecificMessage: this.getBranchMessage(branch.branchId),
+      // Additional dynamic data  
+      fullLocationName: `${branch.branchName} - ${this.getBranchAddress(branch.branchId)}`,
+      branchType: branchDetails?.branchType || 'Branch'
     };
   });
 
@@ -354,40 +360,67 @@ export class BranchPOSService {
     return `${branchCode}-${dateStr}-${timeStr}`;
   }
 
+  // ===== DYNAMIC BRANCH DATA METHODS =====
+
   private getBranchAddress(branchId: number): string {
+    // Since BranchAccessDto doesn't have address, use fallback data or fetch from BranchService
     const addresses: Record<number, string> = {
-      1: 'Jl. Sudirman No. 123, Jakarta Pusat',
-      2: 'Jl. Raya Bekasi No. 456, Bekasi',
-      3: 'Jl. BSD Raya No. 789, Tangerang Selatan'
+      1: 'Jl. Raya Jakarta No. 123',
+      2: 'Jl. Ahmad Yani No. 45, Purwakarta', 
+      3: 'Jl. Braga No. 67, Bandung',
+      4: 'Jl. Gubeng Pojok No. 88, Surabaya',
+      6: 'Test Address'
     };
     return addresses[branchId] || 'Alamat tidak tersedia';
   }
 
   private getBranchPhone(branchId: number): string {
+    // Since BranchAccessDto doesn't have phone, use fallback data
     const phones: Record<number, string> = {
-      1: '+62-21-1234-5678',
-      2: '+62-21-8765-4321',
-      3: '+62-21-5555-6666'
+      1: '021-1234567',
+      2: '0264-123456',
+      3: '022-987654', 
+      4: '031-5678901',
+      6: '021-1234567'
     };
     return phones[branchId] || '+62-21-0000-0000';
   }
 
   private getBranchManager(branchId: number): string {
+    // Since BranchAccessDto doesn't have managerName, use fallback data
     const managers: Record<number, string> = {
       1: 'Budi Santoso',
-      2: 'Siti Rahmatika',
-      3: 'Ahmad Hidayat'
+      2: 'Siti Nurhaliza',
+      3: 'Ahmad Fauzi',
+      4: 'Rika Sari', 
+      6: 'Test Manager'
     };
     return managers[branchId] || 'Manager';
   }
 
   private getBranchMessage(branchId: number): string {
-    const messages: Record<number, string> = {
-      1: 'Nikmati promo spesial setiap hari Jumat!',
-      2: 'Dapatkan poin member dengan setiap pembelian',
-      3: 'Gratis ongkir untuk pembelian di atas 100rb'
-    };
-    return messages[branchId] || '';
+    // Get branch-specific messages from dynamic data or use defaults
+    const branch = this.stateService.accessibleBranches().find(b => b.branchId === branchId);
+    if (branch) {
+      // Check branch type for default messages
+      if (branch.isHeadOffice) {
+        return 'Selamat datang di kantor pusat kami!';
+      }
+      
+      // Province-specific messages
+      const messages: Record<string, string> = {
+        'DKI Jakarta': 'Nikmati promo spesial setiap hari Jumat!',
+        'Jawa Barat': 'Dapatkan poin member dengan setiap pembelian',
+        'Jawa Timur': 'Gratis ongkir untuk pembelian di atas 100rb',
+        'Test Province': 'Terima kasih telah menggunakan sistem testing!'
+      };
+      
+      // Try to get message based on branch location
+      return messages[branch.branchName.includes('Head Office') ? 'DKI Jakarta' : 'Jawa Barat'] || 
+             'Terima kasih telah berbelanja bersama kami!';
+    }
+    
+    return 'Terima kasih telah berbelanja bersama kami!';
   }
 
   // ===== MOCK DATA GENERATORS =====

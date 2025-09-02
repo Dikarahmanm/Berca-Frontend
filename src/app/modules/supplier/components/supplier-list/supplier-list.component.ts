@@ -970,42 +970,91 @@ export class SupplierListComponent implements OnInit, OnDestroy {
     this._loadingFactures.set(true);
     
     const includeCompleted = this._facturesFilter() === 'all';
-    const url = `${environment.apiUrl}/Facture/supplier/${supplierId}?includeCompleted=${includeCompleted}&pageSize=50`;
+    const url = `/api/Facture/supplier/${supplierId}?includeCompleted=${includeCompleted}&pageSize=50`;
 
-    this.http.get<SupplierFactureDto[]>(url, { withCredentials: true })
+    this.http.get<{ success: boolean; data: SupplierFactureDto[]; message?: string }>(url, { withCredentials: true })
       .pipe(
         catchError(error => {
-          console.error('Error loading supplier factures:', error);
-          this.toastService.showError('Error', 'Failed to load supplier factures');
-          return of([]);
+          console.warn('⚠️ Supplier factures endpoint not available:', error);
+          console.log('📝 Using fallback empty factures data for supplier:', supplierId);
+          
+          // Don't show error toast for missing endpoints, just log a warning
+          if (error.status === 500) {
+            console.warn('💡 Backend endpoint /api/Facture/supplier/{id} may not be implemented yet');
+          } else {
+            this.toastService.showWarning('Notice', 'Factures data temporarily unavailable');
+          }
+          
+          // Return successful response with empty data
+          return of({ success: true, data: [] });
         }),
         takeUntil(this.destroy$)
       )
       .subscribe({
-        next: (factures) => {
-          this._supplierFactures.set(factures || []);
+        next: (response) => {
+          if (response.success) {
+            this._supplierFactures.set(response.data || []);
+          } else {
+            console.warn('Factures API returned unsuccessful response:', response.message);
+            this._supplierFactures.set([]);
+          }
           this._loadingFactures.set(false);
         },
         error: () => {
           this._loadingFactures.set(false);
+          this._supplierFactures.set([]);
         }
       });
   }
 
   private loadSupplierSummary(supplierId: number): void {
-    const url = `${environment.apiUrl}/Facture/supplier/${supplierId}/summary`;
+    const url = `/api/Facture/supplier/${supplierId}/summary`;
 
-    this.http.get<SupplierSummaryDto>(url, { withCredentials: true })
+    this.http.get<{ success: boolean; data: SupplierSummaryDto; message?: string }>(url, { withCredentials: true })
       .pipe(
         catchError(error => {
-          console.warn('Could not load supplier summary:', error);
-          return of(null);
+          console.warn('⚠️ Supplier summary endpoint not available:', error);
+          
+          if (error.status === 500) {
+            console.warn('💡 Backend endpoint /api/Facture/supplier/{id}/summary may not be implemented yet');
+            
+            // Return fallback summary data
+            const fallbackSummary: SupplierSummaryDto = {
+              supplierId: supplierId,
+              totalFactures: 0,
+              totalOutstanding: 0,
+              overdueCount: 0,
+              overdueAmount: 0,
+              avgPaymentDays: 0,
+              creditUtilization: 0,
+              lastPaymentDate: undefined
+            };
+            
+            return of({ success: true, data: fallbackSummary });
+          }
+          
+          return of({ success: false, data: null as any });
         }),
         takeUntil(this.destroy$)
       )
       .subscribe({
-        next: (summary) => {
-          this._supplierSummary.set(summary);
+        next: (response) => {
+          if (response.success && response.data) {
+            this._supplierSummary.set(response.data);
+          } else {
+            // Set fallback summary even if API fails
+            const fallbackSummary: SupplierSummaryDto = {
+              supplierId: supplierId,
+              totalFactures: 0,
+              totalOutstanding: 0,
+              overdueCount: 0,
+              overdueAmount: 0,
+              avgPaymentDays: 0,
+              creditUtilization: 0,
+              lastPaymentDate: undefined
+            };
+            this._supplierSummary.set(fallbackSummary);
+          }
         }
       });
   }

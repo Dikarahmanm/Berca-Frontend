@@ -304,29 +304,6 @@ import { environment } from '../../../../../environment/environment';
           <!-- Invoice Items -->
           <div class="info-section">
             <h3 class="section-title">Invoice Items ({{ itemsCount() }})</h3>
-            <!-- DEBUG: Items Debug Info -->
-            <div style="background: #f0f8ff; padding: 10px; margin: 10px 0; border: 2px solid #0066cc; border-radius: 8px;">
-              <p><strong>🔍 COMPREHENSIVE DEBUG INFO:</strong></p>
-              <p>✓ Facture Signal Exists: {{ !!facture() }}</p>
-              <p>✓ Facture ID: {{ facture()?.id || 'NULL' }}</p>
-              <p>✓ Supplier Name: {{ facture()?.supplierName || 'NULL' }}</p>
-              <p>✓ Items Property Exists: {{ !!facture()?.items }}</p>
-              <p>✓ Items Is Array: {{ facture()?.items ? 'Array.isArray: ' + (facture()!.items | json).startsWith('[') : 'NO_ITEMS' }}</p>
-              <p>✓ Items Array Length: {{ facture()?.items?.length || 'NULL' }}</p>
-              <p>✓ Items Count Computed: {{ itemsCount() }}</p>
-              <p>✓ Facture Status: {{ facture()?.status || 'NULL' }}</p>
-              <p>✓ Can Verify: {{ facture()?.canVerify || 'NULL' }}</p>
-              
-              <div style="background: #fff; padding: 8px; margin-top: 8px; border: 1px solid #ccc;">
-                <strong>First Item Details:</strong>
-                <pre style="max-height: 200px; overflow: auto; font-size: 12px;">{{ facture()?.items?.[0] | json }}</pre>
-              </div>
-              
-              <div style="background: #fff; padding: 8px; margin-top: 8px; border: 1px solid #ccc;">
-                <strong>Full Items Array:</strong>
-                <pre style="max-height: 300px; overflow: auto; font-size: 11px;">{{ facture()?.items | json }}</pre>
-              </div>
-            </div>
             
             <!-- Desktop Table View -->
             <div class="desktop-view">
@@ -568,7 +545,7 @@ import { environment } from '../../../../../environment/environment';
 
     <!-- Payment Schedule Modal -->
     <app-payment-schedule-modal
-      *ngIf="showPaymentModal() && facture()"
+      *ngIf="showPaymentModal()"
       [facture]="facture()!"
       [isVisible]="showPaymentModal()"
       [isLoading]="paymentLoading()"
@@ -578,7 +555,7 @@ import { environment } from '../../../../../environment/environment';
 
     <!-- Receive Payment Modal -->
     <app-receive-payment-modal
-      *ngIf="showReceivePaymentModal() && facture()"
+      *ngIf="showReceivePaymentModal()"
       [facture]="facture()!"
       [isVisible]="showReceivePaymentModal()"
       [isLoading]="receivePaymentLoading()"
@@ -589,7 +566,7 @@ import { environment } from '../../../../../environment/environment';
 
     <!-- Payment Confirmation Modal -->
     <app-payment-confirmation-modal
-      *ngIf="showPaymentConfirmationModal() && facture() && paymentToConfirm()"
+      *ngIf="showPaymentConfirmationModal() && paymentToConfirm()"
       [facture]="facture()!"
       [payment]="paymentToConfirm()!"
       [isVisible]="showPaymentConfirmationModal()"
@@ -1409,13 +1386,20 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
     const facture = this.facture();
     if (!facture) return false;
     
-    // Check if verified by timestamp, status, or status display
+    // Check if verified by multiple criteria
     const statusNum = Number(facture.status);
-    return !!(facture.verifiedAt || 
-             facture.status >= FactureStatus.VERIFIED || 
-             statusNum === 2 || // Raw backend value for VERIFIED
-             facture.statusDisplay?.toLowerCase().includes('verified') ||
-             facture.statusDisplay?.toLowerCase().includes('diverifikasi'));
+    const hasVerificationDate = !!facture.verifiedAt;
+    const hasVerifiedStatus = facture.status >= FactureStatus.VERIFIED || statusNum >= 2;
+    const hasVerifiedDisplay = facture.statusDisplay?.toLowerCase().includes('verified') ||
+                              facture.statusDisplay?.toLowerCase().includes('diverifikasi') ||
+                              facture.statusDisplay?.toLowerCase().includes('approved') ||
+                              facture.statusDisplay?.toLowerCase().includes('disetujui');
+    
+    // Also check if all items are verified
+    const allItemsVerified = facture.items && facture.items.length > 0 && 
+                            facture.items.every(item => item.isVerified === true);
+    
+    return hasVerificationDate || hasVerifiedStatus || hasVerifiedDisplay || allItemsVerified;
   });
 
   isVerificationCurrent = computed(() => {
@@ -1525,24 +1509,6 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
     const isPayable = isApprovedByStatus || isApprovedByDisplay || hasBackendPermission;
     const hasOutstanding = facture.outstandingAmount > 0;
     
-    console.log('📊 CAN SCHEDULE PAYMENT CHECK:', {
-      id: facture.id,
-      status: facture.status,
-      statusDisplay: facture.statusDisplay,
-      outstandingAmount: facture.outstandingAmount,
-      totalAmount: facture.totalAmount,
-      paidAmount: facture.paidAmount,
-      canSchedulePayment: facture.canSchedulePayment,
-      isApprovedByStatus,
-      isApprovedByDisplay,
-      hasBackendPermission,
-      isPayable,
-      hasOutstanding,
-      FactureStatus_APPROVED: FactureStatus.APPROVED,
-      FactureStatus_PARTIAL_PAID: FactureStatus.PARTIAL_PAID,
-      result: isPayable && hasOutstanding
-    });
-    
     return isPayable && hasOutstanding;
   });
 
@@ -1553,35 +1519,45 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
     }
     
     // Can receive payment if:
-    // 1. There are processable payments (scheduled payments exist)
+    // 1. There are processable payments (scheduled payments exist that can be processed)
     // 2. OR facture is approved/partial_paid and has outstanding (can create ad-hoc payments)
+    
+    // Check for scheduled payments that can be processed
+    const hasScheduledPayments = facture.payments?.some(payment => {
+      const statusNum = Number(payment.status);
+      return statusNum === 0; // SCHEDULED status
+    });
+    
+    // Check for payments with explicit process permission
     const hasProcessablePayments = facture.payments?.some(payment => 
       payment.canProcess || payment.canConfirm
     );
     
     // Check by both status and statusDisplay for backend compatibility
-    const isApprovedByStatus = facture.status === FactureStatus.APPROVED || facture.status === FactureStatus.PARTIAL_PAID;
-    const isApprovedByDisplay = facture.statusDisplay === "Disetujui" || facture.statusDisplay === "Sebagian Dibayar";
-    const isPayable = isApprovedByStatus || isApprovedByDisplay;
+    const statusNum = Number(facture.status);
+    const isApprovedByStatus = facture.status === FactureStatus.APPROVED || 
+                              facture.status === FactureStatus.PARTIAL_PAID ||
+                              statusNum === 3 || statusNum === 7; // Raw backend values
+    
+    const statusText = facture.statusDisplay?.toLowerCase() || '';
+    const isApprovedByDisplay = statusText.includes('disetujui') || 
+                               statusText.includes('approved') || 
+                               statusText.includes('sebagian') || 
+                               statusText.includes('partial');
+    
+    // Also check backend permission flags if available
+    const hasBackendPermission = facture.canReceivePayment === true;
+    
+    const isPayable = isApprovedByStatus || isApprovedByDisplay || hasBackendPermission;
     const hasOutstanding = facture.outstandingAmount > 0;
     
-    console.log('📊 CAN RECEIVE PAYMENT CHECK:', {
-      id: facture.id,
-      status: facture.status,
-      statusDisplay: facture.statusDisplay,
-      paymentsCount: facture.payments?.length || 0,
-      hasProcessablePayments,
-      isApprovedByStatus,
-      isApprovedByDisplay,
-      isPayable,
-      hasOutstanding,
-      outstandingAmount: facture.outstandingAmount,
-      FactureStatus_APPROVED: FactureStatus.APPROVED,
-      FactureStatus_PARTIAL_PAID: FactureStatus.PARTIAL_PAID,
-      result: hasProcessablePayments || (isPayable && hasOutstanding)
-    });
+    // Enhanced logic: Can receive payment if:
+    // 1. Has scheduled payments (allows processing them)
+    // 2. OR has explicitly processable payments
+    // 3. OR is payable state with outstanding amount
+    const canReceive = hasScheduledPayments || hasProcessablePayments || (isPayable && hasOutstanding);
     
-    return hasProcessablePayments || (isPayable && hasOutstanding);
+    return canReceive;
   });
 
   // Outstanding amount for display
@@ -1645,32 +1621,6 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
 
     this.factureService.getFactureById(factureId).subscribe({
       next: (facture) => {
-        console.log('📥 FACTURE LOADED SUCCESSFULLY:', {
-          id: facture?.id,
-          supplierName: facture?.supplierName,
-          supplierInvoiceNumber: facture?.supplierInvoiceNumber,
-          status: facture?.status,
-          statusDisplay: facture?.statusDisplay,
-          totalAmount: facture?.totalAmount,
-          totalAmountDisplay: facture?.totalAmountDisplay,
-          paidAmount: facture?.paidAmount,
-          outstandingAmount: facture?.outstandingAmount,
-          itemsCount: facture?.items?.length || 0,
-          paymentsCount: facture?.payments?.length || 0,
-          canVerify: facture?.canVerify,
-          canApprove: facture?.canApprove,
-          canSchedulePayment: facture?.canSchedulePayment,
-          canReceivePayment: facture?.canReceivePayment
-        });
-
-        // DEBUG: Detailed payments logging
-        console.log('💰 PAYMENTS DEBUG:', {
-          paymentsExists: !!facture?.payments,
-          paymentsIsArray: Array.isArray(facture?.payments),
-          paymentsLength: facture?.payments?.length || 0,
-          payments: facture?.payments
-        });
-
         if (facture?.payments && facture.payments.length > 0) {
           facture.payments.forEach((payment, index) => {
             console.log(`💳 Payment ${index + 1}:`, {
@@ -1702,18 +1652,6 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
         }
 
         this.facture.set(facture);
-
-        // DEBUG: Log the signal state after setting
-        setTimeout(() => {
-          const currentFacture = this.facture();
-          console.log('🎯 FACTURE SIGNAL STATE AFTER SET:', {
-            signalExists: !!currentFacture,
-            signalItemsExists: !!currentFacture?.items,
-            signalItemsLength: currentFacture?.items?.length || 0,
-            signalItemsCount: this.itemsCount(),
-            firstSignalItem: currentFacture?.items?.[0] || 'NO_ITEMS'
-          });
-        }, 100);
         this.loading.set(false);
         this.backendStatus.set('connected');
         
@@ -1814,18 +1752,57 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
     const facture = this.facture();
     const canReceive = this.canReceivePayment();
     
+    console.log('🎯 RECEIVE PAYMENT CLICKED:', {
+      factureId: facture?.id,
+      canReceive,
+      paymentsCount: facture?.payments?.length || 0,
+      currentModalStates: {
+        showPaymentModal: this.showPaymentModal(),
+        showReceivePaymentModal: this.showReceivePaymentModal(),
+        showPaymentConfirmationModal: this.showPaymentConfirmationModal(),
+        showWorkflowModal: this.showWorkflowModal()
+      }
+    });
 
-    if (!facture || !canReceive) {
-      this.toastService.showError('Error', 'Cannot receive payment for this facture. Please ensure facture is approved and has outstanding amount.');
+    // Enhanced validation with detailed error messages
+    if (!facture) {
+      console.log('❌ No facture data available');
+      this.toastService.showError('Error', 'Facture data not loaded. Please refresh the page and try again.');
       return;
     }
 
-    // Show receive payment modal
+    if (!canReceive) {
+      console.log('❌ Cannot receive payment:', { 
+        status: facture.status,
+        statusDisplay: facture.statusDisplay,
+        paymentsCount: facture.payments?.length || 0,
+        outstandingAmount: facture.outstandingAmount,
+        canReceivePayment: facture.canReceivePayment
+      });
+      this.toastService.showError('Error', 'Cannot receive payment at this time. Please ensure the facture has scheduled payments or outstanding amount.');
+      return;
+    }
+
+    // Check if receive modal is already open to prevent double-clicking issues
+    if (this.showReceivePaymentModal()) {
+      console.log('ℹ️ Receive payment modal already open, ignoring duplicate click');
+      return;
+    }
+
+    // Ensure all other modals are closed before opening receive payment modal
+    console.log('🔒 Closing other modals before opening receive payment modal');
+    this.showPaymentModal.set(false);
+    this.showWorkflowModal.set(false);
+    this.showPaymentConfirmationModal.set(false);
+    
+    // Open receive payment modal immediately
+    console.log('✅ Opening receive payment modal for facture:', facture.id);
     this.showReceivePaymentModal.set(true);
   }
 
   // Payment modal handlers
   onClosePaymentModal(): void {
+    console.log('🔒 Closing payment schedule modal');
     this.showPaymentModal.set(false);
   }
 
@@ -1872,15 +1849,19 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
             });
           }
           
-          // Don't refresh immediately to preserve the payment we just added
-          // Backend might not have the new payment yet, so we keep our local state
-          console.log('✅ Keeping local payment state, skipping immediate refresh to prevent overwrite');
+          // Force refresh computed properties by triggering a signal update
+          console.log('🔄 Triggering computed properties refresh...');
+          this.facture.update(currentFacture => {
+            if (currentFacture) {
+              // Create a shallow copy to trigger change detection
+              return { ...currentFacture };
+            }
+            return currentFacture;
+          });
           
-          // Optional: Refresh after a delay to get any backend updates
-          setTimeout(() => {
-            console.log('🔄 Delayed refresh to merge backend updates...');
-            this.loadFactureWithMerge();
-          }, 2000);
+          // ⚠️ REMOVED: Delayed refresh that was causing issues
+          // The local state is sufficient for UI updates
+          console.log('✅ Payment scheduling completed - local state updated');
         },
         error: (error) => {
           this.paymentLoading.set(false);
@@ -1891,11 +1872,13 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
 
   // Receive payment modal handlers
   onCloseReceivePaymentModal(): void {
+    console.log('🔒 Closing receive payment modal');
     this.showReceivePaymentModal.set(false);
   }
 
   // Payment confirmation modal handlers
   onClosePaymentConfirmationModal(): void {
+    console.log('🔒 Closing payment confirmation modal');
     this.showPaymentConfirmationModal.set(false);
     this.paymentToConfirm.set(null);
   }
@@ -2028,7 +2011,7 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
           this.showWorkflowModal.set(false);
           this.toastService.showSuccess('Success', 'Facture verified successfully!');
           
-          // Update local state with verified facture data immediately
+          // Update local state with verified facture data
           if (updatedFacture && updatedFacture.id) {
             console.log('📝 Updating local facture state after verification');
             this.facture.set(updatedFacture);
@@ -2037,23 +2020,26 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
             console.log('🔧 Backend didn\'t return updated data, updating status locally');
             this.facture.update(currentFacture => {
               if (currentFacture) {
-                const updatedFacture = {
+                return {
                   ...currentFacture,
                   status: FactureStatus.VERIFIED,
                   statusDisplay: 'Verified',
                   verifiedAt: new Date(),
-                  verifiedByName: 'Current User'
+                  verifiedByName: 'Current User',
+                  // Preserve verification data
+                  items: currentFacture.items?.map(item => ({
+                    ...item,
+                    isVerified: true,
+                    verificationStatus: 'Verified'
+                  }))
                 };
-                console.log('📝 Updated facture status locally after verification:', updatedFacture);
-                return updatedFacture;
               }
               return currentFacture;
             });
           }
           
-          // Reload facture to ensure we have complete data including computed fields
-          console.log('🔄 Refreshing facture data after verification...');
-          this.loadFacture();
+          // ✅ NO MORE AUTOMATIC REFRESH - preserves verification state
+          console.log('✅ Verification completed - keeping current state');
         },
         error: (error) => {
           this.workflowLoading.set(false);
@@ -2077,7 +2063,7 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
           this.showWorkflowModal.set(false);
           this.toastService.showSuccess('Success', 'Facture approved successfully!');
           
-          // Update local state with approved facture data immediately
+          // Update local state with approved facture data
           if (updatedFacture && updatedFacture.id) {
             console.log('📝 Updating local facture state after approval');
             this.facture.set(updatedFacture);
@@ -2086,23 +2072,24 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
             console.log('🔧 Backend didn\'t return updated data, updating approval status locally');
             this.facture.update(currentFacture => {
               if (currentFacture) {
-                const updatedFacture = {
+                return {
                   ...currentFacture,
                   status: FactureStatus.APPROVED,
                   statusDisplay: 'Approved',
                   approvedAt: new Date(),
-                  approvedByName: 'Current User'
+                  approvedByName: 'Current User',
+                  // ✅ PRESERVE verification data during approval
+                  verifiedAt: currentFacture.verifiedAt,
+                  verifiedByName: currentFacture.verifiedByName,
+                  items: currentFacture.items // Keep existing item verification states
                 };
-                console.log('📝 Updated facture status locally after approval:', updatedFacture);
-                return updatedFacture;
               }
               return currentFacture;
             });
           }
           
-          // Reload facture to ensure we have complete data including computed fields
-          console.log('🔄 Refreshing facture data after approval...');
-          this.loadFacture();
+          // ✅ NO MORE AUTOMATIC REFRESH - preserves verification timeline state
+          console.log('✅ Approval completed - preserving verification timeline state');
         },
         error: (error) => {
           this.workflowLoading.set(false);
@@ -2516,8 +2503,9 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
       amountDisplay: this.formatCurrency(scheduleData.amount),
       
       // Action flags - SCHEDULED payment (status = 0) should allow processing
+      // These flags are CRITICAL for workflow progression
       canEdit: true,      // Can edit scheduled payments
-      canProcess: true,   // Can process scheduled payments
+      canProcess: true,   // Can process scheduled payments ✅ THIS IS KEY!
       canConfirm: false,  // Cannot confirm until processing
       canCancel: true,    // Can cancel scheduled payments
       
@@ -2526,7 +2514,16 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
       updatedAt: new Date()
     };
 
-    console.log('✅ Created mock payment:', mockPayment);
+    console.log('✅ Created mock payment with workflow flags:', {
+      id: mockPayment.id,
+      status: mockPayment.status,
+      statusDisplay: mockPayment.statusDisplay,
+      canEdit: mockPayment.canEdit,
+      canProcess: mockPayment.canProcess,
+      canConfirm: mockPayment.canConfirm,
+      canCancel: mockPayment.canCancel
+    });
+    
     return mockPayment;
   }
 

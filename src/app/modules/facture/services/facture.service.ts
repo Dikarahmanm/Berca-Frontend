@@ -19,7 +19,8 @@ import {
   CancelPaymentDto,
   FacturePaymentDto,
   FactureStatus,
-  FacturePriority
+  FacturePriority,
+  FactureItemDetailDto
 } from '../interfaces/facture.interfaces';
 
 // API Response wrapper matching backend pattern
@@ -70,7 +71,6 @@ export class FactureService {
       withCredentials: true
     }).pipe(
       map(response => {
-        console.log('📊 Raw receive facture response:', response);
         
         let factureData: FactureDto;
         
@@ -78,17 +78,13 @@ export class FactureService {
         if (response && response.id) {
           // Direct FactureDto response
           factureData = response;
-          console.log('✅ Using direct FactureDto response');
         } else if (response && response.success && response.data) {
           // Wrapped response
           factureData = response.data;
-          console.log('✅ Using wrapped response.data');
         } else if (response && response.data && response.data.id) {
           // Alternative wrapper format
           factureData = response.data;
-          console.log('✅ Using alternative wrapper format');
         } else {
-          console.error('❌ Invalid receive facture response format:', response);
           throw new Error('Failed to receive supplier invoice');
         }
 
@@ -112,13 +108,11 @@ export class FactureService {
 
   verifyFactureItems(id: number, verifyDto: VerifyFactureDto): Observable<FactureDto> {
     this._loading.set(true);
-    console.log('🔄 Verifying facture:', id, verifyDto);
     
     return this.http.post<any>(`${this.baseUrl}/${id}/verify`, verifyDto, {
       withCredentials: true
     }).pipe(
       map(response => {
-        console.log('📊 Raw verify facture response:', response);
         
         let factureData: FactureDto;
         
@@ -126,17 +120,13 @@ export class FactureService {
         if (response && response.id) {
           // Direct FactureDto response
           factureData = response;
-          console.log('✅ Using direct FactureDto response');
         } else if (response && response.success && response.data) {
           // Wrapped response
           factureData = response.data;
-          console.log('✅ Using wrapped response.data');
         } else if (response && response.data && response.data.id) {
           // Alternative wrapper format
           factureData = response.data;
-          console.log('✅ Using alternative wrapper format');
         } else {
-          console.error('❌ Invalid verify facture response format:', response);
           throw new Error('Failed to verify facture');
         }
 
@@ -147,7 +137,6 @@ export class FactureService {
         return factureData;
       }),
       tap(factureData => {
-        console.log('✅ Facture verified successfully:', factureData);
         // Update local state if facture exists
         this._factures.update(factures => 
           factures.map(f => f.id === id ? this.mapFactureToListDto(factureData) : f)
@@ -163,7 +152,6 @@ export class FactureService {
 
   approveFacture(id: number, approvalNotes?: string): Observable<FactureDto> {
     this._loading.set(true);
-    console.log('🔄 Approving facture:', id, approvalNotes);
     
     return this.http.post<any>(`${this.baseUrl}/${id}/approve`, JSON.stringify(approvalNotes || ''), {
       withCredentials: true,
@@ -172,7 +160,6 @@ export class FactureService {
       }
     }).pipe(
       map(response => {
-        console.log('📊 Raw approve facture response:', response);
         
         let factureData: FactureDto;
         
@@ -180,17 +167,13 @@ export class FactureService {
         if (response && response.id) {
           // Direct FactureDto response
           factureData = response;
-          console.log('✅ Using direct FactureDto response');
         } else if (response && response.success && response.data) {
           // Wrapped response
           factureData = response.data;
-          console.log('✅ Using wrapped response.data');
         } else if (response && response.data && response.data.id) {
           // Alternative wrapper format
           factureData = response.data;
-          console.log('✅ Using alternative wrapper format');
         } else {
-          console.error('❌ Invalid approve facture response format:', response);
           throw new Error('Failed to approve facture');
         }
 
@@ -201,7 +184,6 @@ export class FactureService {
         return factureData;
       }),
       tap(factureData => {
-        console.log('✅ Facture approved successfully:', factureData);
         // Update local state
         this._factures.update(factures => 
           factures.map(f => f.id === id ? this.mapFactureToListDto(factureData) : f)
@@ -217,13 +199,11 @@ export class FactureService {
 
   disputeFacture(id: number, disputeDto: DisputeFactureDto): Observable<FactureDto> {
     this._loading.set(true);
-    console.log('🔄 Disputing facture:', id, disputeDto);
     
     return this.http.post<FactureDto>(`${this.baseUrl}/${id}/dispute`, disputeDto, {
       withCredentials: true
     }).pipe(
       tap(response => {
-        console.log('✅ Facture disputed successfully:', response);
         if (response && response.id) {
           // Update local state
           this._factures.update(factures => 
@@ -244,7 +224,6 @@ export class FactureService {
 
   cancelFacture(id: number, cancellationReason?: string): Observable<boolean> {
     this._loading.set(true);
-    console.log('🔄 Cancelling facture:', id, cancellationReason);
     
     return this.http.post(`${this.baseUrl}/${id}/cancel`, JSON.stringify(cancellationReason || ''), {
       withCredentials: true,
@@ -254,7 +233,6 @@ export class FactureService {
       responseType: 'text'
     }).pipe(
       tap(response => {
-        console.log('✅ Facture cancelled successfully:', response);
         // Update local state
         this._factures.update(factures => 
           factures.map(f => f.id === id ? { ...f, status: FactureStatus.CANCELLED } : f)
@@ -302,7 +280,6 @@ export class FactureService {
     params = params.set('sortBy', query.sortBy);
     params = params.set('sortOrder', query.sortOrder);
 
-    console.log('🔍 Facture request params:', params.toString());
 
     // Try both wrapped and direct response formats
     return this.http.get<any>(this.baseUrl, {
@@ -310,28 +287,28 @@ export class FactureService {
       withCredentials: true
     }).pipe(
       map(response => {
-        console.log('📊 Raw factures response:', response);
+        console.log('🔍 RAW FACTURE RESPONSE:', response);
         
-        let facturesArray: FactureListDto[] = [];
+        let facturesArray: any[] = [];
         
         // Handle different response formats
         if (Array.isArray(response)) {
           // Direct array response
           facturesArray = response;
-          console.log('✅ Using direct array response:', facturesArray.length, 'items');
+          console.log('✅ Direct array response with', facturesArray.length, 'factures');
         } else if (response && typeof response === 'object') {
           // Check for various wrapper formats
           if (response.success && response.data) {
             facturesArray = Array.isArray(response.data) ? response.data : [];
-            console.log('✅ Using wrapped response.data:', facturesArray.length, 'items');
+            console.log('✅ Wrapped success response with', facturesArray.length, 'factures');
           } else if (response.data && Array.isArray(response.data)) {
             facturesArray = response.data;
-            console.log('✅ Using response.data array:', facturesArray.length, 'items');
+            console.log('✅ Data wrapper response with', facturesArray.length, 'factures');
           } else if (response.factures && Array.isArray(response.factures)) {
             facturesArray = response.factures;
-            console.log('✅ Using response.factures array:', facturesArray.length, 'items');
+            console.log('✅ Factures property response with', facturesArray.length, 'factures');
           } else {
-            console.warn('⚠️ Unknown response format, trying fallback');
+            console.warn('⚠️ Unknown response format:', Object.keys(response));
             facturesArray = [];
           }
         } else {
@@ -339,20 +316,36 @@ export class FactureService {
           facturesArray = [];
         }
 
-        // Calculate statistics from the factures
-        const totalAmount = facturesArray.reduce((sum, f) => sum + f.totalAmount, 0);
-        const totalPaidAmount = facturesArray.reduce((sum, f) => sum + f.paidAmount, 0);
-        const totalOutstanding = facturesArray.reduce((sum, f) => sum + f.remainingAmount, 0);
-        const overdueFactures = facturesArray.filter(f => f.isOverdue);
+        // Sample first item for debugging
+        if (facturesArray.length > 0) {
+          console.log('🔍 SAMPLE FACTURE ITEM:', facturesArray[0]);
+        }
+
+        // Enhance facture data to ensure proper mapping
+        const enhancedFactures: FactureListDto[] = this.enhanceFactureListData(facturesArray);
+
+        // Calculate statistics from the enhanced factures
+        const totalAmount = enhancedFactures.reduce((sum, f) => sum + f.totalAmount, 0);
+        const totalPaidAmount = enhancedFactures.reduce((sum, f) => sum + f.paidAmount, 0);
+        const totalOutstanding = enhancedFactures.reduce((sum, f) => sum + f.remainingAmount, 0);
+        const overdueFactures = enhancedFactures.filter(f => f.isOverdue);
+        
+        console.log('📊 CALCULATED STATS:', { 
+          totalFactures: enhancedFactures.length,
+          totalAmount,
+          totalPaidAmount,
+          totalOutstanding,
+          overdueCount: overdueFactures.length
+        });
         
         // Create proper paged response structure
         const processedResponse: FacturePagedResponseDto = {
-          factures: facturesArray,
-          totalCount: facturesArray.length,
+          factures: enhancedFactures,
+          totalCount: enhancedFactures.length,
           page: query.page,
           pageSize: query.pageSize,
-          totalPages: Math.ceil(facturesArray.length / query.pageSize),
-          hasNextPage: facturesArray.length > (query.page * query.pageSize),
+          totalPages: Math.ceil(enhancedFactures.length / query.pageSize),
+          hasNextPage: enhancedFactures.length > (query.page * query.pageSize),
           hasPreviousPage: query.page > 1,
           totalAmount,
           totalPaidAmount,
@@ -360,12 +353,6 @@ export class FactureService {
           overdueCount: overdueFactures.length,
           overdueAmount: overdueFactures.reduce((sum, f) => sum + f.remainingAmount, 0)
         };
-
-        console.log('✅ Processed factures response:', {
-          totalFactures: processedResponse.factures.length,
-          totalAmount: processedResponse.totalAmount,
-          overdueCount: processedResponse.overdueCount
-        });
 
         return processedResponse;
       }),
@@ -375,7 +362,6 @@ export class FactureService {
         this._loading.set(false);
       }),
       catchError(error => {
-        console.error('❌ Error fetching factures:', error);
         
         // Only use fallback if backend is completely unavailable (no response)
         if (error.status === 0) {
@@ -400,7 +386,6 @@ export class FactureService {
             overdueAmount: overdueFactures.reduce((sum, f) => sum + f.remainingAmount, 0)
           };
           
-          console.log('📊 Using fallback factures:', fallbackFactures.length, 'items');
           this._factures.set(fallbackFactures);
           this._loading.set(false);
           
@@ -422,25 +407,20 @@ export class FactureService {
       withCredentials: true
     }).pipe(
       map(response => {
-        console.log('📊 Raw facture detail response:', response);
         
-        let factureData: FactureDto;
+        let factureData: any;
         
         // Handle different response formats
         if (response && response.id) {
           // Direct FactureDto response
           factureData = response;
-          console.log('✅ Using direct FactureDto response');
         } else if (response && response.success && response.data) {
           // Wrapped response
           factureData = response.data;
-          console.log('✅ Using wrapped response.data');
         } else if (response && response.data && response.data.id) {
           // Alternative wrapper format
           factureData = response.data;
-          console.log('✅ Using alternative wrapper format');
         } else {
-          console.error('❌ Invalid facture response format:', response);
           throw new Error('Invalid facture data received from server');
         }
 
@@ -448,7 +428,14 @@ export class FactureService {
           throw new Error('Invalid facture data structure');
         }
 
-        return factureData;
+        // Debug log before enhancement
+        console.log('🔍 RAW FACTURE DATA FROM API:', factureData);
+        
+        // Enhance facture data with computed fields and fallbacks
+        const enhancedFactureData = this.enhanceFactureData(factureData);
+        console.log('🔍 ENHANCED FACTURE DATA RESULT:', enhancedFactureData);
+        
+        return enhancedFactureData;
       }),
       tap(() => this._loading.set(false)),
       catchError(error => {
@@ -473,7 +460,6 @@ export class FactureService {
       }
     ).pipe(
       map(response => {
-        console.log('📊 Raw facture by invoice response:', response);
         
         let factureData: FactureDto;
         
@@ -481,17 +467,13 @@ export class FactureService {
         if (response && response.id) {
           // Direct FactureDto response
           factureData = response;
-          console.log('✅ Using direct FactureDto response');
         } else if (response && response.success && response.data) {
           // Wrapped response
           factureData = response.data;
-          console.log('✅ Using wrapped response.data');
         } else if (response && response.data && response.data.id) {
           // Alternative wrapper format
           factureData = response.data;
-          console.log('✅ Using alternative wrapper format');
         } else {
-          console.error('❌ Invalid facture response format:', response);
           throw new Error('Failed to fetch facture by supplier invoice number');
         }
 
@@ -516,7 +498,6 @@ export class FactureService {
       withCredentials: true
     }).pipe(
       map(response => {
-        console.log('📊 Raw facture update response:', response);
         
         let factureData: FactureDto;
         
@@ -524,17 +505,13 @@ export class FactureService {
         if (response && response.id) {
           // Direct FactureDto response
           factureData = response;
-          console.log('✅ Using direct FactureDto response');
         } else if (response && response.success && response.data) {
           // Wrapped response
           factureData = response.data;
-          console.log('✅ Using wrapped response.data');
         } else if (response && response.data && response.data.id) {
           // Alternative wrapper format
           factureData = response.data;
-          console.log('✅ Using alternative wrapper format');
         } else {
-          console.error('❌ Invalid facture update response format:', response);
           throw new Error('Failed to update facture');
         }
 
@@ -608,17 +585,14 @@ export class FactureService {
 
   // Test method for debugging connectivity issues
   testConnection(): Observable<any> {
-    console.log('🧪 Testing connection to:', this.baseUrl);
     
     return this.http.get<any>(this.baseUrl, {
       withCredentials: true
     }).pipe(
       tap(response => {
-        console.log('✅ Test connection successful:', response);
       }),
       catchError(error => {
-        console.error('❌ Test connection failed:', error);
-        console.error('Full error details:', {
+        console.log('❌ TEST CONNECTION ERROR:', {
           status: error.status,
           statusText: error.statusText,
           message: error.message,
@@ -661,6 +635,306 @@ export class FactureService {
   }
 
   // Helper method to map FactureDto to FactureListDto
+  // ==================== DATA ENHANCEMENT METHODS ==================== //
+
+  private enhanceFactureListData(rawFactures: any[]): FactureListDto[] {
+    console.log('🔧 ENHANCING FACTURE LIST DATA:', rawFactures?.length || 0, 'items');
+    
+    if (!rawFactures || !Array.isArray(rawFactures)) {
+      console.warn('⚠️ Invalid factures array provided');
+      return [];
+    }
+
+    const enhanced = rawFactures.map((facture, index) => {
+      console.log(`🔍 Processing facture ${index + 1}:`, {
+        id: facture.id,
+        supplierName: facture.supplierName,
+        companyName: facture.companyName,
+        supplier: facture.supplier,
+        status: facture.status,
+        statusDisplay: facture.statusDisplay
+      });
+
+      // Enhanced supplier name mapping
+      let supplierName = 'Unknown Supplier';
+      if (facture.supplierName) {
+        supplierName = facture.supplierName;
+      } else if (facture.companyName) {
+        supplierName = facture.companyName;
+      } else if (facture.supplier?.companyName) {
+        supplierName = facture.supplier.companyName;
+      } else if (facture.supplier?.name) {
+        supplierName = facture.supplier.name;
+      } else if (facture.supplierCode) {
+        supplierName = facture.supplierCode;
+      }
+
+      // Enhanced status mapping
+      let status: FactureStatus;
+      if (typeof facture.status === 'number') {
+        status = facture.status as FactureStatus;
+      } else if (typeof facture.status === 'string') {
+        // Try to parse string status
+        const statusNum = parseInt(facture.status);
+        if (!isNaN(statusNum)) {
+          status = statusNum as FactureStatus;
+        } else {
+          // Default to RECEIVED if we can't parse
+          status = FactureStatus.RECEIVED;
+        }
+      } else {
+        status = FactureStatus.RECEIVED;
+      }
+
+      // Enhanced priority mapping  
+      let priority: FacturePriority;
+      if (typeof facture.priority === 'number') {
+        priority = facture.priority as FacturePriority;
+      } else if (typeof facture.paymentPriority === 'number') {
+        priority = facture.paymentPriority as FacturePriority;
+      } else {
+        priority = FacturePriority.NORMAL;
+      }
+
+      // Date parsing with error handling
+      const parseDate = (dateValue: any): Date => {
+        if (!dateValue) return new Date();
+        try {
+          return new Date(dateValue);
+        } catch {
+          return new Date();
+        }
+      };
+
+      const invoiceDate = parseDate(facture.invoiceDate);
+      const dueDate = parseDate(facture.dueDate);
+      const receivedAt = parseDate(facture.receivedAt || facture.createdAt);
+
+      // Calculate remaining amount
+      const totalAmount = facture.totalAmount || 0;
+      const paidAmount = facture.paidAmount || 0;
+      const remainingAmount = facture.remainingAmount || facture.outstandingAmount || (totalAmount - paidAmount);
+
+      // Calculate days until due
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDateCopy = new Date(dueDate);
+      dueDateCopy.setHours(0, 0, 0, 0);
+      const daysUntilDue = Math.ceil((dueDateCopy.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      const enhanced: FactureListDto = {
+        id: facture.id || 0,
+        supplierName,
+        supplierInvoiceNumber: facture.supplierInvoiceNumber || 'N/A',
+        internalReferenceNumber: facture.internalReferenceNumber || `REF-${facture.id}`,
+        totalAmount,
+        paidAmount,
+        remainingAmount,
+        invoiceDate,
+        dueDate,
+        status,
+        priority,
+        isOverdue: daysUntilDue < 0,
+        daysUntilDue: Math.max(0, daysUntilDue),
+        receivedAt,
+        receivedBy: facture.receivedByName || facture.receivedBy || 'System',
+        branchName: facture.branchName || facture.branchDisplay || 'Main Branch'
+      };
+
+      console.log(`✅ Enhanced facture ${index + 1}:`, {
+        id: enhanced.id,
+        supplierName: enhanced.supplierName,
+        status: enhanced.status,
+        totalAmount: enhanced.totalAmount,
+        isOverdue: enhanced.isOverdue
+      });
+
+      return enhanced;
+    });
+
+    console.log('✅ FACTURE DATA ENHANCEMENT COMPLETE:', enhanced.length, 'factures processed');
+    return enhanced;
+  }
+
+  private enhancePaymentsData(rawPayments: any[]): FacturePaymentDto[] {
+    console.log('🔧 ENHANCING PAYMENTS DATA:', rawPayments?.length || 0, 'payments');
+    
+    if (!rawPayments || !Array.isArray(rawPayments)) {
+      console.warn('⚠️ Invalid payments array provided');
+      return [];
+    }
+
+    const enhanced = rawPayments.map((payment, index) => {
+      console.log(`🔍 Processing payment ${index + 1}:`, {
+        id: payment.id,
+        status: payment.status,
+        statusDisplay: payment.statusDisplay,
+        amount: payment.amount,
+        paymentMethod: payment.paymentMethod,
+        canProcess: payment.canProcess,
+        canConfirm: payment.canConfirm
+      });
+
+      // Enhanced date parsing
+      const parseDate = (dateValue: any): Date | undefined => {
+        if (!dateValue) return undefined;
+        try {
+          return new Date(dateValue);
+        } catch {
+          return undefined;
+        }
+      };
+
+      // Payment status mapping with fallbacks
+      let status: number;
+      if (typeof payment.status === 'number') {
+        status = payment.status;
+      } else if (typeof payment.status === 'string') {
+        const statusNum = parseInt(payment.status);
+        status = isNaN(statusNum) ? 0 : statusNum; // Default to SCHEDULED
+      } else {
+        status = 0; // Default to SCHEDULED
+      }
+
+      // Payment method mapping with fallbacks
+      let paymentMethod: number;
+      if (typeof payment.paymentMethod === 'number') {
+        paymentMethod = payment.paymentMethod;
+      } else if (typeof payment.paymentMethod === 'string') {
+        const methodNum = parseInt(payment.paymentMethod);
+        paymentMethod = isNaN(methodNum) ? 0 : methodNum; // Default to BANK_TRANSFER
+      } else {
+        paymentMethod = 0; // Default to BANK_TRANSFER
+      }
+
+      // Enhanced action flags with fallback logic based on status
+      const enhancedPayment: FacturePaymentDto = {
+        id: payment.id || 0,
+        factureId: payment.factureId || 0,
+        paymentDate: parseDate(payment.paymentDate) || new Date(),
+        amount: payment.amount || 0,
+        paymentMethod,
+        paymentMethodDisplay: payment.paymentMethodDisplay || this.getPaymentMethodDisplay(paymentMethod),
+        status,
+        statusDisplay: payment.statusDisplay || this.getPaymentStatusDisplay(status),
+        
+        // Reference fields with fallbacks
+        ourPaymentReference: payment.ourPaymentReference || '',
+        supplierAckReference: payment.supplierAckReference || '',
+        bankAccount: payment.bankAccount || '',
+        checkNumber: payment.checkNumber || '',
+        transferReference: payment.transferReference || '',
+        paymentReference: payment.paymentReference || '',
+        
+        // User and date fields
+        processedBy: payment.processedBy,
+        processedByName: payment.processedByName || '',
+        approvedBy: payment.approvedBy,
+        approvedByName: payment.approvedByName || '',
+        approvedAt: parseDate(payment.approvedAt),
+        confirmedAt: parseDate(payment.confirmedAt),
+        confirmedByName: payment.confirmedByName || '',
+        
+        // Notes and files
+        notes: payment.notes || '',
+        failureReason: payment.failureReason || '',
+        disputeReason: payment.disputeReason || '',
+        paymentReceiptFile: payment.paymentReceiptFile || '',
+        confirmationFile: payment.confirmationFile || '',
+        
+        // Scheduled payment fields
+        scheduledDate: parseDate(payment.scheduledDate),
+        
+        // Computed boolean fields
+        requiresApproval: payment.requiresApproval || false,
+        isOverdue: payment.isOverdue || false,
+        isDueToday: payment.isDueToday || false,
+        isDueSoon: payment.isDueSoon || false,
+        hasConfirmation: payment.hasConfirmation || false,
+        
+        // Computed numeric fields
+        daysOverdue: payment.daysOverdue || 0,
+        daysUntilPayment: payment.daysUntilPayment || 0,
+        
+        // Status and processing
+        processingStatus: payment.processingStatus || 'Pending',
+        
+        // Display fields
+        amountDisplay: payment.amountDisplay || this.formatCurrency(payment.amount || 0),
+        
+        // Action flags - use backend values if available, otherwise calculate based on status
+        canEdit: payment.canEdit !== undefined ? payment.canEdit : this.calculateCanEditPayment(status),
+        canProcess: payment.canProcess !== undefined ? payment.canProcess : this.calculateCanProcessPayment(status),
+        canConfirm: payment.canConfirm !== undefined ? payment.canConfirm : this.calculateCanConfirmPayment(status),
+        canCancel: payment.canCancel !== undefined ? payment.canCancel : this.calculateCanCancelPayment(status),
+        
+        // Audit fields
+        createdAt: parseDate(payment.createdAt) || new Date(),
+        updatedAt: parseDate(payment.updatedAt) || new Date()
+      };
+
+      console.log(`✅ Enhanced payment ${index + 1}:`, {
+        id: enhancedPayment.id,
+        status: enhancedPayment.status,
+        statusDisplay: enhancedPayment.statusDisplay,
+        canProcess: enhancedPayment.canProcess,
+        canConfirm: enhancedPayment.canConfirm,
+        canEdit: enhancedPayment.canEdit,
+        canCancel: enhancedPayment.canCancel
+      });
+
+      return enhancedPayment;
+    });
+
+    console.log('✅ PAYMENT DATA ENHANCEMENT COMPLETE:', enhanced.length, 'payments processed');
+    return enhanced;
+  }
+
+  private getPaymentMethodDisplay(method: number): string {
+    const methodLabels: Record<number, string> = {
+      0: 'Bank Transfer',
+      1: 'Check',
+      2: 'Cash',
+      3: 'Credit Card',
+      4: 'Digital Wallet'
+    };
+    return methodLabels[method] || 'Unknown';
+  }
+
+  private getPaymentStatusDisplay(status: number): string {
+    const statusLabels: Record<number, string> = {
+      0: 'Scheduled',
+      1: 'Pending',
+      2: 'Processing',
+      3: 'Completed',
+      4: 'Failed',
+      5: 'Cancelled',
+      6: 'Disputed'
+    };
+    return statusLabels[status] || 'Unknown';
+  }
+
+  // Payment action calculation methods
+  private calculateCanEditPayment(status: number): boolean {
+    // Can edit if SCHEDULED (0) or PENDING (1)
+    return status === 0 || status === 1;
+  }
+
+  private calculateCanProcessPayment(status: number): boolean {
+    // Can process if SCHEDULED (0)
+    return status === 0;
+  }
+
+  private calculateCanConfirmPayment(status: number): boolean {
+    // Can confirm if PROCESSING (2)
+    return status === 2;
+  }
+
+  private calculateCanCancelPayment(status: number): boolean {
+    // Can cancel if SCHEDULED (0) or PENDING (1)
+    return status === 0 || status === 1;
+  }
+
   private mapFactureToListDto(facture: FactureDto): FactureListDto {
     return {
       id: facture.id,
@@ -703,13 +977,11 @@ export class FactureService {
 
   schedulePayment(scheduleDto: SchedulePaymentDto): Observable<FacturePaymentDto> {
     this._loading.set(true);
-    console.log('💰 Scheduling payment:', scheduleDto);
     
     return this.http.post<FacturePaymentDto>(`${this.baseUrl}/${scheduleDto.factureId}/payments/schedule`, scheduleDto, {
       withCredentials: true
     }).pipe(
       tap(response => {
-        console.log('✅ Payment scheduled successfully:', response);
         // Update local state if needed
         this._loading.set(false);
       }),
@@ -719,13 +991,11 @@ export class FactureService {
 
   processPayment(processDto: ProcessPaymentDto): Observable<FacturePaymentDto> {
     this._loading.set(true);
-    console.log('🔄 Processing payment:', processDto);
     
     return this.http.post<FacturePaymentDto>(`${this.baseUrl}/payments/${processDto.paymentId}/process`, processDto, {
       withCredentials: true
     }).pipe(
       tap(response => {
-        console.log('✅ Payment processed successfully:', response);
         this._loading.set(false);
       }),
       catchError(this.handleError.bind(this))
@@ -735,26 +1005,14 @@ export class FactureService {
   confirmPayment(confirmDto: ConfirmPaymentDto): Observable<FacturePaymentDto> {
     this._loading.set(true);
     const apiUrl = `${this.baseUrl}/payments/${confirmDto.paymentId}/confirm`;
-    console.log('✅ Confirming payment:', confirmDto);
-    console.log('🔍 API URL:', apiUrl);
-    console.log('🔍 Request body:', JSON.stringify(confirmDto, null, 2));
     
     return this.http.post<FacturePaymentDto>(apiUrl, confirmDto, {
       withCredentials: true
     }).pipe(
       tap(response => {
-        console.log('✅ Payment confirmed successfully - Full response:', response);
-        console.log('🔍 Response status:', response?.status, response?.statusDisplay);
-        console.log('🔍 Response confirmed amount:', response?.amount);
-        console.log('🔍 Response confirmed at:', response?.confirmedAt);
-        console.log('🔍 Response processing status:', response?.processingStatus);
         this._loading.set(false);
       }),
       catchError(error => {
-        console.error('❌ Confirm payment API error:', error);
-        console.error('❌ Error status:', error.status);
-        console.error('❌ Error message:', error.message);
-        console.error('❌ Error body:', error.error);
         this._loading.set(false);
         return this.handleError(error);
       })
@@ -763,14 +1021,12 @@ export class FactureService {
 
   cancelPayment(cancelDto: CancelPaymentDto): Observable<boolean> {
     this._loading.set(true);
-    console.log('❌ Cancelling payment:', cancelDto);
     
     return this.http.post(`${this.baseUrl}/payments/${cancelDto.paymentId}/cancel`, cancelDto, {
       withCredentials: true,
       responseType: 'text'
     }).pipe(
       tap(response => {
-        console.log('✅ Payment cancelled successfully:', response);
         this._loading.set(false);
       }),
       map(() => true),
@@ -780,13 +1036,11 @@ export class FactureService {
 
   getFacturePayments(factureId: number): Observable<FacturePaymentDto[]> {
     this._loading.set(true);
-    console.log('📋 Getting facture payments:', factureId);
     
     return this.http.get<FacturePaymentDto[]>(`${this.baseUrl}/${factureId}/payments`, {
       withCredentials: true
     }).pipe(
       tap(response => {
-        console.log('✅ Facture payments retrieved:', response);
         this._loading.set(false);
       }),
       catchError(this.handleError.bind(this))
@@ -870,27 +1124,10 @@ export class FactureService {
     return labels[priority] || 'Unknown';
   }
 
-  // Enhanced error handler for better debugging
+  // Error handler
   private handleError(error: any): Observable<never> {
-    console.error('❌ === FACTURE SERVICE ERROR ===');
-    console.error('Full error object:', error);
-    console.error('Error type:', typeof error);
-    console.error('Status:', error?.status);
-    console.error('Status text:', error?.statusText);
-    console.error('Message:', error?.message);
-    console.error('Error body:', error?.error);
-    console.error('Error body type:', typeof error?.error);
-    console.error('Error body keys:', error?.error ? Object.keys(error.error) : 'N/A');
-    console.error('Error name:', error?.name);
-    console.error('URL:', error?.url);
-    
     // If it's a 400 error, log detailed validation information
     if (error?.status === 400 && error?.error) {
-      console.error('🔍 400 BAD REQUEST DETAILS:');
-      console.error('Error message:', error.error.message || error.error.title);
-      console.error('Validation errors:', error.error.errors);
-      console.error('Detail:', error.error.detail);
-      console.error('Raw error body:', JSON.stringify(error.error, null, 2));
     }
     
     let errorMessage = 'An unexpected error occurred with facture service';
@@ -926,17 +1163,16 @@ export class FactureService {
    * Enhance facture data with computed fields and fallbacks for missing properties
    */
   private enhanceFactureData(factureData: any): FactureDto {
-    console.log('🔧 Enhancing facture data:', factureData);
 
     // Create enhanced facture with fallbacks
     const enhanced: FactureDto = {
       ...factureData,
       
-      // Basic fallbacks
-      supplierName: factureData.supplierName || factureData.supplier?.name || 'Unknown Supplier',
-      supplierCode: factureData.supplierCode || factureData.supplier?.code || 'N/A',
-      branchName: factureData.branchName || factureData.branch?.name || 'Main Branch',
-      branchDisplay: factureData.branchDisplay || factureData.branchName || 'Main Branch',
+      // Basic fallbacks with multiple property name attempts (prioritize supplier.companyName)
+      supplierName: factureData.supplier?.companyName || factureData.supplierName || factureData.supplier?.name || factureData.supplier_name || factureData.SupplierName || factureData.supplierCompanyName || factureData.company_name || factureData.CompanyName || 'Unknown Supplier',
+      supplierCode: factureData.supplierCode || factureData.supplier?.code || factureData.supplier_code || factureData.SupplierCode || 'N/A', 
+      branchName: factureData.branchName || factureData.branch?.name || factureData.branch_name || factureData.BranchName || 'Main Branch',
+      branchDisplay: factureData.branchDisplay || factureData.branchName || factureData.branch_name || 'Main Branch',
       
       // Status and display fields
       statusDisplay: factureData.statusDisplay || this.getStatusDisplayFromEnum(factureData.status),
@@ -963,15 +1199,15 @@ export class FactureService {
       
       // Workflow permissions with smart defaults based on status
       canVerify: factureData.canVerify ?? this.calculateCanVerify(factureData.status),
-      canApprove: factureData.canApprove ?? this.calculateCanApprove(factureData.status),
+      canApprove: factureData.canApprove ?? this.calculateCanApprove(factureData.status),  
       canDispute: factureData.canDispute ?? this.calculateCanDispute(factureData.status),
       canCancel: factureData.canCancel ?? this.calculateCanCancel(factureData.status),
-      canSchedulePayment: factureData.canSchedulePayment ?? this.calculateCanSchedulePayment(factureData.status, factureData.outstandingAmount),
-      canReceivePayment: factureData.canReceivePayment ?? this.calculateCanReceivePayment(factureData.status, factureData.outstandingAmount),
+      canSchedulePayment: factureData.canSchedulePayment ?? this.calculateCanSchedulePayment(factureData.status, factureData.outstandingAmount || (factureData.totalAmount - factureData.paidAmount)),
+      canReceivePayment: factureData.canReceivePayment ?? this.calculateCanReceivePayment(factureData.status, factureData.outstandingAmount || (factureData.totalAmount - factureData.paidAmount)),
       
-      // Ensure arrays exist
-      items: factureData.items || [],
-      payments: factureData.payments || [],
+      // Ensure arrays exist with enhanced mapping
+      items: this.enhanceItemsData(factureData.items || []),
+      payments: this.enhancePaymentsData(factureData.payments || []),
       
       // Date conversions
       invoiceDate: new Date(factureData.invoiceDate),
@@ -994,30 +1230,40 @@ export class FactureService {
       requiresApproval: factureData.requiresApproval ?? true
     };
 
-    console.log('✅ Enhanced facture data:', {
-      id: enhanced.id,
-      supplierName: enhanced.supplierName,
-      totalAmountDisplay: enhanced.totalAmountDisplay,
-      canVerify: enhanced.canVerify,
-      canApprove: enhanced.canApprove,
-      statusDisplay: enhanced.statusDisplay
-    });
-
     return enhanced;
   }
 
-  private getStatusDisplayFromEnum(status: number): string {
-    const statusMap: Record<number, string> = {
+  private getStatusDisplayFromEnum(status: any): string {
+    
+    // Handle string status
+    if (typeof status === 'string') {
+      const stringStatusMap: Record<string, string> = {
+        'Received': 'Received',
+        'Verification': 'Under Verification',
+        'Verified': 'Verified',
+        'Approved': 'Approved', 
+        'Paid': 'Paid',
+        'Disputed': 'Disputed',
+        'Cancelled': 'Cancelled',
+        'PartialPaid': 'Partially Paid',
+        'Partial_Paid': 'Partially Paid'
+      };
+      return stringStatusMap[status] || status; // Return original string if not found
+    }
+    
+    // Handle numeric status
+    const statusNum = parseInt(String(status));
+    const numericStatusMap: Record<number, string> = {
       0: 'Received',
-      1: 'Under Verification',
-      2: 'Verified', 
+      1: 'Under Verification', 
+      2: 'Verified',
       3: 'Approved',
       4: 'Paid',
       5: 'Disputed',
       6: 'Cancelled',
       7: 'Partially Paid'
     };
-    return statusMap[status] || 'Unknown';
+    return numericStatusMap[statusNum] || 'Unknown';
   }
 
   private getPriorityDisplayFromEnum(priority: number): string {
@@ -1064,28 +1310,132 @@ export class FactureService {
     return new Date(dueDate) < new Date();
   }
 
-  private calculateCanVerify(status: number): boolean {
-    return status === 0; // RECEIVED
+  private calculateCanVerify(status: any): boolean {
+    // More flexible verification logic - allow verify if received
+    
+    let canVerify = false;
+    
+    if (typeof status === 'string') {
+      canVerify = status.toLowerCase() === 'received';
+    } else {
+      const statusNum = parseInt(String(status));
+      canVerify = statusNum === 0 || status === FactureStatus.RECEIVED;
+    }
+    
+    return canVerify;
   }
 
-  private calculateCanApprove(status: number): boolean {
-    return status === 2; // VERIFIED
+  private calculateCanApprove(status: any): boolean {
+    // More flexible approval logic - allow approve if verified
+    
+    let canApprove = false;
+    
+    if (typeof status === 'string') {
+      canApprove = status.toLowerCase() === 'verified';
+    } else {
+      const statusNum = parseInt(String(status));
+      canApprove = statusNum === 2 || status === FactureStatus.VERIFIED;
+    }
+    
+    return canApprove;
   }
 
-  private calculateCanDispute(status: number): boolean {
-    return status >= 0 && status <= 3; // RECEIVED to APPROVED
+  private calculateCanDispute(status: any): boolean {
+    if (typeof status === 'string') {
+      const disputeableStatuses = ['received', 'verification', 'verified', 'approved'];
+      return disputeableStatuses.includes(status.toLowerCase());
+    }
+    const statusNum = parseInt(String(status));
+    return statusNum >= 0 && statusNum <= 3; // RECEIVED to APPROVED
   }
 
-  private calculateCanCancel(status: number): boolean {
-    return status >= 0 && status <= 3; // RECEIVED to APPROVED
+  private calculateCanCancel(status: any): boolean {
+    if (typeof status === 'string') {
+      const cancellableStatuses = ['received', 'verification', 'verified', 'approved'];
+      return cancellableStatuses.includes(status.toLowerCase());
+    }
+    const statusNum = parseInt(String(status));
+    return statusNum >= 0 && statusNum <= 3; // RECEIVED to APPROVED
   }
 
-  private calculateCanSchedulePayment(status: number, outstandingAmount: number): boolean {
-    return status === 3 && (outstandingAmount || 0) > 0; // APPROVED with outstanding
+  private calculateCanSchedulePayment(status: any, outstandingAmount: number): boolean {
+    let isApproved = false;
+    if (typeof status === 'string') {
+      isApproved = status.toLowerCase() === 'approved';
+    } else {
+      const statusNum = parseInt(String(status));
+      isApproved = statusNum === 3;
+    }
+    return isApproved && (outstandingAmount || 0) > 0; // APPROVED with outstanding
   }
 
-  private calculateCanReceivePayment(status: number, outstandingAmount: number): boolean {
-    return status >= 3 && (outstandingAmount || 0) > 0; // APPROVED or PARTIAL_PAID with outstanding
+  private calculateCanReceivePayment(status: any, outstandingAmount: number): boolean {
+    let isPayable = false;
+    if (typeof status === 'string') {
+      const payableStatuses = ['approved', 'partialpaid', 'partial_paid'];
+      isPayable = payableStatuses.includes(status.toLowerCase());
+    } else {
+      const statusNum = parseInt(String(status));
+      isPayable = statusNum >= 3; // APPROVED or PARTIAL_PAID
+    }
+    return isPayable && (outstandingAmount || 0) > 0;
+  }
+
+  /**
+   * Enhance items data to match FactureItemDetailDto interface
+   */
+  private enhanceItemsData(items: any[]): FactureItemDetailDto[] {
+    console.log('🔧 ENHANCING ITEMS DATA:', items);
+    if (!items || !Array.isArray(items)) {
+      console.log('❌ Items is null or not array');
+      return [];
+    }
+
+    console.log('✅ Processing items, count:', items.length);
+    const enhanced = items.map(item => {
+      console.log('📝 Processing item:', item);
+      return {
+      id: item.id,
+      factureId: item.factureId || 0,
+      productId: item.product?.id || item.productId,
+      productName: item.product?.name || item.productName || 'Unknown Product',
+      productBarcode: item.product?.barcode || item.productBarcode || '',
+      supplierItemCode: item.supplierItemCode || '',
+      supplierItemDescription: item.supplierItemDescription || item.product?.name || item.productName || '',
+      itemDescription: item.itemDescription || item.product?.name || item.productName || '',
+      itemCode: item.itemCode || item.product?.barcode || '',
+      quantity: item.quantity || 0,
+      unitPrice: item.unitPrice || 0,
+      receivedQuantity: item.receivedQuantity || item.quantity || 0,
+      acceptedQuantity: item.acceptedQuantity || item.quantity || 0,
+      taxRate: item.taxRate || 0,
+      discountAmount: item.discountAmount || 0,
+      lineTotal: item.totalPrice || (item.quantity * item.unitPrice) || 0,
+      taxAmount: item.taxAmount || 0,
+      lineTotalWithTax: item.lineTotalWithTax || item.totalPrice || (item.quantity * item.unitPrice) || 0,
+      notes: item.notes || '',
+      verificationNotes: item.verificationNotes || '',
+      isVerified: item.isVerified || false,
+      verifiedAt: item.verifiedAt ? new Date(item.verifiedAt) : undefined,
+      verifiedByName: item.verifiedByName || '',
+      isProductMapped: item.isProductMapped ?? (item.product?.id ? true : false),
+      hasQuantityVariance: item.hasQuantityVariance || false,
+      hasAcceptanceVariance: item.hasAcceptanceVariance || false,
+      verificationStatus: item.verificationStatus || (item.isVerified ? 'Verified' : 'Pending'),
+      quantityVariance: item.quantityVariance || 0,
+      acceptanceVariance: item.acceptanceVariance || 0,
+      unitDisplay: this.formatCurrency(item.unitPrice || 0),
+      unitPriceDisplay: this.formatCurrency(item.unitPrice || 0),
+      lineTotalDisplay: this.formatCurrency(item.totalPrice || (item.quantity * item.unitPrice) || 0),
+      lineTotalWithTaxDisplay: this.formatCurrency(item.lineTotalWithTax || item.totalPrice || (item.quantity * item.unitPrice) || 0),
+      requiresApproval: item.requiresApproval || false,
+      createdAt: item.createdAt ? new Date(item.createdAt) : new Date(),
+      updatedAt: item.updatedAt ? new Date(item.updatedAt) : new Date()
+      };
+    });
+    
+    console.log('✅ ENHANCED ITEMS RESULT:', enhanced);
+    return enhanced;
   }
 
   private formatCurrency(amount: number): string {

@@ -624,17 +624,40 @@ export class FactureWorkflowModalComponent implements OnInit {
   }
 
   private createVerifyForm(): FormGroup {
-    const items = this.facture()?.items || [];
-    const itemForms = items.map(item => this.fb.group({
-      itemId: [item.id, Validators.required],
-      receivedQuantity: [item.quantity, [Validators.required, Validators.min(0)]],
-      acceptedQuantity: [item.quantity, [Validators.required, Validators.min(0)]],
-      verificationNotes: [''],
-      isVerified: [false]
-    }));
+    const facture = this.facture();
+    const items = facture?.items || [];
+    
+    console.log('🔧 MODAL: Creating verify form with data:', {
+      factureExists: !!facture,
+      factureId: facture?.id,
+      itemsProperty: !!facture?.items,
+      itemsIsArray: Array.isArray(facture?.items),
+      itemsLength: items.length,
+      items: items,
+      firstItem: items[0] || 'NO_ITEMS'
+    });
+    
+    const itemForms = items.map(item => {
+      console.log('🔧 MODAL: Creating form for item:', {
+        id: item.id,
+        productName: item.productName,
+        supplierItemDescription: item.supplierItemDescription,
+        quantity: item.quantity
+      });
+      
+      return this.fb.group({
+        itemId: [item.id, Validators.required],
+        receivedQuantity: [item.quantity, [Validators.required, Validators.min(0)]],
+        acceptedQuantity: [item.quantity, [Validators.required, Validators.min(0)]],
+        verificationNotes: [''],
+        isVerified: [false]
+      });
+    });
+
+    console.log('🔧 MODAL: Created', itemForms.length, 'item forms');
 
     return this.fb.group({
-      factureId: [this.facture().id, Validators.required],
+      factureId: [facture!.id, Validators.required],
       verificationNotes: [''],
       items: this.fb.array(itemForms, Validators.required)
     });

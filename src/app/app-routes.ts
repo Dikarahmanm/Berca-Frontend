@@ -70,10 +70,50 @@ export const routes: Routes = [
       },
       {
         path: 'membership',
-        loadChildren: () =>
-          import('./modules/membership/membership.module').then(
-            (m) => m.MembershipModule
-          ),
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./modules/membership/components/membership-list/membership-list.component').then(
+                (m) => m.MembershipListComponent
+              ),
+          },
+          {
+            path: 'create',
+            loadComponent: () =>
+              import('./modules/membership/components/membership-form/membership-form.component').then(
+                (m) => m.MembershipFormComponent
+              ),
+          },
+          {
+            path: 'edit/:id',
+            loadComponent: () =>
+              import('./modules/membership/components/membership-form/membership-form.component').then(
+                (m) => m.MembershipFormComponent
+              ),
+          },
+          {
+            path: 'view/:id',
+            loadComponent: () =>
+              import('./modules/membership/components/membership-form/membership-form.component').then(
+                (m) => m.MembershipFormComponent
+              ),
+          },
+          {
+            path: 'points/:id',
+            loadComponent: () =>
+              import('./modules/membership/components/member-points/member-points.component').then(
+                (m) => m.MemberPointsComponent
+              ),
+          },
+          {
+            path: 'analytics',
+            loadComponent: () =>
+              import('./modules/membership/components/membership-analytics/membership-analytics.component').then(
+                (m) => m.MembershipAnalyticsComponent
+              ),
+          }
+        ],
         canActivate: [roleGuard],
         data: {
           title: 'Membership Management',

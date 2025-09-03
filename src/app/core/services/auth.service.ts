@@ -126,9 +126,12 @@ export class AuthService {
           const user = response.data.user;
           
           // Store user data immediately - updated untuk backend baru format
+          // ✅ FIX: Handle undefined username from backend
+          const safeUsername = user.name || user.username || user.email?.split('@')[0] || `user_${user.id}` || 'user';
+          
           const userData: CurrentUser = {
             id: user.id,
-            username: user.name, // Backend returns 'name' field
+            username: safeUsername, // Use safe username with fallback
             role: user.role,
             isActive: true,
             defaultBranchId: user.branchId, // Backend returns 'branchId'
@@ -136,7 +139,7 @@ export class AuthService {
             canSwitchBranches: ['Admin', 'HeadManager', 'BranchManager'].includes(user.role)
           };
           
-          localStorage.setItem('username', user.name); // Use 'name' from backend
+          localStorage.setItem('username', safeUsername); // Use safe username
           localStorage.setItem('role', user.role);
           localStorage.setItem('userId', user.id.toString());
           localStorage.setItem('userBranchId', user.branchId?.toString() || ''); // Use 'branchId'
@@ -470,7 +473,7 @@ export class AuthService {
       params = params.set('search', search);
     }
 
-    const url = `${this.baseUrl}/api/admin/users`;
+    const url = `${this.baseUrl}/admin/users`;
     console.log('🔄 GET Request (with cookies):', { url, params: params.toString() });
 
     return this.http.get<UsersResponse>(url, {
@@ -487,7 +490,7 @@ export class AuthService {
   updateUser(id: number, userData: UpdateUserRequest): Observable<any> {
     this.debugAuth('UPDATE_USER');
     
-    const url = `${this.baseUrl}/api/admin/users/${id}`;
+    const url = `${this.baseUrl}/admin/users/${id}`;
     console.log('🔄 PUT Request (with cookies):', { 
       url, 
       payload: userData, 
@@ -508,7 +511,7 @@ export class AuthService {
   deleteUser(id: number): Observable<any> {
     this.debugAuth('DELETE_USER');
     
-    const url = `${this.baseUrl}/api/admin/users/${id}`;
+    const url = `${this.baseUrl}/admin/users/${id}`;
     console.log('🔄 DELETE Request (with cookies):', { url, withCredentials: true });
 
     return this.http.delete(url, {
@@ -528,7 +531,7 @@ export class AuthService {
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
 
-    const url = `${this.baseUrl}/api/admin/users/deleted`;
+    const url = `${this.baseUrl}/admin/users/deleted`;
     console.log('🔄 GET Deleted Users (with cookies):', { url, params: params.toString() });
 
     return this.http.get<UsersResponse>(url, {
@@ -545,7 +548,7 @@ export class AuthService {
   restoreUser(id: number): Observable<any> {
     this.debugAuth('RESTORE_USER');
     
-    const url = `${this.baseUrl}/api/admin/users/${id}/restore`;
+    const url = `${this.baseUrl}/admin/users/${id}/restore`;
     console.log('🔄 PUT Restore (with cookies):', { url, withCredentials: true });
 
     return this.http.put(url, {}, {

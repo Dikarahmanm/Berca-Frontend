@@ -8,8 +8,8 @@ import { roleGuard } from '../../core/guard/role.guard';
 const routes: Routes = [
   {
     path: '',
-  loadComponent: () => import('./components/membership-list/membership-list.component').then(c => c.MembershipListComponent),
-  canActivate: [roleGuard],
+    loadComponent: () => import('./components/membership-list/membership-list.component').then(c => c.MembershipListComponent),
+    canActivate: [roleGuard],
     data: {
       title: 'Membership Management',
       breadcrumb: 'Members',

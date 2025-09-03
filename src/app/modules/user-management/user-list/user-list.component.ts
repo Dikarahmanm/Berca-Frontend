@@ -1,6 +1,6 @@
 // ✅ REDESIGNED: User Management with Angular Signals & Enhanced Desktop UI
 import { Component, OnInit, OnDestroy, signal, computed, inject, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgIf, NgFor } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Subject, timer, interval } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged, catchError } from 'rxjs/operators';
@@ -42,6 +42,8 @@ interface UserAction {
   standalone: true,
   imports: [
     CommonModule,
+    NgIf,
+    NgFor,
     FormsModule,
     ReactiveFormsModule,
     MatIconModule,

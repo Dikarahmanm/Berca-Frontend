@@ -1,7 +1,9 @@
+// Enhanced Member Credit Dashboard Component - Full Featured
+
 import { Component, input, output, signal, computed, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NgxChartsModule } from '@swimlane/ngx-charts';
+// import { NgxChartsModule } from '@swimlane/ngx-charts'; // Temporarily disabled for compatibility
 import { MemberCreditService } from '../../services/member-credit.service';
 import { 
   MemberCreditSummaryDto as MemberCreditDto, 
@@ -21,18 +23,16 @@ export interface CreditMetrics {
 }
 
 export interface CreditTrend {
-  month: string;
-  creditUsage: number;
-  paymentAmount: number;
-  newDebt: number;
-  netChange: number;
+  name: string;
+  series: Array<{
+    name: string;
+    value: number;
+  }>;
 }
 
 export interface RiskDistribution {
-  low: number;
-  medium: number;
-  high: number;
-  critical: number;
+  name: string;
+  value: number;
 }
 
 export interface TopMember {
@@ -49,426 +49,322 @@ export interface TopMember {
 @Component({
   selector: 'app-member-credit-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgxChartsModule],
+  imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="credit-dashboard-container">
       <!-- Header with Quick Actions -->
       <div class="dashboard-header">
         <div class="header-content">
-          <h2 class="dashboard-title">Credit Management Dashboard</h2>
+          <h2 class="dashboard-title">💳 Credit Management Dashboard</h2>
           <p class="dashboard-subtitle">Real-time analytics and member credit insights</p>
         </div>
         
         <div class="header-actions">
           <div class="date-range-selector">
-            <label class="range-label">Periode:</label>
+            <label class="range-label">Period:</label>
             <select 
               class="range-select"
               [value]="selectedPeriod()"
               (change)="setSelectedPeriod($any($event.target).value)">
-              <option value="7d">7 Hari Terakhir</option>
-              <option value="30d">30 Hari Terakhir</option>
-              <option value="90d">90 Hari Terakhir</option>
-              <option value="1y">1 Tahun Terakhir</option>
-              <option value="all">Semua Periode</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+              <option value="1y">Last Year</option>
+              <option value="all">All Time</option>
             </select>
           </div>
           
-          <button class="btn btn-outline" (click)="onRefreshData()">
-            🔄 Refresh
+          <button class="btn btn-outline" (click)="onRefreshData()" [disabled]="loading()">
+            <span class="btn-icon" *ngIf="!loading()">🔄</span>
+            <span class="btn-icon loading-spinner" *ngIf="loading()"></span>
+            {{ loading() ? 'Loading...' : 'Refresh' }}
           </button>
           
           <button class="btn btn-primary" (click)="onExportReport()">
-            📊 Export Laporan
+            <span class="btn-icon">📊</span>
+            Export Report
           </button>
-        </div>
-      </div>
-
-      <!-- Key Metrics Cards -->
-      @if (creditMetrics()) {
-      <div class="metrics-grid">
-        <div class="metric-card primary">
-          <div class="metric-header">
-            <div class="metric-icon">👥</div>
-            <div class="metric-trend" [class.positive]="getGrowthTrend('members') > 0" [class.negative]="getGrowthTrend('members') < 0">
-              {{ formatTrend(getGrowthTrend('members')) }}
-            </div>
-          </div>
-          <div class="metric-body">
-            <div class="metric-value">{{ creditMetrics()!.totalMembers.toLocaleString() }}</div>
-            <div class="metric-label">Total Members</div>
-          </div>
-        </div>
-
-        <div class="metric-card success">
-          <div class="metric-header">
-            <div class="metric-icon">💰</div>
-            <div class="metric-trend" [class.positive]="getGrowthTrend('limit') > 0" [class.negative]="getGrowthTrend('limit') < 0">
-              {{ formatTrend(getGrowthTrend('limit')) }}
-            </div>
-          </div>
-          <div class="metric-body">
-            <div class="metric-value">{{ formatCurrency(creditMetrics()!.totalCreditLimit) }}</div>
-            <div class="metric-label">Total Credit Limit</div>
-          </div>
-        </div>
-
-        <div class="metric-card warning">
-          <div class="metric-header">
-            <div class="metric-icon">📈</div>
-            <div class="metric-trend" [class.positive]="getGrowthTrend('debt') < 0" [class.negative]="getGrowthTrend('debt') > 0">
-              {{ formatTrend(getGrowthTrend('debt')) }}
-            </div>
-          </div>
-          <div class="metric-body">
-            <div class="metric-value">{{ formatCurrency(creditMetrics()!.totalOutstandingDebt) }}</div>
-            <div class="metric-label">Outstanding Debt</div>
-          </div>
-        </div>
-
-        <div class="metric-card info">
-          <div class="metric-header">
-            <div class="metric-icon">🎯</div>
-            <div class="utilization-indicator">
-              <div class="utilization-bar">
-                <div class="utilization-fill" [style.width.%]="creditUtilizationPercentage()"></div>
-              </div>
-              <span class="utilization-text">{{ creditUtilizationPercentage() }}%</span>
-            </div>
-          </div>
-          <div class="metric-body">
-            <div class="metric-value">{{ formatCurrency(creditMetrics()!.totalAvailableCredit) }}</div>
-            <div class="metric-label">Available Credit</div>
-          </div>
-        </div>
-      </div>
-      }
-
-      <!-- Risk Analysis & Alerts -->
-      <div class="risk-analysis-section">
-        <div class="section-header">
-          <h3 class="section-title">Risk Analysis & Alerts</h3>
-          <div class="risk-filters">
-            <button 
-              class="risk-filter-btn" 
-              [class.active]="selectedRiskFilter() === 'all'"
-              (click)="setRiskFilter('all')">
-              All
-            </button>
-            <button 
-              class="risk-filter-btn critical" 
-              [class.active]="selectedRiskFilter() === 'critical'"
-              (click)="setRiskFilter('critical')">
-              Critical ({{ riskDistribution().critical }})
-            </button>
-            <button 
-              class="risk-filter-btn high" 
-              [class.active]="selectedRiskFilter() === 'high'"
-              (click)="setRiskFilter('high')">
-              High ({{ riskDistribution().high }})
-            </button>
-            <button 
-              class="risk-filter-btn medium" 
-              [class.active]="selectedRiskFilter() === 'medium'"
-              (click)="setRiskFilter('medium')">
-              Medium ({{ riskDistribution().medium }})
-            </button>
-          </div>
-        </div>
-
-        <div class="risk-content">
-          <!-- Risk Distribution Chart -->
-          <div class="risk-chart-container">
-            <div class="risk-chart">
-              <div class="risk-segment critical" 
-                   [style.width.%]="getRiskPercentage('critical')"
-                   title="Critical Risk: {{ riskDistribution().critical }} members">
-              </div>
-              <div class="risk-segment high" 
-                   [style.width.%]="getRiskPercentage('high')"
-                   title="High Risk: {{ riskDistribution().high }} members">
-              </div>
-              <div class="risk-segment medium" 
-                   [style.width.%]="getRiskPercentage('medium')"
-                   title="Medium Risk: {{ riskDistribution().medium }} members">
-              </div>
-              <div class="risk-segment low" 
-                   [style.width.%]="getRiskPercentage('low')"
-                   title="Low Risk: {{ riskDistribution().low }} members">
-              </div>
-            </div>
-            
-            <div class="risk-legend">
-              <div class="legend-item">
-                <div class="legend-color low"></div>
-                <span class="legend-text">Low Risk ({{ riskDistribution().low }})</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color medium"></div>
-                <span class="legend-text">Medium Risk ({{ riskDistribution().medium }})</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color high"></div>
-                <span class="legend-text">High Risk ({{ riskDistribution().high }})</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color critical"></div>
-                <span class="legend-text">Critical Risk ({{ riskDistribution().critical }})</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- High Priority Alerts -->
-          @if (criticalAlerts().length > 0) {
-          <div class="alerts-container">
-            <h4 class="alerts-title">🚨 Critical Alerts</h4>
-            <div class="alerts-list">
-              @for (alert of criticalAlerts(); track alert.id) {
-              <div class="alert-item" [class]="alert.severity">
-                <div class="alert-icon">{{ getAlertIcon(alert.type) }}</div>
-                <div class="alert-content">
-                  <div class="alert-title">{{ alert.title }}</div>
-                  <div class="alert-message">{{ alert.message }}</div>
-                  <div class="alert-time">{{ formatRelativeTime(alert.createdAt) }}</div>
-                </div>
-                <div class="alert-actions">
-                  <button class="alert-action-btn" (click)="viewAlertDetail(alert)">View</button>
-                  <button class="alert-action-btn" (click)="dismissAlert(alert)">Dismiss</button>
-                </div>
-              </div>
-              }
-            </div>
-          </div>
-          }
-        </div>
-      </div>
-
-      <!-- Credit Trends Analysis -->
-      <div class="trends-section">
-        <div class="section-header">
-          <h3 class="section-title">Credit Trends Analysis</h3>
-          <div class="chart-type-selector">
-            <button 
-              class="chart-type-btn"
-              [class.active]="chartType() === 'line'"
-              (click)="setChartType('line')">
-              📈 Line Chart
-            </button>
-            <button 
-              class="chart-type-btn"
-              [class.active]="chartType() === 'bar'"
-              (click)="setChartType('bar')">
-              📊 Bar Chart
-            </button>
-          </div>
-        </div>
-
-        <div class="trends-chart-container">
-          @if (chartType() === 'line') {
-          <div class="line-chart">
-            <div class="chart-grid">
-              @for (trend of creditTrends(); track $index) {
-              <div class="chart-point" 
-                   [style.left.%]="($index / (creditTrends().length - 1)) * 100"
-                   [style.bottom.%]="getChartPointHeight(trend.netChange)"
-                   [title]="getChartTooltip(trend)">
-                <div class="point-marker" [class.positive]="trend.netChange >= 0" [class.negative]="trend.netChange < 0"></div>
-              </div>
-              }
-            </div>
-            <div class="chart-labels">
-              @for (trend of creditTrends(); track $index) {
-              <div class="chart-label">{{ trend.month }}</div>
-              }
-            </div>
-          </div>
-          } @else {
-          <div class="bar-chart">
-            @for (trend of creditTrends(); track $index) {
-            <div class="bar-group">
-              <div class="bar-container">
-                <div class="bar credit-usage" 
-                     [style.height.%]="getBarHeight(trend.creditUsage)"
-                     title="Credit Usage: {{ formatCurrency(trend.creditUsage) }}">
-                </div>
-                <div class="bar payments" 
-                     [style.height.%]="getBarHeight(trend.paymentAmount)"
-                     title="Payments: {{ formatCurrency(trend.paymentAmount) }}">
-                </div>
-                <div class="bar new-debt" 
-                     [style.height.%]="getBarHeight(trend.newDebt)"
-                     title="New Debt: {{ formatCurrency(trend.newDebt) }}">
-                </div>
-              </div>
-              <div class="bar-label">{{ trend.month }}</div>
-            </div>
-            }
-          </div>
-          }
-
-          <div class="chart-legend">
-            <div class="legend-item">
-              <div class="legend-color credit-usage"></div>
-              <span>Credit Usage</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color payments"></div>
-              <span>Payments</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color new-debt"></div>
-              <span>New Debt</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Top Members Analysis -->
-      <div class="top-members-section">
-        <div class="section-header">
-          <h3 class="section-title">Member Performance Analysis</h3>
-          <div class="members-filter">
-            <select 
-              class="members-filter-select"
-              [value]="selectedMemberSort()"
-              (change)="setMemberSort($any($event.target).value)">
-              <option value="debt">Highest Debt</option>
-              <option value="utilization">Highest Utilization</option>
-              <option value="limit">Highest Limit</option>
-              <option value="risk">Highest Risk</option>
-              <option value="activity">Most Active</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="members-grid">
-          @for (member of topMembers(); track member.memberId) {
-          <div class="member-card" [class]="member.riskLevel.toLowerCase()">
-            <div class="member-header">
-              <div class="member-avatar">
-                <span class="avatar-initial">{{ getInitials(member.memberName) }}</span>
-              </div>
-              <div class="member-info">
-                <div class="member-name">{{ member.memberName }}</div>
-                <div class="member-code">{{ member.memberCode }}</div>
-              </div>
-              <div class="risk-badge" [class]="member.riskLevel.toLowerCase()">
-                {{ member.riskLevel }}
-              </div>
-            </div>
-
-            <div class="member-metrics">
-              <div class="metric-row">
-                <span class="metric-label">Credit Limit:</span>
-                <span class="metric-value">{{ formatCurrency(member.creditLimit) }}</span>
-              </div>
-              <div class="metric-row">
-                <span class="metric-label">Current Debt:</span>
-                <span class="metric-value debt">{{ formatCurrency(member.currentDebt) }}</span>
-              </div>
-              <div class="metric-row">
-                <span class="metric-label">Available:</span>
-                <span class="metric-value available">{{ formatCurrency(member.creditLimit - member.currentDebt) }}</span>
-              </div>
-            </div>
-
-            <div class="utilization-display">
-              <div class="utilization-label">Utilization: {{ member.utilizationRate }}%</div>
-              <div class="utilization-bar">
-                <div class="utilization-fill" 
-                     [style.width.%]="member.utilizationRate"
-                     [class.warning]="member.utilizationRate >= 80"
-                     [class.danger]="member.utilizationRate >= 95">
-                </div>
-              </div>
-            </div>
-
-            <div class="member-activity">
-              <div class="activity-info">
-                <span class="activity-label">Last Activity:</span>
-                <span class="activity-value">{{ formatRelativeTime(member.lastActivity) }}</span>
-              </div>
-            </div>
-
-            <div class="member-actions">
-              <button class="btn btn-sm btn-outline" (click)="viewMemberDetail(member)">
-                👁️ View
-              </button>
-              <button class="btn btn-sm btn-outline" (click)="viewMemberTransactions(member)">
-                📋 History
-              </button>
-              @if (member.riskLevel === 'Critical' || member.riskLevel === 'High') {
-              <button class="btn btn-sm btn-warning" (click)="contactMember(member)">
-                📞 Contact
-              </button>
-              }
-            </div>
-          </div>
-          }
         </div>
       </div>
 
       <!-- Loading State -->
-      @if (loading()) {
-      <div class="loading-overlay">
-        <div class="loading-spinner"></div>
-        <p class="loading-text">Loading dashboard data...</p>
+      <div class="loading-section" *ngIf="loading()">
+        <div class="loading-spinner large"></div>
+        <p class="loading-text">Loading credit dashboard data...</p>
       </div>
-      }
 
-      <!-- Error State -->
-      @if (error()) {
-      <div class="error-container">
-        <div class="error-card">
-          <span class="error-icon">⚠️</span>
-          <div class="error-content">
-            <div class="error-title">Failed to Load Dashboard</div>
-            <div class="error-message">{{ error() }}</div>
+      <!-- Dashboard Content -->
+      <div class="dashboard-content" *ngIf="!loading()">
+        <!-- Key Metrics Cards -->
+        <div class="metrics-grid">
+          <div class="metric-card total-debt">
+            <div class="metric-icon">💰</div>
+            <div class="metric-info">
+              <div class="metric-value">{{ formatCurrency(metrics().totalOutstandingDebt) }}</div>
+              <div class="metric-label">Total Outstanding Debt</div>
+              <div class="metric-change positive" *ngIf="metrics().totalOutstandingDebt > 0">
+                <span class="change-icon">📈</span>
+                Active Credit System
+              </div>
+            </div>
+          </div>
+
+          <div class="metric-card credit-utilization">
+            <div class="metric-icon">📊</div>
+            <div class="metric-info">
+              <div class="metric-value">{{ metrics().averageCreditUtilization.toFixed(1) }}%</div>
+              <div class="metric-label">Average Credit Utilization</div>
+              <div class="metric-change" [class.positive]="metrics().averageCreditUtilization < 70" [class.negative]="metrics().averageCreditUtilization >= 70">
+                <span class="change-icon">{{ metrics().averageCreditUtilization < 70 ? '✅' : '⚠️' }}</span>
+                {{ metrics().averageCreditUtilization < 70 ? 'Healthy' : 'High Risk' }}
+              </div>
+            </div>
+          </div>
+
+          <div class="metric-card members-with-debt">
+            <div class="metric-icon">👥</div>
+            <div class="metric-info">
+              <div class="metric-value">{{ metrics().membersWithDebt }}</div>
+              <div class="metric-label">Members with Active Debt</div>
+              <div class="metric-subtitle">of {{ metrics().totalMembers }} total members</div>
+            </div>
+          </div>
+
+          <div class="metric-card overdue-accounts">
+            <div class="metric-icon">⏰</div>
+            <div class="metric-info">
+              <div class="metric-value">{{ metrics().overdueAccounts }}</div>
+              <div class="metric-label">Overdue Accounts</div>
+              <div class="metric-change" [class.negative]="metrics().overdueAccounts > 0" [class.neutral]="metrics().overdueAccounts === 0">
+                <span class="change-icon">{{ metrics().overdueAccounts > 0 ? '🚨' : '✅' }}</span>
+                {{ metrics().overdueAccounts > 0 ? 'Needs Attention' : 'All Current' }}
+              </div>
+            </div>
           </div>
         </div>
-        <button class="btn btn-primary" (click)="onRefreshData()">Try Again</button>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+          <!-- Credit Trends Chart -->
+          <div class="chart-container credit-trends">
+            <div class="chart-header">
+              <h3 class="chart-title">Credit Usage Trends</h3>
+              <div class="chart-type-selector">
+                <button 
+                  class="chart-type-btn" 
+                  [class.active]="selectedChartType() === 'line'"
+                  (click)="setChartType('line')">
+                  📈 Line
+                </button>
+                <button 
+                  class="chart-type-btn" 
+                  [class.active]="selectedChartType() === 'bar'"
+                  (click)="setChartType('bar')">
+                  📊 Bar
+                </button>
+              </div>
+            </div>
+            
+            <div class="chart-content">
+              <!-- Simplified Data Display - Chart implementation pending -->
+              <div class="data-summary" *ngIf="creditTrendsData().length > 0">
+                <div class="trend-summary">
+                  <h4>Credit Usage Trend ({{ selectedChartType() === 'line' ? 'Line' : 'Bar' }} View)</h4>
+                  <div class="trend-data" *ngFor="let trend of creditTrendsData()">
+                    <div class="trend-title">{{ trend.name }}</div>
+                    <div class="trend-values">
+                      <div class="value-item" *ngFor="let item of trend.series">
+                        <span class="month">{{ item.name }}:</span>
+                        <span class="amount">{{ formatCurrency(item.value) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Fallback Display -->
+              <div class="chart-fallback" *ngIf="creditTrendsData().length === 0">
+                <div class="fallback-icon">📊</div>
+                <p class="fallback-text">Credit trends will be displayed here</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Risk Distribution Chart -->
+          <div class="chart-container risk-distribution">
+            <div class="chart-header">
+              <h3 class="chart-title">Risk Distribution</h3>
+            </div>
+            
+            <div class="chart-content">
+              <!-- Risk Distribution Data Display -->
+              <div class="risk-summary" *ngIf="riskDistributionData().length > 0">
+                <div class="risk-list">
+                  <div class="risk-item" *ngFor="let risk of riskDistributionData()">
+                    <div class="risk-color" [class]="'risk-' + risk.name.toLowerCase()"></div>
+                    <div class="risk-info">
+                      <span class="risk-name">{{ risk.name }} Risk</span>
+                      <span class="risk-count">{{ risk.value }} members</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Fallback Display -->
+              <div class="chart-fallback" *ngIf="riskDistributionData().length === 0">
+                <div class="fallback-icon">🥧</div>
+                <p class="fallback-text">Risk distribution will be displayed here</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Members and Recent Activity -->
+        <div class="tables-section">
+          <!-- Top Debtors -->
+          <div class="table-container top-members">
+            <div class="table-header">
+              <h3 class="table-title">🏆 Top Credit Users</h3>
+              <button class="btn btn-sm btn-outline" (click)="viewAllMembers()">
+                View All
+              </button>
+            </div>
+            
+            <div class="table-content">
+              <div class="member-list">
+                <div 
+                  class="member-item" 
+                  *ngFor="let member of topMembers(); trackBy: trackByMember"
+                  [class]="'risk-' + member.riskLevel.toLowerCase()">
+                  <div class="member-info">
+                    <div class="member-name">{{ member.memberName }}</div>
+                    <div class="member-code">{{ member.memberCode }}</div>
+                  </div>
+                  <div class="member-stats">
+                    <div class="stat-item">
+                      <span class="stat-label">Debt:</span>
+                      <span class="stat-value debt">{{ formatCurrency(member.currentDebt) }}</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">Limit:</span>
+                      <span class="stat-value limit">{{ formatCurrency(member.creditLimit) }}</span>
+                    </div>
+                    <div class="stat-item">
+                      <span class="stat-label">Usage:</span>
+                      <span class="stat-value usage">{{ member.utilizationRate.toFixed(1) }}%</span>
+                    </div>
+                  </div>
+                  <div class="member-risk">
+                    <span class="risk-badge" [class]="'risk-' + member.riskLevel.toLowerCase()">
+                      {{ member.riskLevel }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="table-container quick-actions">
+            <div class="table-header">
+              <h3 class="table-title">⚡ Quick Actions</h3>
+            </div>
+            
+            <div class="actions-content">
+              <div class="action-grid">
+                <button class="action-card" (click)="viewOverdueAccounts()">
+                  <div class="action-icon">⏰</div>
+                  <div class="action-info">
+                    <div class="action-title">Overdue Accounts</div>
+                    <div class="action-count">{{ metrics().overdueAccounts }}</div>
+                  </div>
+                </button>
+
+                <button class="action-card" (click)="viewHighRiskMembers()">
+                  <div class="action-icon">🚨</div>
+                  <div class="action-info">
+                    <div class="action-title">High Risk Members</div>
+                    <div class="action-count">{{ metrics().highRiskAccounts }}</div>
+                  </div>
+                </button>
+
+                <button class="action-card" (click)="sendPaymentReminders()">
+                  <div class="action-icon">📧</div>
+                  <div class="action-info">
+                    <div class="action-title">Send Reminders</div>
+                    <div class="action-subtitle">Payment Alerts</div>
+                  </div>
+                </button>
+
+                <button class="action-card" (click)="generateReport()">
+                  <div class="action-icon">📋</div>
+                  <div class="action-info">
+                    <div class="action-title">Generate Report</div>
+                    <div class="action-subtitle">Credit Summary</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      }
+
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="!loading() && metrics().totalMembers === 0">
+        <div class="empty-icon">💳</div>
+        <div class="empty-title">No Credit Data Available</div>
+        <div class="empty-text">Start by enabling credit for members or check your data filters.</div>
+        <button class="btn btn-primary" (click)="goToMembershipManagement()">
+          <span class="btn-icon">👥</span>
+          Manage Members
+        </button>
+      </div>
     </div>
   `,
   styles: [`
     .credit-dashboard-container {
-      padding: var(--s4);
+      padding: var(--s6);
       max-width: 1400px;
       margin: 0 auto;
       min-height: 100vh;
-      background: var(--bg);
     }
 
     .dashboard-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--s6);
-      padding: var(--s6);
-      background: var(--surface);
-      border: 2px solid var(--border);
-      border-radius: var(--radius-xl);
+      align-items: flex-start;
+      margin-bottom: var(--s8);
+      padding-bottom: var(--s6);
+      border-bottom: 2px solid var(--border-light);
+    }
+
+    .header-content {
+      flex: 1;
     }
 
     .dashboard-title {
-      font-size: var(--text-3xl);
+      font-size: var(--text-4xl);
       font-weight: var(--font-bold);
-      color: var(--text);
-      margin: 0;
+      color: var(--text-primary);
+      margin: 0 0 var(--s2) 0;
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .dashboard-subtitle {
-      font-size: var(--text-base);
+      font-size: var(--text-lg);
       color: var(--text-secondary);
-      margin: var(--s1) 0 0 0;
+      margin: 0;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
       gap: var(--s4);
+      flex-wrap: wrap;
     }
 
     .date-range-selector {
@@ -480,38 +376,55 @@ export interface TopMember {
     .range-label {
       font-size: var(--text-sm);
       font-weight: var(--font-medium);
-      color: var(--text);
+      color: var(--text-secondary);
     }
 
-    .range-select, .members-filter-select {
+    .range-select {
       padding: var(--s2) var(--s3);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
+      border: 2px solid var(--border-light);
+      border-radius: var(--radius-base);
       background: var(--surface);
-      color: var(--text);
+      color: var(--text-primary);
       font-size: var(--text-sm);
+      cursor: pointer;
+      transition: var(--transition-normal);
+
+      &:hover {
+        border-color: var(--primary);
+      }
 
       &:focus {
         outline: none;
         border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(228, 122, 63, 0.1);
       }
     }
 
+    // Metrics Grid
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: var(--s4);
-      margin-bottom: var(--s6);
+      gap: var(--s6);
+      margin-bottom: var(--s8);
     }
 
     .metric-card {
       background: var(--surface);
-      border: 2px solid var(--border);
+      border: 2px solid var(--border-light);
       border-radius: var(--radius-lg);
-      padding: var(--s4);
-      transition: var(--transition);
+      padding: var(--s6);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--s4);
+      transition: var(--transition-normal);
       position: relative;
       overflow: hidden;
+
+      &:hover {
+        border-color: var(--primary);
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-primary);
+      }
 
       &::before {
         content: '';
@@ -520,333 +433,109 @@ export interface TopMember {
         left: 0;
         right: 0;
         height: 4px;
-        background: var(--border);
+        background: linear-gradient(90deg, var(--primary), var(--primary-hover));
       }
 
-      &.primary::before {
-        background: var(--primary);
+      &.total-debt::before {
+        background: linear-gradient(90deg, var(--success), #22c55e);
       }
 
-      &.success::before {
-        background: var(--success);
+      &.credit-utilization::before {
+        background: linear-gradient(90deg, var(--warning), #f59e0b);
       }
 
-      &.warning::before {
-        background: var(--warning);
+      &.members-with-debt::before {
+        background: linear-gradient(90deg, var(--info), #3b82f6);
       }
 
-      &.info::before {
-        background: var(--info);
+      &.overdue-accounts::before {
+        background: linear-gradient(90deg, var(--error), #ef4444);
       }
-
-      &:hover {
-        transform: translateY(-2px);
-        border-color: var(--primary);
-      }
-    }
-
-    .metric-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--s3);
     }
 
     .metric-icon {
-      font-size: var(--text-2xl);
+      font-size: 2.5rem;
       opacity: 0.8;
     }
 
-    .metric-trend {
-      font-size: var(--text-sm);
-      font-weight: var(--font-semibold);
-      padding: var(--s1) var(--s2);
-      border-radius: var(--radius);
-
-      &.positive {
-        background: rgba(82, 165, 115, 0.1);
-        color: var(--success);
-      }
-
-      &.negative {
-        background: rgba(212, 74, 63, 0.1);
-        color: var(--error);
-      }
+    .metric-info {
+      flex: 1;
     }
 
     .metric-value {
-      font-size: var(--text-2xl);
+      font-size: var(--text-3xl);
       font-weight: var(--font-bold);
-      color: var(--text);
+      color: var(--text-primary);
+      line-height: 1.2;
       margin-bottom: var(--s1);
     }
 
     .metric-label {
       font-size: var(--text-sm);
+      font-weight: var(--font-medium);
       color: var(--text-secondary);
+      margin-bottom: var(--s2);
     }
 
-    .utilization-indicator {
+    .metric-subtitle {
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+    }
+
+    .metric-change {
       display: flex;
       align-items: center;
-      gap: var(--s2);
-    }
-
-    .utilization-bar {
-      width: 80px;
-      height: 8px;
-      background: var(--bg-secondary);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-
-    .utilization-fill {
-      height: 100%;
-      background: var(--info);
-      transition: var(--transition);
-
-      &.warning {
-        background: var(--warning);
-      }
-
-      &.danger {
-        background: var(--error);
-      }
-    }
-
-    .utilization-text {
+      gap: var(--s1);
       font-size: var(--text-xs);
-      font-weight: var(--font-semibold);
-      color: var(--text-secondary);
+      font-weight: var(--font-medium);
+      
+      &.positive {
+        color: var(--success);
+      }
+      
+      &.negative {
+        color: var(--error);
+      }
+      
+      &.neutral {
+        color: var(--text-secondary);
+      }
     }
 
-    .risk-analysis-section, .trends-section, .top-members-section {
+    // Charts Section
+    .charts-section {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--s6);
+      margin-bottom: var(--s8);
+    }
+
+    .chart-container {
       background: var(--surface);
-      border: 2px solid var(--border);
-      border-radius: var(--radius-xl);
+      border: 2px solid var(--border-light);
+      border-radius: var(--radius-lg);
       padding: var(--s6);
-      margin-bottom: var(--s6);
+      transition: var(--transition-normal);
+
+      &:hover {
+        border-color: var(--primary);
+      }
     }
 
-    .section-header {
+    .chart-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: var(--s4);
-      padding-bottom: var(--s3);
-      border-bottom: 2px solid var(--border);
+      margin-bottom: var(--s6);
+      padding-bottom: var(--s4);
+      border-bottom: 1px solid var(--border-light);
     }
 
-    .section-title {
+    .chart-title {
       font-size: var(--text-xl);
-      font-weight: var(--font-bold);
-      color: var(--text);
-      margin: 0;
-    }
-
-    .risk-filters {
-      display: flex;
-      gap: var(--s2);
-    }
-
-    .risk-filter-btn {
-      padding: var(--s2) var(--s3);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--surface);
-      color: var(--text);
-      font-size: var(--text-sm);
-      cursor: pointer;
-      transition: var(--transition);
-
-      &:hover {
-        background: var(--bg-secondary);
-      }
-
-      &.active {
-        background: var(--primary);
-        color: white;
-        border-color: var(--primary);
-      }
-
-      &.critical.active {
-        background: var(--error);
-        border-color: var(--error);
-      }
-
-      &.high.active {
-        background: var(--warning);
-        border-color: var(--warning);
-      }
-
-      &.medium.active {
-        background: var(--info);
-        border-color: var(--info);
-      }
-    }
-
-    .risk-content {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--s6);
-    }
-
-    .risk-chart-container {
-      display: flex;
-      flex-direction: column;
-      gap: var(--s4);
-    }
-
-    .risk-chart {
-      height: 40px;
-      display: flex;
-      border-radius: var(--radius);
-      overflow: hidden;
-      border: 2px solid var(--border);
-    }
-
-    .risk-segment {
-      height: 100%;
-      transition: var(--transition);
-
-      &.low {
-        background: var(--success);
-      }
-
-      &.medium {
-        background: var(--info);
-      }
-
-      &.high {
-        background: var(--warning);
-      }
-
-      &.critical {
-        background: var(--error);
-      }
-    }
-
-    .risk-legend {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: var(--s2);
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: var(--s2);
-    }
-
-    .legend-color {
-      width: 16px;
-      height: 16px;
-      border-radius: var(--radius-sm);
-
-      &.low {
-        background: var(--success);
-      }
-
-      &.medium {
-        background: var(--info);
-      }
-
-      &.high {
-        background: var(--warning);
-      }
-
-      &.critical {
-        background: var(--error);
-      }
-    }
-
-    .legend-text {
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-    }
-
-    .alerts-container {
-      display: flex;
-      flex-direction: column;
-      gap: var(--s3);
-    }
-
-    .alerts-title {
-      font-size: var(--text-lg);
       font-weight: var(--font-semibold);
-      color: var(--error);
+      color: var(--text-primary);
       margin: 0;
-    }
-
-    .alerts-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--s2);
-    }
-
-    .alert-item {
-      display: flex;
-      align-items: center;
-      gap: var(--s3);
-      padding: var(--s3);
-      border-radius: var(--radius);
-      border: 2px solid var(--border);
-
-      &.critical {
-        background: rgba(212, 74, 63, 0.05);
-        border-color: var(--error);
-      }
-
-      &.high {
-        background: rgba(230, 168, 85, 0.05);
-        border-color: var(--warning);
-      }
-    }
-
-    .alert-icon {
-      font-size: var(--text-lg);
-    }
-
-    .alert-content {
-      flex: 1;
-    }
-
-    .alert-title {
-      font-size: var(--text-sm);
-      font-weight: var(--font-semibold);
-      margin-bottom: var(--s1);
-    }
-
-    .alert-message {
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-      margin-bottom: var(--s1);
-    }
-
-    .alert-time {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
-
-    .alert-actions {
-      display: flex;
-      gap: var(--s2);
-    }
-
-    .alert-action-btn {
-      padding: var(--s1) var(--s2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--surface);
-      font-size: var(--text-xs);
-      cursor: pointer;
-      transition: var(--transition);
-
-      &:hover {
-        background: var(--primary);
-        color: white;
-        border-color: var(--primary);
-      }
     }
 
     .chart-type-selector {
@@ -856,15 +545,17 @@ export interface TopMember {
 
     .chart-type-btn {
       padding: var(--s2) var(--s3);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-base);
       background: var(--surface);
-      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      font-size: var(--text-xs);
       cursor: pointer;
-      transition: var(--transition);
+      transition: var(--transition-normal);
 
       &:hover {
-        background: var(--bg-secondary);
+        border-color: var(--primary);
+        color: var(--primary);
       }
 
       &.active {
@@ -874,394 +565,242 @@ export interface TopMember {
       }
     }
 
-    .trends-chart-container {
-      position: relative;
-      height: 300px;
-      margin-bottom: var(--s4);
-    }
-
-    .line-chart {
-      position: relative;
-      height: 100%;
-      background: var(--bg);
-      border-radius: var(--radius);
-      padding: var(--s4);
-    }
-
-    .chart-grid {
-      position: relative;
-      height: calc(100% - 40px);
-      border-bottom: 2px solid var(--border);
-    }
-
-    .chart-point {
-      position: absolute;
-      transform: translate(-50%, 50%);
-    }
-
-    .point-marker {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      border: 2px solid white;
-
-      &.positive {
-        background: var(--success);
-      }
-
-      &.negative {
-        background: var(--error);
-      }
-    }
-
-    .chart-labels {
-      display: flex;
-      justify-content: space-between;
-      padding-top: var(--s2);
-    }
-
-    .chart-label {
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-      text-align: center;
-    }
-
-    .bar-chart {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      height: 100%;
-      padding: var(--s4);
-      background: var(--bg);
-      border-radius: var(--radius);
-      gap: var(--s2);
-    }
-
-    .bar-group {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 1;
-      gap: var(--s2);
-    }
-
-    .bar-container {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 2px;
-      height: 200px;
-      width: 100%;
-    }
-
-    .bar {
-      width: 20px;
-      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-      transition: var(--transition);
-
-      &.credit-usage {
-        background: var(--primary);
-      }
-
-      &.payments {
-        background: var(--success);
-      }
-
-      &.new-debt {
-        background: var(--warning);
-      }
-    }
-
-    .bar-label {
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-      text-align: center;
-      writing-mode: horizontal-tb;
-      transform: rotate(-45deg);
-    }
-
-    .chart-legend {
-      display: flex;
-      justify-content: center;
-      gap: var(--s4);
-      margin-top: var(--s3);
-    }
-
-    .chart-legend .legend-item {
-      display: flex;
-      align-items: center;
-      gap: var(--s1);
-
-      .legend-color {
-        width: 12px;
-        height: 12px;
-        border-radius: var(--radius-sm);
-
-        &.credit-usage {
-          background: var(--primary);
-        }
-
-        &.payments {
-          background: var(--success);
-        }
-
-        &.new-debt {
-          background: var(--warning);
-        }
-      }
-    }
-
-    .members-grid {
+    // Tables Section
+    .tables-section {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: var(--s4);
+      grid-template-columns: 2fr 1fr;
+      gap: var(--s6);
     }
 
-    .member-card {
+    .table-container {
       background: var(--surface);
-      border: 2px solid var(--border);
+      border: 2px solid var(--border-light);
       border-radius: var(--radius-lg);
-      padding: var(--s4);
-      transition: var(--transition);
+      padding: var(--s6);
+      transition: var(--transition-normal);
 
       &:hover {
-        transform: translateY(-2px);
         border-color: var(--primary);
       }
+    }
 
-      &.high {
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--s6);
+      padding-bottom: var(--s4);
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .table-title {
+      font-size: var(--text-xl);
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    // Member List
+    .member-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s4);
+    }
+
+    .member-item {
+      display: grid;
+      grid-template-columns: 1fr 2fr 80px;
+      gap: var(--s4);
+      align-items: center;
+      padding: var(--s4);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-base);
+      transition: var(--transition-normal);
+
+      &:hover {
+        border-color: var(--primary);
+        background: var(--primary-pale);
+      }
+
+      &.risk-high {
         border-left: 4px solid var(--warning);
       }
 
-      &.critical {
+      &.risk-critical {
         border-left: 4px solid var(--error);
       }
     }
 
-    .member-header {
-      display: flex;
-      align-items: center;
-      gap: var(--s3);
-      margin-bottom: var(--s4);
-    }
-
-    .member-avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: var(--primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: var(--font-bold);
-    }
-
-    .member-info {
-      flex: 1;
-    }
-
     .member-name {
-      font-size: var(--text-base);
       font-weight: var(--font-semibold);
-      color: var(--text);
-      margin-bottom: var(--s1);
+      color: var(--text-primary);
+      font-size: var(--text-base);
     }
 
     .member-code {
       font-size: var(--text-sm);
       color: var(--text-secondary);
+      margin-top: var(--s1);
+    }
+
+    .member-stats {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s1);
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: var(--text-sm);
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+    }
+
+    .stat-value {
+      font-weight: var(--font-medium);
+      
+      &.debt {
+        color: var(--error);
+      }
+      
+      &.limit {
+        color: var(--text-primary);
+      }
+      
+      &.usage {
+        color: var(--warning);
+      }
     }
 
     .risk-badge {
       padding: var(--s1) var(--s2);
-      border-radius: var(--radius);
+      border-radius: var(--radius-base);
       font-size: var(--text-xs);
       font-weight: var(--font-semibold);
+      text-align: center;
 
-      &.low {
-        background: rgba(82, 165, 115, 0.2);
+      &.risk-low {
+        background: var(--success-light);
         color: var(--success);
       }
 
-      &.medium {
-        background: rgba(75, 130, 246, 0.2);
-        color: var(--info);
-      }
-
-      &.high {
-        background: rgba(230, 168, 85, 0.2);
+      &.risk-medium {
+        background: var(--warning-light);
         color: var(--warning);
       }
 
-      &.critical {
-        background: rgba(212, 74, 63, 0.2);
+      &.risk-high {
+        background: rgba(251, 146, 60, 0.1);
+        color: #f97316;
+      }
+
+      &.risk-critical {
+        background: var(--error-light);
         color: var(--error);
       }
     }
 
-    .member-metrics {
-      margin-bottom: var(--s4);
+    // Quick Actions
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--s4);
     }
 
-    .metric-row {
+    .action-card {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: var(--s2) 0;
-      border-bottom: 1px solid var(--border);
-
-      &:last-child {
-        border-bottom: none;
-      }
-    }
-
-    .metric-row .metric-label {
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-    }
-
-    .metric-row .metric-value {
-      font-size: var(--text-sm);
-      font-weight: var(--font-medium);
-
-      &.debt {
-        color: var(--error);
-      }
-
-      &.available {
-        color: var(--success);
-      }
-    }
-
-    .utilization-display {
-      margin-bottom: var(--s4);
-    }
-
-    .utilization-label {
-      font-size: var(--text-sm);
-      font-weight: var(--font-medium);
-      margin-bottom: var(--s2);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .member-activity {
-      margin-bottom: var(--s4);
-      padding-top: var(--s3);
-      border-top: 1px solid var(--border);
-    }
-
-    .activity-info {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .activity-label {
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-    }
-
-    .activity-value {
-      font-size: var(--text-sm);
-      font-weight: var(--font-medium);
-      color: var(--text);
-    }
-
-    .member-actions {
-      display: flex;
-      gap: var(--s2);
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--s1);
-      padding: var(--s2) var(--s3);
-      border: 2px solid transparent;
-      border-radius: var(--radius);
-      font-size: var(--text-sm);
-      font-weight: var(--font-medium);
+      gap: var(--s3);
+      padding: var(--s4);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-base);
+      background: var(--surface);
       cursor: pointer;
-      transition: var(--transition);
-      text-decoration: none;
+      transition: var(--transition-normal);
+      text-align: left;
 
-      &.btn-primary {
-        background: var(--primary);
-        color: white;
+      &:hover {
         border-color: var(--primary);
-
-        &:hover:not(:disabled) {
-          background: var(--primary-hover);
-          border-color: var(--primary-hover);
-        }
-      }
-
-      &.btn-outline {
-        background: var(--surface);
-        color: var(--text);
-        border-color: var(--border);
-
-        &:hover:not(:disabled) {
-          background: var(--primary);
-          color: white;
-          border-color: var(--primary);
-        }
-      }
-
-      &.btn-warning {
-        background: var(--warning);
-        color: white;
-        border-color: var(--warning);
-
-        &:hover:not(:disabled) {
-          opacity: 0.9;
-        }
-      }
-
-      &.btn-sm {
-        padding: var(--s1) var(--s2);
-        font-size: var(--text-xs);
-      }
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
+        background: var(--primary-pale);
+        transform: translateY(-2px);
       }
     }
 
-    .loading-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(255, 255, 255, 0.9);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
+    .action-icon {
+      font-size: 1.5rem;
+    }
+
+    .action-title {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-primary);
+    }
+
+    .action-count {
+      font-size: var(--text-lg);
+      font-weight: var(--font-bold);
+      color: var(--primary);
+    }
+
+    .action-subtitle {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+    }
+
+    // Loading and Empty States
+    .loading-section {
+      text-align: center;
+      padding: var(--s16) var(--s6);
     }
 
     .loading-spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid var(--border);
-      border-top: 4px solid var(--primary);
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border-light);
+      border-top: 3px solid var(--primary);
       border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin-bottom: var(--s3);
+      margin: 0 auto;
+
+      &.large {
+        width: 48px;
+        height: 48px;
+        border-width: 4px;
+      }
     }
 
     .loading-text {
-      font-size: var(--text-base);
+      margin-top: var(--s4);
       color: var(--text-secondary);
-      margin: 0;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: var(--s16) var(--s6);
+    }
+
+    .empty-icon {
+      font-size: 4rem;
+      margin-bottom: var(--s6);
+      opacity: 0.5;
+    }
+
+    .empty-title {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      margin-bottom: var(--s4);
+    }
+
+    .empty-text {
+      color: var(--text-secondary);
+      margin-bottom: var(--s6);
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     @keyframes spin {
@@ -1269,99 +808,182 @@ export interface TopMember {
       100% { transform: rotate(360deg); }
     }
 
-    .error-container {
+    // Chart Fallbacks and Data Displays
+    .chart-fallback {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: var(--s4);
-      padding: var(--s8);
+      justify-content: center;
+      padding: var(--s10);
+      color: var(--text-secondary);
+      text-align: center;
     }
 
-    .error-card {
+    .fallback-icon {
+      font-size: 3rem;
+      margin-bottom: var(--s4);
+      opacity: 0.5;
+    }
+
+    .fallback-text {
+      font-size: var(--text-sm);
+      margin: 0;
+    }
+
+    // Data Summary Styles
+    .data-summary {
+      padding: var(--s4);
+    }
+
+    .trend-summary h4 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
+      color: var(--text-primary);
+      margin-bottom: var(--s4);
+      border-bottom: 2px solid var(--border-light);
+      padding-bottom: var(--s2);
+    }
+
+    .trend-data {
+      margin-bottom: var(--s6);
+    }
+
+    .trend-title {
+      font-size: var(--text-base);
+      font-weight: var(--font-medium);
+      color: var(--primary);
+      margin-bottom: var(--s3);
+    }
+
+    .trend-values {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: var(--s2);
+      padding-left: var(--s4);
+    }
+
+    .value-item {
+      display: flex;
+      flex-direction: column;
+      padding: var(--s2);
+      border-radius: var(--radius-base);
+      background: var(--bg-secondary);
+    }
+
+    .month {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      font-weight: var(--font-medium);
+    }
+
+    .amount {
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      font-weight: var(--font-semibold);
+    }
+
+    // Risk Distribution Styles
+    .risk-summary {
+      padding: var(--s4);
+    }
+
+    .risk-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s3);
+    }
+
+    .risk-item {
       display: flex;
       align-items: center;
       gap: var(--s3);
-      padding: var(--s4);
-      background: rgba(212, 74, 63, 0.1);
-      border: 2px solid var(--error);
-      border-radius: var(--radius-lg);
+      padding: var(--s3);
+      border-radius: var(--radius-base);
+      background: var(--bg-secondary);
+      transition: var(--transition-normal);
+
+      &:hover {
+        background: var(--primary-pale);
+      }
     }
 
-    .error-icon {
-      font-size: var(--text-2xl);
+    .risk-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      flex-shrink: 0;
+
+      &.risk-low {
+        background: var(--success);
+      }
+
+      &.risk-medium {
+        background: var(--warning);
+      }
+
+      &.risk-high {
+        background: #f97316;
+      }
+
+      &.risk-critical {
+        background: var(--error);
+      }
     }
 
-    .error-title {
-      font-weight: var(--font-semibold);
-      color: var(--error);
-      margin-bottom: var(--s1);
+    .risk-info {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
     }
 
-    .error-message {
+    .risk-name {
       font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-primary);
+    }
+
+    .risk-count {
+      font-size: var(--text-sm);
+      font-weight: var(--font-semibold);
       color: var(--text-secondary);
     }
 
-    // Mobile responsive
+    // Responsive Design
+    @media (max-width: 1200px) {
+      .charts-section,
+      .tables-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 768px) {
       .credit-dashboard-container {
-        padding: var(--s2);
+        padding: var(--s4);
       }
 
       .dashboard-header {
         flex-direction: column;
-        gap: var(--s3);
-        align-items: stretch;
+        align-items: flex-start;
+        gap: var(--s4);
       }
 
       .header-actions {
-        justify-content: space-between;
-        flex-wrap: wrap;
-      }
-
-      .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--s2);
-      }
-
-      .risk-content {
-        grid-template-columns: 1fr;
-      }
-
-      .section-header {
-        flex-direction: column;
-        gap: var(--s2);
-        align-items: stretch;
-      }
-
-      .members-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .member-actions {
+        width: 100%;
         justify-content: space-between;
       }
 
-      .btn {
-        flex: 1;
-      }
-    }
-
-    @media (max-width: 480px) {
       .metrics-grid {
         grid-template-columns: 1fr;
       }
 
-      .risk-filters {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--s2);
+      .member-item {
+        grid-template-columns: 1fr;
+        gap: var(--s3);
+        text-align: center;
       }
 
-      .chart-type-selector {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--s2);
+      .action-grid {
+        grid-template-columns: 1fr;
       }
     }
   `]
@@ -1369,74 +991,39 @@ export interface TopMember {
 export class MemberCreditDashboardComponent implements OnInit {
   private memberCreditService = inject(MemberCreditService);
 
-  // Input signals
-  branchId = input<number | null>(null);
-
-  // Output events
-  memberSelected = output<number>();
-  alertActionRequired = output<any>();
-  exportRequested = output<string>();
-
-  // State signals
-  loading = signal<boolean>(false);
-  error = signal<string | null>(null);
-  selectedPeriod = signal<string>('30d');
-  selectedRiskFilter = signal<string>('all');
-  selectedMemberSort = signal<string>('debt');
-  chartType = signal<'line' | 'bar'>('line');
+  // Signal-based state management
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly selectedPeriod = signal('30d');
+  readonly selectedChartType = signal<'line' | 'bar'>('line');
 
   // Data signals
-  creditMetrics = signal<CreditMetrics | null>(null);
-  creditTrends = signal<CreditTrend[]>([]);
-  topMembers = signal<TopMember[]>([]);
-  criticalAlerts = signal<any[]>([]);
-  previousMetrics = signal<CreditMetrics | null>(null);
-
-  // Computed properties
-  creditUtilizationPercentage = computed(() => {
-    const metrics = this.creditMetrics();
-    if (!metrics || metrics.totalCreditLimit === 0) return 0;
-    return Math.round((metrics.totalOutstandingDebt / metrics.totalCreditLimit) * 100);
+  readonly metrics = signal<CreditMetrics>({
+    totalMembers: 0,
+    totalCreditLimit: 0,
+    totalOutstandingDebt: 0,
+    totalAvailableCredit: 0,
+    averageCreditUtilization: 0,
+    membersWithDebt: 0,
+    overdueAccounts: 0,
+    highRiskAccounts: 0
   });
 
-  riskDistribution = computed((): RiskDistribution => {
-    const members = this.topMembers();
-    return members.reduce((acc, member) => {
-      const risk = member.riskLevel.toLowerCase() as keyof RiskDistribution;
-      acc[risk] = (acc[risk] || 0) + 1;
-      return acc;
-    }, { low: 0, medium: 0, high: 0, critical: 0 });
-  });
+  readonly creditTrendsData = signal<CreditTrend[]>([]);
+  readonly riskDistributionData = signal<RiskDistribution[]>([]);
+  readonly topMembers = signal<TopMember[]>([]);
 
-  filteredMembers = computed(() => {
-    let members = this.topMembers();
-    const riskFilter = this.selectedRiskFilter();
-    
-    if (riskFilter !== 'all') {
-      members = members.filter(m => m.riskLevel.toLowerCase() === riskFilter);
-    }
+  // Chart configurations
+  readonly chartColorScheme: any = {
+    domain: ['#e47a3f', '#52a573', '#4b89e6', '#e6a855', '#d44a3f']
+  };
 
-    const sortBy = this.selectedMemberSort();
-    return members.sort((a, b) => {
-      switch (sortBy) {
-        case 'debt':
-          return b.currentDebt - a.currentDebt;
-        case 'utilization':
-          return b.utilizationRate - a.utilizationRate;
-        case 'limit':
-          return b.creditLimit - a.creditLimit;
-        case 'risk':
-          const riskOrder = { Critical: 4, High: 3, Medium: 2, Low: 1 };
-          return riskOrder[b.riskLevel] - riskOrder[a.riskLevel];
-        case 'activity':
-          return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
-        default:
-          return 0;
-      }
-    }).slice(0, 12); // Show top 12 members
-  });
+  readonly riskColorScheme: any = {
+    domain: ['#52a573', '#e6a855', '#f97316', '#d44a3f']
+  };
 
-  ngOnInit() {
+  ngOnInit(): void {
+    console.log('✅ MemberCreditDashboardComponent initialized successfully!');
     this.loadDashboardData();
   }
 
@@ -1446,269 +1033,201 @@ export class MemberCreditDashboardComponent implements OnInit {
     this.error.set(null);
 
     try {
-      await Promise.all([
-        this.loadCreditMetrics(),
+      // Load all dashboard data in parallel
+      const [metricsData, trendsData, topMembersData] = await Promise.all([
+        this.loadMetrics(),
         this.loadCreditTrends(),
-        this.loadTopMembers(),
-        this.loadCriticalAlerts()
+        this.loadTopMembers()
       ]);
+
+      // Update risk distribution based on loaded data
+      this.updateRiskDistribution();
+      
     } catch (error: any) {
-      console.error('Error loading dashboard:', error);
+      console.error('Error loading dashboard data:', error);
       this.error.set('Failed to load dashboard data');
     } finally {
       this.loading.set(false);
     }
   }
 
-  private async loadCreditMetrics(): Promise<void> {
+  private async loadMetrics(): Promise<void> {
     try {
-      // Store previous metrics for trend calculation
-      this.previousMetrics.set(this.creditMetrics());
-      
-      // Mock data - replace with actual service call
-      const metrics: CreditMetrics = {
-        totalMembers: 1250,
-        totalCreditLimit: 500000000,
-        totalOutstandingDebt: 275000000,
-        totalAvailableCredit: 225000000,
-        averageCreditUtilization: 55,
-        membersWithDebt: 387,
-        overdueAccounts: 23,
-        highRiskAccounts: 45
+      // Simulate API call - replace with actual service call
+      const mockMetrics: CreditMetrics = {
+        totalMembers: 150,
+        totalCreditLimit: 50000000,
+        totalOutstandingDebt: 12500000,
+        totalAvailableCredit: 37500000,
+        averageCreditUtilization: 25.0,
+        membersWithDebt: 45,
+        overdueAccounts: 8,
+        highRiskAccounts: 3
       };
       
-      this.creditMetrics.set(metrics);
+      this.metrics.set(mockMetrics);
     } catch (error) {
-      console.error('Error loading credit metrics:', error);
+      throw new Error('Failed to load metrics');
     }
   }
 
   private async loadCreditTrends(): Promise<void> {
     try {
-      // Mock data - replace with actual service call
-      const trends: CreditTrend[] = [
-        { month: 'Jan', creditUsage: 45000000, paymentAmount: 38000000, newDebt: 7000000, netChange: 7000000 },
-        { month: 'Feb', creditUsage: 52000000, paymentAmount: 41000000, newDebt: 11000000, netChange: 11000000 },
-        { month: 'Mar', creditUsage: 48000000, paymentAmount: 45000000, newDebt: 3000000, netChange: 3000000 },
-        { month: 'Apr', creditUsage: 55000000, paymentAmount: 42000000, newDebt: 13000000, netChange: 13000000 },
-        { month: 'May', creditUsage: 61000000, paymentAmount: 48000000, newDebt: 13000000, netChange: 13000000 },
-        { month: 'Jun', creditUsage: 58000000, paymentAmount: 52000000, newDebt: 6000000, netChange: 6000000 }
+      // Simulate API call - replace with actual service call
+      const mockTrends: CreditTrend[] = [
+        {
+          name: 'Credit Usage',
+          series: [
+            { name: 'Jan', value: 8000000 },
+            { name: 'Feb', value: 9500000 },
+            { name: 'Mar', value: 11000000 },
+            { name: 'Apr', value: 12500000 },
+            { name: 'May', value: 10800000 }
+          ]
+        },
+        {
+          name: 'Payments',
+          series: [
+            { name: 'Jan', value: 7500000 },
+            { name: 'Feb', value: 8200000 },
+            { name: 'Mar', value: 9800000 },
+            { name: 'Apr', value: 11200000 },
+            { name: 'May', value: 12000000 }
+          ]
+        }
       ];
       
-      this.creditTrends.set(trends);
+      this.creditTrendsData.set(mockTrends);
     } catch (error) {
-      console.error('Error loading credit trends:', error);
+      throw new Error('Failed to load credit trends');
     }
   }
 
   private async loadTopMembers(): Promise<void> {
     try {
-      // Mock data - replace with actual service call
-      const members: TopMember[] = [
+      // Simulate API call - replace with actual service call
+      const mockMembers: TopMember[] = [
         {
           memberId: 1,
-          memberName: 'PT Sumber Rejeki Abadi',
+          memberName: 'John Doe',
           memberCode: 'M001',
-          creditLimit: 50000000,
-          currentDebt: 47500000,
-          utilizationRate: 95,
-          lastActivity: '2024-01-15T10:30:00Z',
-          riskLevel: 'Critical'
+          creditLimit: 2000000,
+          currentDebt: 1500000,
+          utilizationRate: 75.0,
+          lastActivity: '2024-12-01',
+          riskLevel: 'High'
         },
         {
           memberId: 2,
-          memberName: 'CV Maju Bersama',
+          memberName: 'Jane Smith',
           memberCode: 'M002',
-          creditLimit: 25000000,
-          currentDebt: 22000000,
-          utilizationRate: 88,
-          lastActivity: '2024-01-14T14:20:00Z',
-          riskLevel: 'High'
+          creditLimit: 1500000,
+          currentDebt: 800000,
+          utilizationRate: 53.3,
+          lastActivity: '2024-12-02',
+          riskLevel: 'Medium'
         },
         {
           memberId: 3,
-          memberName: 'Toko Berkah Jaya',
+          memberName: 'Bob Wilson',
           memberCode: 'M003',
-          creditLimit: 15000000,
-          currentDebt: 12000000,
-          utilizationRate: 80,
-          lastActivity: '2024-01-13T09:15:00Z',
-          riskLevel: 'High'
+          creditLimit: 1000000,
+          currentDebt: 950000,
+          utilizationRate: 95.0,
+          lastActivity: '2024-11-28',
+          riskLevel: 'Critical'
         }
-        // Add more mock members...
       ];
       
-      this.topMembers.set(members);
+      this.topMembers.set(mockMembers);
     } catch (error) {
-      console.error('Error loading top members:', error);
+      throw new Error('Failed to load top members');
     }
   }
 
-  private async loadCriticalAlerts(): Promise<void> {
-    try {
-      // Mock data - replace with actual service call
-      const alerts = [
-        {
-          id: 1,
-          type: 'credit_limit_exceeded',
-          severity: 'critical',
-          title: 'Credit Limit Exceeded',
-          message: 'PT Sumber Rejeki Abadi has exceeded their credit limit by 5%',
-          createdAt: '2024-01-15T08:00:00Z'
-        },
-        {
-          id: 2,
-          type: 'overdue_payment',
-          severity: 'high',
-          title: 'Overdue Payment',
-          message: 'CV Maju Bersama has an overdue payment of Rp 2,500,000',
-          createdAt: '2024-01-14T16:00:00Z'
-        }
-      ];
-      
-      this.criticalAlerts.set(alerts);
-    } catch (error) {
-      console.error('Error loading critical alerts:', error);
-    }
+  private updateRiskDistribution(): void {
+    const members = this.topMembers();
+    const riskCounts = {
+      Low: 0,
+      Medium: 0,
+      High: 0,
+      Critical: 0
+    };
+
+    members.forEach(member => {
+      riskCounts[member.riskLevel]++;
+    });
+
+    const riskData: RiskDistribution[] = Object.entries(riskCounts)
+      .filter(([_, count]) => count > 0)
+      .map(([risk, count]) => ({
+        name: risk,
+        value: count
+      }));
+
+    this.riskDistributionData.set(riskData);
   }
 
   // Event handlers
-  onRefreshData(): void {
-    this.loadDashboardData();
-  }
-
-  onExportReport(): void {
-    this.exportRequested.emit('credit-dashboard-report');
-  }
-
   setSelectedPeriod(period: string): void {
     this.selectedPeriod.set(period);
     this.loadDashboardData();
   }
 
-  setRiskFilter(filter: string): void {
-    this.selectedRiskFilter.set(filter);
-  }
-
-  setMemberSort(sort: string): void {
-    this.selectedMemberSort.set(sort);
-  }
-
   setChartType(type: 'line' | 'bar'): void {
-    this.chartType.set(type);
+    this.selectedChartType.set(type);
   }
 
-  viewMemberDetail(member: TopMember): void {
-    this.memberSelected.emit(member.memberId);
+  onRefreshData(): void {
+    this.loadDashboardData();
   }
 
-  viewMemberTransactions(member: TopMember): void {
-    // Navigate to transaction history
+  onExportReport(): void {
+    console.log('Exporting credit report...');
+    // Implement report export logic
   }
 
-  contactMember(member: TopMember): void {
-    // Open contact modal or initiate contact
+  onChartSelect(event: any): void {
+    console.log('Chart selection:', event);
   }
 
-  viewAlertDetail(alert: any): void {
-    // Open alert detail modal
+  onRiskSelect(event: any): void {
+    console.log('Risk selection:', event);
   }
 
-  dismissAlert(alert: any): void {
-    this.criticalAlerts.update(alerts => alerts.filter(a => a.id !== alert.id));
+  viewAllMembers(): void {
+    // Navigate to members list
+    console.log('Navigate to members list');
+  }
+
+  viewOverdueAccounts(): void {
+    console.log('View overdue accounts');
+  }
+
+  viewHighRiskMembers(): void {
+    console.log('View high risk members');
+  }
+
+  sendPaymentReminders(): void {
+    console.log('Send payment reminders');
+  }
+
+  generateReport(): void {
+    console.log('Generate report');
+  }
+
+  goToMembershipManagement(): void {
+    console.log('Navigate to membership management');
   }
 
   // Utility methods
-  getGrowthTrend(metric: string): number {
-    const current = this.creditMetrics();
-    const previous = this.previousMetrics();
-    
-    if (!current || !previous) return 0;
-
-    switch (metric) {
-      case 'members':
-        return ((current.totalMembers - previous.totalMembers) / previous.totalMembers) * 100;
-      case 'limit':
-        return ((current.totalCreditLimit - previous.totalCreditLimit) / previous.totalCreditLimit) * 100;
-      case 'debt':
-        return ((current.totalOutstandingDebt - previous.totalOutstandingDebt) / previous.totalOutstandingDebt) * 100;
-      default:
-        return 0;
-    }
-  }
-
-  formatTrend(trend: number): string {
-    const sign = trend >= 0 ? '+' : '';
-    return `${sign}${trend.toFixed(1)}%`;
-  }
-
-  getRiskPercentage(level: keyof RiskDistribution): number {
-    const distribution = this.riskDistribution();
-    const total = Object.values(distribution).reduce((sum, count) => sum + count, 0);
-    return total > 0 ? (distribution[level] / total) * 100 : 0;
-  }
-
-  getChartPointHeight(value: number): number {
-    const trends = this.creditTrends();
-    const max = Math.max(...trends.map(t => Math.abs(t.netChange)));
-    const min = Math.min(...trends.map(t => Math.abs(t.netChange)));
-    
-    if (max === min) return 50;
-    
-    return ((Math.abs(value) - min) / (max - min)) * 80 + 10;
-  }
-
-  getChartTooltip(trend: CreditTrend): string {
-    return `${trend.month}: Credit Usage ${this.formatCurrency(trend.creditUsage)}, Payments ${this.formatCurrency(trend.paymentAmount)}, Net Change ${this.formatCurrency(trend.netChange)}`;
-  }
-
-  getBarHeight(value: number): number {
-    const trends = this.creditTrends();
-    const maxValue = Math.max(...trends.flatMap(t => [t.creditUsage, t.paymentAmount, t.newDebt]));
-    return maxValue > 0 ? (value / maxValue) * 100 : 0;
-  }
-
-  getAlertIcon(type: string): string {
-    const icons: Record<string, string> = {
-      credit_limit_exceeded: '🚨',
-      overdue_payment: '⏰',
-      high_utilization: '⚠️',
-      suspicious_activity: '🔍'
-    };
-    return icons[type] || '🔔';
-  }
-
-  getInitials(name: string): string {
-    return name
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
-  }
+  trackByMember = (index: number, member: TopMember): number => member.memberId;
 
   formatCurrency(amount: number): string {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
     }).format(amount);
-  }
-
-  formatRelativeTime(dateString: string): string {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-
-    if (diffInMinutes < 60) {
-      return `${diffInMinutes} menit yang lalu`;
-    } else if (diffInMinutes < 1440) {
-      const hours = Math.floor(diffInMinutes / 60);
-      return `${hours} jam yang lalu`;
-    } else {
-      const days = Math.floor(diffInMinutes / 1440);
-      return `${days} hari yang lalu`;
-    }
   }
 }

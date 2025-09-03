@@ -112,6 +112,13 @@ export const routes: Routes = [
               import('./modules/membership/components/membership-analytics/membership-analytics.component').then(
                 (m) => m.MembershipAnalyticsComponent
               ),
+          },
+          {
+            path: 'credit-dashboard',
+            loadComponent: () =>
+              import('./modules/membership/components/member-credit-dashboard/member-credit-dashboard.component').then(
+                (m) => m.MemberCreditDashboardComponent
+              ),
           }
         ],
         canActivate: [roleGuard],

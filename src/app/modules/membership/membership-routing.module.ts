@@ -67,6 +67,16 @@ const routes: Routes = [
     }
   },
   {
+    path: 'credit-dashboard',
+    loadComponent: () => import('./components/member-credit-dashboard/member-credit-dashboard.component').then(c => c.MemberCreditDashboardComponent),
+    canActivate: [roleGuard],
+    data: {
+      title: 'Member Credit Dashboard',
+      breadcrumb: 'Credit Dashboard',
+      requiredRoles: ['Admin', 'Manager', 'User']
+    }
+  },
+  {
     path: 'list',
     redirectTo: '',
     pathMatch: 'full'

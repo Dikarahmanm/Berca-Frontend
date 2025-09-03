@@ -39,22 +39,24 @@ export class CategoryService {
     this.setLoading(true);
     this.clearError();
 
+    // ✅ FIXED: Use correct parameter names matching API documentation
     let params = new HttpParams()
-      .set('page', filter.page.toString())
-      .set('pageSize', filter.pageSize.toString())
-      .set('sortBy', filter.sortBy)
-      .set('sortOrder', filter.sortOrder);
+      .set('Page', filter.page.toString())
+      .set('PageSize', filter.pageSize.toString())
+      .set('SortBy', filter.sortBy)
+      .set('SortOrder', filter.sortOrder);
 
     if (filter.searchTerm?.trim()) {
-      params = params.set('searchTerm', filter.searchTerm.trim());
+      params = params.set('SearchTerm', filter.searchTerm.trim());
     }
 
     if (filter.color?.trim()) {
-      params = params.set('color', filter.color.trim());
+      params = params.set('Color', filter.color.trim());
     }
 
     console.log('🔄 Fetching categories from:', this.apiUrl);
     console.log('📊 Filter params:', filter);
+    console.log('📤 HTTP params:', params.toString());
 
     // ✅ FIX: Add withCredentials for cookie authentication
     return this.http.get<any>(this.apiUrl, { 
@@ -64,7 +66,20 @@ export class CategoryService {
       map(response => {
         console.log('📥 Raw API response:', response);
         
-        // Handle both direct array response and wrapped response
+        // ✅ FIXED: Handle the actual API response structure based on documentation
+        // The API returns: { categories: [...], totalCount: 44, page: 1, pageSize: 10, totalPages: 5 }
+        if (response && response.categories && Array.isArray(response.categories)) {
+          console.log('📋 Standard API response structure detected');
+          return {
+            categories: response.categories,
+            totalCount: response.totalCount || 0,
+            page: response.page || filter.page,
+            pageSize: response.pageSize || filter.pageSize,
+            totalPages: response.totalPages || Math.ceil((response.totalCount || response.categories.length) / (response.pageSize || filter.pageSize))
+          } as CategoryListResponse;
+        }
+        
+        // Handle direct array response (fallback)
         if (Array.isArray(response)) {
           console.log('📋 Direct array response detected');
           return {
@@ -88,9 +103,15 @@ export class CategoryService {
           } as CategoryListResponse;
         }
         
-        // Handle standard response structure
-        console.log('📋 Standard response structure');
-        return response as CategoryListResponse;
+        // Default fallback
+        console.warn('⚠️ Unknown response structure:', response);
+        return {
+          categories: [],
+          totalCount: 0,
+          page: 1,
+          pageSize: filter.pageSize,
+          totalPages: 0
+        } as CategoryListResponse;
       }),
       tap(response => {
         console.log('✅ Processed categories response:', response);

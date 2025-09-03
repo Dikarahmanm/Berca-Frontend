@@ -333,7 +333,78 @@
         <!-- Pagination -->
         <div class="pagination-container">
             <div class="pagination-info">
-                <span class="results-text">Showing {{ categories.length }} categories</span>
+                <span class="results-text">
+                    Showing {{ startItem }}-{{ endItem }} of {{ totalCategories }} categories
+                    <span *ngIf="totalPages > 1">(Page {{ currentPage }} of {{ totalPages }})</span>
+                </span>
+            </div>
+
+            <!-- Pagination Controls -->
+            <div class="pagination-controls" *ngIf="totalPages > 1">
+                
+                <!-- Previous/First buttons -->
+                <div class="pagination-nav">
+                    <button type="button" class="pagination-btn" 
+                            [disabled]="!canGoToPrevious" 
+                            (click)="goToFirstPage()"
+                            title="First page">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18 7l-1.41-1.41L10 12l6.59 6.59L18 17l-5-5 5-5zM6 6h2v12H6z"/>
+                        </svg>
+                    </button>
+                    
+                    <button type="button" class="pagination-btn" 
+                            [disabled]="!canGoToPrevious" 
+                            (click)="goToPreviousPage()"
+                            title="Previous page">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Page numbers -->
+                <div class="pagination-numbers">
+                    <button type="button" class="page-number-btn"
+                            [class.active]="currentPage === pageNum"
+                            (click)="goToPage(pageNum)"
+                            *ngFor="let pageNum of pageNumbers">
+                        {{ pageNum }}
+                    </button>
+                </div>
+
+                <!-- Next/Last buttons -->
+                <div class="pagination-nav">
+                    <button type="button" class="pagination-btn" 
+                            [disabled]="!canGoToNext" 
+                            (click)="goToNextPage()"
+                            title="Next page">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8.59 16.59L13.17 12L8.59 7.41L10 6l6 6-6 6-1.41-1.41z"/>
+                        </svg>
+                    </button>
+                    
+                    <button type="button" class="pagination-btn" 
+                            [disabled]="!canGoToNext" 
+                            (click)="goToLastPage()"
+                            title="Last page">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 7l1.41-1.41L14 12l-6.59 6.59L6 17l5-5-5-5zM18 6h-2v12h2z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Page size selector -->
+            <div class="page-size-selector">
+                <label for="pageSize" class="page-size-label">Items per page:</label>
+                <select id="pageSize" class="page-size-select" 
+                        [value]="pageSize" 
+                        (change)="onPageSizeChange($event)">
+                    <option *ngFor="let size of pageSizeOptions" [value]="size">
+                        {{ size }}
+                    </option>
+                </select>
             </div>
         </div>
 

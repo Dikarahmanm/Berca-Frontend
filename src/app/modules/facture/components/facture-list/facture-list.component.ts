@@ -588,7 +588,7 @@ export class FactureListComponent implements OnInit, OnDestroy {
     this._currentQuery.update(query => ({
       ...query,
       search: formValue.search || undefined,
-      status: formValue.status ? parseInt(formValue.status) : undefined,
+      status: formValue.status || undefined,
       priority: formValue.priority ? parseInt(formValue.priority) : undefined,
       page: 1
     }));

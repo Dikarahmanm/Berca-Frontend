@@ -293,6 +293,18 @@ export interface SupplierSummaryDto {
 
         <!-- Grid View -->
         <div *ngIf="viewMode() === 'grid'" class="suppliers-grid">
+          <!-- Debug Info -->
+          <div class="debug-info" style="background: #f0f0f0; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc;">
+            <h4>🐛 Debug Information:</h4>
+            <p>Total Count: {{ totalCount() }}</p>
+            <p>Suppliers Length: {{ suppliers().length }}</p>
+            <p>Paginated Suppliers Length: {{ paginatedSuppliers().length }}</p>
+            <p>Loading: {{ supplierService.loading() }}</p>
+            <p>Error: {{ supplierService.error() || 'None' }}</p>
+            <p>View Mode: {{ viewMode() }}</p>
+            <p>Show Filters: {{ showFilters() }}</p>
+          </div>
+          
           <div *ngFor="let supplier of paginatedSuppliers(); trackBy: trackBySupplier" 
                class="supplier-card">
             <div class="card-header">
@@ -713,7 +725,18 @@ export class SupplierListComponent implements OnInit, OnDestroy {
     Math.ceil(this.totalCount() / this.currentQuery().pageSize)
   );
 
-  readonly paginatedSuppliers = computed(() => this.suppliers());
+  readonly paginatedSuppliers = computed(() => {
+    const suppliers = this.suppliers();
+    console.log('📊 Computed paginatedSuppliers:', {
+      suppliersLength: suppliers.length,
+      supplierSample: suppliers.slice(0, 2).map(s => ({ id: s.id, name: s.companyName })),
+      totalCount: this.totalCount()
+    });
+    
+    // For now, return all suppliers (pagination is handled by backend)
+    // In the future, you might want client-side pagination here
+    return suppliers;
+  });
 
   readonly getActiveCount = computed(() => 
     this.suppliers().filter(s => s.isActive).length
@@ -784,10 +807,29 @@ export class SupplierListComponent implements OnInit, OnDestroy {
     
     this.supplierService.getSuppliers(this.currentQuery()).subscribe({
       next: (response: SupplierPagedResponseDto) => {
-        this._suppliers.set(response.suppliers);
-        this._totalCount.set(response.totalCount);
+        console.log('📊 Component received response:', response);
+        console.log('📊 Response structure in component:', {
+          hasSuppliers: 'suppliers' in response,
+          suppliersLength: response.suppliers ? response.suppliers.length : 'No suppliers',
+          hasTotalCount: 'totalCount' in response,
+          totalCount: response.totalCount,
+          responseKeys: Object.keys(response)
+        });
+        
+        // Set the data
+        const suppliers = response.suppliers || [];
+        const totalCount = response.totalCount || 0;
+        
+        this._suppliers.set(suppliers);
+        this._totalCount.set(totalCount);
+        
+        console.log('✅ Component state updated:', {
+          suppliersSet: suppliers.length,
+          totalCountSet: totalCount
+        });
       },
       error: (error) => {
+        console.error('❌ Component error:', error);
         this.toastService.showError('Error', `Failed to load suppliers: ${error.message}`);
       }
     });
@@ -995,7 +1037,7 @@ export class SupplierListComponent implements OnInit, OnDestroy {
           if (response.success) {
             this._supplierFactures.set(response.data || []);
           } else {
-            console.warn('Factures API returned unsuccessful response:', response.message);
+            console.warn('Factures API returned unsuccessful response:', response);
             this._supplierFactures.set([]);
           }
           this._loadingFactures.set(false);

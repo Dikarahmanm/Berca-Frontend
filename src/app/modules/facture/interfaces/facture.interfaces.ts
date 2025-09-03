@@ -359,16 +359,13 @@ export interface FactureQueryParams {
   search?: string;
   supplierId?: number;
   branchId?: number;
-  status?: FactureStatus | FactureStatus[];
+  branchIds?: number[]; // Support for multiple branches
+  status?: string | string[]; // Backend expects string, not enum
   priority?: FacturePriority;
   
-  // Date filters
-  invoiceDateFrom?: Date;
-  invoiceDateTo?: Date;
-  dueDateFrom?: Date;
-  dueDateTo?: Date;
-  receivedDateFrom?: Date;
-  receivedDateTo?: Date;
+  // Date filters (simplified to match backend API)
+  fromDate?: Date;
+  toDate?: Date;
   
   // Amount filters
   minAmount?: number;

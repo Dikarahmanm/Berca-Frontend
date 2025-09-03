@@ -35,8 +35,36 @@ import { environment } from '../../../../../environment/environment';
         <p class="text-secondary mt-2">Loading facture details...</p>
       </div>
 
+      <!-- Debug Info -->
+      <div *ngIf="!loading() && !facture()" class="debug-info">
+        <h4>Debug Information</h4>
+        <p>Facture ID: {{ route.snapshot.params['id'] }}</p>
+        <p>Facture Data: {{ facture() ? 'Loaded' : 'Not Loaded' }}</p>
+        <p>Loading State: {{ loading() }}</p>
+        <p>Error State: {{ error() || 'No Error' }}</p>
+        <p>Backend Status: {{ backendStatus() }}</p>
+        <p>API URL: {{ getApiUrl() }}</p>
+        <div class="error-actions">
+          <button class="btn btn-primary" (click)="loadFacture()">Retry Loading</button>
+          <button class="btn btn-outline" (click)="testBackendConnection()">Test Connection</button>
+        </div>
+      </div>
+
       <!-- Facture Detail -->
       <div *ngIf="facture() && !loading()" class="facture-detail">
+        
+        <!-- Debug: Data loaded successfully -->
+        <div class="debug-info" style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; margin-bottom: 20px;">
+          <h4>✅ Facture Data Loaded Successfully</h4>
+          <p>ID: {{ facture()!.id }}</p>
+          <p>Supplier: {{ facture()!.supplierName || 'N/A' }}</p>
+          <p>Invoice Number: {{ facture()!.supplierInvoiceNumber || 'N/A' }}</p>
+          <p>Status: {{ facture()!.statusDisplay || facture()!.status || 'N/A' }}</p>
+          <p>Total Amount: {{ facture()!.totalAmountDisplay || 'N/A' }}</p>
+          <p>Items Count: {{ itemsCount() }}</p>
+          <p>Can Verify: {{ facture()!.canVerify ? 'Yes' : 'No' }}</p>
+          <p>Can Approve: {{ facture()!.canApprove ? 'Yes' : 'No' }}</p>
+        </div>
         
         <!-- Header -->
         <div class="detail-header">
@@ -1305,45 +1333,80 @@ export class FactureDetailComponent implements OnInit, OnDestroy {
   loadFacture(id?: number): void {
     const factureId = id || parseInt(this.route.snapshot.params['id']);
     
-    if (!factureId) {
-      this.error.set('Invalid facture ID');
+    console.log('🔄 loadFacture called with:', { 
+      providedId: id, 
+      routeParamId: this.route.snapshot.params['id'], 
+      finalFactureId: factureId 
+    });
+    
+    if (!factureId || isNaN(factureId)) {
+      console.error('❌ Invalid facture ID:', factureId);
+      this.error.set('Invalid facture ID provided');
       return;
     }
 
+    console.log('🔄 Starting to load facture ID:', factureId);
     this.loading.set(true);
     this.error.set(null);
-
-    // Test backend connectivity first
-    this.testBackendConnection();
+    this.facture.set(null); // Clear previous data
 
     this.factureService.getFactureById(factureId).subscribe({
       next: (facture) => {
-        console.log('📥 Facture loaded:', {
-          id: facture.id,
-          status: facture.status,
-          statusDisplay: facture.statusDisplay,
-          totalAmount: facture.totalAmount,
-          paidAmount: facture.paidAmount,
-          outstandingAmount: facture.outstandingAmount,
-          paymentsCount: facture.payments?.length || 0,
-          payments: facture.payments
+        console.log('📥 FactureDetailComponent - Raw facture response received:', facture);
+        console.log('📊 Facture data structure:', {
+          id: facture?.id,
+          supplierName: facture?.supplierName,
+          supplierInvoiceNumber: facture?.supplierInvoiceNumber,
+          status: facture?.status,
+          statusDisplay: facture?.statusDisplay,
+          totalAmount: facture?.totalAmount,
+          totalAmountDisplay: facture?.totalAmountDisplay,
+          paidAmount: facture?.paidAmount,
+          outstandingAmount: facture?.outstandingAmount,
+          itemsCount: facture?.items?.length || 0,
+          paymentsCount: facture?.payments?.length || 0,
+          canVerify: facture?.canVerify,
+          canApprove: facture?.canApprove,
+          canSchedulePayment: facture?.canSchedulePayment,
+          canReceivePayment: facture?.canReceivePayment
         });
+
+        if (!facture || !facture.id) {
+          console.error('❌ Invalid facture data received:', facture);
+          this.error.set('Invalid facture data received from server');
+          this.loading.set(false);
+          return;
+        }
+
+        console.log('✅ Setting facture data in signal...');
         this.facture.set(facture);
         this.loading.set(false);
         this.backendStatus.set('connected');
+        
+        console.log('✅ Facture loaded successfully! Current facture signal value:', this.facture());
       },
       error: (error) => {
-        console.error('Failed to load facture:', error);
+        console.error('❌ Failed to load facture:', error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          status: error.status,
+          statusText: error.statusText,
+          url: error.url,
+          name: error.name
+        });
         
         // Enhanced error message based on error type
-        if (error.message.includes('Authentication required') || error.message.includes('401')) {
+        if (error.status === 401) {
           this.error.set('Authentication required. Please log in first to access facture details.');
           this.backendStatus.set('requires_auth');
-        } else if (error.message.includes('Cannot connect')) {
-          this.error.set('Cannot connect to backend server. Please ensure the backend is running.');
+        } else if (error.status === 404) {
+          this.error.set(`Facture with ID ${factureId} not found.`);
+          this.backendStatus.set('error');
+        } else if (error.status === 0) {
+          this.error.set('Cannot connect to backend server. Please ensure the backend is running on localhost:5171.');
           this.backendStatus.set('disconnected');
         } else {
-          this.error.set(`Failed to load facture details: ${error.message}`);
+          this.error.set(`Failed to load facture details: ${error.message || 'Unknown error occurred'}`);
           this.backendStatus.set('error');
         }
         

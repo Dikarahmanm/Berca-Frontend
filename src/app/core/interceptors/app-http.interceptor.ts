@@ -9,14 +9,22 @@ let isRefreshing = false;
 const refreshTokenSubject = new BehaviorSubject<string | null>(null);
 
 export const appHttpInterceptor: HttpInterceptorFn = (req, next) => {
-  const authService = inject(AuthService);
+  // Avoid circular dependency - don't inject AuthService for auth-related endpoints
+  const isAuthEndpoint = req.url.includes('/auth/') || req.url.includes('/auth/me');
+  
+  const authService = !isAuthEndpoint ? inject(AuthService) : null;
   const snackBar = inject(MatSnackBar);
 
   const finalReq = addCommonHeaders(req);
 
   return next(finalReq).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 401) {
+      // Skip auth handling for auth endpoints to avoid circular dependency
+      if (isAuthEndpoint) {
+        return throwError(() => error);
+      }
+      
+      if (error.status === 401 && authService) {
         if (isRefreshing) {
           return refreshTokenSubject.pipe(
             filter(token => token !== null),

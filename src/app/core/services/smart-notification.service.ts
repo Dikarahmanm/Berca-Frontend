@@ -103,8 +103,8 @@ export interface IntelligentRecommendation {
 })
 export class SmartNotificationService {
   private readonly http = inject(HttpClient);
-  // ✅ Use relative URL for proxy routing
-  private readonly baseUrl = '/api/SmartNotification';
+  // ✅ Use correct backend endpoint from environment configuration
+  private readonly baseUrl = `${environment.apiUrl}${environment.endpoints.notifications}`;
 
   // Signal-based state management
   private _notifications = signal<ExpiryNotification[]>([]);
@@ -218,7 +218,7 @@ export class SmartNotificationService {
       
       // Real API call (backend ready)
       const response = await this.http.get<ApiResponse<ExpiryNotification[]>>(
-        `${this.baseUrl}/notifications`
+        this.baseUrl
       ).toPromise();
 
       if (response?.success && response.data) {
@@ -248,7 +248,7 @@ export class SmartNotificationService {
       
       // Real API call (backend ready)
       const response = await this.http.post<ApiResponse<ExpiryNotification>>(
-        `${this.baseUrl}/create`,
+        this.baseUrl,
         notification
       ).toPromise();
 
@@ -764,7 +764,7 @@ export class SmartNotificationService {
 
   async markAsRead(notificationId: number): Promise<void> {
     try {
-      await this.http.patch(`${this.baseUrl}/${notificationId}/read`, {}).toPromise();
+      await this.http.patch(`${environment.apiUrl}${environment.endpoints.markAsRead.replace('{id}', notificationId.toString())}`, {}).toPromise();
       
       this._notifications.update(notifications =>
         notifications.map(n => n.id === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n)
@@ -776,7 +776,7 @@ export class SmartNotificationService {
 
   async markAllAsRead(): Promise<void> {
     try {
-      await this.http.patch(`${this.baseUrl}/read-all`, {}).toPromise();
+      await this.http.patch(`${environment.apiUrl}${environment.endpoints.markAllAsRead}`, {}).toPromise();
       
       this._notifications.update(notifications =>
         notifications.map(n => ({ ...n, isRead: true, readAt: new Date().toISOString() }))

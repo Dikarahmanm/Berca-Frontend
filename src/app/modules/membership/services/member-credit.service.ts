@@ -18,6 +18,10 @@ import {
   // POS Integration Interfaces
   POSMemberCreditDto,
   CreditValidationRequestDto,
+  
+  // Analytics Interfaces
+  TierAnalysisDto,
+  TopCreditUser,
   CreditValidationResultDto,
   CreateSaleWithCreditDto,
   POSCreditInfoDto,
@@ -283,8 +287,8 @@ export class MemberCreditService {
    */
   getOverdueMembers(branchId?: number): Observable<OverdueMemberDto[]> {
     const params = branchId ? new HttpParams().set('branchId', branchId.toString()) : undefined;
-    return this.http.get<CreditApiResponse<OverdueMemberDto[]>>(`${this.baseUrl}/MemberCredit/collections/overdue`, { params })
-      .pipe(map(res => res.data), catchError(this.handleError));
+    return this.http.get<OverdueMemberDto[]>(`${this.baseUrl}/MemberCredit/collections/overdue`, { params })
+      .pipe(catchError(this.handleError));
   }
 
   /**
@@ -293,8 +297,8 @@ export class MemberCreditService {
    */
   getApproachingLimitMembers(branchId?: number): Observable<ApproachingLimitMemberDto[]> {
     const params = branchId ? new HttpParams().set('branchId', branchId.toString()) : undefined;
-    return this.http.get<CreditApiResponse<ApproachingLimitMemberDto[]>>(`${this.baseUrl}/MemberCredit/collections/approaching-limit`, { params })
-      .pipe(map(res => res.data), catchError(this.handleError));
+    return this.http.get<ApproachingLimitMemberDto[]>(`${this.baseUrl}/MemberCredit/collections/approaching-limit`, { params })
+      .pipe(catchError(this.handleError));
   }
 
   /**
@@ -308,13 +312,76 @@ export class MemberCreditService {
     if (endDate) params = params.set('endDate', endDate);
 
     this._loading.set(true);
-    return this.http.get<CreditApiResponse<CreditAnalyticsDto>>(`${this.baseUrl}/MemberCredit/analytics`, { params })
+    return this.http.get<CreditAnalyticsDto>(`${this.baseUrl}/MemberCredit/analytics`, { params })
       .pipe(
-        map(res => res.data),
         tap(analytics => this._creditAnalytics.set(analytics)),
         tap(() => this._loading.set(false)),
         catchError(this.handleError)
       );
+  }
+
+  /**
+   * Get Top Credit Users based on tierAnalysis from analytics
+   * Processes analytics data to extract and rank top credit users
+   */
+  getTopCreditUsers(): Observable<TopCreditUser[]> {
+    return this.getCreditAnalytics().pipe(
+      map((analytics: any) => {
+        console.log('🏆 Processing analytics for top credit users:', analytics);
+        
+        let analyticsData = analytics;
+        if (analytics.data) {
+          analyticsData = analytics.data; // Wrapped response
+        }
+
+        if (analyticsData?.tierAnalysis && Array.isArray(analyticsData.tierAnalysis)) {
+          return analyticsData.tierAnalysis
+            .sort((a: TierAnalysisDto, b: TierAnalysisDto) => b.averageCreditLimit - a.averageCreditLimit)
+            .map((tier: TierAnalysisDto, index: number) => ({
+              rank: index + 1,
+              memberId: tier.tier, // Use tier as memberId for display
+              memberName: `${tier.tierName} Members`, // Generic name for tier
+              memberNumber: `TIER-${tier.tier}`,
+              tier: tier.tierName,
+              creditLimit: tier.averageCreditLimit,
+              currentDebt: tier.averageDebt,
+              creditUtilization: tier.averageUtilization,
+              creditScore: tier.averageCreditScore,
+              totalTransactions: tier.memberCount, // Use member count as transactions
+              paymentSuccessRate: Math.max(0, 100 - tier.overdueRate), // Calculate from overdue rate
+              formattedCreditLimit: this.formatCurrency(tier.averageCreditLimit),
+              formattedCurrentDebt: this.formatCurrency(tier.averageDebt),
+              riskLevel: this.calculateRiskLevel(tier)
+            } as TopCreditUser));
+        } else {
+          console.warn('⚠️ No tierAnalysis data available for top credit users');
+          return [];
+        }
+      }),
+      catchError((error) => {
+        console.error('❌ Failed to get top credit users:', error);
+        return [];
+      })
+    );
+  }
+
+  /**
+   * Calculate risk level based on tier analysis data
+   */
+  private calculateRiskLevel(tier: TierAnalysisDto): 'Low' | 'Medium' | 'High' | 'Critical' {
+    const utilization = tier.averageUtilization;
+    const overdueRate = tier.overdueRate;
+    const creditScore = tier.averageCreditScore;
+
+    if (overdueRate > 20 || utilization > 90 || creditScore < 600) {
+      return 'Critical';
+    } else if (overdueRate > 10 || utilization > 80 || creditScore < 700) {
+      return 'High';
+    } else if (overdueRate > 5 || utilization > 70 || creditScore < 750) {
+      return 'Medium';
+    } else {
+      return 'Low';
+    }
   }
 
   /**

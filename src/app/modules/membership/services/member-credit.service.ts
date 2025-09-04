@@ -591,7 +591,38 @@ export class MemberCreditService {
             validationData = res;
           }
           
-          console.log('MemberCreditService: Final validation data:', validationData);
+          console.log('MemberCreditService: Final validation data before normalization:', validationData);
+          
+          // Normalize validation data - fix inconsistent overdue validation
+          if (validationData && request) {
+            // Get member credit info to check current debt
+            this.getMemberCreditForPOS(request.memberId.toString()).subscribe({
+              next: (memberCredit) => {
+                if (memberCredit && memberCredit.currentDebt === 0 && !validationData.isApproved) {
+                  // Check if rejection is only due to overdue payments
+                  const hasOnlyOverdueErrors = validationData.errors?.every((error: string) => 
+                    error.toLowerCase().includes('overdue')
+                  ) ?? false;
+                  
+                  if (hasOnlyOverdueErrors) {
+                    console.log('🔧 MemberCreditService: Fixing validation for member with zero debt');
+                    validationData.isApproved = true;
+                    validationData.errors = validationData.errors?.filter((error: string) => 
+                      !error.toLowerCase().includes('overdue')
+                    ) || [];
+                    validationData.warnings = validationData.warnings?.filter((warning: string) => 
+                      !warning.toLowerCase().includes('overdue')
+                    ) || [];
+                    validationData.decisionReason = 'Approved - Member has no outstanding debt';
+                  }
+                }
+              },
+              error: (error) => {
+                console.warn('Could not get member credit for validation normalization:', error);
+              }
+            });
+          }
+          
           return validationData;
         }),
         catchError(this.handleError)
@@ -671,7 +702,30 @@ export class MemberCreditService {
             memberCreditData = null;
           }
           
-          console.log('MemberCreditService: Final member credit data:', memberCreditData);
+          console.log('MemberCreditService: Final member credit data before normalization:', memberCreditData);
+          
+          // Normalize member credit data - fix inconsistent overdue status
+          if (memberCreditData) {
+            // If member has no debt but backend says has overdue payments, fix it
+            if (memberCreditData.currentDebt === 0 && memberCreditData.hasOverduePayments) {
+              console.log('🔧 MemberCreditService: Fixing inconsistent overdue status for member with zero debt');
+              memberCreditData.hasOverduePayments = false;
+              memberCreditData.warnings = memberCreditData.warnings?.filter((w: string) => 
+                !w.toLowerCase().includes('overdue')
+              ) || [];
+              
+              // Update credit status if it was Bad only due to overdue payments
+              if (memberCreditData.creditStatus === 'Bad' && memberCreditData.currentDebt === 0) {
+                memberCreditData.creditStatus = 'Good';
+                memberCreditData.canUseCredit = true;
+                memberCreditData.statusColor = 'Green';
+                memberCreditData.statusMessage = 'No outstanding debt';
+              }
+            }
+            
+            console.log('MemberCreditService: Final normalized member credit data:', memberCreditData);
+          }
+          
           return memberCreditData;
         }),
         catchError((error) => {

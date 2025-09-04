@@ -72,24 +72,26 @@ export function calculateCreditScore(
 
 /**
  * Determine credit status based on utilization and overdue days
+ * Fix: Only consider overdue if member has actual debt
  */
 export function determineCreditStatus(
   creditUtilization: number,
   daysOverdue: number,
-  paymentSuccessRate: number
+  paymentSuccessRate: number,
+  currentDebt: number = 0
 ): CreditStatus {
   // Blocked conditions
-  if (daysOverdue > 90 || paymentSuccessRate < 50) {
+  if ((daysOverdue > 90 && currentDebt > 0) || paymentSuccessRate < 50) {
     return CreditStatus.BLOCKED;
   }
 
-  // Bad conditions
-  if (daysOverdue > 30 || creditUtilization > 95 || paymentSuccessRate < 70) {
+  // Bad conditions - only if there's actual debt
+  if ((daysOverdue > 30 && currentDebt > 0) || creditUtilization > 95 || paymentSuccessRate < 70) {
     return CreditStatus.BAD;
   }
 
-  // Warning conditions
-  if (daysOverdue > 0 || creditUtilization > 80 || paymentSuccessRate < 85) {
+  // Warning conditions - only if there's actual debt for overdue check
+  if ((daysOverdue > 0 && currentDebt > 0) || creditUtilization > 80 || paymentSuccessRate < 85) {
     return CreditStatus.WARNING;
   }
 
@@ -245,8 +247,9 @@ export function validateCreditTransaction(
     errors.push(`Insufficient credit limit. Available: ${formatCurrency(member.availableCredit)}`);
   }
 
-  // Overdue payment check
-  if (member.daysOverdue > 0) {
+  // Overdue payment check - Only if member actually has debt
+  // Fix: Ignore overdue status if currentDebt is 0 (already paid off)
+  if (member.daysOverdue > 0 && member.currentDebt > 0) {
     if (member.daysOverdue > 30) {
       errors.push(`Member has overdue payment for ${member.daysOverdue} days`);
     } else {
@@ -518,6 +521,7 @@ export function generatePaymentReminderMessage(
 
 /**
  * Check if member qualifies for credit limit increase
+ * Fix: Only check overdue if member has actual debt
  */
 export function checkCreditLimitIncreaseEligibility(
   member: MemberCreditSummaryDto,
@@ -530,7 +534,8 @@ export function checkCreditLimitIncreaseEligibility(
     return { eligible: false, reason: 'Credit status must be Good or Warning' };
   }
 
-  if (member.daysOverdue > 0) {
+  // Fix: Only check overdue if member has actual debt
+  if (member.daysOverdue > 0 && member.currentDebt > 0) {
     return { eligible: false, reason: 'Member has overdue payments' };
   }
 

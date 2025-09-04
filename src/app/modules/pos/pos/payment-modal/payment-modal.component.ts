@@ -348,6 +348,14 @@ export interface QuickAmount {
       </div>
       }
 
+      <!-- Payment Status Warning -->
+      @if (!canProcessPayment() && paymentButtonStatusMessage()) {
+      <div class="payment-warning">
+        <div class="warning-icon">⚠️</div>
+        <div class="warning-message">{{ paymentButtonStatusMessage() }}</div>
+      </div>
+      }
+
       <!-- Enhanced Action Buttons -->
       <div class="action-buttons">
         <button 
@@ -512,9 +520,17 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   });
 
   isAmountValid = computed(() => {
-    if (this.selectedMethod() === 'cash') {
-      return this.amountPaid() >= this.totalAmount;
+    const method = this.selectedMethod();
+    const paid = this.amountPaid();
+    const total = this.totalAmount;
+    
+    if (method === 'cash') {
+      const result = paid >= total;
+      console.log('🔧 isAmountValid (cash):', result, { paid, total });
+      return result;
     }
+    
+    console.log('🔧 isAmountValid (non-cash):', true, { method });
     return true;
   });
 
@@ -522,10 +538,19 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
 
   // NEW: Credit-specific computed properties
   isCreditValid = computed(() => {
-    if (this.selectedMethod() !== 'credit') return true;
+    const method = this.selectedMethod();
+    if (method !== 'credit') {
+      console.log('🔧 isCreditValid (non-credit):', true);
+      return true;
+    }
     
     const validation = this.creditValidation();
-    return validation ? validation.isApproved : false;
+    const result = validation ? validation.isApproved : false;
+    console.log('🔧 isCreditValid (credit):', result, { 
+      hasValidation: !!validation, 
+      isApproved: validation?.isApproved 
+    });
+    return result;
   });
 
   creditAvailableLimit = computed(() => {
@@ -617,7 +642,12 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
   });
   
   canProcessPayment = computed(() => {
-    // NEW: Check branch permissions first
+    // Check if branch is selected first
+    if (!this.branchContext) {
+      return false;
+    }
+    
+    // Check branch permissions
     if (this.branchContext && !this.branchContext.canProcessTransaction) {
       return false;
     }
@@ -642,6 +672,55 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
     }
     
     return this.isAmountValid() && !this.isProcessing();
+  });
+
+  // NEW: Payment button status message
+  paymentButtonStatusMessage = computed(() => {
+    if (!this.branchContext) {
+      return '🏪 Silakan pilih cabang terlebih dahulu di pojok kanan atas';
+    }
+    
+    if (this.branchContext && !this.branchContext.canProcessTransaction) {
+      return '🚫 Cabang ini tidak memiliki izin untuk memproses transaksi';
+    }
+    
+    if (this.selectedMethod() === 'credit') {
+      const validation = this.creditValidation();
+      
+      if (validation?.requiresManagerApproval && !validation.isApproved) {
+        return '👨‍💼 Memerlukan persetujuan manager untuk transaksi ini';
+      }
+      
+      if (this.useCustomDueDate() && !this.isCustomDueDateValid()) {
+        return '📅 Tanggal jatuh tempo kredit tidak valid';
+      }
+      
+      if (!this.isAmountValid()) {
+        return '💰 Jumlah pembayaran tidak valid';
+      }
+      
+      if (this.isProcessing()) {
+        return '⏳ Sedang memproses pembayaran...';
+      }
+      
+      if (this.creditValidationLoading()) {
+        return '⏳ Sedang memvalidasi kredit...';
+      }
+      
+      if (!this.isCreditValid()) {
+        return '❌ Validasi kredit gagal atau tidak disetujui';
+      }
+    }
+    
+    if (!this.isAmountValid()) {
+      return '💰 Jumlah pembayaran tidak mencukupi';
+    }
+    
+    if (this.isProcessing()) {
+      return '⏳ Sedang memproses pembayaran...';
+    }
+    
+    return ''; // No issues, button should be enabled
   });
 
   // NEW: Due Date computed properties
@@ -823,7 +902,36 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
       const validationResult = await this.memberCreditService.validateMemberCreditForPOS(validationRequest).toPromise();
 
       if (validationResult) {
-        this.creditValidation.set(validationResult);
+        // 🔧 Apply same normalization logic as pos-credit-validation component
+        const member = this.memberCredit();
+        let normalizedResult = { ...validationResult };
+        
+        // If backend says not approved, check if it's due to overdue payments with zero debt
+        if (!normalizedResult.isApproved && member && member.currentDebt === 0) {
+          // Check if the only issue is overdue payments
+          const hasOnlyOverdueIssues = normalizedResult.errors?.every(error => 
+            error.toLowerCase().includes('overdue')
+          ) ?? false;
+          
+          const hasNonOverdueErrors = normalizedResult.errors?.some(error => 
+            !error.toLowerCase().includes('overdue')
+          ) ?? false;
+          
+          // If only overdue errors and member has no debt, approve the transaction
+          if (hasOnlyOverdueIssues && !hasNonOverdueErrors) {
+            console.log('🔧 Payment Modal: Overriding validation for member with zero debt');
+            normalizedResult.isApproved = true;
+            normalizedResult.errors = normalizedResult.errors?.filter(error => 
+              !error.toLowerCase().includes('overdue')
+            ) || [];
+            normalizedResult.warnings = normalizedResult.warnings?.filter(warning => 
+              !warning.toLowerCase().includes('overdue')
+            ) || [];
+            normalizedResult.decisionReason = 'Approved - Member has no outstanding debt';
+          }
+        }
+        
+        this.creditValidation.set(normalizedResult);
       } else {
         throw new Error('No validation result received');
       }
@@ -1188,19 +1296,46 @@ export class PaymentModalComponent implements OnInit, OnDestroy {
       // Call existing endpoint with manager override
       const approvedValidation = await this.memberCreditService.validateMemberCreditForPOS(validationRequest).toPromise();
 
-      if (approvedValidation && approvedValidation.isApproved) {
-        // Update validation result with approved status
-        this.creditValidation.set(approvedValidation);
+      if (approvedValidation) {
+        // 🔧 Apply same normalization logic for manager approval
+        const member = this.memberCredit();
+        let normalizedResult = { ...approvedValidation };
         
-        this.toastService.showSuccess(
-          '✅ Credit Approved',
-          'Manager has approved the credit transaction',
-          'OK'
-        );
+        // Even for manager approval, apply zero debt logic
+        if (!normalizedResult.isApproved && member && member.currentDebt === 0) {
+          const hasOnlyOverdueIssues = normalizedResult.errors?.every(error => 
+            error.toLowerCase().includes('overdue')
+          ) ?? false;
+          
+          const hasNonOverdueErrors = normalizedResult.errors?.some(error => 
+            !error.toLowerCase().includes('overdue')
+          ) ?? false;
+          
+          if (hasOnlyOverdueIssues && !hasNonOverdueErrors) {
+            console.log('🔧 Payment Modal: Manager override for member with zero debt');
+            normalizedResult.isApproved = true;
+            normalizedResult.errors = [];
+            normalizedResult.warnings = [];
+            normalizedResult.decisionReason = 'Manager approved - Member has no outstanding debt';
+          }
+        }
         
-        this.closeManagerApprovalDialog();
+        if (normalizedResult.isApproved) {
+          // Update validation result with approved status
+          this.creditValidation.set(normalizedResult);
+          
+          this.toastService.showSuccess(
+            '✅ Credit Approved',
+            'Manager has approved the credit transaction',
+            'OK'
+          );
+          
+          this.closeManagerApprovalDialog();
+        } else {
+          throw new Error('Manager approval failed');
+        }
       } else {
-        throw new Error('Manager approval failed');
+        throw new Error('No validation result received');
       }
       
     } catch (error: any) {

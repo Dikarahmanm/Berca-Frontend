@@ -1140,3 +1140,42 @@
     }
   }
 }
+
+// ===== PAYMENT WARNING SECTION =====
+.payment-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  background: var(--warning-light);
+  border: 2px solid var(--warning);
+  border-radius: var(--radius);
+  padding: var(--s4);
+  margin-bottom: var(--s4);
+  
+  .warning-icon {
+    font-size: var(--text-xl);
+    flex-shrink: 0;
+  }
+  
+  .warning-message {
+    font-size: var(--text-sm);
+    color: var(--warning-dark);
+    font-weight: var(--font-medium);
+    line-height: var(--leading-relaxed);
+  }
+  
+  // Mobile responsive
+  @media (max-width: 480px) {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--s2);
+    
+    .warning-icon {
+      font-size: var(--text-2xl);
+    }
+    
+    .warning-message {
+      font-size: var(--text-base);
+    }
+  }
+}

@@ -831,13 +831,13 @@
                   class="transaction-item" 
                   *ngFor="let transaction of creditHistoryTransactions(); trackBy: trackByTransactionId">
                   <div class="transaction-header">
-                    <div class="transaction-type" [class]="'type-' + transaction.transactionType?.toLowerCase()">
+                    <div class="transaction-type" [class]="'type-' + transaction.typeDescription?.toLowerCase()">
                       <span class="type-icon">
-                        {{ getTransactionIcon(transaction.transactionType) }}
+                        {{ getTransactionIcon(transaction.typeDescription) }}
                       </span>
-                      <span class="type-text">{{ getTransactionTypeLabel(transaction.transactionType) }}</span>
+                      <span class="type-text">{{ getTransactionTypeLabel(transaction.typeDescription) }}</span>
                     </div>
-                    <div class="transaction-amount" [class]="getTransactionAmountClass(transaction.transactionType)">
+                    <div class="transaction-amount" [class]="getTransactionAmountClass(transaction.typeDescription)">
                       {{ formatCurrency(transaction.amount) }}
                     </div>
                   </div>
@@ -852,24 +852,24 @@
                       <span class="detail-value">{{ transaction.referenceNumber || 'N/A' }}</span>
                     </div>
                     <div class="detail-row">
-                      <span class="detail-label">Balance Before:</span>
-                      <span class="detail-value">{{ formatCurrency(transaction.balanceBefore) }}</span>
-                    </div>
-                    <div class="detail-row">
-                      <span class="detail-label">Balance After:</span>
-                      <span class="detail-value">{{ formatCurrency(transaction.balanceAfter) }}</span>
+                      <span class="detail-label">Status:</span>
+                      <span class="detail-value">{{ transaction.statusDescription || 'Unknown' }}</span>
                     </div>
                     <div class="detail-row">
                       <span class="detail-label">Date:</span>
-                      <span class="detail-value">{{ formatDate(transaction.createdAt) }}</span>
+                      <span class="detail-value">{{ formatDate(transaction.transactionDate) }}</span>
+                    </div>
+                    <div class="detail-row" *ngIf="transaction.dueDate">
+                      <span class="detail-label">Due Date:</span>
+                      <span class="detail-value">{{ formatDate(transaction.dueDate) }}</span>
                     </div>
                     <div class="detail-row" *ngIf="transaction.branchName">
                       <span class="detail-label">Branch:</span>
                       <span class="detail-value">{{ transaction.branchName }}</span>
                     </div>
-                    <div class="detail-row" *ngIf="transaction.notes">
-                      <span class="detail-label">Notes:</span>
-                      <span class="detail-value">{{ transaction.notes }}</span>
+                    <div class="detail-row" *ngIf="transaction.createdByUserName">
+                      <span class="detail-label">Created By:</span>
+                      <span class="detail-value">{{ transaction.createdByUserName }}</span>
                     </div>
                   </div>
                 </div>

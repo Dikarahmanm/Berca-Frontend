@@ -763,6 +763,11 @@ export class MembershipListComponent implements OnInit, OnDestroy {
     this.grantCreditType = 'Bonus_Credit';
     this.grantCreditDescription = '';
     
+    // Auto-load credit history when modal opens
+    if (this.selectedCreditAction() === 'history') {
+      this.loadCreditHistory();
+    }
+    
     console.log('Credit modal opened for:', member.name, 'Current limit:', this.creditLimitAmount);
   }
 
@@ -816,6 +821,8 @@ export class MembershipListComponent implements OnInit, OnDestroy {
         // Update the credit transactions signal
         this.creditHistoryTransactions.set(response);
         console.log(`Credit history loaded for ${member.name}:`, response);
+        console.log(`creditHistoryTransactions signal updated:`, this.creditHistoryTransactions());
+        console.log(`creditHistoryLoading state:`, this.creditHistoryLoading());
         this.notificationService.showSuccess(`Credit history loaded successfully (${response.length} transactions)`);
       } else {
         console.warn(`No credit history found for member ${member.name}`);
@@ -925,10 +932,9 @@ export class MembershipListComponent implements OnInit, OnDestroy {
   viewCreditHistory(): void {
     const member = this.selectedMemberForCredit();
     if (member) {
-      // Navigate to credit history page or open history modal
-      // For now, just close the modal
-      this.closeCreditModal();
-      // TODO: Implement credit history view
+      // Switch to history tab and load data
+      this.selectedCreditAction.set('history');
+      this.loadCreditHistory();
     }
   }
 
@@ -971,9 +977,16 @@ export class MembershipListComponent implements OnInit, OnDestroy {
    * View member transaction history
    */
   viewMemberHistory(member: MemberDto): void {
-    // Navigate to member history page or open history modal
-    console.log('Viewing history for member:', member.name);
-    // TODO: Implement member history view
+    // Open credit modal and switch to history tab
+    console.log('Viewing credit history for member:', member.name);
+    
+    // Set the member and open modal
+    this.selectedMemberForCredit.set(member);
+    this.showCreditModal.set(true);
+    
+    // Switch to history tab and load data
+    this.selectedCreditAction.set('history');
+    this.loadCreditHistory();
   }
 
   /**
@@ -2034,9 +2047,11 @@ export class MembershipListComponent implements OnInit, OnDestroy {
    */
   getTransactionIcon(type: string): string {
     switch (type) {
+      case 'CreditSale':
       case 'Sale': return '🛒';
       case 'Payment': return '💰';
       case 'Credit_Grant': return '💳';
+      case 'Adjustment': 
       case 'Credit_Adjustment': return '⚖️';
       case 'Fee': return '📄';
       case 'Interest': return '📈';
@@ -2049,9 +2064,11 @@ export class MembershipListComponent implements OnInit, OnDestroy {
    */
   getTransactionTypeLabel(type: string): string {
     switch (type) {
+      case 'CreditSale':
       case 'Sale': return 'Sale Transaction';
       case 'Payment': return 'Payment';
       case 'Credit_Grant': return 'Credit Grant';
+      case 'Adjustment': return 'Credit Adjustment';
       case 'Credit_Adjustment': return 'Credit Adjustment';
       case 'Fee': return 'Fee';
       case 'Interest': return 'Interest';
@@ -2064,12 +2081,14 @@ export class MembershipListComponent implements OnInit, OnDestroy {
    */
   getTransactionAmountClass(type: string): string {
     switch (type) {
+      case 'CreditSale':
       case 'Sale':
       case 'Credit_Grant':
       case 'Fee':
       case 'Interest':
         return 'amount-debit'; // Increases debt (red)
       case 'Payment':
+      case 'Adjustment':
       case 'Credit_Adjustment':
         return 'amount-credit'; // Reduces debt (green)
       default:

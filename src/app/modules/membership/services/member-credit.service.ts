@@ -4,7 +4,7 @@
 
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError } from 'rxjs';
+import { Observable, BehaviorSubject, throwError, of } from 'rxjs';
 import { map, tap, catchError, retry } from 'rxjs/operators';
 import { environment } from '../../../../environment/environment';
 
@@ -258,9 +258,36 @@ export class MemberCreditService {
    * Get Credit Transaction History
    * GET /api/MemberCredit/{id}/credit/history
    */
-  getCreditHistory(memberId: number): Observable<CreditTransactionDto[]> {
-    return this.http.get<CreditApiResponse<CreditTransactionDto[]>>(`${this.baseUrl}/MemberCredit/${memberId}/credit/history`)
-      .pipe(map(res => res.data), catchError(this.handleError));
+  getCreditHistory(memberId: number, days: number = 90): Observable<CreditTransactionDto[]> {
+    console.log(`MemberCreditService: Getting credit history for member ${memberId} (last ${days} days)`);
+    
+    const params = new HttpParams().set('days', days.toString());
+    
+    return this.http.get<CreditTransactionDto[]>(`${this.baseUrl}/MemberCredit/${memberId}/credit/history`, { params })
+      .pipe(
+        retry(2), // Retry up to 2 times on failure
+        tap((response) => {
+          console.log(`MemberCreditService: Credit history response for member ${memberId}:`, response);
+          console.log(`MemberCreditService: Found ${response?.length || 0} transactions`);
+          
+          // Update the credit transactions signal
+          this._creditTransactions.set(response || []);
+        }),
+        catchError((error) => {
+          console.error(`MemberCreditService: Error getting credit history for member ${memberId}:`, error);
+          
+          // More specific error handling for credit history
+          if (error.status === 0) {
+            console.error('Network connection issue - retry failed');
+          } else if (error.status === 404) {
+            console.warn(`Member ${memberId} not found or has no credit history`);
+            // Return empty array for 404 instead of error
+            return of([]);
+          }
+          
+          return this.handleError(error);
+        })
+      );
   }
 
   /**

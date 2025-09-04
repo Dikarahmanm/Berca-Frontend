@@ -2,7 +2,7 @@
 
 import { Component, input, output, signal, computed, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 // import { NgxChartsModule } from '@swimlane/ngx-charts'; // Temporarily disabled for compatibility
 import { MemberCreditService } from '../../services/member-credit.service';
 import { 
@@ -11,9 +11,37 @@ import {
   CreditAnalyticsDto,
   TierAnalysisDto,
   CreditTrendDto,
-  TopCreditUser
+  TopCreditUser,
+  OverdueMemberDto,
+  CreditPaymentRequestDto
 } from '../../interfaces/member-credit.interfaces';
 import { map, Observable } from 'rxjs';
+
+export interface TopDebtor {
+  rank: number;
+  memberId: number;
+  memberName: string;
+  memberNumber: string;
+  phone: string;
+  totalDebt: number;
+  overdueAmount: number;
+  daysOverdue: number;
+  lastPaymentDate: string | null;
+  nextDueDate: string | null;
+  creditLimit: number;
+  availableCredit: number;
+  statusDescription: string;
+  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
+  formattedTotalDebt: string;
+  formattedOverdueAmount: string;
+  tier: string;
+  requiresUrgentAction: boolean;
+}
+
+export interface PaymentModalData {
+  member: TopDebtor | null;
+  isOpen: boolean;
+}
 
 export interface CreditMetrics {
   totalMembers: number;
@@ -61,1126 +89,14 @@ export interface TopMember {
 @Component({
   selector: 'app-member-credit-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="credit-dashboard-container">
-      <!-- Header with Quick Actions -->
-      <div class="dashboard-header">
-        <div class="header-content">
-          <h2 class="dashboard-title">💳 Credit Management Dashboard</h2>
-          <p class="dashboard-subtitle">Real-time analytics and member credit insights</p>
-        </div>
-        
-        <div class="header-actions">
-          <div class="date-range-selector">
-            <label class="range-label">Period:</label>
-            <select 
-              class="range-select"
-              [value]="selectedPeriod()"
-              (change)="setSelectedPeriod($any($event.target).value)">
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-              <option value="90d">Last 90 Days</option>
-              <option value="1y">Last Year</option>
-              <option value="all">All Time</option>
-            </select>
-          </div>
-          
-          <button class="btn btn-outline" (click)="onRefreshData()" [disabled]="loading()">
-            <span class="btn-icon" *ngIf="!loading()">🔄</span>
-            <span class="btn-icon loading-spinner" *ngIf="loading()"></span>
-            {{ loading() ? 'Loading...' : 'Refresh' }}
-          </button>
-          
-          <button class="btn btn-primary" (click)="onExportReport()">
-            <span class="btn-icon">📊</span>
-            Export Report
-          </button>
-        </div>
-      </div>
-
-      <!-- Loading State -->
-      <div class="loading-section" *ngIf="loading()">
-        <div class="loading-spinner large"></div>
-        <p class="loading-text">Loading credit dashboard data...</p>
-      </div>
-
-      <!-- Dashboard Content -->
-      <div class="dashboard-content" *ngIf="!loading()">
-        <!-- Key Metrics Cards -->
-        <div class="metrics-grid">
-          <div class="metric-card total-debt">
-            <div class="metric-icon">💰</div>
-            <div class="metric-info">
-              <div class="metric-value">{{ formatCurrency(metrics().totalOutstandingDebt) }}</div>
-              <div class="metric-label">Total Outstanding Debt</div>
-              <div class="metric-change positive" *ngIf="metrics().totalOutstandingDebt > 0">
-                <span class="change-icon">📈</span>
-                Active Credit System
-              </div>
-            </div>
-          </div>
-
-          <div class="metric-card credit-utilization">
-            <div class="metric-icon">📊</div>
-            <div class="metric-info">
-              <div class="metric-value">{{ metrics().averageCreditUtilization.toFixed(1) }}%</div>
-              <div class="metric-label">Average Credit Utilization</div>
-              <div class="metric-change" [class.positive]="metrics().averageCreditUtilization < 70" [class.negative]="metrics().averageCreditUtilization >= 70">
-                <span class="change-icon">{{ metrics().averageCreditUtilization < 70 ? '✅' : '⚠️' }}</span>
-                {{ metrics().averageCreditUtilization < 70 ? 'Healthy' : 'High Risk' }}
-              </div>
-            </div>
-          </div>
-
-          <div class="metric-card members-with-debt">
-            <div class="metric-icon">👥</div>
-            <div class="metric-info">
-              <div class="metric-value">{{ metrics().membersWithDebt }}</div>
-              <div class="metric-label">Members with Active Debt</div>
-              <div class="metric-subtitle">of {{ metrics().totalMembers }} total members</div>
-            </div>
-          </div>
-
-          <div class="metric-card overdue-accounts">
-            <div class="metric-icon">⏰</div>
-            <div class="metric-info">
-              <div class="metric-value">{{ metrics().overdueAccounts }}</div>
-              <div class="metric-label">Overdue Accounts</div>
-              <div class="metric-change" [class.negative]="metrics().overdueAccounts > 0" [class.neutral]="metrics().overdueAccounts === 0">
-                <span class="change-icon">{{ metrics().overdueAccounts > 0 ? '🚨' : '✅' }}</span>
-                {{ metrics().overdueAccounts > 0 ? 'Needs Attention' : 'All Current' }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Charts Section -->
-        <div class="charts-section">
-          <!-- Credit Trends Chart -->
-          <div class="chart-container credit-trends">
-            <div class="chart-header">
-              <h3 class="chart-title">Credit Usage Trends</h3>
-              <div class="chart-type-selector">
-                <button 
-                  class="chart-type-btn" 
-                  [class.active]="selectedChartType() === 'line'"
-                  (click)="setChartType('line')">
-                  📈 Line
-                </button>
-                <button 
-                  class="chart-type-btn" 
-                  [class.active]="selectedChartType() === 'bar'"
-                  (click)="setChartType('bar')">
-                  📊 Bar
-                </button>
-              </div>
-            </div>
-            
-            <div class="chart-content">
-              <!-- Simplified Data Display - Chart implementation pending -->
-              <div class="data-summary" *ngIf="creditTrendsData().length > 0">
-                <div class="trend-summary">
-                  <h4>Credit Usage Trend ({{ selectedChartType() === 'line' ? 'Line' : 'Bar' }} View)</h4>
-                  <div class="trend-data" *ngFor="let trend of creditTrendsData()">
-                    <div class="trend-title">{{ trend.name }}</div>
-                    <div class="trend-values">
-                      <div class="value-item" *ngFor="let item of trend.series">
-                        <span class="month">{{ item.name }}:</span>
-                        <span class="amount">{{ formatCurrency(item.value) }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Fallback Display -->
-              <div class="chart-fallback" *ngIf="creditTrendsData().length === 0">
-                <div class="fallback-icon">📊</div>
-                <p class="fallback-text">Credit trends will be displayed here</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Risk Distribution Chart -->
-          <div class="chart-container risk-distribution">
-            <div class="chart-header">
-              <h3 class="chart-title">Risk Distribution</h3>
-            </div>
-            
-            <div class="chart-content">
-              <!-- Risk Distribution Data Display -->
-              <div class="risk-summary" *ngIf="riskDistributionData().length > 0">
-                <div class="risk-list">
-                  <div class="risk-item" *ngFor="let risk of riskDistributionData()">
-                    <div class="risk-color" [class]="'risk-' + risk.name.toLowerCase()"></div>
-                    <div class="risk-info">
-                      <span class="risk-name">{{ risk.name }} Risk</span>
-                      <span class="risk-count">{{ risk.value }} members</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Fallback Display -->
-              <div class="chart-fallback" *ngIf="riskDistributionData().length === 0">
-                <div class="fallback-icon">🥧</div>
-                <p class="fallback-text">Risk distribution will be displayed here</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top Members and Recent Activity -->
-        <div class="tables-section">
-          <!-- Top Debtors -->
-          <div class="table-container top-members">
-            <div class="table-header">
-              <h3 class="table-title">🏆 Top Credit Users</h3>
-              <button class="btn btn-sm btn-outline" (click)="refreshTopCreditUsers()">
-                View All
-              </button>
-            </div>
-            
-            <div class="table-content">
-              <div class="member-list">
-                <!-- Tier Analysis Display for Top Credit Users -->
-                <div 
-                  class="tier-item" 
-                  *ngFor="let tier of topCreditUsers(); trackBy: trackByTier; let i = index"
-                  [class]="'risk-' + getRiskLevelFromTier(tier).toLowerCase()">
-                  
-                  <!-- Tier Header -->
-                  <div class="tier-header">
-                    <div class="tier-badge">
-                      <span class="tier-rank">{{ i + 1 }}</span>
-                      <span class="tier-name">{{ tier.tierName }}</span>
-                    </div>
-                    <div class="tier-member-count">{{ tier.memberCount }} Members</div>
-                  </div>
-                  
-                  <!-- Tier Statistics -->
-                  <div class="tier-stats">
-                    <div class="stat-row">
-                      <div class="stat-item">
-                        <span class="stat-label">Avg Credit Limit:</span>
-                        <span class="stat-value limit">{{ formatCurrency(tier.averageCreditLimit) }}</span>
-                      </div>
-                      <div class="stat-item">
-                        <span class="stat-label">Avg Debt:</span>
-                        <span class="stat-value debt">{{ formatCurrency(tier.averageDebt) }}</span>
-                      </div>
-                    </div>
-                    <div class="stat-row">
-                      <div class="stat-item">
-                        <span class="stat-label">Avg Utilization:</span>
-                        <span class="stat-value usage">{{ tier.averageUtilization.toFixed(1) }}%</span>
-                      </div>
-                      <div class="stat-item">
-                        <span class="stat-label">Avg Credit Score:</span>
-                        <span class="stat-value score">{{ tier.averageCreditScore }}</span>
-                      </div>
-                    </div>
-                    <div class="stat-row">
-                      <div class="stat-item">
-                        <span class="stat-label">Overdue Rate:</span>
-                        <span class="stat-value overdue">{{ tier.overdueRate.toFixed(1) }}%</span>
-                      </div>
-                      <div class="stat-item">
-                        <span class="stat-label">Risk Level:</span>
-                        <span class="risk-badge" [class]="'risk-' + getRiskLevelFromTier(tier).toLowerCase()">
-                          {{ getRiskLevelFromTier(tier) }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Empty State for No Tiers -->
-                <div *ngIf="topCreditUsers().length === 0" class="empty-tier-state">
-                  <div class="empty-icon">🏆</div>
-                  <div class="empty-title">No Top Credit Users Data</div>
-                  <div class="empty-text">Top credit users analysis will appear here when data is available.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Quick Actions -->
-          <div class="table-container quick-actions">
-            <div class="table-header">
-              <h3 class="table-title">⚡ Quick Actions</h3>
-            </div>
-            
-            <div class="actions-content">
-              <div class="action-grid">
-                <button class="action-card" (click)="viewOverdueAccounts()">
-                  <div class="action-icon">⏰</div>
-                  <div class="action-info">
-                    <div class="action-title">Overdue Accounts</div>
-                    <div class="action-count">{{ metrics().overdueAccounts }}</div>
-                  </div>
-                </button>
-
-                <button class="action-card" (click)="viewHighRiskMembers()">
-                  <div class="action-icon">🚨</div>
-                  <div class="action-info">
-                    <div class="action-title">High Risk Members</div>
-                    <div class="action-count">{{ metrics().highRiskAccounts }}</div>
-                  </div>
-                </button>
-
-                <button class="action-card" (click)="sendPaymentReminders()">
-                  <div class="action-icon">📧</div>
-                  <div class="action-info">
-                    <div class="action-title">Send Reminders</div>
-                    <div class="action-subtitle">Payment Alerts</div>
-                  </div>
-                </button>
-
-                <button class="action-card" (click)="generateReport()">
-                  <div class="action-icon">📋</div>
-                  <div class="action-info">
-                    <div class="action-title">Generate Report</div>
-                    <div class="action-subtitle">Credit Summary</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div class="empty-state" *ngIf="!loading() && metrics().totalMembers === 0">
-        <div class="empty-icon">💳</div>
-        <div class="empty-title">No Credit Data Available</div>
-        <div class="empty-text">Start by enabling credit for members or check your data filters.</div>
-        <button class="btn btn-primary" (click)="goToMembershipManagement()">
-          <span class="btn-icon">👥</span>
-          Manage Members
-        </button>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .credit-dashboard-container {
-      padding: var(--s6);
-      max-width: 1400px;
-      margin: 0 auto;
-      min-height: 100vh;
-    }
-
-    .dashboard-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: var(--s8);
-      padding-bottom: var(--s6);
-      border-bottom: 2px solid var(--border-light);
-    }
-
-    .header-content {
-      flex: 1;
-    }
-
-    .dashboard-title {
-      font-size: var(--text-4xl);
-      font-weight: var(--font-bold);
-      color: var(--text-primary);
-      margin: 0 0 var(--s2) 0;
-      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .dashboard-subtitle {
-      font-size: var(--text-lg);
-      color: var(--text-secondary);
-      margin: 0;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: var(--s4);
-      flex-wrap: wrap;
-    }
-
-    .date-range-selector {
-      display: flex;
-      align-items: center;
-      gap: var(--s2);
-    }
-
-    .range-label {
-      font-size: var(--text-sm);
-      font-weight: var(--font-medium);
-      color: var(--text-secondary);
-    }
-
-    .range-select {
-      padding: var(--s2) var(--s3);
-      border: 2px solid var(--border-light);
-      border-radius: var(--radius-base);
-      background: var(--surface);
-      color: var(--text-primary);
-      font-size: var(--text-sm);
-      cursor: pointer;
-      transition: var(--transition-normal);
-
-      &:hover {
-        border-color: var(--primary);
-      }
-
-      &:focus {
-        outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(228, 122, 63, 0.1);
-      }
-    }
-
-    // Metrics Grid
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: var(--s6);
-      margin-bottom: var(--s8);
-    }
-
-    .metric-card {
-      background: var(--surface);
-      border: 2px solid var(--border-light);
-      border-radius: var(--radius-lg);
-      padding: var(--s6);
-      display: flex;
-      align-items: flex-start;
-      gap: var(--s4);
-      transition: var(--transition-normal);
-      position: relative;
-      overflow: hidden;
-
-      &:hover {
-        border-color: var(--primary);
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-primary);
-      }
-
-      &::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, var(--primary), var(--primary-hover));
-      }
-
-      &.total-debt::before {
-        background: linear-gradient(90deg, var(--success), #22c55e);
-      }
-
-      &.credit-utilization::before {
-        background: linear-gradient(90deg, var(--warning), #f59e0b);
-      }
-
-      &.members-with-debt::before {
-        background: linear-gradient(90deg, var(--info), #3b82f6);
-      }
-
-      &.overdue-accounts::before {
-        background: linear-gradient(90deg, var(--error), #ef4444);
-      }
-    }
-
-    .metric-icon {
-      font-size: 2.5rem;
-      opacity: 0.8;
-    }
-
-    .metric-info {
-      flex: 1;
-    }
-
-    .metric-value {
-      font-size: var(--text-3xl);
-      font-weight: var(--font-bold);
-      color: var(--text-primary);
-      line-height: 1.2;
-      margin-bottom: var(--s1);
-    }
-
-    .metric-label {
-      font-size: var(--text-sm);
-      font-weight: var(--font-medium);
-      color: var(--text-secondary);
-      margin-bottom: var(--s2);
-    }
-
-    .metric-subtitle {
-      font-size: var(--text-xs);
-      color: var(--text-tertiary);
-    }
-
-    .metric-change {
-      display: flex;
-      align-items: center;
-      gap: var(--s1);
-      font-size: var(--text-xs);
-      font-weight: var(--font-medium);
-      
-      &.positive {
-        color: var(--success);
-      }
-      
-      &.negative {
-        color: var(--error);
-      }
-      
-      &.neutral {
-        color: var(--text-secondary);
-      }
-    }
-
-    // Charts Section
-    .charts-section {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: var(--s6);
-      margin-bottom: var(--s8);
-    }
-
-    .chart-container {
-      background: var(--surface);
-      border: 2px solid var(--border-light);
-      border-radius: var(--radius-lg);
-      padding: var(--s6);
-      transition: var(--transition-normal);
-
-      &:hover {
-        border-color: var(--primary);
-      }
-    }
-
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--s6);
-      padding-bottom: var(--s4);
-      border-bottom: 1px solid var(--border-light);
-    }
-
-    .chart-title {
-      font-size: var(--text-xl);
-      font-weight: var(--font-semibold);
-      color: var(--text-primary);
-      margin: 0;
-    }
-
-    .chart-type-selector {
-      display: flex;
-      gap: var(--s2);
-    }
-
-    .chart-type-btn {
-      padding: var(--s2) var(--s3);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-base);
-      background: var(--surface);
-      color: var(--text-secondary);
-      font-size: var(--text-xs);
-      cursor: pointer;
-      transition: var(--transition-normal);
-
-      &:hover {
-        border-color: var(--primary);
-        color: var(--primary);
-      }
-
-      &.active {
-        background: var(--primary);
-        color: white;
-        border-color: var(--primary);
-      }
-    }
-
-    // Tables Section
-    .tables-section {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: var(--s6);
-    }
-
-    .table-container {
-      background: var(--surface);
-      border: 2px solid var(--border-light);
-      border-radius: var(--radius-lg);
-      padding: var(--s6);
-      transition: var(--transition-normal);
-
-      &:hover {
-        border-color: var(--primary);
-      }
-    }
-
-    .table-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--s6);
-      padding-bottom: var(--s4);
-      border-bottom: 1px solid var(--border-light);
-    }
-
-    .table-title {
-      font-size: var(--text-xl);
-      font-weight: var(--font-semibold);
-      color: var(--text-primary);
-      margin: 0;
-    }
-
-    // Member List
-    .member-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--s4);
-    }
-
-    .member-item {
-      display: grid;
-      grid-template-columns: 1fr 2fr 80px;
-      gap: var(--s4);
-      align-items: center;
-      padding: var(--s4);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-base);
-      transition: var(--transition-normal);
-
-      &:hover {
-        border-color: var(--primary);
-        background: var(--primary-pale);
-      }
-
-      &.risk-high {
-        border-left: 4px solid var(--warning);
-      }
-
-      &.risk-critical {
-        border-left: 4px solid var(--error);
-      }
-    }
-
-    .member-name {
-      font-weight: var(--font-semibold);
-      color: var(--text-primary);
-      font-size: var(--text-base);
-    }
-
-    .member-code {
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-      margin-top: var(--s1);
-    }
-
-    .member-stats {
-      display: flex;
-      flex-direction: column;
-      gap: var(--s1);
-    }
-
-    .stat-item {
-      display: flex;
-      justify-content: space-between;
-      font-size: var(--text-sm);
-    }
-
-    .stat-label {
-      color: var(--text-secondary);
-    }
-
-    .stat-value {
-      font-weight: var(--font-medium);
-      
-      &.debt {
-        color: var(--error);
-      }
-      
-      &.limit {
-        color: var(--text-primary);
-      }
-      
-      &.usage {
-        color: var(--warning);
-      }
-    }
-
-    .risk-badge {
-      padding: var(--s1) var(--s2);
-      border-radius: var(--radius-base);
-      font-size: var(--text-xs);
-      font-weight: var(--font-semibold);
-      text-align: center;
-
-      &.risk-low {
-        background: var(--success-light);
-        color: var(--success);
-      }
-
-      &.risk-medium {
-        background: var(--warning-light);
-        color: var(--warning);
-      }
-
-      &.risk-high {
-        background: rgba(251, 146, 60, 0.1);
-        color: #f97316;
-      }
-
-      &.risk-critical {
-        background: var(--error-light);
-        color: var(--error);
-      }
-    }
-
-    // Quick Actions
-    .action-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: var(--s4);
-    }
-
-    .action-card {
-      display: flex;
-      align-items: center;
-      gap: var(--s3);
-      padding: var(--s4);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-base);
-      background: var(--surface);
-      cursor: pointer;
-      transition: var(--transition-normal);
-      text-align: left;
-
-      &:hover {
-        border-color: var(--primary);
-        background: var(--primary-pale);
-        transform: translateY(-2px);
-      }
-    }
-
-    .action-icon {
-      font-size: 1.5rem;
-    }
-
-    .action-title {
-      font-size: var(--text-sm);
-      font-weight: var(--font-medium);
-      color: var(--text-primary);
-    }
-
-    .action-count {
-      font-size: var(--text-lg);
-      font-weight: var(--font-bold);
-      color: var(--primary);
-    }
-
-    .action-subtitle {
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-    }
-
-    // Loading and Empty States
-    .loading-section {
-      text-align: center;
-      padding: var(--s16) var(--s6);
-    }
-
-    /* Top Credit Users Styling */
-    .tier-item {
-      background: var(--surface);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-lg);
-      padding: var(--s4);
-      margin-bottom: var(--s4);
-      transition: all 0.2s ease;
-      
-      &:hover {
-        border-color: var(--primary);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      }
-    }
-
-    .tier-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--s3);
-    }
-
-    .tier-badge {
-      display: flex;
-      align-items: center;
-      gap: var(--s2);
-    }
-
-    .tier-rank {
-      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-      color: white;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: var(--font-bold);
-      font-size: var(--text-sm);
-    }
-
-    .tier-name {
-      font-weight: var(--font-semibold);
-      color: var(--text-primary);
-      font-size: var(--text-lg);
-    }
-
-    .tier-member-count {
-      color: var(--text-secondary);
-      font-size: var(--text-sm);
-      background: var(--background-muted);
-      padding: var(--s1) var(--s2);
-      border-radius: var(--radius);
-    }
-
-    .tier-stats {
-      display: flex;
-      flex-direction: column;
-      gap: var(--s2);
-    }
-
-    .stat-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--s3);
-    }
-
-    .stat-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .stat-label {
-      color: var(--text-secondary);
-      font-size: var(--text-sm);
-    }
-
-    .stat-value {
-      font-weight: var(--font-semibold);
-      font-size: var(--text-sm);
-
-      &.limit {
-        color: var(--success);
-      }
-
-      &.debt {
-        color: var(--warning);
-      }
-
-      &.usage {
-        color: var(--info);
-      }
-
-      &.score {
-        color: var(--primary);
-      }
-
-      &.overdue {
-        color: var(--danger);
-      }
-    }
-
-    .risk-badge {
-      padding: var(--s1) var(--s2);
-      border-radius: var(--radius);
-      font-size: var(--text-xs);
-      font-weight: var(--font-medium);
-      text-transform: uppercase;
-
-      &.risk-low {
-        background: var(--success-bg);
-        color: var(--success);
-      }
-
-      &.risk-medium {
-        background: var(--warning-bg);
-        color: var(--warning);
-      }
-
-      &.risk-high {
-        background: var(--danger-bg);
-        color: var(--danger);
-      }
-
-      &.risk-critical {
-        background: var(--danger);
-        color: white;
-      }
-    }
-
-    .empty-tier-state {
-      text-align: center;
-      padding: var(--s8);
-      color: var(--text-secondary);
-    }
-
-    .empty-tier-state .empty-icon {
-      font-size: 3rem;
-      margin-bottom: var(--s4);
-      opacity: 0.5;
-    }
-
-    .empty-tier-state .empty-title {
-      font-weight: var(--font-semibold);
-      margin-bottom: var(--s2);
-    }
-
-    .loading-spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid var(--border-light);
-      border-top: 3px solid var(--primary);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto;
-
-      &.large {
-        width: 48px;
-        height: 48px;
-        border-width: 4px;
-      }
-    }
-
-    .loading-text {
-      margin-top: var(--s4);
-      color: var(--text-secondary);
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: var(--s16) var(--s6);
-    }
-
-    .empty-icon {
-      font-size: 4rem;
-      margin-bottom: var(--s6);
-      opacity: 0.5;
-    }
-
-    .empty-title {
-      font-size: var(--text-2xl);
-      font-weight: var(--font-semibold);
-      color: var(--text-primary);
-      margin-bottom: var(--s4);
-    }
-
-    .empty-text {
-      color: var(--text-secondary);
-      margin-bottom: var(--s6);
-      max-width: 400px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    // Chart Fallbacks and Data Displays
-    .chart-fallback {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: var(--s10);
-      color: var(--text-secondary);
-      text-align: center;
-    }
-
-    .fallback-icon {
-      font-size: 3rem;
-      margin-bottom: var(--s4);
-      opacity: 0.5;
-    }
-
-    .fallback-text {
-      font-size: var(--text-sm);
-      margin: 0;
-    }
-
-    // Data Summary Styles
-    .data-summary {
-      padding: var(--s4);
-    }
-
-    .trend-summary h4 {
-      font-size: var(--text-lg);
-      font-weight: var(--font-semibold);
-      color: var(--text-primary);
-      margin-bottom: var(--s4);
-      border-bottom: 2px solid var(--border-light);
-      padding-bottom: var(--s2);
-    }
-
-    .trend-data {
-      margin-bottom: var(--s6);
-    }
-
-    .trend-title {
-      font-size: var(--text-base);
-      font-weight: var(--font-medium);
-      color: var(--primary);
-      margin-bottom: var(--s3);
-    }
-
-    .trend-values {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: var(--s2);
-      padding-left: var(--s4);
-    }
-
-    .value-item {
-      display: flex;
-      flex-direction: column;
-      padding: var(--s2);
-      border-radius: var(--radius-base);
-      background: var(--bg-secondary);
-    }
-
-    .month {
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-      font-weight: var(--font-medium);
-    }
-
-    .amount {
-      font-size: var(--text-sm);
-      color: var(--text-primary);
-      font-weight: var(--font-semibold);
-    }
-
-    // Risk Distribution Styles
-    .risk-summary {
-      padding: var(--s4);
-    }
-
-    .risk-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--s3);
-    }
-
-    .risk-item {
-      display: flex;
-      align-items: center;
-      gap: var(--s3);
-      padding: var(--s3);
-      border-radius: var(--radius-base);
-      background: var(--bg-secondary);
-      transition: var(--transition-normal);
-
-      &:hover {
-        background: var(--primary-pale);
-      }
-    }
-
-    .risk-color {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      flex-shrink: 0;
-
-      &.risk-low {
-        background: var(--success);
-      }
-
-      &.risk-medium {
-        background: var(--warning);
-      }
-
-      &.risk-high {
-        background: #f97316;
-      }
-
-      &.risk-critical {
-        background: var(--error);
-      }
-    }
-
-    .risk-info {
-      display: flex;
-      justify-content: space-between;
-      width: 100%;
-    }
-
-    .risk-name {
-      font-size: var(--text-sm);
-      font-weight: var(--font-medium);
-      color: var(--text-primary);
-    }
-
-    .risk-count {
-      font-size: var(--text-sm);
-      font-weight: var(--font-semibold);
-      color: var(--text-secondary);
-    }
-
-    // Responsive Design
-    @media (max-width: 1200px) {
-      .charts-section,
-      .tables-section {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .credit-dashboard-container {
-        padding: var(--s4);
-      }
-
-      .dashboard-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--s4);
-      }
-
-      .header-actions {
-        width: 100%;
-        justify-content: space-between;
-      }
-
-      .metrics-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .member-item {
-        grid-template-columns: 1fr;
-        gap: var(--s3);
-        text-align: center;
-      }
-
-      .action-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  `]
+  templateUrl: './member-credit-dashboard.component.html',
+  styleUrls: ['./member-credit-dashboard.component.scss']
 })
 export class MemberCreditDashboardComponent implements OnInit {
   private memberCreditService = inject(MemberCreditService);
+  private fb = inject(FormBuilder);
 
   // Signal-based state management
   readonly loading = signal(false);
@@ -1205,6 +121,53 @@ export class MemberCreditDashboardComponent implements OnInit {
   readonly topMembers = signal<TopMember[]>([]);
   readonly topCreditUsers = signal<TierAnalysisDto[]>([]);
 
+  // ===== NEW: Debt Management Signals =====
+  readonly topDebtors = signal<TopDebtor[]>([]);
+  readonly paymentModal = signal<PaymentModalData>({
+    member: null,
+    isOpen: false
+  });
+  readonly processingPayment = signal(false);
+  
+  // Modal management signals
+  readonly overdueAccountsModal = signal<{isOpen: boolean, members: any[]}>({
+    isOpen: false,
+    members: []
+  });
+  readonly highRiskMembersModal = signal<{isOpen: boolean, members: any[]}>({
+    isOpen: false,
+    members: []
+  });
+  readonly reminderConfirmModal = signal<{isOpen: boolean, count: number}>({
+    isOpen: false,
+    count: 0
+  });
+  readonly reportModal = signal<{isOpen: boolean, generating: boolean}>({
+    isOpen: false,
+    generating: false
+  });
+  readonly memberDebtListModal = signal<{isOpen: boolean, members: any[], loading: boolean}>({
+    isOpen: false,
+    members: [],
+    loading: false
+  });
+
+  // Member History Modal
+  readonly memberHistoryModal = signal<{isOpen: boolean, member: any | null, loading: boolean}>({
+    isOpen: false,
+    member: null,
+    loading: false
+  });
+  readonly memberTransactionHistory = signal<any[]>([]);
+
+  // Payment Form
+  readonly paymentForm = this.fb.group({
+    amount: [0, [Validators.required, Validators.min(1)]],
+    paymentMethod: ['Cash', Validators.required],
+    referenceNumber: [''],
+    notes: ['']
+  });
+
   // Chart configurations
   readonly chartColorScheme: any = {
     domain: ['#e47a3f', '#52a573', '#4b89e6', '#e6a855', '#d44a3f']
@@ -1217,6 +180,7 @@ export class MemberCreditDashboardComponent implements OnInit {
   ngOnInit(): void {
     console.log('✅ MemberCreditDashboardComponent initialized successfully!');
     this.loadDashboardData();
+    this.refreshDebtors(); // NEW: Load debt management data
   }
 
   // Data loading methods
@@ -1393,27 +357,43 @@ export class MemberCreditDashboardComponent implements OnInit {
           let topMembersData: TopMember[] = [];
           
           if (analyticsData?.topMembers?.highest_debt && Array.isArray(analyticsData.topMembers.highest_debt)) {
-            topMembersData = analyticsData.topMembers.highest_debt.map((user: any) => ({
+            topMembersData = analyticsData.topMembers.highest_debt.map((user: any, index: number) => ({
+              tier: index + 1,
+              tierName: this.getTierNameFromDebt(user.currentDebt || 0),
+              memberCount: 1,
+              averageCreditLimit: user.creditLimit || 0,
+              averageDebt: user.currentDebt || 0,
+              utilizationRate: user.creditUtilization || user.utilizationRate || 0,
+              creditScore: user.creditScore || 750,
+              overdueRate: user.overdueRate || 0,
+              riskLevel: user.riskLevel as 'Low' | 'Medium' | 'High' | 'Critical' || 'Low',
+              // Individual member properties (legacy support)
               memberId: user.memberId || user.id || 0,
               memberName: user.memberName || user.name || 'Unknown Member',
               memberCode: user.memberNumber || user.memberCode || `M${(user.memberId || user.id || 0).toString().padStart(3, '0')}`,
               creditLimit: user.creditLimit || 0,
               currentDebt: user.currentDebt || 0,
-              utilizationRate: user.creditUtilization || user.utilizationRate || 0,
-              lastActivity: user.lastTransactionDate || new Date().toISOString(),
-              riskLevel: user.riskLevel as 'Low' | 'Medium' | 'High' | 'Critical' || 'Low'
+              lastActivity: user.lastTransactionDate || new Date().toISOString()
             }));
           } else if (analyticsData?.topMembers && Array.isArray(analyticsData.topMembers)) {
             // Fallback if topMembers is directly an array
-            topMembersData = analyticsData.topMembers.slice(0, 5).map((user: any) => ({
+            topMembersData = analyticsData.topMembers.slice(0, 5).map((user: any, index: number) => ({
+              tier: index + 1,
+              tierName: this.getTierNameFromDebt(user.currentDebt || 0),
+              memberCount: 1,
+              averageCreditLimit: user.creditLimit || 0,
+              averageDebt: user.currentDebt || 0,
+              utilizationRate: user.creditUtilization || user.utilizationRate || 0,
+              creditScore: user.creditScore || 750,
+              overdueRate: user.overdueRate || 0,
+              riskLevel: user.riskLevel as 'Low' | 'Medium' | 'High' | 'Critical' || 'Low',
+              // Individual member properties (legacy support)
               memberId: user.memberId || user.id || 0,
               memberName: user.memberName || user.name || 'Unknown Member',
               memberCode: user.memberNumber || user.memberCode || `M${(user.memberId || user.id || 0).toString().padStart(3, '0')}`,
               creditLimit: user.creditLimit || 0,
               currentDebt: user.currentDebt || 0,
-              utilizationRate: user.creditUtilization || user.utilizationRate || 0,
-              lastActivity: user.lastTransactionDate || new Date().toISOString(),
-              riskLevel: user.riskLevel as 'Low' | 'Medium' | 'High' | 'Critical' || 'Low'
+              lastActivity: user.lastTransactionDate || new Date().toISOString()
             }));
           }
           
@@ -1553,7 +533,7 @@ export class MemberCreditDashboardComponent implements OnInit {
       {
         tier: 1,
         tierName: 'Platinum',
-        memberCount: 1,
+        memberCount: 5,
         averageCreditLimit: 2000000,
         averageDebt: 1500000,
         utilizationRate: 75.0,
@@ -1570,7 +550,7 @@ export class MemberCreditDashboardComponent implements OnInit {
       {
         tier: 2,
         tierName: 'Gold',
-        memberCount: 1,
+        memberCount: 8,
         averageCreditLimit: 1500000,
         averageDebt: 800000,
         utilizationRate: 53.3,
@@ -1587,7 +567,7 @@ export class MemberCreditDashboardComponent implements OnInit {
       {
         tier: 3,
         tierName: 'Silver',
-        memberCount: 1,
+        memberCount: 12,
         averageCreditLimit: 1000000,
         averageDebt: 950000,
         utilizationRate: 95.0,
@@ -1673,8 +653,6 @@ export class MemberCreditDashboardComponent implements OnInit {
       next: (overdueMembers) => {
         console.log('✅ Overdue members:', overdueMembers);
         
-        // For now, just log the data. In a full implementation, 
-        // you would navigate to a dedicated overdue accounts view
         const overdueCount = overdueMembers.length;
         const totalOverdueAmount = overdueMembers.reduce((sum, member) => 
           sum + (member.overdueAmount || 0), 0
@@ -1682,12 +660,12 @@ export class MemberCreditDashboardComponent implements OnInit {
         
         console.log(`📊 Found ${overdueCount} overdue accounts with total debt: ${this.formatCurrency(totalOverdueAmount)}`);
         
-        // TODO: Navigate to overdue accounts list view
-        // this.router.navigate(['/dashboard/membership/credit/overdue']);
+        // Show overdue accounts in a modal
+        this.showOverdueAccountsModal(overdueMembers);
       },
       error: (error) => {
         console.error('❌ Failed to load overdue accounts:', error);
-        // TODO: Show user-friendly error message
+        alert('Failed to load overdue accounts. Please try again.');
       }
     });
   }
@@ -1706,20 +684,42 @@ export class MemberCreditDashboardComponent implements OnInit {
         
         console.log(`📊 Found ${riskCount} high risk members with total exposure: ${this.formatCurrency(totalRiskExposure)}`);
         
-        // TODO: Navigate to high risk members view
-        // this.router.navigate(['/dashboard/membership/credit/high-risk']);
+        // Show high risk members in a modal
+        this.showHighRiskMembersModal(highRiskMembers);
       },
       error: (error) => {
         console.error('❌ Failed to load high risk members:', error);
+        alert('Failed to load high risk members. Please try again.');
       }
     });
   }
 
   sendPaymentReminders(): void {
-    console.log('📧 Sending bulk payment reminders...');
+    console.log('📧 Preparing to send bulk payment reminders...');
     
-    // Show loading state
-    const originalText = 'Send Reminders';
+    // Get overdue members count for confirmation
+    this.memberCreditService.getOverdueMembers().subscribe({
+      next: (overdueMembers) => {
+        const overdueCount = overdueMembers.length;
+        if (overdueCount > 0) {
+          // Show confirmation modal
+          this.reminderConfirmModal.set({
+            isOpen: true,
+            count: overdueCount
+          });
+        } else {
+          alert('No overdue members found to send reminders to.');
+        }
+      },
+      error: (error) => {
+        console.error('❌ Failed to get overdue members for reminder:', error);
+        alert('Failed to check overdue members. Please try again.');
+      }
+    });
+  }
+
+  confirmSendReminders(): void {
+    console.log('📧 Sending bulk payment reminders...');
     
     this.memberCreditService.sendBulkReminders().subscribe({
       next: (response) => {
@@ -1731,16 +731,17 @@ export class MemberCreditDashboardComponent implements OnInit {
         
         console.log(`📊 Sent ${successCount}/${reminderCount} reminders successfully. ${failureCount} failed.`);
         
-        // TODO: Show success notification
-        // this.notificationService.showSuccess(`Payment reminders sent to ${successCount} members`);
+        // Close modal and show result
+        this.reminderConfirmModal.set({ isOpen: false, count: 0 });
+        alert(`Payment reminders sent to ${successCount} members successfully!`);
         
         // Refresh dashboard data to get updated counts
         this.loadDashboardData();
       },
       error: (error) => {
         console.error('❌ Failed to send payment reminders:', error);
-        // TODO: Show error notification
-        // this.notificationService.showError('Failed to send payment reminders');
+        this.reminderConfirmModal.set({ isOpen: false, count: 0 });
+        alert('Failed to send payment reminders. Please try again.');
       }
     });
   }
@@ -1748,38 +749,87 @@ export class MemberCreditDashboardComponent implements OnInit {
   generateReport(): void {
     console.log('📋 Generating credit management report...');
     
+    // Show report modal
+    this.reportModal.set({
+      isOpen: true,
+      generating: true
+    });
+    
     // Get analytics data for the report
     this.memberCreditService.getCreditAnalytics().subscribe({
       next: (analytics) => {
         console.log('✅ Analytics data for report:', analytics);
         
-        // TODO: In a full implementation, generate and download PDF/Excel report
-        // For now, just log the data that would be in the report
-        const reportData = {
-          generatedAt: new Date().toISOString(),
-          summary: {
-            totalMembers: this.metrics().totalMembers,
-            totalCreditLimit: this.metrics().totalCreditLimit,
-            totalOutstandingDebt: this.metrics().totalOutstandingDebt,
-            averageUtilization: this.metrics().averageCreditUtilization
-          },
-          riskDistribution: this.riskDistributionData(),
-          topCreditUsers: this.topMembers(),
-          trends: this.creditTrendsData()
-        };
-        
-        console.log('📊 Credit Report Data:', reportData);
-        
-        // TODO: Generate actual report file
-        // const reportService = inject(ReportService);
-        // reportService.generateCreditReport(reportData);
-        
-        console.log('📄 Report generation complete (demo mode)');
+        setTimeout(() => {
+          // Simulate report generation time
+          const reportData = {
+            generatedAt: new Date().toISOString(),
+            summary: {
+              totalMembers: this.metrics().totalMembers,
+              totalCreditLimit: this.metrics().totalCreditLimit,
+              totalOutstandingDebt: this.metrics().totalOutstandingDebt,
+              averageUtilization: this.metrics().averageCreditUtilization
+            },
+            riskDistribution: this.riskDistributionData(),
+            topCreditUsers: this.topMembers(),
+            trends: this.creditTrendsData(),
+            topDebtors: this.topDebtors()
+          };
+          
+          console.log('📊 Credit Report Data:', reportData);
+          
+          // Create and download a simple CSV report
+          this.downloadCreditReport(reportData);
+          
+          // Update modal state
+          this.reportModal.set({
+            isOpen: true,
+            generating: false
+          });
+          
+          console.log('📄 Report generation complete');
+        }, 2000);
       },
       error: (error) => {
         console.error('❌ Failed to generate report:', error);
+        this.reportModal.set({
+          isOpen: false,
+          generating: false
+        });
+        alert('Failed to generate report. Please try again.');
       }
     });
+  }
+
+  private downloadCreditReport(reportData: any): void {
+    // Create CSV content
+    let csvContent = "Credit Management Report\n";
+    csvContent += `Generated At: ${new Date(reportData.generatedAt).toLocaleString('id-ID')}\n\n`;
+    
+    // Summary section
+    csvContent += "SUMMARY\n";
+    csvContent += `Total Members: ${reportData.summary.totalMembers}\n`;
+    csvContent += `Total Credit Limit: ${this.formatCurrency(reportData.summary.totalCreditLimit)}\n`;
+    csvContent += `Total Outstanding Debt: ${this.formatCurrency(reportData.summary.totalOutstandingDebt)}\n`;
+    csvContent += `Average Utilization: ${reportData.summary.averageUtilization.toFixed(2)}%\n\n`;
+    
+    // Top Debtors section
+    csvContent += "TOP DEBTORS\n";
+    csvContent += "Rank,Member Name,Member Number,Total Debt,Overdue Amount,Days Overdue,Risk Level\n";
+    reportData.topDebtors.forEach((debtor: TopDebtor) => {
+      csvContent += `${debtor.rank},"${debtor.memberName}","${debtor.memberNumber}","${debtor.formattedTotalDebt}","${debtor.formattedOverdueAmount}",${debtor.daysOverdue},"${debtor.riskLevel}"\n`;
+    });
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `credit-report-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   goToMembershipManagement(): void {
@@ -1839,9 +889,49 @@ export class MemberCreditDashboardComponent implements OnInit {
   }
 
   trackByTier = (index: number, tier: TierAnalysisDto): number => tier.tier;
-
-  // Utility methods
+  
   trackByMember = (index: number, member: TopMember): number => member.memberId || index;
+
+  getHighRiskCount(): number {
+    return this.topDebtors().filter(member => member.riskLevel === 'High' || member.riskLevel === 'Critical').length;
+  }
+
+  getTierNameFromDebt(debt: number): string {
+    if (debt >= 2000000) return 'Platinum';
+    if (debt >= 1500000) return 'Gold';
+    if (debt >= 1000000) return 'Silver';
+    if (debt >= 500000) return 'Bronze';
+    return 'Basic';
+  }
+  
+  trackByMemberId = (index: number, member: any): number => member.memberId || index;
+
+  // ===== CREDIT UTILIZATION HELPERS =====
+  getCreditUtilizationPercentage(member: any): number {
+    const debt = member.currentDebt || member.totalDebt || 0;
+    const limit = member.creditLimit || 0;
+    return limit > 0 ? Math.round((debt / limit) * 100) : 0;
+  }
+
+  getCreditUtilizationClass(member: any): string {
+    const percentage = this.getCreditUtilizationPercentage(member);
+    if (percentage >= 90) return 'utilization-critical';
+    if (percentage >= 75) return 'utilization-high';
+    if (percentage >= 50) return 'utilization-medium';
+    return 'utilization-low';
+  }
+
+  getMemberInitials(memberName: string): string {
+    if (!memberName) return '?';
+    const words = memberName.trim().split(' ');
+    if (words.length === 1) return words[0].charAt(0).toUpperCase();
+    return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+  }
+
+  getTotalDebtAmount(): number {
+    const members = this.memberDebtListModal().members || [];
+    return members.reduce((total, member) => total + (member.currentDebt || member.totalDebt || 0), 0);
+  }
 
   private calculateHighRiskAccounts(distributionData: any): number {
     if (!distributionData) return 0;
@@ -1874,4 +964,601 @@ export class MemberCreditDashboardComponent implements OnInit {
       minimumFractionDigits: 0,
     }).format(amount);
   }
+
+  // ===== NEW: Debt Management Methods =====
+  refreshDebtors(): void {
+    this.loading.set(true);
+    this.memberCreditService.getTopDebtors(undefined, 20).subscribe({
+      next: (topDebtorsResponse) => {
+        console.log('✅ Top debtors response received:', topDebtorsResponse);
+        
+        const debtors: TopDebtor[] = topDebtorsResponse.map((member, index) => ({
+          rank: index + 1,
+          memberId: member.memberId,
+          memberName: member.memberName,
+          memberNumber: member.memberNumber,
+          phone: member.phone,
+          totalDebt: member.totalDebt,
+          overdueAmount: member.overdueAmount || 0,
+          daysOverdue: member.daysOverdue || 0,
+          lastPaymentDate: member.lastPaymentDate || null,
+          nextDueDate: member.nextDueDate || null,
+          creditLimit: member.creditLimit || 0,
+          availableCredit: member.availableCredit || 0,
+          statusDescription: member.statusDescription || 'Good',
+          riskLevel: this.calculateRiskLevel(member),
+          formattedTotalDebt: member.formattedTotalDebt || this.formatCurrency(member.totalDebt),
+          formattedOverdueAmount: member.formattedOverdueAmount || this.formatCurrency(member.overdueAmount || 0),
+          tier: this.getTierName(member.tier),
+          requiresUrgentAction: member.requiresUrgentAction || member.daysOverdue >= 30
+        }));
+
+        // Already sorted by total debt descending from backend
+        this.topDebtors.set(debtors);
+        this.loading.set(false);
+        
+        console.log('💸 Top debtors loaded successfully:', debtors.length, 'members');
+      },
+      error: (error) => {
+        console.error('❌ Error loading top debtors:', error);
+        this.error.set('Failed to load top debtors data');
+        this.loading.set(false);
+      }
+    });
+  }
+
+  // Helper method to calculate risk level from response data
+  private calculateRiskLevel(member: any): 'Low' | 'Medium' | 'High' | 'Critical' {
+    // Use backend risk flags if available
+    if (member.isHighRisk) return 'High';
+    if (member.requiresUrgentAction) return 'Critical';
+    
+    // Calculate based on days overdue and other factors
+    const daysOverdue = member.daysOverdue || 0;
+    const utilization = member.creditLimit > 0 ? (member.totalDebt / member.creditLimit) * 100 : 0;
+    
+    if (daysOverdue > 90 || utilization > 95) return 'Critical';
+    if (daysOverdue > 60 || utilization > 85) return 'High';
+    if (daysOverdue > 30 || utilization > 75) return 'Medium';
+    return 'Low';
+  }
+
+  // Helper method to convert tier number to name
+  private getTierName(tier: number): string {
+    const tierNames = {
+      0: 'Regular',
+      1: 'Silver', 
+      2: 'Gold',
+      3: 'Platinum',
+      4: 'Diamond'
+    };
+    return tierNames[tier as keyof typeof tierNames] || 'Regular';
+  }
+
+  // Top debtors summary calculation methods
+  getTopDebtorsTotal(): number {
+    return this.topDebtors().slice(0, 5).reduce((sum, debtor) => sum + debtor.totalDebt, 0);
+  }
+
+  getTopDebtorsAverage(): number {
+    const top5 = this.topDebtors().slice(0, 5);
+    if (top5.length === 0) return 0;
+    return this.getTopDebtorsTotal() / top5.length;
+  }
+
+  getOverdueCount(): number {
+    return this.topDebtors().filter(debtor => debtor.daysOverdue > 0).length;
+  }
+
+  openPaymentModal(debtor: TopDebtor): void {
+    this.paymentModal.set({
+      member: debtor,
+      isOpen: true
+    });
+    
+    // Update form validators with max amount
+    const amountControl = this.paymentForm.get('amount');
+    if (amountControl) {
+      amountControl.setValidators([
+        Validators.required, 
+        Validators.min(1),
+        Validators.max(debtor.totalDebt)
+      ]);
+      amountControl.updateValueAndValidity();
+    }
+    
+    // Reset form with suggested amount (minimum payment)
+    const suggestedAmount = Math.min(debtor.overdueAmount, debtor.totalDebt * 0.1);
+    this.paymentForm.patchValue({
+      amount: suggestedAmount > 0 ? suggestedAmount : Math.min(100000, debtor.totalDebt),
+      paymentMethod: 'Cash',
+      referenceNumber: '',
+      notes: ''
+    });
+  }
+
+  closePaymentModal(): void {
+    this.paymentModal.set({
+      member: null,
+      isOpen: false
+    });
+    this.paymentForm.reset();
+    this.processingPayment.set(false);
+  }
+
+  processPayment(): void {
+    if (this.paymentForm.invalid || !this.paymentModal().member) {
+      return;
+    }
+
+    const member = this.paymentModal().member!;
+    const formValue = this.paymentForm.value;
+    
+    this.processingPayment.set(true);
+
+    const paymentRequest: CreditPaymentRequestDto = {
+      amount: formValue.amount || 0,
+      paymentMethod: (formValue.paymentMethod as "Cash" | "Transfer" | "Credit_Card" | "E_Wallet" | "Other") || 'Cash',
+      referenceNumber: formValue.referenceNumber || '',
+      notes: formValue.notes || ''
+    };
+
+    this.memberCreditService.recordPayment(member.memberId, paymentRequest).subscribe({
+      next: (response) => {
+        console.log('Payment recorded successfully:', response);
+        this.closePaymentModal();
+        this.refreshDebtors(); // Refresh the list
+        
+        // Show success notification
+        // TODO: Add notification service
+        alert(`Payment of ${this.formatCurrency(formValue.amount || 0)} recorded successfully for ${member.memberName}`);
+      },
+      error: (error) => {
+        console.error('Error processing payment:', error);
+        this.processingPayment.set(false);
+        alert('Failed to process payment. Please try again.');
+      }
+    });
+  }
+
+  // Utility methods for debt management
+  trackByDebtorId(index: number, debtor: TopDebtor): string {
+    return debtor.memberId.toString();
+  }
+
+  formatDate(dateString: string | null): string {
+    if (!dateString) return 'Never';
+    return new Date(dateString).toLocaleDateString('id-ID');
+  }
+
+  getDaysOverdueText(days: number): string {
+    if (days <= 0) return 'Current';
+    if (days === 1) return '1 day overdue';
+    return `${days} days overdue`;
+  }
+
+  getRiskLevel(debtor: TopDebtor): 'low' | 'medium' | 'high' | 'critical' {
+    if (debtor.daysOverdue >= 90) return 'critical';
+    if (debtor.daysOverdue >= 60) return 'high';
+    if (debtor.daysOverdue >= 30) return 'medium';
+    return 'low';
+  }
+
+  getRiskColor(riskLevel: string): string {
+    switch (riskLevel) {
+      case 'critical': return '#dc2626';
+      case 'high': return '#ea580c';
+      case 'medium': return '#ca8a04';
+      case 'low': return '#16a34a';
+      default: return '#6b7280';
+    }
+  }
+
+  // Additional utility methods for template
+  getRankIconClass(index: number): string {
+    if (index === 0) return 'rank-gold';
+    if (index === 1) return 'rank-silver';
+    if (index === 2) return 'rank-bronze';
+    return 'rank-normal';
+  }
+
+  getRankIcon(index: number): string {
+    if (index === 0) return '🏆';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return (index + 1).toString();
+  }
+
+  viewDebtorHistory(debtor: TopDebtor): void {
+    // TODO: Implement view debtor history
+    console.log('View history for debtor:', debtor);
+  }
+
+  getStatusBadgeClass(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'warning': return 'status-warning';
+      case 'bad': return 'status-bad';
+      case 'blocked': return 'status-blocked';
+      default: return 'status-good';
+    }
+  }
+
+  isOverdue(dueDate: string | null): boolean {
+    if (!dueDate) return false;
+    return new Date(dueDate) < new Date();
+  }
+
+  getCreditUtilization(debtor: TopDebtor): number {
+    if (debtor.creditLimit <= 0) return 0;
+    return Math.round((debtor.totalDebt / debtor.creditLimit) * 100);
+  }
+
+  getUtilizationClass(utilization: number): string {
+    if (utilization >= 90) return 'utilization-critical';
+    if (utilization >= 75) return 'utilization-high';
+    if (utilization >= 50) return 'utilization-medium';
+    return 'utilization-low';
+  }
+
+  getInitials(name: string): string {
+    return name
+      .split(' ')
+      .map(n => n.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('');
+  }
+
+  setFullPayment(): void {
+    const member = this.paymentModal().member;
+    if (member) {
+      this.paymentForm.patchValue({
+        amount: member.totalDebt
+      });
+    }
+  }
+
+  // Validate payment amount in real-time
+  validatePaymentAmount(): void {
+    const member = this.paymentModal().member;
+    const amountControl = this.paymentForm.get('amount');
+    
+    if (member && amountControl) {
+      const currentValue = amountControl.value || 0;
+      
+      // Ensure amount doesn't exceed total debt
+      if (currentValue > member.totalDebt) {
+        amountControl.setValue(member.totalDebt);
+      }
+      
+      // Ensure amount is positive
+      if (currentValue < 0) {
+        amountControl.setValue(0);
+      }
+    }
+  }
+
+  // ===== MODAL MANAGEMENT METHODS =====
+  
+  showOverdueAccountsModal(members: any[]): void {
+    this.overdueAccountsModal.set({
+      isOpen: true,
+      members: members
+    });
+  }
+
+  closeOverdueAccountsModal(): void {
+    this.overdueAccountsModal.set({
+      isOpen: false,
+      members: []
+    });
+  }
+
+  showHighRiskMembersModal(members: any[]): void {
+    this.highRiskMembersModal.set({
+      isOpen: true,
+      members: members
+    });
+  }
+
+  closeHighRiskMembersModal(): void {
+    this.highRiskMembersModal.set({
+      isOpen: false,
+      members: []
+    });
+  }
+
+  closeReminderConfirmModal(): void {
+    this.reminderConfirmModal.set({
+      isOpen: false,
+      count: 0
+    });
+  }
+
+  closeReportModal(): void {
+    this.reportModal.set({
+      isOpen: false,
+      generating: false
+    });
+  }
+
+  // Helper method for payment actions from modals
+  processPaymentFromModal(memberId: number, memberName: string): void {
+    // Find the member in top debtors or create a minimal TopDebtor object
+    const existingDebtor = this.topDebtors().find(d => d.memberId === memberId);
+    
+    if (existingDebtor) {
+      this.openPaymentModal(existingDebtor);
+    } else {
+      // Create minimal debtor object for payment
+      const minimalDebtor: TopDebtor = {
+        rank: 0,
+        memberId: memberId,
+        memberName: memberName,
+        memberNumber: `MBR${memberId.toString().padStart(3, '0')}`,
+        phone: '',
+        totalDebt: 0,
+        overdueAmount: 0,
+        daysOverdue: 0,
+        lastPaymentDate: null,
+        nextDueDate: null,
+        creditLimit: 0,
+        availableCredit: 0,
+        statusDescription: 'Unknown',
+        riskLevel: 'Medium',
+        formattedTotalDebt: 'IDR 0',
+        formattedOverdueAmount: 'IDR 0',
+        tier: 'Regular',
+        requiresUrgentAction: false
+      };
+      
+      // Get member credit summary first
+      this.memberCreditService.getCreditSummary(memberId).subscribe({
+        next: (summary) => {
+          if (summary) {
+            minimalDebtor.totalDebt = summary.currentDebt;
+            minimalDebtor.creditLimit = summary.creditLimit;
+            minimalDebtor.availableCredit = summary.availableCredit;
+            minimalDebtor.formattedTotalDebt = this.formatCurrency(summary.currentDebt);
+          }
+          this.openPaymentModal(minimalDebtor);
+        },
+        error: (error) => {
+          console.error('Error getting member credit summary:', error);
+          this.openPaymentModal(minimalDebtor);
+        }
+      });
+    }
+  }
+
+  // ===== Quick Actions Methods =====
+  
+  openMemberDebtListModal(): void {
+    this.memberDebtListModal.update(state => ({ ...state, isOpen: true, loading: true }));
+    
+    // Load all members with debt
+    this.memberCreditService.getTopDebtors(undefined, 50).subscribe({
+      next: (debtors) => {
+        const members = debtors.map((member, index) => ({
+          rank: index + 1,
+          memberId: member.memberId,
+          memberName: member.memberName,
+          memberNumber: member.memberNumber,
+          phone: member.phone,
+          totalDebt: member.totalDebt,
+          overdueAmount: member.overdueAmount || 0,
+          daysOverdue: member.daysOverdue || 0,
+          lastPaymentDate: member.lastPaymentDate,
+          nextDueDate: member.nextDueDate,
+          creditLimit: member.creditLimit,
+          availableCredit: member.availableCredit,
+          statusDescription: member.statusDescription,
+          riskLevel: member.riskLevel,
+          formattedTotalDebt: member.formattedTotalDebt || this.formatCurrency(member.totalDebt),
+          formattedOverdueAmount: member.formattedOverdueAmount || this.formatCurrency(member.overdueAmount || 0),
+          tier: member.tier,
+          requiresUrgentAction: member.requiresUrgentAction
+        }));
+        
+        this.memberDebtListModal.update(state => ({
+          ...state,
+          loading: false,
+          members: members.filter(m => m.totalDebt > 0) // Only show members with debt
+        }));
+      },
+      error: (error) => {
+        console.error('Error loading member debt list:', error);
+        this.memberDebtListModal.update(state => ({ ...state, loading: false, members: [] }));
+      }
+    });
+  }
+
+  closeMemberDebtListModal(): void {
+    this.memberDebtListModal.update(state => ({ ...state, isOpen: false, members: [], loading: false }));
+  }
+
+  viewOverdueAccountsModal(): void {
+    // Open existing overdue accounts modal
+    const overdueMembers = this.topDebtors().filter(member => member.daysOverdue > 0);
+    this.overdueAccountsModal.set({
+      isOpen: true,
+      members: overdueMembers
+    });
+  }
+
+  viewHighRiskMembersModal(): void {
+    // Open existing high risk members modal
+    const highRiskMembers = this.topDebtors().filter(member => member.riskLevel === 'High' || member.riskLevel === 'Critical');
+    this.highRiskMembersModal.set({
+      isOpen: true,
+      members: highRiskMembers
+    });
+  }
+
+  generateReportsModal(): void {
+    // Open existing generate reports modal
+    this.reportModal.set({
+      isOpen: true,
+      generating: false
+    });
+  }
+
+  // Payment from debt list modal
+  openPaymentFromDebtList(member: any): void {
+    // Convert member to TopDebtor format
+    const debtor: TopDebtor = {
+      rank: member.rank,
+      memberId: member.memberId,
+      memberName: member.memberName,
+      memberNumber: member.memberNumber,
+      phone: member.phone,
+      totalDebt: member.totalDebt,
+      overdueAmount: member.overdueAmount,
+      daysOverdue: member.daysOverdue,
+      lastPaymentDate: member.lastPaymentDate,
+      nextDueDate: member.nextDueDate,
+      creditLimit: member.creditLimit,
+      availableCredit: member.availableCredit,
+      statusDescription: member.statusDescription,
+      riskLevel: member.riskLevel,
+      formattedTotalDebt: member.formattedTotalDebt,
+      formattedOverdueAmount: member.formattedOverdueAmount,
+      tier: member.tier,
+      requiresUrgentAction: member.requiresUrgentAction
+    };
+
+    // Close debt list modal and open payment modal
+    this.closeMemberDebtListModal();
+    this.openPaymentModal(debtor);
+  }
+
+  getTotalTransactionAmount(): string {
+    const total = this.memberTransactionHistory().reduce((sum, transaction) => {
+      return sum + (transaction.amount || 0);
+    }, 0);
+    return this.formatCurrency(total);
+  }
+
+  trackByTransactionId(index: number, transaction: any): string {
+    return transaction.id?.toString() || transaction.transactionId?.toString() || index.toString();
+  }
+
+  getTransactionIcon(typeDescription: string): string {
+    switch (typeDescription?.toLowerCase()) {
+      case 'credit_purchase':
+      case 'purchase':
+        return '🛒';
+      case 'payment':
+      case 'credit_payment':
+        return '💰';
+      case 'credit_adjustment':
+      case 'adjustment':
+        return '⚖️';
+      case 'credit_grant':
+      case 'grant':
+        return '🎁';
+      case 'credit_limit_update':
+        return '📊';
+      default:
+        return '📋';
+    }
+  }
+
+  getTransactionTypeLabel(typeDescription: string): string {
+    switch (typeDescription?.toLowerCase()) {
+      case 'credit_purchase':
+      case 'purchase':
+        return 'Credit Purchase';
+      case 'payment':
+      case 'credit_payment':
+        return 'Payment';
+      case 'credit_adjustment':
+      case 'adjustment':
+        return 'Adjustment';
+      case 'credit_grant':
+      case 'grant':
+        return 'Credit Grant';
+      case 'credit_limit_update':
+        return 'Limit Update';
+      default:
+        return typeDescription || 'Unknown';
+    }
+  }
+
+  getTransactionTypeClass(typeDescription: string): string {
+    switch (typeDescription?.toLowerCase()) {
+      case 'credit_purchase':
+      case 'purchase':
+        return 'purchase';
+      case 'payment':
+      case 'credit_payment':
+        return 'payment';
+      case 'credit_adjustment':
+      case 'adjustment':
+        return 'adjustment';
+      case 'credit_grant':
+      case 'grant':
+        return 'grant';
+      default:
+        return 'default';
+    }
+  }
+
+  getTransactionAmountClass(typeDescription: string): string {
+    switch (typeDescription?.toLowerCase()) {
+      case 'credit_purchase':
+      case 'purchase':
+        return 'amount-negative';
+      case 'payment':
+      case 'credit_payment':
+        return 'amount-positive';
+      case 'credit_grant':
+      case 'grant':
+        return 'amount-positive';
+      default:
+        return 'amount-neutral';
+    }
+  }
+
+  viewMemberHistory(memberId: number): void {
+    // Find member data
+    const member = this.memberDebtListModal().members.find(m => m.memberId === memberId);
+    
+    if (member) {
+      this.memberHistoryModal.set({
+        isOpen: true,
+        member: member,
+        loading: true
+      });
+      
+      // Load transaction history
+      this.loadMemberTransactionHistory(memberId);
+    } else {
+      console.error('Member not found for history:', memberId);
+    }
+  }
+
+  loadMemberTransactionHistory(memberId: number): void {
+    this.memberCreditService.getCreditHistory(memberId).subscribe({
+      next: (transactions) => {
+        this.memberTransactionHistory.set(transactions || []);
+        this.memberHistoryModal.update(state => ({ ...state, loading: false }));
+        console.log('Member transaction history loaded:', transactions);
+      },
+      error: (error) => {
+        console.error('Error loading member transaction history:', error);
+        this.memberTransactionHistory.set([]);
+        this.memberHistoryModal.update(state => ({ ...state, loading: false }));
+      }
+    });
+  }
+
+  closeMemberHistoryModal(): void {
+    this.memberHistoryModal.set({
+      isOpen: false,
+      member: null,
+      loading: false
+    });
+    this.memberTransactionHistory.set([]);
+  }
+
 }

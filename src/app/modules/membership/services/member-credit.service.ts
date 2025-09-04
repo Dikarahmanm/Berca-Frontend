@@ -329,6 +329,67 @@ export class MemberCreditService {
   }
 
   /**
+   * Get Top Debtors
+   * GET /api/MemberCredit/collections/top-debtors
+   * 
+   * Parameters:
+   * - branchId (optional): Filter by branch
+   * - limit (optional): Number of top debtors to return (default: 10)
+   * 
+   * Response format:
+   * [
+   *   {
+   *     "memberId": 1,
+   *     "memberName": "John Doe",
+   *     "memberNumber": "MBR001", 
+   *     "phone": "08123456789",
+   *     "email": "john.doe@email.com",
+   *     "tier": 0,
+   *     "totalDebt": 3909100,
+   *     "overdueAmount": 0,
+   *     "daysOverdue": 0,
+   *     "lastPaymentDate": null,
+   *     "nextDueDate": "2025-09-29T17:16:43.372737",
+   *     "status": 0,
+   *     "statusDescription": "Good",
+   *     "remindersSent": 0,
+   *     "lastReminderDate": null,
+   *     "nextReminderDue": null,
+   *     "recommendedAction": "No action needed",
+   *     "collectionPriority": "High",
+   *     "creditLimit": 10000000,
+   *     "availableCredit": 6090900,
+   *     "creditScore": 750,
+   *     "branchName": "Head Office",
+   *     "isHighRisk": false,
+   *     "requiresUrgentAction": false,
+   *     "formattedTotalDebt": "IDR 3.909.100",
+   *     "formattedOverdueAmount": "IDR 0"
+   *   }
+   * ]
+   */
+  getTopDebtors(branchId?: number, limit: number = 10): Observable<any[]> {
+    let params = new HttpParams().set('limit', limit.toString());
+    if (branchId) {
+      params = params.set('branchId', branchId.toString());
+    }
+    
+    console.log('MemberCreditService: Getting top debtors with params:', { branchId, limit });
+    
+    return this.http.get<any[]>(`${this.baseUrl}/MemberCredit/collections/top-debtors`, { params })
+      .pipe(
+        tap((response) => {
+          console.log('MemberCreditService: Top debtors response:', response);
+          console.log('MemberCreditService: Found', response?.length || 0, 'top debtors');
+        }),
+        catchError((error) => {
+          console.error('MemberCreditService: Error getting top debtors:', error);
+          return this.handleError(error);
+        })
+      );
+  }
+
+  /**
    * Get Credit Analytics
    * GET /api/MemberCredit/analytics
    */

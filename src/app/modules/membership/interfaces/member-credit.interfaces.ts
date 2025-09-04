@@ -258,6 +258,15 @@ export interface CreditAnalyticsDto {
   totalAvailableCredit?: number;
   averageCreditUtilization?: number;
   overdueMembers?: number;
+  membersWithActiveDebt?: number;
+  criticalRiskMembers?: number;
+  
+  // Trend data for charts
+  creditUsageTrends?: CreditTrendDto[];
+  paymentTrends?: CreditTrendDto[];
+  
+  // Top users data
+  topCreditUsers?: TopCreditUser[];
   
   // Tier analysis data (source for Top Credit Users)
   tierAnalysis?: TierAnalysisDto[];

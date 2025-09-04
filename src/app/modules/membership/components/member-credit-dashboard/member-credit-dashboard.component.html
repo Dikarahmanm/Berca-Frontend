@@ -1,0 +1,870 @@
+<div class="credit-dashboard-container">
+    <!-- Header with Quick Actions -->
+    <div class="dashboard-header">
+        <div class="header-content">
+            <h2 class="dashboard-title">💳 Credit Management Dashboard</h2>
+            <p class="dashboard-subtitle">Real-time analytics and member credit insights</p>
+        </div>
+
+        <div class="header-actions">
+            <div class="date-range-selector">
+                <label class="range-label">Period:</label>
+                <select class="range-select" [value]="selectedPeriod()"
+                    (change)="setSelectedPeriod($any($event.target).value)">
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
+                    <option value="90d">Last 90 Days</option>
+                    <option value="1y">Last Year</option>
+                    <option value="all">All Time</option>
+                </select>
+            </div>
+
+            <button class="btn btn-outline" (click)="onRefreshData()" [disabled]="loading()">
+                <span class="btn-icon" *ngIf="!loading()">🔄</span>
+                <span class="btn-icon loading-spinner" *ngIf="loading()"></span>
+                {{ loading() ? 'Loading...' : 'Refresh' }}
+            </button>
+
+            <button class="btn btn-primary" (click)="onExportReport()">
+                <span class="btn-icon">📊</span>
+                Export Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-section" *ngIf="loading()">
+        <div class="loading-spinner large"></div>
+        <p class="loading-text">Loading credit dashboard data...</p>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content" *ngIf="!loading()">
+        <!-- Key Metrics Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card total-debt">
+                <div class="metric-icon">💰</div>
+                <div class="metric-info">
+                    <div class="metric-value">{{ formatCurrency(metrics().totalOutstandingDebt) }}</div>
+                    <div class="metric-label">Total Outstanding Debt</div>
+                    <div class="metric-change positive" *ngIf="metrics().totalOutstandingDebt > 0">
+                        <span class="change-icon">📈</span>
+                        Active Credit System
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card credit-utilization">
+                <div class="metric-icon">📊</div>
+                <div class="metric-info">
+                    <div class="metric-value">{{ metrics().averageCreditUtilization.toFixed(1) }}%</div>
+                    <div class="metric-label">Average Credit Utilization</div>
+                    <div class="metric-change" [class.positive]="metrics().averageCreditUtilization < 70"
+                        [class.negative]="metrics().averageCreditUtilization >= 70">
+                        <span class="change-icon">{{ metrics().averageCreditUtilization < 70 ? '✅' : '⚠️' }}</span>
+                                {{ metrics().averageCreditUtilization < 70 ? 'Healthy' : 'High Risk' }} </div>
+                    </div>
+                </div>
+
+                <div class="metric-card members-with-debt">
+                    <div class="metric-icon">👥</div>
+                    <div class="metric-info">
+                        <div class="metric-value">{{ metrics().membersWithDebt }}</div>
+                        <div class="metric-label">Members with Active Debt</div>
+                        <div class="metric-subtitle">of {{ metrics().totalMembers }} total members</div>
+                    </div>
+                </div>
+
+                <div class="metric-card overdue-accounts">
+                    <div class="metric-icon">⏰</div>
+                    <div class="metric-info">
+                        <div class="metric-value">{{ metrics().overdueAccounts }}</div>
+                        <div class="metric-label">Overdue Accounts</div>
+                        <div class="metric-change" [class.negative]="metrics().overdueAccounts > 0"
+                            [class.neutral]="metrics().overdueAccounts === 0">
+                            <span class="change-icon">{{ metrics().overdueAccounts > 0 ? '🚨' : '✅' }}</span>
+                            {{ metrics().overdueAccounts > 0 ? 'Needs Attention' : 'All Current' }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-section">
+                <!-- Credit Trends Chart -->
+                <div class="chart-container credit-trends">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Credit Usage Trends</h3>
+                        <div class="chart-type-selector">
+                            <button class="chart-type-btn" [class.active]="selectedChartType() === 'line'"
+                                (click)="setChartType('line')">
+                                📈 Line
+                            </button>
+                            <button class="chart-type-btn" [class.active]="selectedChartType() === 'bar'"
+                                (click)="setChartType('bar')">
+                                📊 Bar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="chart-content">
+                        <!-- Simplified Data Display - Chart implementation pending -->
+                        <div class="data-summary" *ngIf="creditTrendsData().length > 0">
+                            <div class="trend-summary">
+                                <h4>Credit Usage Trend ({{ selectedChartType() === 'line' ? 'Line' : 'Bar' }} View)</h4>
+                                <div class="trend-data" *ngFor="let trend of creditTrendsData()">
+                                    <div class="trend-title">{{ trend.name }}</div>
+                                    <div class="trend-values">
+                                        <div class="value-item" *ngFor="let item of trend.series">
+                                            <span class="month">{{ item.name }}:</span>
+                                            <span class="amount">{{ formatCurrency(item.value) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fallback Display -->
+                        <div class="chart-fallback" *ngIf="creditTrendsData().length === 0">
+                            <div class="fallback-icon">📊</div>
+                            <p class="fallback-text">Credit trends will be displayed here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Debtors Summary Chart -->
+                <div class="chart-container top-debtors-summary">
+                    <div class="chart-header">
+                        <h3 class="chart-title">💸 Top Debtors Summary</h3>
+                        <button class="btn btn-sm btn-outline" (click)="refreshDebtors()" [disabled]="loading()">
+                            <span class="btn-icon" *ngIf="!loading()">🔄</span>
+                            <span class="btn-icon loading-spinner" *ngIf="loading()"></span>
+                            {{ loading() ? 'Loading...' : 'Refresh' }}
+                        </button>
+                    </div>
+
+                    <div class="chart-content">
+                        <!-- Top 5 Debtors Display -->
+                        <div class="top-debtors-summary" *ngIf="topDebtors().length > 0">
+                            <div class="debt-summary-list">
+                                <div class="debt-summary-item"
+                                    *ngFor="let debtor of topDebtors().slice(0, 5); trackBy: trackByDebtorId; let index = index">
+                                    <div class="rank-indicator" [class]="getRankIconClass(index)">
+                                        {{ getRankIcon(index) }}
+                                    </div>
+                                    <div class="debtor-summary-info">
+                                        <div class="debtor-name">{{ debtor.memberName }}</div>
+                                        <div class="debt-amount">{{ debtor.formattedTotalDebt }}</div>
+                                        <div class="debt-status" [class]="'status-' + debtor.riskLevel.toLowerCase()">
+                                            {{ debtor.riskLevel }} Risk
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="summary-stats">
+                                <div class="stat-row">
+                                    <span class="stat-label">Total Top 5 Debt:</span>
+                                    <span class="stat-value">{{ formatCurrency(getTopDebtorsTotal()) }}</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Average Debt:</span>
+                                    <span class="stat-value">{{ formatCurrency(getTopDebtorsAverage()) }}</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Overdue Count:</span>
+                                    <span class="stat-value overdue">{{ getOverdueCount() }} members</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fallback Display -->
+                        <div class="chart-fallback" *ngIf="topDebtors().length === 0">
+                            <div class="fallback-icon">💸</div>
+                            <p class="fallback-text">No debt data available</p>
+                            <button class="btn btn-primary btn-sm" (click)="refreshDebtors()">
+                                Load Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Members and Recent Activity -->
+            <div class="tables-section">
+                <!-- Top Debtors -->
+                <div class="table-container top-members">
+                    <div class="table-header">
+                        <h3 class="table-title">🏆 Top Credit Users</h3>
+                        <button class="btn btn-sm btn-outline" (click)="refreshTopCreditUsers()">
+                            View All
+                        </button>
+                    </div>
+
+                    <div class="table-content">
+                        <div class="member-list">
+                            <!-- Tier Analysis Display for Top Credit Users -->
+                            <div class="tier-item"
+                                *ngFor="let tier of topCreditUsers(); trackBy: trackByTier; let i = index"
+                                [class]="'risk-' + getRiskLevelFromTier(tier).toLowerCase()">
+
+                                <!-- Tier Header -->
+                                <div class="tier-header">
+                                    <div class="tier-badge">
+                                        <span class="tier-rank">{{ i + 1 }}</span>
+                                        <span class="tier-name">{{ tier.tierName }}</span>
+                                    </div>
+                                    <div class="tier-member-count">{{ tier.memberCount }} Members</div>
+                                </div>
+
+                                <!-- Tier Statistics -->
+                                <div class="tier-stats">
+                                    <div class="stat-row">
+                                        <div class="stat-item">
+                                            <span class="stat-label">Avg Credit Limit:</span>
+                                            <span class="stat-value limit">{{ formatCurrency(tier.averageCreditLimit)
+                                                }}</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Avg Debt:</span>
+                                            <span class="stat-value debt">{{ formatCurrency(tier.averageDebt) }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="stat-row">
+                                        <div class="stat-item">
+                                            <span class="stat-label">Avg Utilization:</span>
+                                            <span class="stat-value usage">{{ tier.averageUtilization.toFixed(1)
+                                                }}%</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Avg Credit Score:</span>
+                                            <span class="stat-value score">{{ tier.averageCreditScore }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="stat-row">
+                                        <div class="stat-item">
+                                            <span class="stat-label">Overdue Rate:</span>
+                                            <span class="stat-value overdue">{{ tier.overdueRate.toFixed(1) }}%</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span class="stat-label">Risk Level:</span>
+                                            <span class="risk-badge"
+                                                [class]="'risk-' + getRiskLevelFromTier(tier).toLowerCase()">
+                                                {{ getRiskLevelFromTier(tier) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Empty State for No Tiers -->
+                            <div *ngIf="topCreditUsers().length === 0" class="empty-tier-state">
+                                <div class="empty-icon">🏆</div>
+                                <div class="empty-title">No Top Credit Users Data</div>
+                                <div class="empty-text">Top credit users analysis will appear here when data is
+                                    available.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="table-container quick-actions">
+                    <div class="table-header">
+                        <h3 class="table-title">⚡ Quick Actions</h3>
+                    </div>
+
+                    <div class="actions-content">
+                        <div class="action-grid">
+                            <button class="action-card" (click)="viewOverdueAccountsModal()">
+                                <div class="action-icon">⏰</div>
+                                <div class="action-info">
+                                    <div class="action-title">Overdue Accounts</div>
+                                    <div class="action-count">{{ getOverdueCount() }}</div>
+                                </div>
+                            </button>
+
+                            <button class="action-card" (click)="viewHighRiskMembersModal()">
+                                <div class="action-icon">🚨</div>
+                                <div class="action-info">
+                                    <div class="action-title">High Risk Members</div>
+                                    <div class="action-count">{{ getHighRiskCount() }}</div>
+                                </div>
+                            </button>
+
+                            <button class="action-card" (click)="openMemberDebtListModal()">
+                                <div class="action-icon">💰</div>
+                                <div class="action-info">
+                                    <div class="action-title">Terima Pembayaran</div>
+                                    <div class="action-subtitle">Process Payments</div>
+                                </div>
+                            </button>
+
+                            <button class="action-card" (click)="sendPaymentReminders()">
+                                <div class="action-icon">📧</div>
+                                <div class="action-info">
+                                    <div class="action-title">Send Reminders</div>
+                                    <div class="action-subtitle">Payment Alerts</div>
+                                </div>
+                            </button>
+
+                            <button class="action-card" (click)="generateReportsModal()">
+                                <div class="action-icon">📋</div>
+                                <div class="action-info">
+                                    <div class="action-title">Generate Report</div>
+                                    <div class="action-subtitle">Credit Summary</div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Payment Modal -->
+        <div class="modal-backdrop" *ngIf="paymentModal().isOpen" (click)="closePaymentModal()">
+            <div class="payment-modal" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 class="modal-title">💰 Terima Pembayaran Hutang</h3>
+                    <button class="modal-close" (click)="closePaymentModal()">
+                        <span class="close-icon">×</span>
+                    </button>
+                </div>
+
+                <div class="modal-content" *ngIf="paymentModal().member">
+                    <!-- Member Info -->
+                    <div class="member-summary">
+                        <div class="member-avatar">
+                            <span class="avatar-text">{{ getInitials(paymentModal().member!.memberName) }}</span>
+                        </div>
+                        <div class="member-details">
+                            <div class="member-name">{{ paymentModal().member!.memberName }}</div>
+                            <div class="member-info">
+                                <span class="member-number">{{ paymentModal().member!.memberNumber }}</span>
+                                <span class="member-phone">{{ paymentModal().member!.phone }}</span>
+                            </div>
+                            <div class="debt-summary-modal">
+                                <span class="total-debt">Total Hutang: {{ paymentModal().member!.formattedTotalDebt
+                                    }}</span>
+                                <span class="overdue-info" *ngIf="paymentModal().member!.overdueAmount > 0">
+                                    (Telat: {{ paymentModal().member!.formattedOverdueAmount }})
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Form -->
+                    <form [formGroup]="paymentForm" (ngSubmit)="processPayment()" class="payment-form">
+                        <div class="form-section">
+                            <label class="form-label" for="amount">Jumlah Pembayaran *</label>
+                            <div class="amount-input-group">
+                                <span class="currency-prefix">Rp</span>
+                                <input id="amount" type="number" class="form-input amount-input"
+                                    formControlName="amount" placeholder="0" [min]="1"
+                                    [max]="paymentModal().member!.totalDebt" (input)="validatePaymentAmount()"
+                                    (blur)="validatePaymentAmount()">
+                                <button type="button" class="btn btn-outline btn-sm full-payment"
+                                    (click)="setFullPayment()">
+                                    Lunas
+                                </button>
+                            </div>
+                            <div class="input-help">
+                                Maksimal: {{ paymentModal().member!.formattedTotalDebt }}
+                            </div>
+                            <div class="form-error"
+                                *ngIf="paymentForm.get('amount')?.invalid && paymentForm.get('amount')?.touched">
+                                <span *ngIf="paymentForm.get('amount')?.errors?.['required']">Jumlah pembayaran wajib
+                                    diisi</span>
+                                <span *ngIf="paymentForm.get('amount')?.errors?.['min']">Minimal Rp 1</span>
+                                <span *ngIf="paymentForm.get('amount')?.errors?.['max']">Tidak boleh melebihi total
+                                    hutang</span>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <label class="form-label" for="paymentMethod">Metode Pembayaran *</label>
+                            <select id="paymentMethod" class="form-select" formControlName="paymentMethod">
+                                <option value="Cash">Tunai</option>
+                                <option value="Transfer">Transfer Bank</option>
+                                <option value="Credit_Card">Kartu Kredit</option>
+                                <option value="Debit_Card">Kartu Debit</option>
+                                <option value="E_Wallet">E-Wallet</option>
+                            </select>
+                        </div>
+
+                        <div class="form-section">
+                            <label class="form-label" for="referenceNumber">Nomor Referensi</label>
+                            <input id="referenceNumber" type="text" class="form-input" formControlName="referenceNumber"
+                                placeholder="No. transaksi/struk (opsional)">
+                        </div>
+
+                        <div class="form-section">
+                            <label class="form-label" for="notes">Catatan</label>
+                            <textarea id="notes" class="form-textarea" formControlName="notes"
+                                placeholder="Catatan tambahan (opsional)" rows="3"></textarea>
+                        </div>
+
+                        <!-- Payment Summary -->
+                        <div class="payment-summary">
+                            <div class="summary-row">
+                                <span class="summary-label">Jumlah Dibayar:</span>
+                                <span class="summary-value">{{ formatCurrency(paymentForm.get('amount')?.value || 0)
+                                    }}</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="summary-label">Sisa Hutang:</span>
+                                <span class="summary-value remaining">
+                                    {{ formatCurrency((paymentModal().member!.totalDebt || 0) -
+                                    (paymentForm.get('amount')?.value || 0)) }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-outline" (click)="closePaymentModal()">
+                                Batal
+                            </button>
+                            <button type="submit" class="btn btn-primary"
+                                [disabled]="paymentForm.invalid || processingPayment()">
+                                <span class="btn-icon" *ngIf="!processingPayment()">💰</span>
+                                <span class="btn-icon loading-spinner" *ngIf="processingPayment()"></span>
+                                {{ processingPayment() ? 'Memproses...' : 'Terima Pembayaran' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" *ngIf="!loading() && metrics().totalMembers === 0">
+            <div class="empty-icon">💳</div>
+            <div class="empty-title">No Credit Data Available</div>
+            <div class="empty-text">Start by enabling credit for members or check your data filters.</div>
+            <button class="btn btn-primary" (click)="goToMembershipManagement()">
+                <span class="btn-icon">👥</span>
+                Manage Members
+            </button>
+        </div>
+
+        <!-- Overdue Accounts Modal -->
+        <div class="modal-backdrop" *ngIf="overdueAccountsModal().isOpen" (click)="closeOverdueAccountsModal()">
+            <div class="detail-modal" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 class="modal-title">⏰ Overdue Accounts</h3>
+                    <button class="modal-close" (click)="closeOverdueAccountsModal()">
+                        <span class="close-icon">×</span>
+                    </button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="members-list" *ngIf="overdueAccountsModal().members.length > 0">
+                        <div class="member-item"
+                            *ngFor="let member of overdueAccountsModal().members; trackBy: trackByMemberId">
+                            <div class="member-info">
+                                <div class="member-header">
+                                    <h4 class="member-name">{{ member.memberName }}</h4>
+                                    <span class="member-number">{{ member.memberNumber }}</span>
+                                </div>
+                                <div class="member-details">
+                                    <div class="detail-row">
+                                        <span class="label">Total Debt:</span>
+                                        <span class="value debt">{{ formatCurrency(member.currentDebt || 0) }}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="label">Overdue Amount:</span>
+                                        <span class="value overdue">{{ formatCurrency(member.overdueAmount) }}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="label">Days Overdue:</span>
+                                        <span class="value days">{{ member.daysOverdue }} days</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="label">Risk Level:</span>
+                                        <span class="risk-badge" [class]="'risk-' + member.riskLevel.toLowerCase()">
+                                            {{ member.riskLevel }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="member-actions">
+                                <button class="btn btn-sm btn-primary"
+                                    (click)="processPaymentFromModal(member.memberId, member.memberName)">
+                                    💰 Pay Debt
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="empty-state" *ngIf="overdueAccountsModal().members.length === 0">
+                        <div class="empty-icon">✅</div>
+                        <div class="empty-title">No Overdue Accounts</div>
+                        <div class="empty-text">All members are current with their payments!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- High Risk Members Modal -->
+        <div class="modal-backdrop" *ngIf="highRiskMembersModal().isOpen" (click)="closeHighRiskMembersModal()">
+            <div class="detail-modal" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 class="modal-title">🚨 High Risk Members</h3>
+                    <button class="modal-close" (click)="closeHighRiskMembersModal()">
+                        <span class="close-icon">×</span>
+                    </button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="members-list" *ngIf="highRiskMembersModal().members.length > 0">
+                        <div class="member-item"
+                            *ngFor="let member of highRiskMembersModal().members; trackBy: trackByMemberId">
+                            <div class="member-info">
+                                <div class="member-header">
+                                    <h4 class="member-name">{{ member.memberName }}</h4>
+                                    <span class="member-number">{{ member.memberNumber }}</span>
+                                </div>
+                                <div class="member-details">
+                                    <div class="detail-row">
+                                        <span class="label">Credit Limit:</span>
+                                        <span class="value limit">{{ formatCurrency(member.creditLimit) }}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="label">Current Debt:</span>
+                                        <span class="value debt">{{ formatCurrency(member.currentDebt || 0) }}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="label">Available Credit:</span>
+                                        <span class="value available">{{ formatCurrency(member.availableCredit)
+                                            }}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="label">Utilization:</span>
+                                        <span class="value utilization">{{ member.creditUtilization?.toFixed(1)
+                                            }}%</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="label">Risk Level:</span>
+                                        <span class="risk-badge risk-high">High Risk</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="member-actions">
+                                <button class="btn btn-sm btn-primary"
+                                    (click)="processPaymentFromModal(member.memberId, member.memberName)">
+                                    💰 Manage Credit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="empty-state" *ngIf="highRiskMembersModal().members.length === 0">
+                        <div class="empty-icon">✅</div>
+                        <div class="empty-title">No High Risk Members</div>
+                        <div class="empty-text">All members are within safe credit limits!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reminder Confirmation Modal -->
+        <div class="modal-backdrop" *ngIf="reminderConfirmModal().isOpen" (click)="closeReminderConfirmModal()">
+            <div class="confirm-modal" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 class="modal-title">📧 Send Payment Reminders</h3>
+                    <button class="modal-close" (click)="closeReminderConfirmModal()">
+                        <span class="close-icon">×</span>
+                    </button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="confirm-message">
+                        <div class="confirm-icon">📧</div>
+                        <p class="confirm-text">
+                            Are you sure you want to send payment reminders to
+                            <strong>{{ reminderConfirmModal().count }}</strong> overdue members?
+                        </p>
+                        <p class="confirm-subtext">
+                            This will send SMS/email notifications to all members with overdue payments.
+                        </p>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button class="btn btn-outline" (click)="closeReminderConfirmModal()">
+                            Cancel
+                        </button>
+                        <button class="btn btn-primary" (click)="confirmSendReminders()">
+                            <span class="btn-icon">📧</span>
+                            Send Reminders
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Generation Modal -->
+        <div class="modal-backdrop" *ngIf="reportModal().isOpen" (click)="closeReportModal()">
+            <div class="report-modal" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 class="modal-title">📊 Generate Credit Report</h3>
+                    <button class="modal-close" (click)="closeReportModal()" *ngIf="!reportModal().generating">
+                        <span class="close-icon">×</span>
+                    </button>
+                </div>
+
+                <div class="modal-content">
+                    <div class="report-status" *ngIf="reportModal().generating">
+                        <div class="loading-spinner large"></div>
+                        <h4 class="status-title">Generating Report...</h4>
+                        <p class="status-text">Please wait while we compile your credit management data.</p>
+                    </div>
+
+                    <div class="report-complete" *ngIf="!reportModal().generating">
+                        <div class="complete-icon">✅</div>
+                        <h4 class="complete-title">Report Generated Successfully!</h4>
+                        <p class="complete-text">
+                            Your credit management report has been downloaded as a CSV file.
+                            Check your Downloads folder.
+                        </p>
+
+                        <div class="modal-actions">
+                            <button class="btn btn-primary" (click)="closeReportModal()">
+                                <span class="btn-icon">✅</span>
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Member Debt List Modal -->
+        <div class="modal-backdrop" *ngIf="memberDebtListModal().isOpen" (click)="closeMemberDebtListModal()">
+            <div class="detail-modal" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 class="modal-title">💰 Daftar Hutang Member</h3>
+                    <button class="modal-close" (click)="closeMemberDebtListModal()">
+                        <span class="close-icon">×</span>
+                    </button>
+                </div>
+
+                <div class="modal-content">
+                    <!-- Loading State -->
+                    <div class="loading-state" *ngIf="memberDebtListModal().loading">
+                        <div class="loading-spinner large"></div>
+                        <p class="loading-text">Memuat daftar hutang member...</p>
+                    </div>
+
+                    <!-- Members List -->
+                    <div class="members-list"
+                        *ngIf="!memberDebtListModal().loading && memberDebtListModal().members.length > 0">
+                        <div class="list-header">
+                            <div class="summary-info">
+                                <span class="total-members">{{ memberDebtListModal().members.length }} member dengan
+                                    hutang</span>
+                                <span class="total-debt">Total: {{ getTotalDebtAmount() }}</span>
+                            </div>
+                        </div>
+
+                        <div class="member-item"
+                            *ngFor="let member of memberDebtListModal().members; trackBy: trackByMemberId">
+                            <div class="member-info">
+                                <div class="member-header">
+                                    <div class="member-avatar">
+                                        <span class="avatar-text">{{ getInitials(member.memberName) }}</span>
+                                    </div>
+                                    <div class="member-details">
+                                        <div class="member-name">{{ member.memberName }}</div>
+                                        <div class="member-meta">
+                                            <span class="member-number">{{ member.memberNumber }}</span>
+                                            <span class="member-phone" *ngIf="member.phone">{{ member.phone }}</span>
+                                        </div>
+                                        <!-- Credit Utilization Progress Bar -->
+                                        <div class="credit-utilization" *ngIf="member.creditLimit > 0">
+                                            <div class="utilization-header">
+                                                <span class="utilization-label">Credit Utilization</span>
+                                                <span class="utilization-percentage">{{ getCreditUtilization(member)
+                                                    }}%</span>
+                                            </div>
+                                            <div class="utilization-bar">
+                                                <div class="utilization-fill"
+                                                    [class]="getUtilizationClass(getCreditUtilization(member))"
+                                                    [style.width.%]="getCreditUtilization(member)">
+                                                </div>
+                                            </div>
+                                            <div class="utilization-details">
+                                                <span class="used-credit">{{ member.formattedTotalDebt }}</span>
+                                                <span class="total-limit">of {{ formatCurrency(member.creditLimit)
+                                                    }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="debt-status-badge">
+                                        <span class="debt-amount">{{ member.formattedTotalDebt }}</span>
+                                        <span class="debt-status" [class.overdue]="member.daysOverdue > 0"
+                                            [class.warning]="member.daysOverdue <= 0 && member.riskLevel === 'High'"
+                                            [class.critical]="member.riskLevel === 'Critical'">
+                                            {{ member.daysOverdue > 0 ? 'Telat ' + member.daysOverdue + ' hari' :
+                                            member.riskLevel }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="member-debt-breakdown"
+                                    *ngIf="member.transactions && member.transactions.length > 0">
+                                    <div class="transactions-summary">
+                                        <span class="transaction-count">{{ member.transactions.length }}
+                                            transaksi</span>
+                                        <div class="transaction-details">
+                                            <span class="oldest-transaction" *ngIf="member.oldestTransaction">
+                                                Tertua: {{ member.oldestTransaction }}
+                                            </span>
+                                            <span class="latest-transaction" *ngIf="member.latestTransaction">
+                                                Terbaru: {{ member.latestTransaction }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="member-actions">
+                                <button class="btn btn-sm btn-primary" (click)="openPaymentFromDebtList(member)">
+                                    💰 Terima Bayar
+                                </button>
+                                <button class="btn btn-sm btn-outline" (click)="viewMemberHistory(member.memberId)">
+                                    📋 Riwayat
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="empty-state"
+                        *ngIf="!memberDebtListModal().loading && memberDebtListModal().members.length === 0">
+                        <div class="empty-icon">✅</div>
+                        <div class="empty-title">Tidak Ada Member dengan Hutang</div>
+                        <div class="empty-subtitle">Semua member sudah melunasi hutang mereka!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Member Transaction History Modal -->
+        <div class="modal-backdrop" *ngIf="memberHistoryModal().isOpen" (click)="closeMemberHistoryModal()">
+            <div class="detail-modal" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 class="modal-title">📋 Riwayat Transaksi Member</h3>
+                    <button class="modal-close" (click)="closeMemberHistoryModal()">
+                        <span class="close-icon">×</span>
+                    </button>
+                </div>
+
+                <div class="modal-content">
+                    <!-- Member Info Header -->
+                    <div class="member-info-header" *ngIf="memberHistoryModal().member">
+                        <div class="member-avatar">
+                            <span class="avatar-text">{{ getInitials(memberHistoryModal().member!.memberName) }}</span>
+                        </div>
+                        <div class="member-details">
+                            <div class="member-name">{{ memberHistoryModal().member!.memberName }}</div>
+                            <div class="member-meta">
+                                <span class="member-number">{{ memberHistoryModal().member!.memberNumber }}</span>
+                                <span class="member-debt">Current Debt: {{
+                                    memberHistoryModal().member!.formattedTotalDebt }}</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline"
+                            (click)="loadMemberTransactionHistory(memberHistoryModal().member!.memberId)"
+                            [disabled]="memberHistoryModal().loading">
+                            <span class="btn-icon" *ngIf="!memberHistoryModal().loading">🔄</span>
+                            <span class="btn-icon loading-spinner" *ngIf="memberHistoryModal().loading"></span>
+                            {{ memberHistoryModal().loading ? 'Loading...' : 'Refresh' }}
+                        </button>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div class="loading-section" *ngIf="memberHistoryModal().loading">
+                        <div class="loading-spinner large"></div>
+                        <p class="loading-text">Loading transaction history...</p>
+                    </div>
+
+                    <!-- History Content -->
+                    <div class="history-content"
+                        *ngIf="!memberHistoryModal().loading && memberTransactionHistory().length > 0">
+                        <div class="history-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Total Transactions</span>
+                                <span class="stat-value">{{ memberTransactionHistory().length }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Amount</span>
+                                <span class="stat-value">{{ getTotalTransactionAmount() }}</span>
+                            </div>
+                        </div>
+
+                        <div class="transaction-list">
+                            <div class="transaction-item"
+                                *ngFor="let transaction of memberTransactionHistory(); trackBy: trackByTransactionId">
+                                <div class="transaction-header">
+                                    <div class="transaction-type"
+                                        [class]="'type-' + getTransactionTypeClass(transaction.typeDescription)">
+                                        <span class="type-icon">
+                                            {{ getTransactionIcon(transaction.typeDescription) }}
+                                        </span>
+                                        <span class="type-text">{{ getTransactionTypeLabel(transaction.typeDescription)
+                                            }}</span>
+                                    </div>
+                                    <div class="transaction-amount"
+                                        [class]="getTransactionAmountClass(transaction.typeDescription)">
+                                        {{ formatCurrency(transaction.amount) }}
+                                    </div>
+                                </div>
+
+                                <div class="transaction-details">
+                                    <div class="detail-row">
+                                        <span class="detail-label">Description:</span>
+                                        <span class="detail-value">{{ transaction.description || 'No description'
+                                            }}</span>
+                                    </div>
+                                    <div class="detail-row" *ngIf="transaction.referenceNumber">
+                                        <span class="detail-label">Reference:</span>
+                                        <span class="detail-value">{{ transaction.referenceNumber }}</span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Status:</span>
+                                        <span class="detail-value status"
+                                            [class]="'status-' + (transaction.statusDescription || 'unknown').toLowerCase()">
+                                            {{ transaction.statusDescription || 'Unknown' }}
+                                        </span>
+                                    </div>
+                                    <div class="detail-row">
+                                        <span class="detail-label">Date:</span>
+                                        <span class="detail-value">{{ formatDate(transaction.transactionDate) }}</span>
+                                    </div>
+                                    <div class="detail-row" *ngIf="transaction.dueDate">
+                                        <span class="detail-label">Due Date:</span>
+                                        <span class="detail-value">{{ formatDate(transaction.dueDate) }}</span>
+                                    </div>
+                                    <div class="detail-row" *ngIf="transaction.createdByUserName">
+                                        <span class="detail-label">Created By:</span>
+                                        <span class="detail-value">{{ transaction.createdByUserName }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="empty-history"
+                        *ngIf="!memberHistoryModal().loading && memberTransactionHistory().length === 0">
+                        <div class="empty-icon">📋</div>
+                        <div class="empty-title">No Transaction History</div>
+                        <div class="empty-text">This member has no recorded transactions yet.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>

@@ -40,23 +40,54 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
-src/app/modules/membership/readme.membership.md
-BACKEND-INTEGRATION-COMPLETE.md
-BACKEND-INTEGRATION-REQUIREMENTS.md
-PHASE-4-COMPLETION-SUMMARY.md
-readme.multibranch.md
-RECEIVE-PAYMENT-MODAL-FIX.md
-FACTURE-WORKFLOW-FIX.md
-test-receive-payment-modal.js
-test-verification-timeline.js
-VERIFICATION-TIMELINE-FIX.md
-VERIFICATION-TIMELINE-TEST.md
-TOP-CREDIT-USERS-IMPLEMENTATION.md
-MemberCredit-implementation.md
-INTEGRATION-ASSESSMENT-TOP-CREDIT-USERS.md
-inspect-angular-component.js
-debug-payment-button.js
-MEMBER-CREDIT-VALIDATION-FIX.md
-PAYMENT-MODAL-BUTTON-FIX.md
-quick-button-test.js
-test-button-state-console.js
+
+# AI Assistant and development artifacts
+.claude/
+.cursor/
+.instruction/
+*.claude.md
+CLAUDE.md
+*copilot*
+*ai-*
+*-ai.*
+instruction*.md
+prompt*.md
+*prompt.txt
+agents.md
+AGENTS.md
+branchAPI.md
+*CheckPoint.md
+*-FIX.md
+*-IMPLEMENTATION.md
+*-REQUIREMENTS.md
+*-COMPLETE.md
+*-ASSESSMENT.md
+readme.*.md
+
+# Debug and test artifacts
+debug-*.html
+debug-*.js
+test-*.html
+test-*.js
+inspect-*.js
+quick-*.js
+notification-test.*
+*-test.*
+.env.development
+.env.local
+
+# GitHub AI instructions
+.github/copilot-instructions.md
+.github/instructions/
+
+# Temporary development files
+mobile-test-*
+mobile-responsive-*
+*-debugger.*
+integration-test.*
+performance-*.test.*
+
+# CLI and development tools
+*.vsix
+node_modules/@anthropic-ai/
+node_modules/@cursor/

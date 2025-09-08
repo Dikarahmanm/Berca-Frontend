@@ -1,19 +1,63 @@
 // src/app/shared/components/unified-notification-center/unified-notification-center.component.ts
-// ✅ UPDATED: Added Smart Positioning Logic for Mobile
+// ✅ UPDATED: Replaced Mock Data with Real API Integration
+// ✅ INTEGRATION: Using NotificationService like dashboard/notifications
 // Following Project Guidelines: Signal-based, Performance Optimized, Clean Design
 
 import { Component, OnInit, OnDestroy, computed, signal, inject, input, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { interval } from 'rxjs';
 
 // Services
 import { SmartNotificationService } from '../../../core/services/smart-notification.service';
-import { NotificationService } from '../../../core/services/notification.service';
+import { NotificationService, NotificationDto } from '../../../core/services/notification.service';
+import { environment } from '../../../../environment/environment';
 
 // Interfaces
 import { ExpiryNotification, ExpiryUrgency } from '../../../core/interfaces/expiry.interfaces';
+
+// ===== INTELLIGENT NOTIFICATION INTERFACES ===== 
+// Based on /api/SmartNotification/intelligent response
+interface IntelligentNotificationDto {
+  type: string;
+  priority: number;
+  title: string;
+  message: string;
+  potentialLoss: number;
+  actionDeadline: string;
+  actionUrl: string;
+  actionItems: string[];
+  escalationRule: {
+    escalateAfterHours: number;
+    escalateToRoles: string[];
+    requireAcknowledgment: boolean;
+    notificationChannels: number[];
+  };
+  businessImpact: {
+    financialRisk: number;
+    operationalImpact: string;
+    customerImpact: string;
+    complianceRisk: string;
+  };
+  affectedBatches: Array<{
+    batchId: number;
+    batchNumber: string;
+    quantity: number;
+    value: number;
+    expiryDate: string;
+  }>;
+}
+
+interface IntelligentNotificationResponse {
+  success: boolean;
+  message: string;
+  data: IntelligentNotificationDto[];
+  timestamp: string;
+  errors: any;
+  error: any;
+}
 
 // ===== INTERFACES ===== 
 interface BasicNotification {
@@ -31,6 +75,27 @@ interface SmartNotification extends ExpiryNotification {
   potentialLoss?: number;
   actionDeadline?: string;
   confidenceScore?: number;
+  // ✅ ENHANCED: Additional properties from intelligent API
+  actionItems?: string[];
+  businessImpact?: {
+    financialRisk: number;
+    operationalImpact: string;
+    customerImpact: string;
+    complianceRisk: string;
+  };
+  affectedBatches?: Array<{
+    batchId: number;
+    batchNumber: string;
+    quantity: number;
+    value: number;
+    expiryDate: string;
+  }>;
+  escalationRule?: {
+    escalateAfterHours: number;
+    escalateToRoles: string[];
+    requireAcknowledgment: boolean;
+    notificationChannels: number[];
+  };
 }
 
 interface NotificationCounts {
@@ -65,6 +130,7 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
   private notificationService = inject(NotificationService);
   private router = inject(Router);
   private destroyRef = inject(DestroyRef);
+  private http = inject(HttpClient);
   
   // ===== INPUT PROPERTIES =====
   maxItemsToShow = input<number>(10);
@@ -75,6 +141,7 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
   private _basicNotifications = signal<BasicNotification[]>([]);
   private _isLoading = signal<boolean>(false);
   private _isDropdownOpen = signal<boolean>(false);
+  private _expandedActionItems = signal<Set<number>>(new Set());
   private _preferences = signal<UserNotificationPreferences>({
     smartEnabled: true,
     basicEnabled: true,
@@ -87,6 +154,7 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
   readonly basicNotifications = this._basicNotifications.asReadonly();
   readonly isLoading = this._isLoading.asReadonly();
   readonly isDropdownOpen = this._isDropdownOpen.asReadonly();
+  readonly expandedActionItems = this._expandedActionItems.asReadonly();
   readonly preferences = this._preferences.asReadonly();
   
   // ===== COMPUTED PROPERTIES =====
@@ -135,6 +203,9 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
 
   // ===== LIFECYCLE HOOKS =====
   async ngOnInit(): Promise<void> {
+    console.log('🔔 UnifiedNotificationCenter: Initializing with real API integration...');
+    console.log('📡 Smart Notifications: Using /api/SmartNotification/intelligent');
+    console.log('📡 Basic Notifications: Using NotificationService.getUserNotifications()');
     await this.initializeComponent();
     this.setupAutoRefresh();
   }
@@ -155,6 +226,14 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
   
   private setupAutoRefresh(): void {
     if (this.preferences().autoRefresh) {
+      // ✅ REAL-TIME: Subscribe to notification service observables
+      this.notificationService.unreadCount$
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((count) => {
+          console.log('📡 Real-time unread count update:', count);
+        });
+
+      // Auto refresh interval
       interval(this.autoRefreshInterval())
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe(() => {
@@ -224,6 +303,23 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
     this._isDropdownOpen.set(false);
   }
 
+  // ===== ACTION ITEMS TOGGLE =====
+  toggleActionItems(notificationId: number): void {
+    this._expandedActionItems.update(expanded => {
+      const newSet = new Set(expanded);
+      if (newSet.has(notificationId)) {
+        newSet.delete(notificationId);
+      } else {
+        newSet.add(notificationId);
+      }
+      return newSet;
+    });
+  }
+
+  isActionItemsExpanded(notificationId: number): boolean {
+    return this.expandedActionItems().has(notificationId);
+  }
+
   // ===== TOGGLE EVENT HANDLERS =====
   onSmartToggleChange(event: Event): void {
     const target = event.target as HTMLInputElement;
@@ -254,17 +350,62 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
     if (!this.preferences().smartEnabled) return;
     
     try {
-      const notifications = this.smartNotificationService.notifications();
-      const enhanced: SmartNotification[] = notifications.map(n => ({
-        ...n,
-        potentialLoss: this.calculatePotentialLoss(n),
-        confidenceScore: this.calculateConfidenceScore(n),
-        actionDeadline: this.calculateActionDeadline(n)
-      }));
+      // ✅ REAL API: Using /api/SmartNotification/intelligent endpoint
+      const response = await this.http.get<IntelligentNotificationResponse>(
+        `${environment.apiUrl}/SmartNotification/intelligent`,
+        { withCredentials: true }
+      ).toPromise();
       
-      this._smartNotifications.set(enhanced);
-    } catch (error) {
-      console.error('Error loading smart notifications:', error);
+      if (response?.success && response.data) {
+        console.log('✅ Loaded intelligent notifications from real API:', response.data);
+        
+        // Convert IntelligentNotificationDto to SmartNotification format
+        const smartNotifications: SmartNotification[] = response.data.map(dto => ({
+          id: dto.affectedBatches[0]?.batchId || Date.now(), // Use batchId as unique ID
+          type: this.mapNotificationType(dto.type),
+          title: dto.title,
+          message: dto.message,
+          productId: dto.affectedBatches[0]?.batchId,
+          productName: this.extractProductName(dto.title),
+          batchId: dto.affectedBatches[0]?.batchId,
+          batchNumber: dto.affectedBatches[0]?.batchNumber,
+          expiryDate: dto.affectedBatches[0]?.expiryDate,
+          daysUntilExpiry: this.calculateDaysUntilExpiry(dto.affectedBatches[0]?.expiryDate),
+          priority: this.mapPriorityToExpiryUrgency(dto.priority),
+          isRead: false,
+          actionRequired: true,
+          createdAt: response.timestamp,
+          branchId: 1, // Default branch ID
+          branchName: 'Cabang Utama',
+          // Enhanced properties from intelligent API
+          potentialLoss: dto.potentialLoss,
+          actionDeadline: dto.actionDeadline,
+          confidenceScore: this.calculateConfidenceScore(dto),
+          // ✅ NEW: Rich data from intelligent API
+          actionItems: dto.actionItems,
+          businessImpact: dto.businessImpact,
+          affectedBatches: dto.affectedBatches,
+          escalationRule: dto.escalationRule
+        }));
+        
+        this._smartNotifications.set(smartNotifications);
+      } else {
+        console.warn('❌ No intelligent notifications data:', response?.message);
+        this._smartNotifications.set([]);
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading intelligent notifications:', error);
+      
+      // ✅ FALLBACK: Show user-friendly message for API errors
+      if (error.status === 401) {
+        console.log('🔐 Authentication required for intelligent notifications');
+      } else if (error.status === 404) {
+        console.log('📭 No intelligent notifications available');
+      } else {
+        console.log('🔄 Using fallback mode for smart notifications');
+      }
+      
+      this._smartNotifications.set([]);
     }
   }
   
@@ -272,30 +413,31 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
     if (!this.preferences().basicEnabled) return;
     
     try {
-      // Mock data - replace with actual service call
-      const mockNotifications: BasicNotification[] = [
-        {
-          id: 1,
-          title: 'System Backup Completed',
-          message: 'Daily backup completed successfully at 02:00 AM',
-          priority: 'Medium',
-          isRead: false,
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          type: 'system'
-        },
-        {
-          id: 2,
-          title: 'Low Stock Alert',
-          message: 'Indomie Goreng running low (8 units remaining)',
-          priority: 'High',
-          isRead: false,
-          createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-          type: 'inventory',
-          actionUrl: '/dashboard/inventory'
-        }
-      ];
-      
-      this._basicNotifications.set(mockNotifications);
+      // ✅ REAL API: Using NotificationService like dashboard/notifications
+      this.notificationService.getUserNotifications(1, this.preferences().maxItemsToShow)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (notifications) => {
+            // Convert NotificationDto to BasicNotification interface
+            const basicNotifications: BasicNotification[] = notifications.map(n => ({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              priority: n.priority,
+              isRead: n.isRead,
+              createdAt: n.createdAt,
+              type: n.type,
+              actionUrl: n.actionUrl
+            }));
+            
+            this._basicNotifications.set(basicNotifications);
+            console.log('✅ Loaded basic notifications from real API:', basicNotifications);
+          },
+          error: (error) => {
+            console.error('❌ Error loading basic notifications:', error);
+            this._basicNotifications.set([]);
+          }
+        });
     } catch (error) {
       console.error('Error loading basic notifications:', error);
     }
@@ -320,17 +462,24 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
         this.router.navigate(['/dashboard/pos'], {
           queryParams: { 
             productId: notification.productId,
+            batchId: notification.batchId,
             action: 'discount' 
           }
         });
         break;
       case 'expired_alert':
-        this.router.navigate(['/dashboard/inventory/dispose'], {
-          queryParams: { 
-            productId: notification.productId,
-            batchId: notification.batchId
-          }
-        });
+        // ✅ REAL DATA: Use actual batch information from intelligent API
+        if (notification.actionUrl) {
+          this.navigateToUrl(notification.actionUrl);
+        } else {
+          this.router.navigate(['/dashboard/inventory/dispose'], {
+            queryParams: { 
+              productId: notification.productId,
+              batchId: notification.batchId,
+              batchNumber: notification.batchNumber
+            }
+          });
+        }
         break;
       default:
         this.handleNotificationClick(notification, 'smart');
@@ -344,16 +493,59 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
         notifications.map(n => n.id === id ? { ...n, isRead: true } : n)
       );
     } else {
-      this._basicNotifications.update(notifications => 
-        notifications.map(n => n.id === id ? { ...n, isRead: true } : n)
-      );
+      // ✅ REAL API: Mark basic notification as read via NotificationService
+      this.notificationService.markAsRead(id).subscribe({
+        next: (success) => {
+          if (success) {
+            this._basicNotifications.update(notifications => 
+              notifications.map(n => n.id === id ? { ...n, isRead: true } : n)
+            );
+            console.log('✅ Marked basic notification as read:', id);
+          }
+        },
+        error: (error) => {
+          console.error('❌ Error marking notification as read:', error);
+        }
+      });
     }
   }
   
   refreshNotifications(): void {
     this._isLoading.set(true);
-    this.loadAllNotifications().finally(() => {
+    
+    // ✅ REAL API: Refresh both smart and basic notifications
+    Promise.all([
+      this.loadAllNotifications(),
+      // Also refresh notification summary for real-time count updates
+      this.notificationService.getNotificationSummary().pipe(
+        takeUntilDestroyed(this.destroyRef)
+      ).toPromise().catch(error => {
+        console.error('Error refreshing notification summary:', error);
+      })
+    ]).finally(() => {
       this._isLoading.set(false);
+    });
+  }
+
+  // ===== MARK ALL AS READ =====
+  markAllAsRead(): void {
+    // ✅ REAL API: Mark all notifications as read
+    this.notificationService.markAllAsRead().subscribe({
+      next: (success) => {
+        if (success) {
+          // Update local state for both smart and basic notifications
+          this._smartNotifications.update(notifications => 
+            notifications.map(n => ({ ...n, isRead: true }))
+          );
+          this._basicNotifications.update(notifications => 
+            notifications.map(n => ({ ...n, isRead: true }))
+          );
+          console.log('✅ Marked all notifications as read');
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error marking all notifications as read:', error);
+      }
     });
   }
 
@@ -365,10 +557,27 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
   openSettings(): void {
     this.navigateToUrl('/dashboard/settings');
   }
+
+  // ✅ NEW: Navigate to Smart Notifications Dashboard
+  viewSmartDetails(): void {
+    this.closeDropdown();
+    this.router.navigate(['/dashboard/notifications'], { 
+      queryParams: { tab: 'smart' }
+    });
+  }
   
   private navigateToUrl(url: string): void {
-    this.router.navigate([url]).catch(error => {
-      console.error('Navigation error:', error);
+    console.log('🔍 Notification - Navigating to:', url);
+    console.log('🔍 Router instance:', this.router);
+    
+    this.router.navigate([url]).then(success => {
+      console.log('🔍 Navigation success:', success);
+      if (!success) {
+        console.error('❌ Router navigation failed, using window.location');
+        window.location.href = url;
+      }
+    }).catch(error => {
+      console.error('❌ Navigation error:', error);
       window.location.href = url;
     });
   }
@@ -413,7 +622,12 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
   }
   
   hasSmartMeta(notification: SmartNotification): boolean {
-    return !!(notification.potentialLoss || notification.confidenceScore || notification.actionDeadline);
+    return !!(notification.potentialLoss || 
+              notification.confidenceScore || 
+              notification.actionDeadline ||
+              notification.businessImpact ||
+              notification.actionItems?.length ||
+              notification.affectedBatches?.length);
   }
   
   getPriorityChipColor(priority: string): 'primary' | 'accent' | 'warn' {
@@ -438,6 +652,7 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
   // ===== TRACKING FUNCTIONS =====
   trackByNotificationId = (index: number, notification: SmartNotification): any => notification.id;
   trackByBasicNotificationId = (index: number, notification: BasicNotification): any => notification.id;
+  trackByActionItem = (index: number, action: string): any => action;
 
   // ===== UTILITY METHODS =====
   formatCurrencyShort(amount: number): string {
@@ -477,14 +692,24 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
     return 0;
   }
   
-  private calculateConfidenceScore(notification: ExpiryNotification): number {
-    let score = 75;
-    
-    if (notification.daysUntilExpiry !== undefined) score += 10;
-    if (notification.productId && notification.batchId) score += 10;
-    if (notification.priority === ExpiryUrgency.CRITICAL) score += 5;
-    
-    return Math.min(score, 95);
+  private calculateConfidenceScore(notification: ExpiryNotification): number;
+  private calculateConfidenceScore(dto: IntelligentNotificationDto): number;
+  private calculateConfidenceScore(input: ExpiryNotification | IntelligentNotificationDto): number {
+    if ('affectedBatches' in input) {
+      // IntelligentNotificationDto case
+      let score = 85; // Base score for intelligent notifications
+      if (input.affectedBatches.length > 0) score += 5;
+      if (input.businessImpact.financialRisk > 100000) score += 5;
+      if (input.escalationRule.requireAcknowledgment) score += 5;
+      return Math.min(score, 95);
+    } else {
+      // ExpiryNotification case (legacy)
+      let score = 75;
+      if (input.daysUntilExpiry !== undefined) score += 10;
+      if (input.productId && input.batchId) score += 10;
+      if (input.priority === ExpiryUrgency.CRITICAL) score += 5;
+      return Math.min(score, 95);
+    }
   }
   
   private calculateActionDeadline(notification: ExpiryNotification): string | undefined {
@@ -496,5 +721,43 @@ export class UnifiedNotificationCenterComponent implements OnInit, OnDestroy {
     }
     
     return undefined;
+  }
+
+  // ===== INTELLIGENT API MAPPING METHODS =====
+  private mapNotificationType(type: string): 'expiry_warning' | 'expired_alert' | 'disposal_reminder' {
+    switch (type.toLowerCase()) {
+      case 'criticalexpiry':
+        return 'expired_alert';
+      case 'expirywarning':
+        return 'expiry_warning';
+      default:
+        return 'expiry_warning';
+    }
+  }
+
+  private mapPriorityToExpiryUrgency(priority: number): ExpiryUrgency {
+    switch (priority) {
+      case 3:
+        return ExpiryUrgency.CRITICAL;
+      case 2:
+        return ExpiryUrgency.HIGH;
+      case 1:
+        return ExpiryUrgency.MEDIUM;
+      default:
+        return ExpiryUrgency.LOW;
+    }
+  }
+
+  private extractProductName(title: string): string {
+    // Extract product name from title like "🚨 Critical Expiry Alert: Aqua 600ml"
+    const match = title.match(/:\s*(.+?)(?:\s|$)/);
+    return match ? match[1].trim() : 'Unknown Product';
+  }
+
+  private calculateDaysUntilExpiry(expiryDate: string): number {
+    const expiry = new Date(expiryDate);
+    const now = new Date();
+    const diffTime = expiry.getTime() - now.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 }

@@ -1,5 +1,6 @@
 // src/app/modules/pos/pos/pos.component.ts - SIGNALS + ONPUSH MIGRATION
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
+import { effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -17,7 +18,7 @@ import { AddStockToBatchModalComponent, AddStockToBatchModalData, AddStockToBatc
 import { BatchSelectionModalComponent, BatchSelectionModalData, BatchSelectionResult } from '../../inventory/components/batch-selection-modal/batch-selection-modal.component';
 
 // Services
-import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData, ProductListResponseApiResponse } from '../../../core/services/pos.service';
+import { POSService, Product, CartItem, CreateSaleRequest, CreateSaleItemRequest, PaymentData, ProductListResponseApiResponse, ProductByBranchApiResponse } from '../../../core/services/pos.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { CreateProductRequest, BatchForPOSDto, ProductBatch } from '../../inventory/interfaces/inventory.interfaces';
 import { AuthService } from '../../../core/services/auth.service';
@@ -27,9 +28,13 @@ import { MemberDto } from '../../membership/interfaces/membership.interfaces';
 import { MemberCreditService } from '../../membership/services/member-credit.service';
 import { POSMemberCreditDto } from '../../membership/interfaces/member-credit.interfaces';
 import { CategoryService } from '../../category-management/services/category.service';
-import { Category } from '../../category-management/models/category.models';
+import { Category, CategoryFilter } from '../../category-management/models/category.models';
 import { NotificationService, CreateNotificationRequest } from '../../../core/services/notification.service';
 import { ToastService } from '../../../shared/services/toast.service';
+// NEW: Branch-aware services
+import { BranchPOSService } from '../services/branch-pos.service';
+import { StateService } from '../../../core/services/state.service';
+// ✅ REMOVED: BranchInventoryService - now using POSService directly
 
 // Import standalone components
 import { BarcodeToolsComponent } from './barcode-tools/barcode-tools.component';
@@ -67,6 +72,11 @@ export class POSComponent implements OnInit, OnDestroy {
   private toastService = inject(ToastService);
   private router = inject(Router);
   private dialog = inject(MatDialog);
+  
+  // NEW: Branch-aware services
+  private branchPOSService = inject(BranchPOSService);
+  private stateService = inject(StateService);
+  // ✅ REMOVED: branchInventoryService - now using POSService directly
 
   // SIGNALS: Template-driven form state
   searchQuery = signal('');
@@ -138,14 +148,23 @@ export class POSComponent implements OnInit, OnDestroy {
   
   // SIGNALS: Infinite scrolling and pagination
   isLoadingMore = signal(false);
+  
+  // NEW: Branch-aware signals
+  branchProducts = signal<Product[]>([]);
   currentPage = signal(1);
   hasMoreProducts = signal(true);
   allProducts = signal<Product[]>([]); // Store all loaded products
   displayedProducts = signal<Product[]>([]); // Products currently displayed
+  
+  // ✅ NEW: Branch stock tracking
+  productBranchStocks = signal<Map<number, {[branchId: number]: number}>>(new Map());
+  loadingBranchStock = signal<Set<number>>(new Set());
 
   // COMPUTED: Filtered products based on search and filters
   filteredProducts = computed(() => {
-    let products = this.allProducts(); // Use allProducts instead of products
+    // ✅ FIX: Use allProducts from POSService, not branchInventoryService
+    let products = this.allProducts();
+    
     const query = this.searchQuery().toLowerCase();
     const filter = this.selectedFilter();
     const categoryId = this.selectedCategoryId();
@@ -231,6 +250,19 @@ export class POSComponent implements OnInit, OnDestroy {
     return !this.isCartEmpty() && this.cartTotal() > 0;
   });
 
+  // NEW: Branch-aware computed properties
+  readonly activeBranch = this.stateService.activeBranch;
+  readonly activeBranchIds = this.stateService.activeBranchIds;
+  readonly canProcessTransaction = this.branchPOSService.canProcessTransaction;
+  
+  
+  readonly branchContext = computed(() => ({
+    branchId: this.activeBranch()?.branchId || null,
+    branchName: this.activeBranch()?.branchName || 'No Branch Selected',
+    branchCode: this.activeBranch()?.branchCode || '',
+    canProcessTransaction: this.canProcessTransaction() || false
+  }));
+
   constructor() {
     // Setup search subject subscription in constructor
     this.setupSearchSubscription();
@@ -252,7 +284,9 @@ export class POSComponent implements OnInit, OnDestroy {
     this.initializeComponent();
     this.setupCartSubscription();
     this.setupSearchListener();
+    this.setupBranchListener();
     this.loadCategories();
+    // ✅ FIX: Only use loadProducts - no more loadBranchData
     this.loadProducts();
   }
 
@@ -298,7 +332,7 @@ export class POSComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Load more products for infinite scrolling
+   * ✅ UPDATED: Load more products for infinite scrolling with branch awareness
    */
   private loadMoreProducts(): void {
     if (this.isLoadingMore() || !this.hasMoreProducts() || this.searchQuery().length > 0) {
@@ -308,17 +342,27 @@ export class POSComponent implements OnInit, OnDestroy {
     this.isLoadingMore.set(true);
     const nextPage = this.currentPage() + 1;
 
-    this.posService.getProducts(nextPage, 20).subscribe({
+    // ✅ Use updated branch-aware method
+    const filters = {
+      page: nextPage,
+      pageSize: 20,
+      isActive: true,
+      search: this.searchQuery() || undefined,
+      categoryId: this.selectedCategoryId() || undefined
+    };
+
+    this.posService.getProducts(filters).subscribe({
       next: (response) => {
         this.isLoadingMore.set(false);
         
-        if (response.success && response.data?.products) {
-          const newProducts = response.data.products;
+        if (response.success && response.data) {
+          const newProducts = response.data.products || [];
           
           if (newProducts.length > 0) {
-            // Add new products to existing list
+            // Add new branch-aware products to existing list
             this.allProducts.update(existing => [...existing, ...newProducts]);
             this.currentPage.set(nextPage);
+            console.log('✅ Loaded more branch products:', newProducts.length);
           } else {
             // No more products to load
             this.hasMoreProducts.set(false);
@@ -329,7 +373,7 @@ export class POSComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.isLoadingMore.set(false);
-        console.error('Error loading more products:', error);
+        console.error('❌ Error loading more branch products:', error);
       }
     });
   }
@@ -349,43 +393,86 @@ export class POSComponent implements OnInit, OnDestroy {
 
   // ===== INITIALIZATION =====
 
-  // Load products with signals and infinite scroll support
+  // ✅ UPDATED: Load branch-aware products using new endpoint
   loadProducts(): void {
     this.isLoading.set(true);
     this.currentPage.set(1);
     this.hasMoreProducts.set(true);
     
-    this.posService.getProducts(1, 20).subscribe({
+    // ✅ Use the updated branch-aware getProducts method
+    const filters = {
+      page: 1,
+      pageSize: 20,
+      isActive: true,
+      search: this.searchQuery() || undefined,
+      categoryId: this.selectedCategoryId() || undefined
+    };
+
+    console.log('🏢 [FIXED] Loading branch-aware products with filters:', filters);
+    
+    this.posService.getProducts(filters).subscribe({
       next: (response) => {
-        console.log('🔍 Full Response:', response);
+        console.log('🔍 Branch Products Response:', response);
         console.log('🔍 Response Success:', response.success);
         console.log('🔍 Response Data:', response.data);
         
         if (response.success && response.data) {
-          // ✅ FIX: Use allProducts for infinite scroll
-          const products = response.data.products || [];
+          // ✅ Handle both formats: direct array or wrapped in pagination structure
+          let products: Product[] = [];
+          
+          if (Array.isArray(response.data)) {
+            // Direct array format from /api/Product/by-branch
+            products = response.data;
+            console.log('📦 Direct array format detected');
+          } else if (response.data.products) {
+            // Pagination format from /api/POS/products
+            products = response.data.products;
+            console.log('📦 Pagination format detected');
+          } else {
+            console.warn('⚠️ Unexpected response format:', response.data);
+            products = [];
+          }
+          
           this.allProducts.set(products);
-          this.products.set(products); // Keep for backward compatibility
-          console.log('✅ Products loaded:', products.length);
-          console.log('✅ First product:', products[0]);
+          this.products.set(products);
+          console.log('✅ Branch products loaded:', products.length);
+          
+          if (products.length > 0) {
+            console.log('✅ First product:', products[0]);
+            console.log('🏢 Products from branches with stock validation');
+          }
           
           // Check if we can load more
           if (products.length < 20) {
             this.hasMoreProducts.set(false);
           }
         } else {
-          console.warn('⚠️ Response not successful:', response.message);
+          console.warn('⚠️ Branch products response not successful:', response.message);
           this.allProducts.set([]);
           this.products.set([]);
+          
+          // Show user-friendly message
+          this.errorMessage.set('Tidak ada produk yang tersedia di branch ini atau Anda tidak memiliki akses');
+          this.clearMessages();
         }
         
         this.isLoading.set(false);
       },
       error: (error) => {
-        console.error('❌ Load Products Error:', error);
+        console.error('❌ Load Branch Products Error:', error);
         this.allProducts.set([]);
         this.products.set([]);
         this.isLoading.set(false);
+        
+        // Show branch-specific error message
+        if (error.status === 403) {
+          this.errorMessage.set('Anda tidak memiliki akses ke branch ini');
+        } else if (error.status === 404) {
+          this.errorMessage.set('Tidak ada produk yang tersedia di branch ini');
+        } else {
+          this.errorMessage.set('Gagal memuat produk branch. Periksa koneksi dan branch yang dipilih.');
+        }
+        this.clearMessages();
       }
     });
   }
@@ -420,6 +507,8 @@ export class POSComponent implements OnInit, OnDestroy {
     this.performSearch('');
   }
 
+  // ✅ REMOVED: loadBranchData - now using POSService directly
+
   private setupCartSubscription(): void {
     this.posService.cart$
       .pipe(
@@ -450,6 +539,39 @@ export class POSComponent implements OnInit, OnDestroy {
       });
   }
 
+  /**
+   * Set up branch listener for automatic data reload when branch changes
+   */
+  private setupBranchListener(): void {
+    let currentBranchId: number | null = null;
+    
+    // Poll for branch changes every 2 seconds
+    const branchPolling = setInterval(() => {
+      const branch = this.activeBranch();
+      
+      if (branch && branch.branchId !== currentBranchId) {
+        console.log('🏢 Branch changed detected:', branch.branchName);
+        currentBranchId = branch.branchId;
+        
+        // Clear current products first
+        this.allProducts.set([]);
+        this.products.set([]);
+        this.isLoading.set(true);
+        
+        // Reload products for new branch
+        setTimeout(() => {
+          console.log('🏢 Reloading products for branch:', branch.branchId);
+          this.loadProducts();
+        }, 300);
+      }
+    }, 2000);
+    
+    // Cleanup polling on destroy
+    this.destroy$.subscribe(() => {
+      clearInterval(branchPolling);
+    });
+  }
+
   // ===== PRODUCT OPERATIONS =====
 
   onSearchInput(event: any): void {
@@ -459,6 +581,7 @@ export class POSComponent implements OnInit, OnDestroy {
   }
 
   // ✅ ADD: Auto-show products panel on search
+// ✅ UPDATED: Branch-aware search method
 private performSearch(query: string) {
   if (query.length < 2 && query.length > 0) {
     this.products.set([]);
@@ -475,27 +598,51 @@ private performSearch(query: string) {
     this.showMobileSummary.set(false);
   }
 
-  const searchObservable = query.length === 0 
-    ? this.posService.getProducts()
-    : this.posService.searchProducts(query);
+  // ✅ Use branch-aware search with new endpoint
+  const filters = {
+    page: 1,
+    pageSize: 50, // More results for search
+    isActive: true,
+    search: query.length === 0 ? undefined : query,
+    categoryId: this.selectedCategoryId() || undefined
+  };
 
-  searchObservable
+  console.log('🔍 Performing branch-aware search:', filters);
+
+  this.posService.getProducts(filters)
     .pipe(takeUntil(this.destroy$))
     .subscribe({
-      next: (response: ProductListResponseApiResponse) => {
+      next: (response) => {
         this.isSearching.set(false);
         if (response.success && response.data) {
           const products = response.data.products || [];
-          this.products.set(products.filter((p: Product) => p.isActive && p.stock > 0));
+          // ✅ Filter active products with stock (already filtered by backend but double-check)
+          const filteredProducts = products.filter((p: Product) => p.isActive && p.stock > 0);
+          this.products.set(filteredProducts);
+          
+          console.log('✅ Branch search results:', filteredProducts.length, 'products');
+          
+          if (filteredProducts.length === 0 && query.length > 0) {
+            this.errorMessage.set('Tidak ada produk ditemukan di branch ini');
+            this.clearMessages();
+          }
         } else {
           this.products.set([]);
-          this.errorMessage.set(response.message || 'Failed to load products');
+          this.errorMessage.set(response.message || 'Gagal mencari produk');
+          this.clearMessages();
         }
       },
       error: (error: any) => {
         this.isSearching.set(false);
         this.products.set([]);
-        this.errorMessage.set(error.message || 'Failed to load products');
+        
+        // Branch-specific error handling
+        if (error.status === 403) {
+          this.errorMessage.set('Tidak memiliki akses untuk mencari produk di branch ini');
+        } else {
+          this.errorMessage.set(error.message || 'Gagal mencari produk');
+        }
+        this.clearMessages();
       }
     });
   }
@@ -986,10 +1133,20 @@ clearSearch(): void {
   }
 
   private loadCategories() {
-    this.categoryService.getCategoriesSimple()
+    // ✅ FIX: Use getCategories with proper filter parameter
+    const filter: CategoryFilter = {
+      page: 1,
+      pageSize: 100,
+      sortBy: 'name',
+      sortOrder: 'asc'
+    };
+    
+    this.categoryService.getCategories(filter)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (categories) => {
+        next: (response) => {
+          // Handle CategoryListResponse structure
+          const categories = response.categories || [];
           this.categories.set(categories);
           console.log('✅ Categories loaded for POS:', categories.length);
         },
@@ -1044,38 +1201,85 @@ clearSearch(): void {
 
           this.isLoading.set(true);
           
-          // 🔥 NEW: Use different endpoint for credit payment vs regular payment
-          let saleRequest$: any;
+          // NEW: Use BranchPOSService for branch-aware transaction processing
+          const branchContext = this.branchContext();
           
-          if (paymentData.method === 'credit' && this.selectedMember() && this.memberCreditData()) {
-            // Credit payment - use credit-specific endpoint with proper format
-            const creditSaleData = {
-              memberId: this.selectedMember()!.id,
-              items: this.cart().map(item => ({
-                productId: item.product.id,
-                quantity: item.quantity,
-                unitPrice: item.product.sellPrice,
-                discountAmount: (item.quantity * item.product.sellPrice * item.discount) / 100
-              })),
-              totalAmount: totals.total,
-              creditAmount: paymentData.amountPaid,
-              cashAmount: totals.total - paymentData.amountPaid,
-              paymentMethod: 5, // Credit payment method ID
-              branchId: 1,
-              cashierId: 1,
-              customerName: this.selectedMember()!.name || 'Credit Customer',
-              notes: this.notes() || 'POS Credit Transaction'
-            };
-            
-            console.log('🚀 [POS Credit] Using credit endpoint with data:', creditSaleData);
-            saleRequest$ = this.memberCreditService.createSaleWithCredit(creditSaleData);
-          } else {
-            // Regular payment - use standard POS endpoint
-            console.log('🚀 [POS Regular] Using regular endpoint with data:', saleRequest);
-            saleRequest$ = this.posService.createSale(saleRequest);
+          // Check if branch can process transactions
+          if (!branchContext.canProcessTransaction || !branchContext.branchId) {
+            this.isLoading.set(false);
+            this.errorMessage.set(`Cannot process transaction: ${branchContext.branchName} does not have transaction permissions or no branch selected`);
+            this.clearMessages();
+            return;
           }
           
-          saleRequest$
+          // Create branch transaction data
+          const branchTransaction = {
+            transactionCode: this.generateTransactionCode(),
+            items: this.cart().map(item => ({
+              productId: item.product.id,
+              productName: item.product.name,
+              productCode: item.product.barcode,
+              barcode: item.product.barcode,
+              quantity: item.quantity,
+              unitPrice: item.product.sellPrice,
+              discount: (item.quantity * item.product.sellPrice * item.discount) / 100,
+              subtotal: (item.quantity * item.product.sellPrice) - ((item.quantity * item.product.sellPrice * item.discount) / 100),
+              branchId: branchContext.branchId!,
+              availableStock: item.product.stock,
+              category: item.product.categoryName || 'Uncategorized',
+              unit: item.product.unit || 'pcs'
+            })),
+            subtotal: totals.subtotal,
+            discount: totals.discountAmount,
+            tax: totals.taxAmount,
+            total: totals.total,
+            paymentMethod: this.mapPaymentMethod(paymentData.method),
+            amountPaid: paymentData.amountPaid,
+            change: paymentData.change,
+            memberId: this.selectedMember()?.id,
+            memberName: this.selectedMember()?.name,
+            memberDiscount: this.memberDiscount(),
+            cashierId: this.currentUser()?.id || 1,
+            cashierName: this.currentUser()?.username || 'POS Cashier',
+            transactionDate: new Date().toISOString(),
+            receiptNumber: this.generateReceiptNumber(),
+            status: 'Completed' as const,
+            notes: this.notes() || undefined
+          };
+          
+          console.log('🏢 [Branch POS] Processing transaction:', {
+            branchId: branchContext.branchId,
+            branchName: branchContext.branchName,
+            total: branchTransaction.total,
+            items: branchTransaction.items.length
+          });
+          
+          let transactionRequest$: Observable<any>;
+          
+          if (paymentData.method === 'credit' && this.selectedMember() && this.memberCreditData()) {
+            // Credit payment - use member credit service but with branch context
+            const creditSaleData = {
+              memberId: this.selectedMember()!.id,
+              items: branchTransaction.items,
+              totalAmount: branchTransaction.total,
+              creditAmount: paymentData.amountPaid,
+              cashAmount: branchTransaction.total - paymentData.amountPaid,
+              paymentMethod: 5,
+              branchId: branchContext.branchId,
+              cashierId: branchTransaction.cashierId,
+              customerName: branchTransaction.memberName || 'Credit Customer',
+              notes: branchTransaction.notes || 'Branch Credit Transaction'
+            };
+            
+            console.log('🚀 [Branch Credit] Using credit endpoint with branch data:', creditSaleData);
+            transactionRequest$ = this.memberCreditService.createSaleWithCredit(creditSaleData);
+          } else {
+            // Use BranchPOSService for regular transactions
+            console.log('🚀 [Branch Regular] Using BranchPOSService with data:', branchTransaction);
+            transactionRequest$ = this.branchPOSService.processTransaction(branchTransaction);
+          }
+          
+          transactionRequest$
             .pipe(takeUntil(this.destroy$))
             .subscribe({
               next: (response: any) => {
@@ -1911,6 +2115,41 @@ focusMemberSearch(): void {
     this.showMobileSummary.set(false);
   }
 
+  // NEW: Helper methods for branch-aware transaction processing
+  
+  private generateTransactionCode(): string {
+    const branchCode = this.branchContext().branchCode || 'GEN';
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    return `${branchCode}-${timestamp}${random}`;
+  }
+
+  private generateReceiptNumber(): string {
+    const branchCode = this.branchContext().branchCode || 'GEN';
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const time = Date.now().toString().slice(-6);
+    return `RCP-${branchCode}-${year}${month}${day}-${time}`;
+  }
+
+  private mapPaymentMethod(method: string): 'cash' | 'card' | 'digital' | 'credit' {
+    const methodMap: Record<string, 'cash' | 'card' | 'digital' | 'credit'> = {
+      'cash': 'cash',
+      'card': 'card', 
+      'debit': 'card',
+      'credit_card': 'card',
+      'digital': 'digital',
+      'ewallet': 'digital',
+      'qris': 'digital',
+      'credit': 'credit',
+      'member_credit': 'credit'
+    };
+    
+    return methodMap[method] || 'cash';
+  }
+
   // ===== REAL-TIME NOTIFICATION TESTING =====
 
   /**
@@ -2130,5 +2369,140 @@ focusMemberSearch(): void {
     }
     
     return `${product.stock} units available (batch managed)`;
+  }
+
+  // ===== NEW: BRANCH STOCK MANAGEMENT =====
+
+  /**
+   * ✅ NEW: Load branch stock for a specific product
+   */
+  loadProductBranchStock(productId: number): void {
+    const loadingSet = this.loadingBranchStock();
+    if (loadingSet.has(productId)) {
+      return; // Already loading
+    }
+
+    // Add to loading set
+    this.loadingBranchStock.update(set => new Set([...set, productId]));
+
+    this.posService.getProductBranchStock(productId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            // Update branch stock map
+            this.productBranchStocks.update(map => {
+              const newMap = new Map(map);
+              newMap.set(productId, response.data!);
+              return newMap;
+            });
+            console.log('✅ Branch stock loaded for product:', productId, response.data);
+          }
+        },
+        error: (error) => {
+          console.error('❌ Error loading branch stock for product:', productId, error);
+        },
+        complete: () => {
+          // Remove from loading set
+          this.loadingBranchStock.update(set => {
+            const newSet = new Set(set);
+            newSet.delete(productId);
+            return newSet;
+          });
+        }
+      });
+  }
+
+  /**
+   * ✅ NEW: Get branch stock for a product
+   */
+  getProductBranchStock(productId: number): {[branchId: number]: number} | null {
+    return this.productBranchStocks().get(productId) || null;
+  }
+
+  /**
+   * ✅ NEW: Check if product has stock in current branch
+   */
+  hasStockInCurrentBranch(product: Product): boolean {
+    const branchStock = this.getProductBranchStock(product.id);
+    const currentBranchId = this.activeBranch()?.branchId;
+    
+    if (!branchStock || !currentBranchId) {
+      return product.stock > 0; // Fallback to product stock
+    }
+    
+    return (branchStock[currentBranchId] || 0) > 0;
+  }
+
+  /**
+   * ✅ NEW: Get stock for current branch
+   */
+  getCurrentBranchStock(product: Product): number {
+    const branchStock = this.getProductBranchStock(product.id);
+    const currentBranchId = this.activeBranch()?.branchId;
+    
+    if (!branchStock || !currentBranchId) {
+      return product.stock; // Fallback to product stock
+    }
+    
+    return branchStock[currentBranchId] || 0;
+  }
+
+  /**
+   * ✅ NEW: Get total stock across all accessible branches
+   */
+  getTotalBranchStock(productId: number): number {
+    const branchStock = this.getProductBranchStock(productId);
+    if (!branchStock) return 0;
+    
+    return Object.values(branchStock).reduce((total, stock) => total + stock, 0);
+  }
+
+  /**
+   * ✅ NEW: Format branch stock display
+   */
+  formatBranchStockDisplay(product: Product): string {
+    const branchStock = this.getProductBranchStock(product.id);
+    const currentBranchId = this.activeBranch()?.branchId;
+    
+    if (!branchStock || !currentBranchId) {
+      return `${product.stock} tersedia`;
+    }
+    
+    const currentStock = branchStock[currentBranchId] || 0;
+    const totalStock = this.getTotalBranchStock(product.id);
+    
+    if (Object.keys(branchStock).length === 1) {
+      return `${currentStock} tersedia`;
+    }
+    
+    return `${currentStock} di branch ini, ${totalStock} total`;
+  }
+
+  /**
+   * ✅ NEW: Show detailed branch stock in modal/tooltip
+   */
+  showBranchStockDetails(product: Product): void {
+    const branchStock = this.getProductBranchStock(product.id);
+    const branches = this.stateService.accessibleBranches();
+    
+    if (!branchStock) {
+      alert(`Stock untuk ${product.name}:\nTotal: ${product.stock} unit`);
+      return;
+    }
+    
+    let message = `Stock ${product.name} per Branch:\n\n`;
+    
+    Object.entries(branchStock).forEach(([branchIdStr, stock]) => {
+      const branchId = parseInt(branchIdStr);
+      const branch = branches.find(b => b.branchId === branchId);
+      const branchName = branch?.branchName || `Branch ${branchId}`;
+      message += `${branchName}: ${stock} unit\n`;
+    });
+    
+    const total = this.getTotalBranchStock(product.id);
+    message += `\nTotal Semua Branch: ${total} unit`;
+    
+    alert(message);
   }
 }

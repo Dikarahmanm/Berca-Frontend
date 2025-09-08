@@ -29,6 +29,142 @@
     <!-- Right Section - Actions -->
     <div class="topbar-right">
       
+      <!-- ===== NEW: Branch Selector ===== -->
+      <div class="branch-selector-wrapper" *ngIf="accessibleBranches().length > 0 && canSwitchBranches()">
+        <button 
+          class="branch-selector-btn"
+          (click)="toggleBranchDropdown()"
+          [class.active]="branchDropdownOpen()"
+          [disabled]="branchLoading()"
+          matTooltip="Switch Branch"
+          matTooltipPosition="below">
+          
+          <div class="branch-selector-content">
+            <mat-icon class="branch-icon">{{ getBranchIcon(activeBranch() || accessibleBranches()[0]) }}</mat-icon>
+            
+            <div class="branch-info" *ngIf="!isMobile">
+              <span class="branch-name">{{ branchDisplayText() }}</span>
+              <span class="branch-type" *ngIf="!isMultiSelectMode()">{{ activeBranch()?.branchType }}</span>
+            </div>
+            
+            <mat-icon class="dropdown-arrow" *ngIf="!branchLoading()">expand_more</mat-icon>
+            <mat-spinner *ngIf="branchLoading()" diameter="16"></mat-spinner>
+          </div>
+        </button>
+
+        <!-- Branch Dropdown -->
+        <div class="custom-dropdown branch-dropdown" *ngIf="branchDropdownOpen()" (click)="$event.stopPropagation()">
+          
+          <!-- Header -->
+          <div class="dropdown-header">
+            <div class="branch-header-content">
+              <h3 class="dropdown-title">Select Branch</h3>
+              <p class="dropdown-subtitle">Choose your working branch</p>
+            </div>
+            
+            <!-- Multi-select toggle -->
+            <button 
+              class="multi-select-toggle"
+              (click)="toggleMultiSelectMode()"
+              *ngIf="!isMultiSelectMode() && accessibleBranches().length > 1"
+              matTooltip="Enable multi-branch selection">
+              <mat-icon>select_all</mat-icon>
+            </button>
+          </div>
+
+          <!-- Search -->
+          <div class="branch-search" *ngIf="accessibleBranches().length > 4">
+            <div class="search-input-wrapper">
+              <mat-icon class="search-icon">search</mat-icon>
+              <input 
+                type="text"
+                class="search-input"
+                placeholder="Search branches..."
+                [value]="branchSearchQuery()"
+                (input)="onBranchSearchChange($event)">
+            </div>
+          </div>
+
+          <!-- Branch List -->
+          <div class="branch-list">
+            <div 
+              *ngFor="let branch of filteredBranches(); trackBy: trackByBranch" 
+              class="branch-item"
+              [class.selected]="isBranchSelected(branch.branchId)"
+              [class.head-office]="branch.isHeadOffice"
+              [style.padding-left]="(branch.level * 16) + 'px'"
+              (click)="selectBranch(branch.branchId)">
+              
+              <!-- Multi-select checkbox -->
+              <input 
+                *ngIf="isMultiSelectMode()" 
+                type="checkbox"
+                class="branch-checkbox"
+                [checked]="isBranchSelected(branch.branchId)"
+                (click)="toggleBranchSelection(branch.branchId, $event)">
+              
+              <!-- Branch Icon -->
+              <mat-icon class="branch-item-icon">{{ getBranchIcon(branch) }}</mat-icon>
+              
+              <!-- Branch Info -->
+              <div class="branch-info">
+                <span class="branch-name">{{ branch.branchName }}</span>
+                <div class="branch-meta">
+                  <small class="branch-code">{{ branch.branchCode }}</small>
+                  <span class="branch-separator">•</span>
+                  <small class="branch-type">{{ branch.branchType }}</small>
+                </div>
+              </div>
+
+              <!-- Access Level Badge -->
+              <div class="access-level-badge" 
+                   [style.color]="getBranchAccessLevelColor(branch.accessLevel)">
+                <mat-icon [matTooltip]="branch.accessLevel + ' Access'">{{ getBranchAccessLevelIcon(branch.accessLevel) }}</mat-icon>
+              </div>
+
+              <!-- Selection Indicator -->
+              <div class="selection-indicator" *ngIf="isBranchSelected(branch.branchId)">
+                <mat-icon>check_circle</mat-icon>
+              </div>
+            </div>
+            
+            <!-- Empty State -->
+            <div class="empty-state" *ngIf="filteredBranches().length === 0">
+              <mat-icon>search_off</mat-icon>
+              <p>No branches found</p>
+              <small>Try adjusting your search</small>
+            </div>
+          </div>
+
+          <!-- Multi-select Footer -->
+          <div class="dropdown-footer" *ngIf="isMultiSelectMode()">
+            <div class="multi-select-summary">
+              <span class="selected-count">{{ selectedBranchIds().length }} branches selected</span>
+            </div>
+            
+            <div class="multi-select-actions">
+              <button class="action-btn secondary" (click)="clearBranchSelection()">
+                <mat-icon>clear</mat-icon>
+                Clear
+              </button>
+              
+              <button class="action-btn primary" (click)="branchDropdownOpen.set(false)">
+                <mat-icon>done</mat-icon>
+                Done
+              </button>
+            </div>
+          </div>
+
+          <!-- Refresh Action -->
+          <div class="dropdown-refresh" *ngIf="!isMultiSelectMode()">
+            <button class="refresh-btn" (click)="refreshBranchData()" [disabled]="branchLoading()">
+              <mat-icon [class.spinning]="branchLoading()">refresh</mat-icon>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      
       <!-- Enhanced Unified Notifications -->
       <app-unified-notification-center>
       </app-unified-notification-center>

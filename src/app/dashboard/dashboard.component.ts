@@ -10,7 +10,7 @@ import { BaseLayoutComponent } from '../shared/components/base-layout/base-layou
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [
     CommonModule,
     RouterModule,

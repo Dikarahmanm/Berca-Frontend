@@ -15,9 +15,9 @@ export interface ProductDto {
   minStock: number;
   minimumStock?: number; // Compatibility with inventory interface
   unit: string;
-  createdAt: Date;
-  updatedAt: Date;
-  expiryDate?: Date;
+  createdAt: string;
+  updatedAt: string;
+  expiryDate?: string;
 }
 
 export interface CreateSaleRequest {

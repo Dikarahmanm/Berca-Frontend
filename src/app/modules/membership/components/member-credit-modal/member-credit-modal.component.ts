@@ -706,41 +706,62 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
     </div>
   `,
   styles: [`
-    // Modal Overlay & Container
+    // Enhanced Modal Overlay & Container
     .modal-overlay {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
       padding: var(--s4);
+      animation: fadeIn 200ms ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideIn {
+      from { 
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+      }
+      to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
 
     .modal-container {
-      background: var(--surface);
-      border-radius: var(--radius-xl);
-      box-shadow: var(--shadow-2xl);
+      background: var(--surface-elevated);
+      border-radius: var(--radius-2xl);
+      box-shadow: var(--shadow-xl);
+      border: 1px solid var(--border-light);
       width: 100%;
-      max-width: 1000px;
-      max-height: 90vh;
+      max-width: 1100px;
+      max-height: 92vh;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      animation: slideIn 300ms ease-out;
     }
 
-    // Modal Header
+    // Enhanced Modal Header
     .modal-header {
-      padding: var(--s6);
-      border-bottom: 2px solid var(--border);
-      background: linear-gradient(135deg, var(--bg) 0%, var(--bg-secondary) 100%);
+      padding: var(--s8) var(--s8) var(--s6) var(--s8);
+      border-bottom: 1px solid var(--border-light);
+      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--surface-soft) 100%);
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      position: relative;
     }
 
     .header-content {
@@ -748,82 +769,131 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      gap: var(--s6);
     }
 
     .member-info {
+      flex: 1;
+
       .modal-title {
-        font-size: var(--text-2xl) !important;
+        font-size: var(--text-3xl) !important;
         font-weight: var(--font-bold) !important;
-        color: var(--text) !important;
-        margin: 0 0 var(--s2) 0 !important;
+        color: var(--text-primary) !important;
+        margin: 0 0 var(--s3) 0 !important;
+        line-height: var(--leading-tight) !important;
       }
 
       .member-details {
         display: flex;
-        gap: var(--s4);
-        font-size: var(--text-sm);
-        color: var(--text-secondary);
+        flex-wrap: wrap;
+        gap: var(--s3);
+        margin-top: var(--s3);
 
         .member-number {
           background: var(--primary-light);
           color: var(--primary);
-          padding: var(--s1) var(--s2);
-          border-radius: var(--radius);
-          font-weight: var(--font-medium);
+          padding: var(--s2) var(--s3);
+          border-radius: var(--radius-md);
+          font-weight: var(--font-semibold);
+          font-size: var(--text-sm);
+          border: 1px solid rgba(228, 122, 63, 0.2);
         }
 
         .member-tier {
-          background: var(--bg-secondary);
-          padding: var(--s1) var(--s2);
-          border-radius: var(--radius);
+          background: var(--info-light);
+          color: var(--info);
+          padding: var(--s2) var(--s3);
+          border-radius: var(--radius-md);
+          font-weight: var(--font-medium);
+          font-size: var(--text-sm);
+          border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .member-phone {
+          background: var(--surface-soft);
+          color: var(--text-secondary);
+          padding: var(--s2) var(--s3);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          border: 1px solid var(--border-light);
         }
       }
     }
 
     .credit-status {
       display: flex;
+      flex-direction: column;
       gap: var(--s2);
+      align-items: flex-end;
 
       .status-badge,
       .risk-badge {
         color: white;
         font-size: var(--text-xs);
-        font-weight: var(--font-semibold);
-        padding: var(--s2) var(--s3);
-        border-radius: var(--radius);
+        font-weight: var(--font-bold);
+        padding: var(--s2) var(--s4);
+        border-radius: var(--radius-full);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        box-shadow: var(--shadow-sm);
       }
     }
 
     .close-button {
-      background: var(--bg-secondary);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      width: 40px;
-      height: 40px;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      width: 44px;
+      height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: var(--transition);
+      transition: var(--transition-normal);
+      color: var(--text-secondary);
 
       &:hover {
-        background: var(--error);
+        background: var(--error-light);
         border-color: var(--error);
-        color: white;
+        color: var(--error);
+        transform: scale(1.05);
+      }
+
+      &:active {
+        transform: scale(0.95);
       }
 
       .close-icon {
         font-size: var(--text-2xl);
         line-height: 1;
+        font-weight: var(--font-bold);
       }
     }
 
-    // Tab Navigation
+    // Enhanced Tab Navigation
     .tab-navigation {
       display: flex;
-      background: var(--bg);
-      border-bottom: 2px solid var(--border);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-light);
       overflow-x: auto;
+      position: relative;
+      scrollbar-width: none; // Firefox
+      -ms-overflow-style: none; // IE
+
+      &::-webkit-scrollbar {
+        display: none; // Chrome, Safari
+      }
+
+      &::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: var(--border-light);
+        z-index: 1;
+      }
     }
 
     .tab-button {
@@ -834,46 +904,83 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
       border: none;
       background: none;
       cursor: pointer;
-      transition: var(--transition);
+      transition: var(--transition-normal);
       white-space: nowrap;
       position: relative;
       font-size: var(--text-sm);
+      font-weight: var(--font-medium);
       color: var(--text-secondary);
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+      z-index: 2;
 
       &:hover:not(:disabled) {
-        background: var(--primary-light);
-        color: var(--primary);
+        background: var(--primary-pale);
+        color: var(--primary-hover);
+        transform: translateY(-1px);
       }
 
       &.active {
-        background: var(--surface);
+        background: var(--surface-elevated);
         color: var(--primary);
-        font-weight: var(--font-medium);
+        font-weight: var(--font-semibold);
+        box-shadow: 0 -2px 8px rgba(228, 122, 63, 0.1);
+        border: 1px solid var(--border-light);
+        border-bottom: 1px solid var(--surface-elevated);
 
         &::after {
           content: '';
           position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: var(--primary);
+          bottom: -1px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 32px;
+          height: 3px;
+          background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+          border-radius: var(--radius-full);
+        }
+
+        .tab-icon {
+          transform: scale(1.1);
         }
       }
 
       &:disabled {
-        opacity: 0.5;
+        opacity: 0.4;
         cursor: not-allowed;
+        color: var(--text-muted);
+
+        &:hover {
+          background: none;
+          transform: none;
+        }
+      }
+
+      .tab-icon {
+        font-size: var(--text-base);
+        transition: var(--transition-normal);
+      }
+
+      .tab-label {
+        font-size: var(--text-sm);
+        transition: var(--transition-normal);
       }
 
       .tab-badge {
         background: var(--primary);
         color: white;
         font-size: var(--text-xs);
+        font-weight: var(--font-bold);
         padding: var(--s1) var(--s2);
-        border-radius: var(--radius-sm);
+        border-radius: var(--radius-full);
         min-width: 20px;
         text-align: center;
+        box-shadow: var(--shadow-sm);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
       }
     }
 
@@ -945,42 +1052,54 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
       }
     }
 
-    // Credit Overview
+    // Enhanced Credit Overview
     .credit-overview {
       .overview-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: var(--s6);
+        margin-bottom: var(--s6);
       }
 
       .overview-card {
-        background: var(--surface);
-        border: 2px solid var(--border);
-        border-radius: var(--radius-lg);
+        background: var(--surface-elevated);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-xl);
         overflow: hidden;
+        transition: var(--transition-normal);
+        box-shadow: var(--shadow-sm);
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-md);
+          border-color: var(--primary);
+        }
 
         .card-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: var(--s4);
-          background: var(--bg);
-          border-bottom: 2px solid var(--border);
+          padding: var(--s5) var(--s5) var(--s4) var(--s5);
+          background: linear-gradient(135deg, var(--bg-primary) 0%, var(--surface-soft) 100%);
+          border-bottom: 1px solid var(--border-subtle);
 
           h4 {
             font-size: var(--text-lg) !important;
-            font-weight: var(--font-semibold) !important;
-            color: var(--text) !important;
+            font-weight: var(--font-bold) !important;
+            color: var(--text-primary) !important;
             margin: 0 !important;
+            letter-spacing: -0.025em !important;
           }
 
           .card-icon {
-            font-size: var(--text-2xl);
+            font-size: var(--text-3xl);
+            opacity: 0.8;
+            filter: grayscale(20%);
           }
         }
 
         .card-content {
-          padding: var(--s4);
+          padding: var(--s5);
         }
       }
 
@@ -988,53 +1107,105 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: var(--s2) 0;
-        border-bottom: 1px solid var(--bg);
+        padding: var(--s3) 0;
+        border-bottom: 1px solid var(--border-subtle);
+        transition: var(--transition-fast);
 
         &:last-child {
           border-bottom: none;
+          padding-bottom: 0;
+        }
+
+        &:hover {
+          background: var(--surface-soft);
+          margin: 0 calc(-1 * var(--s5));
+          padding-left: var(--s5);
+          padding-right: var(--s5);
+          border-radius: var(--radius-md);
         }
 
         .metric-label {
           font-size: var(--text-sm);
+          font-weight: var(--font-medium);
           color: var(--text-secondary);
+          letter-spacing: 0.025em;
         }
 
         .metric-value {
           font-size: var(--text-base);
-          font-weight: var(--font-medium);
-          color: var(--text);
+          font-weight: var(--font-bold);
+          color: var(--text-primary);
+          text-align: right;
 
           &.debt {
             color: var(--error);
+            background: var(--error-light);
+            padding: var(--s1) var(--s2);
+            border-radius: var(--radius-md);
           }
 
           &.available {
             color: var(--success);
+            background: var(--success-light);
+            padding: var(--s1) var(--s2);
+            border-radius: var(--radius-md);
           }
 
           &.overdue {
             color: var(--error);
+            background: var(--error-light);
+            padding: var(--s1) var(--s2);
+            border-radius: var(--radius-md);
             font-weight: var(--font-bold);
+            animation: attention 2s ease-in-out infinite;
+          }
+
+          @keyframes attention {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
           }
         }
       }
 
       .utilization-bar {
-        margin-top: var(--s4);
+        margin-top: var(--s5);
         position: relative;
-        background: var(--bg);
-        border-radius: var(--radius);
-        height: 24px;
+        background: var(--bg-secondary);
+        border-radius: var(--radius-full);
+        height: 28px;
         overflow: hidden;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 
         .utilization-progress {
           height: 100%;
-          background: var(--success);
-          transition: var(--transition);
+          background: linear-gradient(90deg, var(--success), #16a34a);
+          transition: width 500ms ease-out;
+          position: relative;
+
+          &::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
+          }
 
           &.high-utilization {
-            background: var(--error);
+            background: linear-gradient(90deg, var(--warning), var(--error));
+            animation: warning-pulse 2s ease-in-out infinite;
+          }
+
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+
+          @keyframes warning-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
           }
         }
 
@@ -1043,55 +1214,76 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          font-size: var(--text-xs);
-          font-weight: var(--font-medium);
-          color: var(--text);
+          font-size: var(--text-sm);
+          font-weight: var(--font-bold);
+          color: var(--text-primary);
+          text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+          z-index: 1;
         }
       }
 
       .score-display {
         display: flex;
         align-items: baseline;
-        gap: var(--s2);
-        margin-bottom: var(--s3);
+        gap: var(--s3);
+        margin-bottom: var(--s4);
+        justify-content: center;
 
         .score-number {
-          font-size: var(--text-4xl);
+          font-size: var(--text-5xl);
           font-weight: var(--font-bold);
-          color: var(--primary);
+          background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          letter-spacing: -0.05em;
         }
 
         .score-range {
-          font-size: var(--text-lg);
+          font-size: var(--text-xl);
           color: var(--text-secondary);
+          font-weight: var(--font-medium);
         }
       }
 
       .score-bar {
-        background: var(--bg);
-        border-radius: var(--radius);
-        height: 8px;
+        background: var(--bg-secondary);
+        border-radius: var(--radius-full);
+        height: 12px;
         overflow: hidden;
-        margin-bottom: var(--s2);
+        margin-bottom: var(--s3);
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 
         .score-progress {
           height: 100%;
-          transition: var(--transition);
+          transition: width 800ms ease-out;
+          position: relative;
+
+          &::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shimmer 3s infinite;
+          }
 
           &.excellent {
-            background: var(--success);
+            background: linear-gradient(90deg, var(--success), #10b981);
           }
 
           &.good {
-            background: var(--primary);
+            background: linear-gradient(90deg, var(--primary), var(--primary-hover));
           }
 
           &.fair {
-            background: var(--warning);
+            background: linear-gradient(90deg, var(--warning), #d97706);
           }
 
           &.poor {
-            background: var(--error);
+            background: linear-gradient(90deg, var(--error), #dc2626);
           }
         }
       }
@@ -1113,77 +1305,102 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
       }
     }
 
-    // Form Styles
+    // Enhanced Form Styles
     .form-container {
-      max-width: 600px;
+      max-width: 700px;
 
       .form-header {
-        margin-bottom: var(--s6);
+        margin-bottom: var(--s8);
+        padding: var(--s6);
+        background: linear-gradient(135deg, var(--surface-soft) 0%, var(--primary-pale) 100%);
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--border-light);
 
         h3 {
-          font-size: var(--text-2xl) !important;
+          font-size: var(--text-3xl) !important;
           font-weight: var(--font-bold) !important;
-          color: var(--text) !important;
-          margin: 0 0 var(--s2) 0 !important;
+          color: var(--text-primary) !important;
+          margin: 0 0 var(--s3) 0 !important;
+          letter-spacing: -0.025em !important;
         }
 
         .form-description {
-          font-size: var(--text-base);
+          font-size: var(--text-lg);
           color: var(--text-secondary);
-          margin: 0 0 var(--s4) 0;
+          margin: 0 0 var(--s5) 0;
+          line-height: var(--leading-relaxed);
         }
 
         .debt-summary {
-          background: var(--primary-light);
-          padding: var(--s4);
-          border-radius: var(--radius);
-          border: 2px solid var(--primary);
+          background: linear-gradient(135deg, var(--primary-light), var(--primary-pale));
+          padding: var(--s5);
+          border-radius: var(--radius-xl);
+          border: 1px solid rgba(228, 122, 63, 0.3);
+          box-shadow: var(--shadow-sm);
 
           .debt-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: var(--s2);
+            margin-bottom: var(--s3);
+            padding: var(--s2) 0;
+            border-bottom: 1px solid rgba(228, 122, 63, 0.1);
 
             &:last-child {
               margin-bottom: 0;
+              border-bottom: none;
             }
 
             .debt-label {
               font-size: var(--text-sm);
-              font-weight: var(--font-medium);
-              color: var(--text);
+              font-weight: var(--font-semibold);
+              color: var(--text-primary);
+              text-transform: uppercase;
+              letter-spacing: 0.025em;
             }
 
             .debt-amount {
-              font-size: var(--text-base);
+              font-size: var(--text-lg);
               font-weight: var(--font-bold);
-              color: var(--text);
+              color: var(--text-primary);
+              background: var(--surface-elevated);
+              padding: var(--s2) var(--s3);
+              border-radius: var(--radius-md);
 
               &.overdue {
                 color: var(--error);
+                background: var(--error-light);
+                animation: attention 2s ease-in-out infinite;
               }
             }
           }
         }
 
         .current-limit {
-          background: var(--bg);
-          padding: var(--s3);
-          border-radius: var(--radius);
+          background: linear-gradient(135deg, var(--bg-secondary), var(--surface-soft));
+          padding: var(--s4);
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--border-light);
           display: flex;
           justify-content: space-between;
           align-items: center;
+          box-shadow: var(--shadow-xs);
 
           .current-label {
-            font-size: var(--text-sm);
+            font-size: var(--text-base);
+            font-weight: var(--font-semibold);
             color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
           }
 
           .current-value {
-            font-size: var(--text-lg);
+            font-size: var(--text-2xl);
             font-weight: var(--font-bold);
-            color: var(--primary);
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
           }
         }
       }
@@ -1191,16 +1408,17 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
       .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: var(--s4);
-        margin-bottom: var(--s4);
+        gap: var(--s6);
+        margin-bottom: var(--s6);
 
         @media (max-width: 640px) {
           grid-template-columns: 1fr;
+          gap: var(--s4);
         }
       }
 
       .form-field {
-        margin-bottom: var(--s4);
+        margin-bottom: var(--s6);
 
         &.full-width {
           grid-column: 1 / -1;
@@ -1208,39 +1426,56 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
 
         .field-label {
           display: block;
-          font-size: var(--text-sm) !important;
-          font-weight: var(--font-medium) !important;
-          color: var(--text) !important;
-          margin: 0 0 var(--s2) 0 !important;
+          font-size: var(--text-base) !important;
+          font-weight: var(--font-semibold) !important;
+          color: var(--text-primary) !important;
+          margin: 0 0 var(--s3) 0 !important;
+          text-transform: uppercase;
+          letter-spacing: 0.025em;
 
           &.required::after {
             content: '*';
             color: var(--error);
-            margin-left: var(--s1);
+            margin-left: var(--s2);
+            font-size: var(--text-lg);
           }
         }
 
         .form-control {
           width: 100% !important;
-          padding: var(--s3) var(--s4) !important;
-          border: 2px solid var(--border) !important;
-          border-radius: var(--radius) !important;
+          padding: var(--s4) var(--s5) !important;
+          border: 2px solid var(--border-light) !important;
+          border-radius: var(--radius-lg) !important;
           font-size: var(--text-base) !important;
-          background: var(--surface) !important;
-          color: var(--text) !important;
-          transition: var(--transition) !important;
-          min-height: 48px !important;
+          font-weight: var(--font-medium) !important;
+          background: var(--surface-elevated) !important;
+          color: var(--text-primary) !important;
+          transition: var(--transition-normal) !important;
+          min-height: 56px !important;
+          box-shadow: var(--shadow-xs) !important;
 
           &:focus {
             outline: none !important;
             border-color: var(--primary) !important;
-            box-shadow: 0 0 0 3px rgba(255, 145, 77, 0.1) !important;
+            box-shadow: 0 0 0 4px rgba(228, 122, 63, 0.15), var(--shadow-sm) !important;
+            transform: translateY(-1px) !important;
+          }
+
+          &:hover:not(:focus) {
+            border-color: var(--border-focus) !important;
+            box-shadow: var(--shadow-sm) !important;
           }
 
           &.textarea {
             resize: vertical !important;
-            min-height: 80px !important;
-            line-height: 1.5 !important;
+            min-height: 100px !important;
+            line-height: var(--leading-relaxed) !important;
+            padding: var(--s4) var(--s5) !important;
+          }
+
+          &:invalid {
+            border-color: var(--error) !important;
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15), var(--shadow-xs) !important;
           }
         }
 
@@ -1251,60 +1486,96 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
 
           .input-prefix {
             position: absolute;
-            left: var(--s4);
-            font-size: var(--text-base);
-            font-weight: var(--font-medium);
+            left: var(--s5);
+            font-size: var(--text-lg);
+            font-weight: var(--font-bold);
             color: var(--text-secondary);
-            z-index: 1;
+            z-index: 2;
             pointer-events: none;
+            background: var(--surface-elevated);
+            padding: var(--s1) var(--s2);
+            border-radius: var(--radius-sm);
           }
 
           .currency-input {
-            padding-left: 40px !important;
+            padding-left: 60px !important;
           }
         }
 
         .checkbox-field {
           display: flex;
           align-items: center;
-          gap: var(--s2);
+          gap: var(--s3);
+          padding: var(--s4);
+          background: var(--surface-soft);
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--border-light);
+          transition: var(--transition-normal);
+
+          &:hover {
+            background: var(--primary-pale);
+            border-color: var(--primary);
+          }
 
           input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             accent-color: var(--primary);
+            cursor: pointer;
           }
 
           .checkbox-label {
-            font-size: var(--text-sm);
-            color: var(--text);
+            font-size: var(--text-base);
+            font-weight: var(--font-medium);
+            color: var(--text-primary);
             cursor: pointer;
           }
         }
 
         .field-error {
-          font-size: var(--text-xs);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
           color: var(--error);
-          background: rgba(225, 90, 79, 0.1);
-          padding: var(--s2);
-          border-radius: var(--radius);
-          margin-top: var(--s2);
+          background: var(--error-light);
+          padding: var(--s3) var(--s4);
+          border-radius: var(--radius-lg);
+          border-left: 4px solid var(--error);
+          margin-top: var(--s3);
+          display: flex;
+          align-items: center;
+          gap: var(--s2);
+
+          &::before {
+            content: '⚠️';
+            font-size: var(--text-base);
+          }
         }
 
         .field-hint {
-          font-size: var(--text-xs);
-          color: var(--text-muted);
-          background: var(--bg);
-          padding: var(--s2);
-          border-radius: var(--radius);
-          margin-top: var(--s2);
+          font-size: var(--text-sm);
+          color: var(--text-secondary);
+          background: var(--info-light);
+          padding: var(--s3) var(--s4);
+          border-radius: var(--radius-lg);
+          border-left: 4px solid var(--info);
+          margin-top: var(--s3);
+          display: flex;
+          align-items: center;
+          gap: var(--s2);
+
+          &::before {
+            content: '💡';
+            font-size: var(--text-base);
+          }
 
           .positive {
             color: var(--success);
+            font-weight: var(--font-semibold);
           }
 
           .negative {
             color: var(--error);
+            font-weight: var(--font-semibold);
           }
         }
       }
@@ -1313,52 +1584,83 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
         display: flex;
         justify-content: flex-end;
         gap: var(--s4);
-        margin-top: var(--s6);
-        padding-top: var(--s6);
-        border-top: 2px solid var(--border);
+        margin-top: var(--s8);
+        padding: var(--s6) 0;
+        border-top: 1px solid var(--border-light);
 
         @media (max-width: 640px) {
           flex-direction: column-reverse;
+          gap: var(--s3);
         }
       }
     }
 
-    // Button Styles
+    // Enhanced Button Styles
     .btn {
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      gap: var(--s2) !important;
-      padding: var(--s3) var(--s6) !important;
-      border-radius: var(--radius) !important;
-      font-size: var(--text-sm) !important;
-      font-weight: var(--font-medium) !important;
+      gap: var(--s3) !important;
+      padding: var(--s4) var(--s8) !important;
+      border-radius: var(--radius-lg) !important;
+      font-size: var(--text-base) !important;
+      font-weight: var(--font-semibold) !important;
       text-decoration: none !important;
       cursor: pointer !important;
-      transition: var(--transition) !important;
+      transition: var(--transition-normal) !important;
       border: 2px solid transparent !important;
-      min-height: 44px !important;
+      min-height: 56px !important;
+      position: relative !important;
+      overflow: hidden !important;
+      box-shadow: var(--shadow-sm) !important;
 
       &:disabled {
-        opacity: 0.6 !important;
+        opacity: 0.5 !important;
         cursor: not-allowed !important;
+        transform: none !important;
+      }
+
+      &:hover:not(:disabled) {
+        transform: translateY(-2px) !important;
+        box-shadow: var(--shadow-md) !important;
+      }
+
+      &:active:not(:disabled) {
+        transform: translateY(0px) !important;
+        box-shadow: var(--shadow-sm) !important;
       }
 
       &.btn-primary {
-        background: var(--primary) !important;
+        background: linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
         color: white !important;
         border-color: var(--primary) !important;
 
+        &::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+          transition: left 0.5s;
+        }
+
         &:hover:not(:disabled) {
-          background: var(--primary-hover) !important;
+          background: linear-gradient(135deg, var(--primary-hover), #c15d1f) !important;
           border-color: var(--primary-hover) !important;
+          box-shadow: var(--shadow-primary-lg) !important;
+
+          &::before {
+            left: 100%;
+          }
         }
       }
 
       &.btn-secondary {
-        background: var(--bg-secondary) !important;
-        color: var(--text) !important;
-        border-color: var(--border) !important;
+        background: var(--surface-elevated) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-light) !important;
 
         &:hover:not(:disabled) {
           background: var(--primary-light) !important;
@@ -1370,28 +1672,34 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
       &.btn-outline {
         background: transparent !important;
         color: var(--text-secondary) !important;
-        border-color: var(--border) !important;
+        border-color: var(--border-medium) !important;
 
         &:hover:not(:disabled) {
-          background: var(--bg-secondary) !important;
-          color: var(--text) !important;
+          background: var(--surface-soft) !important;
+          color: var(--text-primary) !important;
           border-color: var(--text-secondary) !important;
         }
       }
 
       &.btn-sm {
-        padding: var(--s2) var(--s4) !important;
-        font-size: var(--text-xs) !important;
-        min-height: 36px !important;
+        padding: var(--s3) var(--s5) !important;
+        font-size: var(--text-sm) !important;
+        min-height: 44px !important;
       }
 
       .btn-spinner {
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
         border: 2px solid transparent;
         border-top: 2px solid currentColor;
+        border-right: 2px solid currentColor;
         border-radius: 50%;
-        animation: spin 1s linear infinite;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
     }
 
@@ -1668,61 +1976,185 @@ export type ModalTab = 'overview' | 'grant-credit' | 'record-payment' | 'update-
       }
     }
 
-    // Responsive Design
-    @media (max-width: 640px) {
+    // Enhanced Responsive Design
+    @media (max-width: 768px) {
       .modal-overlay {
-        padding: var(--s2);
+        padding: var(--s3);
+        align-items: flex-start;
+        padding-top: var(--s4);
       }
 
       .modal-container {
-        max-height: 95vh;
+        max-height: 96vh;
+        margin-top: auto;
+        margin-bottom: auto;
       }
 
       .modal-header {
-        padding: var(--s4);
+        padding: var(--s6) var(--s5);
 
         .header-content {
           flex-direction: column;
-          gap: var(--s3);
+          gap: var(--s4);
+          align-items: stretch;
         }
 
-        .member-details {
-          flex-direction: column;
-          gap: var(--s2);
+        .member-info {
+          .modal-title {
+            font-size: var(--text-2xl) !important;
+          }
+
+          .member-details {
+            flex-direction: column;
+            gap: var(--s2);
+          }
         }
 
         .credit-status {
-          flex-direction: column;
+          align-items: stretch;
+          
+          .status-badge,
+          .risk-badge {
+            text-align: center;
+          }
+        }
+
+        .close-button {
+          position: absolute;
+          top: var(--s4);
+          right: var(--s4);
+          width: 40px;
+          height: 40px;
         }
       }
 
       .tab-navigation {
+        padding: 0 var(--s2);
+
         .tab-button {
           padding: var(--s3) var(--s4);
-          font-size: var(--text-xs);
+          font-size: var(--text-sm);
+          min-width: 120px;
+
+          .tab-label {
+            display: none;
+          }
+
+          .tab-icon {
+            font-size: var(--text-lg);
+          }
         }
       }
 
       .modal-content {
-        padding: var(--s4);
+        padding: var(--s5);
       }
 
       .overview-grid {
         grid-template-columns: 1fr !important;
+        gap: var(--s4) !important;
+      }
+
+      .form-container {
+        .form-header {
+          padding: var(--s4);
+
+          h3 {
+            font-size: var(--text-2xl) !important;
+          }
+
+          .form-description {
+            font-size: var(--text-base);
+          }
+        }
+
+        .form-row {
+          grid-template-columns: 1fr !important;
+          gap: var(--s4) !important;
+        }
+
+        .form-field {
+          margin-bottom: var(--s4);
+
+          .field-label {
+            font-size: var(--text-sm) !important;
+            text-transform: none;
+          }
+
+          .form-control {
+            min-height: 52px !important;
+            padding: var(--s3) var(--s4) !important;
+          }
+
+          .input-group .currency-input {
+            padding-left: 50px !important;
+          }
+        }
+
+        .form-actions {
+          flex-direction: column-reverse;
+          gap: var(--s3);
+
+          .btn {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+        }
       }
 
       .transactions-filters {
         flex-direction: column;
-        gap: var(--s2) !important;
+        gap: var(--s3) !important;
 
         .filter-select,
         .filter-input {
-          width: 100%;
+          width: 100% !important;
+          min-height: 48px !important;
         }
       }
 
       .eligibility-grid {
         grid-template-columns: 1fr !important;
+      }
+
+      .quick-actions {
+        flex-direction: column !important;
+
+        .btn {
+          width: 100% !important;
+          justify-content: center !important;
+        }
+      }
+    }
+
+    @media (max-width: 480px) {
+      .modal-overlay {
+        padding: var(--s2);
+      }
+
+      .modal-container {
+        border-radius: var(--radius-lg);
+      }
+
+      .modal-header {
+        padding: var(--s4);
+
+        .member-info .modal-title {
+          font-size: var(--text-xl) !important;
+        }
+      }
+
+      .tab-navigation .tab-button {
+        padding: var(--s2) var(--s3);
+        min-width: 80px;
+
+        .tab-icon {
+          font-size: var(--text-base);
+        }
+      }
+
+      .modal-content {
+        padding: var(--s4);
       }
     }
   `]

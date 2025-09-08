@@ -19,11 +19,11 @@ export interface PagedUserResponse {
   providedIn: 'root'
 })
 export class UserService {
-  // ✅ DIRECT URL TO BACKEND
-  private apiUrl = 'http://localhost:5171/admin/users';
+  // ✅ Use relative URL so proxy can handle routing
+  private apiUrl = '/admin/users';
 
   constructor(private http: HttpClient) {
-    console.log('🔧 UserService initialized with DIRECT URL:', this.apiUrl);
+    console.log('🔧 UserService initialized with relative URL:', this.apiUrl);
   }
 
   getUsers(page: number = 1, pageSize: number = 10, search: string = ''): Observable<PagedUserResponse> {
@@ -89,7 +89,7 @@ getDeletedUsers(page: number = 1, pageSize: number = 10): Observable<PagedUserRe
     .set('page', page.toString())
     .set('pageSize', pageSize.toString());
 
-  const url = `http://localhost:5171/admin/users/deleted`;
+  const url = '/admin/users/deleted';
   console.log('🗑️ GET Deleted Users Request:', { url, params: params.toString() });
 
   return this.http.get<PagedUserResponse>(url, { 
@@ -102,7 +102,7 @@ getDeletedUsers(page: number = 1, pageSize: number = 10): Observable<PagedUserRe
 }
 
 restoreUser(id: number): Observable<any> {
-  const url = `http://localhost:5171/admin/users/${id}/restore`;
+  const url = `/admin/users/${id}/restore`;
   
   console.log('🔄 RESTORE User Request:', {
     url: url,

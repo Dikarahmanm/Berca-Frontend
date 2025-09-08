@@ -63,7 +63,8 @@ export interface ProductFilter {
   providedIn: 'root'
 })
 export class ProductService {
-  private readonly apiUrl = `${environment.apiUrl}/Product`;
+  // ✅ Use relative URL for proxy routing
+  private readonly apiUrl = '/api/Product';
 
   constructor(private http: HttpClient) {}
 

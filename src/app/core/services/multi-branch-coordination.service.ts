@@ -1,6 +1,6 @@
 // src/app/core/services/multi-branch-coordination.service.ts  
-// Phase 1: Multi-Branch Coordination Service with AI-powered optimization
-// Angular 20 with Signal-based reactive architecture for intelligent branch management
+// Multi-Branch Coordination Service with optimization algorithms
+// Angular 20 with Signal-based reactive architecture for branch management
 
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -247,7 +247,8 @@ export interface OptimizationConstraint {
 })
 export class MultiBranchCoordinationService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/BranchCoordination`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api/BranchCoordination';
 
   // Signal-based state management
   private _branches = signal<BranchDto[]>([]);

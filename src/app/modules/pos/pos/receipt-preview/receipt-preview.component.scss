@@ -44,11 +44,57 @@
     .quick-actions {
       display: flex;
       gap: var(--s3);
+      align-items: center;
 
       .btn {
         min-height: 44px;
         font-size: var(--text-sm);
         font-weight: var(--font-medium);
+      }
+
+      // NEW: Branch-specific button styling
+      .action-divider {
+        height: 24px;
+        width: 1px;
+        background: var(--border);
+        margin: 0 var(--s2);
+      }
+
+      .btn-branch {
+        background: linear-gradient(135deg, var(--primary) 0%, #2563EB 100%);
+        color: white;
+        border: 2px solid #2563EB;
+
+        &:hover:not(:disabled) {
+          background: linear-gradient(135deg, var(--primary-hover) 0%, #1D4ED8 100%);
+          border-color: #1D4ED8;
+          transform: translateY(-1px);
+        }
+
+        &:disabled {
+          background: var(--bg-secondary);
+          color: var(--text-muted);
+          border-color: var(--border);
+        }
+      }
+
+      .btn-branch-outline {
+        background: var(--surface);
+        color: #2563EB;
+        border: 2px solid #2563EB;
+
+        &:hover:not(:disabled) {
+          background: #EBF8FF;
+          border-color: #1D4ED8;
+          color: #1D4ED8;
+          transform: translateY(-1px);
+        }
+
+        &:disabled {
+          background: var(--surface);
+          color: var(--text-muted);
+          border-color: var(--border);
+        }
       }
     }
   }

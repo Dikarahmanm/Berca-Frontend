@@ -8,8 +8,8 @@ import { roleGuard } from '../../core/guard/role.guard';
 const routes: Routes = [
   {
     path: '',
-  loadComponent: () => import('./components/membership-list/membership-list.component').then(c => c.MembershipListComponent),
-  canActivate: [roleGuard],
+    loadComponent: () => import('./components/membership-list/membership-list.component').then(c => c.MembershipListComponent),
+    canActivate: [roleGuard],
     data: {
       title: 'Membership Management',
       breadcrumb: 'Members',
@@ -64,6 +64,16 @@ const routes: Routes = [
       title: 'Membership Analytics',
       breadcrumb: 'Analytics',
       requiredRoles: ['Admin', 'Manager']
+    }
+  },
+  {
+    path: 'credit-dashboard',
+    loadComponent: () => import('./components/member-credit-dashboard/member-credit-dashboard.component').then(c => c.MemberCreditDashboardComponent),
+    canActivate: [roleGuard],
+    data: {
+      title: 'Member Credit Dashboard',
+      breadcrumb: 'Credit Dashboard',
+      requiredRoles: ['Admin', 'Manager', 'User']
     }
   },
   {

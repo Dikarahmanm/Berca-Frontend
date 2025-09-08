@@ -588,7 +588,7 @@ export class FactureListComponent implements OnInit, OnDestroy {
     this._currentQuery.update(query => ({
       ...query,
       search: formValue.search || undefined,
-      status: formValue.status ? parseInt(formValue.status) : undefined,
+      status: formValue.status || undefined,
       priority: formValue.priority ? parseInt(formValue.priority) : undefined,
       page: 1
     }));
@@ -629,7 +629,12 @@ export class FactureListComponent implements OnInit, OnDestroy {
   }
 
   getStatusLabel(status: FactureStatus | undefined): string {
-    if (status === undefined || status === null) return 'Unknown';
+    console.log('🏷️ Getting status label for:', status, 'type:', typeof status);
+    
+    if (status === undefined || status === null) {
+      console.warn('⚠️ Status is undefined/null');
+      return 'Unknown';
+    }
     
     const labels: Record<FactureStatus, string> = {
       [FactureStatus.RECEIVED]: 'Received',
@@ -641,7 +646,10 @@ export class FactureListComponent implements OnInit, OnDestroy {
       [FactureStatus.CANCELLED]: 'Cancelled',
       [FactureStatus.PARTIAL_PAID]: 'Partial'
     };
-    return labels[status] || 'Unknown';
+    
+    const label = labels[status];
+    console.log('🏷️ Status label result:', label, 'for status:', status);
+    return label || 'Unknown';
   }
 
   // Optimized priority calculation with memoization

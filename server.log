@@ -1,5 +1,0 @@
-
-> berca-frontend@0.0.0 start:safe
-> ng serve --configuration development --proxy-config proxy.conf.json --disable-host-check --poll 2000
-
-[1m[31mError: Unknown argument: disable-host-check[39m[22m

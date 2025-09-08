@@ -14,7 +14,7 @@ import { StateService } from '../../../core/services/state.service';
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [CommonModule, RouterModule, MatIconModule, MatButtonModule, MatTooltipModule],
   // ⬇️ inline template supaya tidak butuh sidebar.component.html
   template: `
@@ -116,16 +116,30 @@ export class SidebarComponent implements OnInit, OnDestroy {
       toObservable(this.state.sidebarCollapsed).pipe(takeUntilDestroyed()).subscribe(v => this.collapsed.set(v));
       toObservable(this.state.isMobile).pipe(takeUntilDestroyed()).subscribe(v => this.isMobile.set(v));
       toObservable(this.state.user).pipe(takeUntilDestroyed()).subscribe(u => {
+        console.log('🔍 Sidebar - User state changed:', u);
         if (u) {
           this.username = u.username ?? this.username;
           this.role = u.role ?? this.role;
-          this.navigationSections.set(this.layoutService.getNavigationForRole(this.role));
+        } else {
+          // Fallback to localStorage if user is null
+          this.username = localStorage.getItem('username') || this.username;
+          this.role = localStorage.getItem('role') || 'User';
         }
+        
+        // Always update navigation when user changes
+        const navigationRole = this.role || 'User';
+        const sections = this.layoutService.getNavigationForRole(navigationRole);
+        console.log('🔍 Sidebar - Updated navigation sections:', sections);
+        this.navigationSections.set(sections);
       });
       toObservable(this.state.unreadNotificationCount).pipe(takeUntilDestroyed()).subscribe(c => {
         this.notificationCount = c;
         this.layoutService.updateNotificationBadge(c);
-        this.navigationSections.set(this.layoutService.getNavigationForRole(this.role));
+        
+        // Update navigation with current role
+        const navigationRole = this.role || 'User';
+        const sections = this.layoutService.getNavigationForRole(navigationRole);
+        this.navigationSections.set(sections);
       });
     });
   }
@@ -134,12 +148,22 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   private initializeSidebar(): void {
     const u = this.authService.getCurrentUser?.();
-    if (u) { this.username = u.username ?? this.username; this.role = u.role ?? this.role; }
-    else { this.username = localStorage.getItem('username') || this.username; this.role = localStorage.getItem('role') || this.role; }
+    
+    // Always try localStorage first
+    this.username = localStorage.getItem('username') || u?.username || '';
+    this.role = localStorage.getItem('role') || u?.role || 'User';
+    
+    console.log('🔍 Sidebar - Initialize with role:', this.role);
 
     this.collapsed.set(this.layoutService.getSidebarCollapsed());
     this.isMobile.set(this.layoutService.getIsMobile());
-    this.navigationSections.set(this.layoutService.getNavigationForRole(this.role));
+    
+    // Get navigation with role, always provide a default role
+    const navigationRole = this.role || 'User';
+    const sections = this.layoutService.getNavigationForRole(navigationRole);
+    console.log('🔍 Sidebar - Navigation sections:', sections);
+    
+    this.navigationSections.set(sections);
     this.layoutService.updateNotificationBadge(this.notificationCount);
   }
 

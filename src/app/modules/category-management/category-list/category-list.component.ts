@@ -219,6 +219,78 @@ export class CategoryListComponent implements OnInit, OnDestroy {
       });
   }
 
+  // ✅ PAGINATION METHODS
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+      console.log('📄 Going to page:', page);
+      this.categoryStateService.setPage(page);
+      this.loadCategories();
+    }
+  }
+
+  goToFirstPage(): void {
+    this.goToPage(1);
+  }
+
+  goToLastPage(): void {
+    this.goToPage(this.totalPages);
+  }
+
+  goToNextPage(): void {
+    this.goToPage(this.currentPage + 1);
+  }
+
+  goToPreviousPage(): void {
+    this.goToPage(this.currentPage - 1);
+  }
+
+  onPageSizeChange(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    const newPageSize = parseInt(target.value, 10);
+    console.log('📄 Page size changed:', newPageSize);
+    this.categoryStateService.setPageSize(newPageSize);
+    this.loadCategories();
+  }
+
+  // ✅ PAGINATION HELPERS
+  get canGoToPrevious(): boolean {
+    return this.currentPage > 1;
+  }
+
+  get canGoToNext(): boolean {
+    return this.currentPage < this.totalPages;
+  }
+
+  get startItem(): number {
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get endItem(): number {
+    return Math.min(this.currentPage * this.pageSize, this.totalCategories);
+  }
+
+  get pageNumbers(): number[] {
+    const maxPages = 5; // Show max 5 page numbers
+    const pages: number[] = [];
+    
+    if (this.totalPages <= maxPages) {
+      // Show all pages if total is small
+      for (let i = 1; i <= this.totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Show pages around current page
+      const start = Math.max(1, this.currentPage - Math.floor(maxPages / 2));
+      const end = Math.min(this.totalPages, start + maxPages - 1);
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  }
+
   // ✅ REFRESH CATEGORIES
   refreshCategories(): void {
     console.log('🔄 Refreshing categories...');

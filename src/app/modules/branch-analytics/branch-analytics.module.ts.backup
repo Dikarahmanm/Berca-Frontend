@@ -1,0 +1,91 @@
+// src/app/modules/branch-analytics/branch-analytics.module.ts
+// Branch Analytics Module for comprehensive multi-branch performance analysis
+// Phase 3: Multi-Branch Features Implementation
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule } from '@angular/forms';
+
+// Angular Material Modules
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
+import { MatSortModule } from '@angular/material/sort';
+import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatBadgeModule } from '@angular/material/badge';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+
+// Third-party Chart Libraries
+// Note: In real implementation, you would install chart.js or ng2-charts
+// For now, we'll use placeholder chart components
+
+import { BranchAnalyticsRoutingModule } from './branch-analytics-routing.module';
+
+// Simple placeholder components
+import { 
+  BranchAnalyticsDashboardComponent,
+  BranchPerformanceComparisonComponent,
+  BranchEfficiencyAnalysisComponent,
+  BranchCapacityPlanningComponent,
+  BranchTrendAnalysisComponent,
+  BranchBenchmarkingComponent,
+  BranchAlertManagerComponent,
+  BranchMetricsWidgetComponent,
+  BranchHealthScoreComponent,
+  BranchChartComponent,
+  BranchKpiCardComponent
+} from './components/simple-placeholders';
+
+@NgModule({
+  declarations: [
+    BranchAnalyticsDashboardComponent,
+    BranchPerformanceComparisonComponent,
+    BranchEfficiencyAnalysisComponent,
+    BranchCapacityPlanningComponent,
+    BranchTrendAnalysisComponent,
+    BranchBenchmarkingComponent,
+    BranchAlertManagerComponent,
+    BranchMetricsWidgetComponent,
+    BranchHealthScoreComponent,
+    BranchChartComponent,
+    BranchKpiCardComponent
+  ],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    BranchAnalyticsRoutingModule,
+    
+    // Material Modules
+    MatIconModule,
+    MatButtonModule,
+    MatCardModule,
+    MatTabsModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatTableModule,
+    MatSortModule,
+    MatPaginatorModule,
+    MatChipsModule,
+    MatBadgeModule,
+    MatProgressBarModule,
+    MatTooltipModule,
+    MatMenuModule,
+    MatDatepickerModule,
+    MatNativeDateModule
+  ],
+  providers: [
+    // BranchAnalyticsService is already provided in root
+  ]
+})
+export class BranchAnalyticsModule { }

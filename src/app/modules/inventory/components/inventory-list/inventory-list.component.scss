@@ -2750,4 +2750,93 @@
       }
     }
   }
+
+  // ===== NEW: BRANCH-AWARE INVENTORY STYLES =====
+  
+  /* Branch Context in Header */
+  .stat-chip.branch-context {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    border: 1px solid var(--primary);
+    
+    .branch-context-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      margin-right: var(--s1);
+    }
+  }
+
+  /* Branch Filter Form Fields */
+  .branch-filter,
+  .branch-selection {
+    min-width: 200px;
+    
+    .mat-mdc-form-field-infix {
+      padding: var(--s2) 0;
+    }
+    
+    .branch-option {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      
+      .branch-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: var(--primary);
+      }
+    }
+    
+    .branch-selection-option {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      
+      .branch-code {
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        padding: 2px var(--s1);
+        border-radius: var(--radius-sm);
+        font-size: var(--text-xs);
+        font-family: var(--font-mono);
+        font-weight: var(--font-medium);
+      }
+    }
+  }
+  
+  /* Branch Product Cards Enhancement */
+  .product-card {
+    &.multi-branch {
+      .branch-indicator {
+        position: absolute;
+        top: var(--s2);
+        right: var(--s2);
+        background: var(--primary-light);
+        color: var(--primary-dark);
+        padding: 2px var(--s1);
+        border-radius: var(--radius-sm);
+        font-size: var(--text-xs);
+        font-weight: var(--font-medium);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        
+        mat-icon {
+          font-size: 12px;
+          width: 12px;
+          height: 12px;
+        }
+      }
+    }
+  }
+  
+  /* Responsive branch filters */
+  @media (max-width: 768px) {
+    .branch-filter,
+    .branch-selection {
+      min-width: 150px;
+    }
+  }
 }

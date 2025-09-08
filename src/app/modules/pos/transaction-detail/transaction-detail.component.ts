@@ -32,14 +32,94 @@ export class TransactionDetailComponent implements OnInit {
   // Computed properties
   totalProfit = computed(() => {
     const trans = this.transaction();
-    return trans?.items.reduce((sum, item) => sum + item.totalProfit, 0) || 0;
+    if (!trans) return 0;
+
+    // Calculate total revenue before tax
+    const revenue = trans.total - trans.taxAmount;
+    // Calculate total cost of goods
+    const cost = this.totalItemCost();
+    
+    return revenue - cost;
   });
 
   profitMargin = computed(() => {
     const trans = this.transaction();
     const profit = this.totalProfit();
-    if (!trans || trans.total === 0) return 0;
-    return (profit / trans.total) * 100;
+    if (!trans) return 0;
+    const revenue = trans.total - trans.taxAmount;
+    if (revenue === 0) return 0;
+    return (profit / revenue) * 100;
+  });
+
+  // ✅ Enhanced computed properties for dynamic calculations
+  totalItemCost = computed(() => {
+    const trans = this.transaction();
+    if (!trans) return 0;
+    return trans.items.reduce((sum, item) => sum + ((item.unitCost || 0) * item.quantity), 0);
+  });
+
+  totalDiscountAmount = computed(() => {
+    const trans = this.transaction();
+    return trans?.items.reduce((sum, item) => sum + item.discountAmount, 0) || 0;
+  });
+
+  effectiveDiscountPercentage = computed(() => {
+    const trans = this.transaction();
+    if (!trans || trans.subtotal === 0) return 0;
+    const totalDiscount = this.totalDiscountAmount() + (trans.discountAmount || 0);
+    return (totalDiscount / trans.subtotal) * 100;
+  });
+
+  profitPerItem = computed(() => {
+    const trans = this.transaction();
+    if (!trans) return [];
+    
+    return trans.items.map(item => {
+      const cost = item.unitCost || 0;
+      // item.subtotal is revenue for this item (after item-level discount)
+      const itemRevenue = item.subtotal; 
+      const itemCost = cost * item.quantity;
+      const itemProfit = itemRevenue - itemCost;
+      
+      // Margin is profit over revenue
+      const profitPercentage = itemRevenue > 0 ? (itemProfit / itemRevenue) * 100 : 0;
+      
+      return {
+        ...item,
+        totalProfit: itemProfit, // Add/overwrite totalProfit for use in the template
+        profitPercentage: profitPercentage,
+        effectivePrice: item.quantity > 0 ? item.subtotal / item.quantity : 0,
+        costRatio: item.unitPrice > 0 ? (cost / item.unitPrice) * 100 : 0
+      };
+    });
+  });
+
+  financialSummary = computed(() => {
+    const trans = this.transaction();
+    const profit = this.totalProfit();
+    const cost = this.totalItemCost();
+    
+    if (!trans) return null;
+
+    const revenue = trans.total - trans.taxAmount;
+
+    // Gross Margin, also used for Return on Sales
+    const grossMargin = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+    // Net profit margin cannot be truly calculated without operating expenses.
+    // Here, we calculate profit margin based on revenue vs cost of goods sold, which is the Gross Margin.
+    // To avoid confusion, we can show the same value but label it clearly in the UI if needed.
+    // For now, let's provide Gross Margin for all margin-related fields to ensure data is shown.
+    return {
+      revenue: revenue,
+      grossProfit: profit,
+      grossMargin: grossMargin,
+      costOfGoods: cost,
+      totalDiscount: this.totalDiscountAmount() + (trans.discountAmount || 0),
+      discountPercentage: this.effectiveDiscountPercentage(),
+      netMargin: grossMargin, // Set to grossMargin as a sensible default
+      returnOnSales: grossMargin // ROS is often calculated this way in retail contexts
+    };
   });
 
   // Removed approval computed properties - using existing credit validation workflow instead

@@ -242,8 +242,49 @@ export interface SendReminderRequestDto {
 
 // ===== ANALYTICS & REPORTING INTERFACES =====
 
+// Real backend CreditAnalyticsDto structure
 export interface CreditAnalyticsDto {
-  summary: {
+  // Real backend structure - direct properties
+  analysisDate?: string;
+  startDate?: string;
+  endDate?: string;
+  branchId?: number | null;
+  branchName?: string | null;
+  
+  // Overall metrics (direct properties)
+  totalMembersWithCredit?: number;
+  totalCreditLimit?: number;
+  totalOutstandingDebt?: number;
+  totalAvailableCredit?: number;
+  averageCreditUtilization?: number;
+  overdueMembers?: number;
+  membersWithActiveDebt?: number;
+  criticalRiskMembers?: number;
+  
+  // Trend data for charts
+  creditUsageTrends?: CreditTrendDto[];
+  paymentTrends?: CreditTrendDto[];
+  
+  // Top users data
+  topCreditUsers?: TopCreditUser[];
+  
+  // Tier analysis data (source for Top Credit Users)
+  tierAnalysis?: TierAnalysisDto[];
+  
+  // Credit score distribution
+  creditScoreDistribution?: {
+    excellent: number;
+    veryGood: number;
+    good: number;
+    fair: number;
+    poor: number;
+  };
+  
+  // Credit trends for charts
+  creditTrends?: CreditTrendDto[];
+  
+  // Legacy interface structure support (for backward compatibility)
+  summary?: {
     totalMembers: number;
     activeCreditMembers: number;
     totalCreditLimit: number;
@@ -253,19 +294,19 @@ export interface CreditAnalyticsDto {
     paymentSuccessRate: number;
     badDebtRate: number;
   };
-  creditStatus: {
+  creditStatus?: {
     good: number;
     warning: number;
     bad: number;
     blocked: number;
   };
-  riskDistribution: {
+  riskDistribution?: {
     low: number;
     medium: number;
     high: number;
     critical: number;
   };
-  monthlyTrends: {
+  monthlyTrends?: {
     month: string;
     newCreditMembers: number;
     creditSales: number;
@@ -273,13 +314,54 @@ export interface CreditAnalyticsDto {
     outstandingDebt: number;
     overdueAmount: number;
   }[];
-  topMembers: {
+  topMembers?: {
     highest_debt: CreditMemberSummaryDto[];
     highest_utilization: CreditMemberSummaryDto[];
     most_overdue: CreditMemberSummaryDto[];
     best_payers: CreditMemberSummaryDto[];
   };
   branchComparison?: BranchCreditComparisonDto[];
+}
+
+// Tier Analysis interface for Top Credit Users
+export interface TierAnalysisDto {
+  tier: number;
+  tierName: string;
+  memberCount: number;
+  averageCreditLimit: number;
+  averageDebt: number;
+  averageUtilization: number;
+  averageCreditScore: number;
+  overdueRate: number;
+}
+
+// Top Credit User interface for processed analytics data
+export interface TopCreditUser {
+  rank: number;
+  memberId: number;
+  memberName: string;
+  memberNumber: string;
+  phone?: string;
+  tier: string;
+  creditLimit: number;
+  currentDebt: number;
+  creditUtilization: number;
+  creditScore: number;
+  lifetimeDebt?: number;
+  totalTransactions?: number;
+  paymentSuccessRate?: number;
+  formattedCreditLimit: string;
+  formattedCurrentDebt: string;
+  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
+}
+
+// Credit Trend interface for charts
+export interface CreditTrendDto {
+  date: string;
+  totalDebt?: number;
+  payments?: number;
+  newCredit?: number;
+  creditUsage?: number;
 }
 
 export interface CreditMemberSummaryDto {

@@ -141,6 +141,13 @@ export class LayoutService {
           icon: 'card_membership',
           route: '/dashboard/membership',
           roles: ['Admin', 'Manager', 'User']
+        },
+        {
+          id: 'credit-dashboard',
+          label: 'Credit Dashboard',
+          icon: 'account_balance_wallet',
+          route: '/dashboard/membership/credit-dashboard',
+          roles: ['Admin', 'Manager', 'User']
         }
       ]
     },

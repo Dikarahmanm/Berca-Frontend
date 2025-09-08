@@ -21,6 +21,11 @@
     </div>
 
     <div class="header-actions">
+      <button class="btn btn-secondary" (click)="navigateToCreditDashboard()">
+        <span class="btn-icon">📊</span>
+        Credit Dashboard
+      </button>
+
       <button class="btn btn-primary" (click)="createMember()">
         <span class="btn-icon">+</span>
         Add Member
@@ -688,69 +693,189 @@
         </div>
       </div>
 
-      <!-- Credit Limit Management -->
-      <div class="credit-action-section">
-        <div class="action-header">
-          <h4 class="action-title">
-            <span class="action-icon">📊</span>
-            Update Credit Limit
-          </h4>
-          <div class="action-description">
-            Set or modify the member's credit limit. Higher amounts may require approval.
-          </div>
-        </div>
-        <div class="action-controls">
-          <div class="form-field">
-            <label>New Credit Limit</label>
-            <input type="number" class="form-control" [(ngModel)]="creditLimitAmount" 
-                   [placeholder]="formatCurrency(selectedMemberForCredit()!.creditLimit)" min="0" max="50000000">
-          </div>
-          <div class="form-field">
-            <label>Reason</label>
-            <input type="text" class="form-control" [(ngModel)]="creditLimitReason" 
-                   placeholder="e.g., Good payment history, Business expansion">
-          </div>
-          <button class="btn btn-primary" (click)="updateCreditLimit()" 
-                  [disabled]="!creditLimitAmount || !creditLimitReason">
-            {{ selectedMemberForCredit()!.creditLimit > 0 ? 'Update Limit' : 'Enable Credit' }}
+      <!-- Credit Actions Tabs -->
+      <div class="credit-actions-container">
+        <div class="action-tabs">
+          <button 
+            class="tab-button" 
+            [class.active]="selectedCreditAction() === 'update'" 
+            (click)="selectCreditAction('update')">
+            <span class="tab-icon">📊</span>
+            <span class="tab-text">Update Limit</span>
+          </button>
+          <button 
+            class="tab-button" 
+            [class.active]="selectedCreditAction() === 'grant'" 
+            (click)="selectCreditAction('grant')">
+            <span class="tab-icon">🎁</span>
+            <span class="tab-text">Grant Credit</span>
+          </button>
+          <button 
+            class="tab-button" 
+            [class.active]="selectedCreditAction() === 'history'" 
+            (click)="selectCreditAction('history')">
+            <span class="tab-icon">📋</span>
+            <span class="tab-text">History</span>
           </button>
         </div>
-      </div>
 
-      <!-- Credit Grant -->
-      <div class="credit-action-section">
-        <div class="action-header">
-          <h4 class="action-title">
-            <span class="action-icon">🎁</span>
-            Grant Additional Credit
-          </h4>
-          <div class="action-description">
-            Grant bonus credit or increase available credit without changing the limit.
+        <!-- Update Credit Limit Tab -->
+        <div class="tab-content" *ngIf="selectedCreditAction() === 'update'">
+          <div class="credit-action-section">
+            <div class="action-header">
+              <div class="action-info">
+                <h4 class="action-title">Update Credit Limit</h4>
+                <div class="action-description">
+                  Set or modify the member's credit limit. Higher amounts may require approval.
+                </div>
+              </div>
+            </div>
+            <div class="action-controls">
+              <div class="form-field">
+                <label>New Credit Limit</label>
+                <input type="number" class="form-control" [(ngModel)]="creditLimitAmount" 
+                       [placeholder]="formatCurrency(selectedMemberForCredit()!.creditLimit)" min="0" max="50000000">
+              </div>
+              <div class="form-field">
+                <label>Reason</label>
+                <input type="text" class="form-control" [(ngModel)]="creditLimitReason" 
+                       placeholder="e.g., Good payment history, Business expansion">
+              </div>
+              <button class="btn btn-primary" (click)="updateCreditLimit()" 
+                      [disabled]="!creditLimitAmount || !creditLimitReason">
+                <span class="btn-icon">💳</span>
+                {{ selectedMemberForCredit()!.creditLimit > 0 ? 'Update Limit' : 'Enable Credit' }}
+              </button>
+            </div>
           </div>
         </div>
-        <div class="action-controls">
-          <div class="form-field">
-            <label>Credit Amount</label>
-            <input type="number" class="form-control" [(ngModel)]="grantCreditAmount" 
-                   placeholder="Enter amount to grant" min="1000" max="10000000">
+
+        <!-- Grant Additional Credit Tab -->
+        <div class="tab-content" *ngIf="selectedCreditAction() === 'grant'">
+          <div class="credit-action-section">
+            <div class="action-header">
+              <div class="action-info">
+                <h4 class="action-title">Grant Additional Credit</h4>
+                <div class="action-description">
+                  Grant bonus credit or increase available credit without changing the limit.
+                </div>
+              </div>
+            </div>
+            <div class="action-controls">
+              <div class="form-field">
+                <label>Credit Amount</label>
+                <input type="number" class="form-control" [(ngModel)]="grantCreditAmount" 
+                       placeholder="Enter amount to grant" min="1000" max="10000000">
+              </div>
+              <div class="form-field">
+                <label>Credit Type</label>
+                <select class="form-control" [(ngModel)]="grantCreditType">
+                  <option value="Bonus_Credit">Bonus Credit</option>
+                  <option value="Limit_Increase">Limit Increase</option>
+                  <option value="Adjustment">Adjustment</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Description</label>
+                <input type="text" class="form-control" [(ngModel)]="grantCreditDescription" 
+                       placeholder="e.g., Loyalty bonus, Special promotion">
+              </div>
+              <button class="btn btn-accent" (click)="grantCredit()" 
+                      [disabled]="!grantCreditAmount || !grantCreditDescription">
+                <span class="btn-icon">🎁</span>
+                Grant Credit
+              </button>
+            </div>
           </div>
-          <div class="form-field">
-            <label>Credit Type</label>
-            <select class="form-control" [(ngModel)]="grantCreditType">
-              <option value="Bonus_Credit">Bonus Credit</option>
-              <option value="Limit_Increase">Limit Increase</option>
-              <option value="Adjustment">Adjustment</option>
-            </select>
+        </div>
+
+        <!-- Credit History Tab -->
+        <div class="tab-content" *ngIf="selectedCreditAction() === 'history'">
+          <div class="credit-history-section">
+            <div class="history-header">
+              <h4 class="history-title">Credit Transaction History</h4>
+              <div class="history-description">
+                View all credit-related transactions and changes for this member.
+              </div>
+              <button class="btn btn-outline btn-sm" (click)="loadCreditHistory()" [disabled]="creditHistoryLoading()">
+                <span class="btn-icon" *ngIf="!creditHistoryLoading()">🔄</span>
+                <span class="btn-icon loading-spinner" *ngIf="creditHistoryLoading()"></span>
+                {{ creditHistoryLoading() ? 'Loading...' : 'Refresh History' }}
+              </button>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading-section" *ngIf="creditHistoryLoading()">
+              <div class="loading-spinner large"></div>
+              <p class="loading-text">Loading credit history...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-history" *ngIf="!creditHistoryLoading() && creditHistoryTransactions().length === 0">
+              <div class="empty-icon">📈</div>
+              <div class="empty-title">No Credit History</div>
+              <div class="empty-text">This member has no credit transactions yet.</div>
+            </div>
+
+            <!-- History Content -->
+            <div class="history-content" *ngIf="!creditHistoryLoading() && creditHistoryTransactions().length > 0">
+              <div class="history-stats">
+                <div class="stat-item">
+                  <span class="stat-label">Total Transactions</span>
+                  <span class="stat-value">{{ creditHistoryTransactions().length }}</span>
+                </div>
+              </div>
+
+              <div class="transaction-list">
+                <div 
+                  class="transaction-item" 
+                  *ngFor="let transaction of creditHistoryTransactions(); trackBy: trackByTransactionId">
+                  <div class="transaction-header">
+                    <div class="transaction-type" [class]="'type-' + transaction.typeDescription?.toLowerCase()">
+                      <span class="type-icon">
+                        {{ getTransactionIcon(transaction.typeDescription) }}
+                      </span>
+                      <span class="type-text">{{ getTransactionTypeLabel(transaction.typeDescription) }}</span>
+                    </div>
+                    <div class="transaction-amount" [class]="getTransactionAmountClass(transaction.typeDescription)">
+                      {{ formatCurrency(transaction.amount) }}
+                    </div>
+                  </div>
+                  
+                  <div class="transaction-details">
+                    <div class="detail-row">
+                      <span class="detail-label">Description:</span>
+                      <span class="detail-value">{{ transaction.description || 'No description' }}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Reference:</span>
+                      <span class="detail-value">{{ transaction.referenceNumber || 'N/A' }}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Status:</span>
+                      <span class="detail-value">{{ transaction.statusDescription || 'Unknown' }}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Date:</span>
+                      <span class="detail-value">{{ formatDate(transaction.transactionDate) }}</span>
+                    </div>
+                    <div class="detail-row" *ngIf="transaction.dueDate">
+                      <span class="detail-label">Due Date:</span>
+                      <span class="detail-value">{{ formatDate(transaction.dueDate) }}</span>
+                    </div>
+                    <div class="detail-row" *ngIf="transaction.branchName">
+                      <span class="detail-label">Branch:</span>
+                      <span class="detail-value">{{ transaction.branchName }}</span>
+                    </div>
+                    <div class="detail-row" *ngIf="transaction.createdByUserName">
+                      <span class="detail-label">Created By:</span>
+                      <span class="detail-value">{{ transaction.createdByUserName }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="form-field">
-            <label>Description</label>
-            <input type="text" class="form-control" [(ngModel)]="grantCreditDescription" 
-                   placeholder="e.g., Loyalty bonus, Special promotion">
-          </div>
-          <button class="btn btn-accent" (click)="grantCredit()" 
-                  [disabled]="!grantCreditAmount || !grantCreditDescription">
-            Grant Credit
-          </button>
         </div>
       </div>
     </div>

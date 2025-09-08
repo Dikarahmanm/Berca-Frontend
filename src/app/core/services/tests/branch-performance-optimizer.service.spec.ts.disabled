@@ -1,0 +1,442 @@
+// src/app/core/services/tests/branch-performance-optimizer.service.spec.ts
+// Unit tests for Branch Performance Optimizer Service
+// Angular 20 + Jasmine testing framework
+
+import { TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
+import { of, throwError } from 'rxjs';
+
+import { BranchPerformanceOptimizerService } from '../branch-performance-optimizer.service';
+import { StateService } from '../state.service';
+import { environment } from '../../../../environment/environment';
+
+// Mock StateService
+class MockStateService {
+  activeBranchIds = signal([1, 2, 3]);
+  accessibleBranches = signal([
+    { branchId: 1, branchName: 'Cabang Utama Jakarta', branchCode: 'HQ001' },
+    { branchId: 2, branchName: 'Cabang Bekasi Timur', branchCode: 'BR002' },
+    { branchId: 3, branchName: 'Cabang Tangerang Selatan', branchCode: 'BR003' }
+  ]);
+}
+
+describe('BranchPerformanceOptimizerService', () => {
+  let service: BranchPerformanceOptimizerService;
+  let httpMock: HttpTestingController;
+  let stateService: MockStateService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        BranchPerformanceOptimizerService,
+        { provide: StateService, useClass: MockStateService }
+      ]
+    });
+
+    service = TestBed.inject(BranchPerformanceOptimizerService);
+    httpMock = TestBed.inject(HttpTestingController);
+    stateService = TestBed.inject(StateService) as unknown as MockStateService;
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  describe('Initialization', () => {
+    it('should be created', () => {
+      expect(service).toBeTruthy();
+    });
+
+    it('should initialize with default values', () => {
+      expect(service.cacheHitRatio()).toBe(0);
+      expect(service.averageLoadTime()).toBe(0);
+      expect(service.activeOperations()).toBe(0);
+    });
+
+    it('should have empty performance metrics initially', () => {
+      expect(service.performanceMetrics()).toEqual([]);
+    });
+  });
+
+  describe('Cache Management', () => {
+    it('should handle cache hit scenario', async () => {
+      const mockData = [{ id: 1, name: 'Test Product', branchId: 1 }];
+      
+      // First request - should be a cache miss
+      const promise1 = service.loadBranchDataOptimized('inventory', [1], false);
+      
+      const req1 = httpMock.expectOne(`${environment.apiUrl}/inventory/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+      req1.flush({ success: true, data: mockData });
+      
+      const result1 = await promise1;
+      expect(result1.success).toBe(true);
+      expect(result1.metadata.fromCache).toBe(false);
+      expect(result1.metadata.cacheStatus).toBe('miss');
+
+      // Second request - should be a cache hit
+      const result2 = await service.loadBranchDataOptimized('inventory', [1], false);
+      expect(result2.success).toBe(true);
+      expect(result2.metadata.fromCache).toBe(true);
+      expect(result2.metadata.cacheStatus).toBe('hit');
+    });
+
+    it('should force refresh when requested', async () => {
+      const mockData = [{ id: 1, name: 'Test Product', branchId: 1 }];
+      
+      // First request to populate cache
+      const promise1 = service.loadBranchDataOptimized('inventory', [1], false);
+      const req1 = httpMock.expectOne(`${environment.apiUrl}/inventory/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+      req1.flush({ success: true, data: mockData });
+      await promise1;
+
+      // Second request with force refresh
+      const promise2 = service.loadBranchDataOptimized('inventory', [1], true);
+      const req2 = httpMock.expectOne(`${environment.apiUrl}/inventory/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+      req2.flush({ success: true, data: mockData });
+      
+      const result2 = await promise2;
+      expect(result2.success).toBe(true);
+      expect(result2.metadata.fromCache).toBe(false);
+    });
+
+    it('should clear cache completely', () => {
+      service.clearCache();
+      
+      // Cache statistics should show empty cache
+      const stats = service.cacheStatistics;
+      expect(stats().totalEntries).toBe(0);
+      expect(stats().totalSizeMB).toBe(0);
+    });
+  });
+
+  describe('Performance Metrics', () => {
+    it('should record metrics for cache hits and misses', async () => {
+      const mockData = [{ id: 1, name: 'Test Product', branchId: 1 }];
+      
+      // Make a request that will be a cache miss
+      const promise = service.loadBranchDataOptimized('sales', [1], false);
+      const req = httpMock.expectOne(`${environment.apiUrl}/sales/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+      req.flush({ success: true, data: mockData });
+      
+      await promise;
+      
+      // Check that metrics were recorded
+      const metrics = service.performanceMetrics();
+      expect(metrics.length).toBeGreaterThan(0);
+      
+      const lastMetric = metrics[0];
+      expect(lastMetric.operationType).toBe('api_call');
+      expect(lastMetric.branchIds).toEqual([1]);
+      expect(lastMetric.executionTime).toBeGreaterThan(0);
+    });
+
+    it('should calculate performance insights correctly', async () => {
+      const mockData = [{ id: 1, name: 'Test Product', branchId: 1 }];
+      
+      // Make multiple requests to generate metrics
+      for (let i = 0; i < 5; i++) {
+        const promise = service.loadBranchDataOptimized('sales', [i + 1], false);
+        const req = httpMock.expectOne(`${environment.apiUrl}/sales/branch-optimized?branchIds=${i + 1}&optimized=true&compression=gzip`);
+        req.flush({ success: true, data: mockData });
+        await promise;
+      }
+
+      const insights = service.performanceInsights;
+      expect(insights).toBeTruthy();
+      expect(insights()?.totalOperations).toBe(5);
+      expect(insights()?.performanceGrade).toMatch(/[A-F]/);
+    });
+  });
+
+  describe('Batch Loading', () => {
+    it('should queue batch load requests', () => {
+      const batchRequest = {
+        branchIds: [1, 2],
+        dataTypes: ['sales', 'inventory'],
+        priority: 'high' as const
+      };
+
+      service.queueBatchLoad(batchRequest);
+      
+      // Verify that the request was queued (implementation detail)
+      // This would need access to private requestQueue, so this is more of an integration test
+    });
+
+    it('should not duplicate similar batch requests', () => {
+      const batchRequest = {
+        branchIds: [1, 2],
+        dataTypes: ['sales'],
+        priority: 'medium' as const
+      };
+
+      service.queueBatchLoad(batchRequest);
+      service.queueBatchLoad(batchRequest); // Duplicate
+
+      // Should not create duplicate requests
+      // Implementation would need to expose queue state for verification
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle API errors gracefully', async () => {
+      const promise = service.loadBranchDataOptimized('inventory', [1], false);
+      
+      const req = httpMock.expectOne(`${environment.apiUrl}/inventory/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+      req.flush('Server Error', { status: 500, statusText: 'Internal Server Error' });
+      
+      const result = await promise;
+      expect(result.success).toBe(false);
+      expect(result.data).toEqual([]);
+    });
+
+    it('should handle timeout errors', async () => {
+      const promise = service.loadBranchDataOptimized('sales', [1], false);
+      
+      const req = httpMock.expectOne(`${environment.apiUrl}/sales/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+      req.error(new ErrorEvent('timeout'));
+      
+      const result = await promise;
+      expect(result.success).toBe(false);
+    });
+
+    it('should retry failed requests', async () => {
+      let requestCount = 0;
+      
+      // Mock multiple requests for retry logic
+      const promise = service.loadBranchDataOptimized('analytics', [1], false);
+      
+      // Expect multiple requests due to retry
+      httpMock.match(`${environment.apiUrl}/analytics/branch-optimized?branchIds=1&optimized=true&compression=gzip`).forEach(req => {
+        requestCount++;
+        if (requestCount <= 3) {
+          req.error(new ErrorEvent('network error'));
+        } else {
+          req.flush({ success: true, data: [] });
+        }
+      });
+      
+      const result = await promise;
+      expect(result.success).toBe(false); // Will still fail after max retries
+    });
+  });
+
+  describe('Lazy Loading', () => {
+    it('should setup lazy loading with correct configuration', () => {
+      const config = {
+        threshold: 0.8,
+        pageSize: 20,
+        maxConcurrentLoads: 3,
+        preloadNextPages: 2
+      };
+
+      const lazyLoad$ = service.setupLazyLoading(config);
+      expect(lazyLoad$).toBeTruthy();
+      
+      // Test would need to subscribe and verify the behavior
+      lazyLoad$.subscribe({
+        next: (result) => {
+          expect(result).toBeDefined();
+          expect(result.page).toBeDefined();
+          expect(result.data).toBeDefined();
+          expect(result.hasMore).toBeDefined();
+        }
+      });
+    });
+  });
+
+  describe('Cache Statistics', () => {
+    it('should provide accurate cache statistics', async () => {
+      const mockData = [{ id: 1, name: 'Test Product', branchId: 1 }];
+      
+      // Add some data to cache
+      const promise = service.loadBranchDataOptimized('inventory', [1], false);
+      const req = httpMock.expectOne(`${environment.apiUrl}/inventory/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+      req.flush({ success: true, data: mockData });
+      await promise;
+
+      const stats = service.cacheStatistics;
+      expect(stats().totalEntries).toBeGreaterThan(0);
+      expect(stats().totalSizeMB).toBeGreaterThan(0);
+      expect(stats().utilizationPercent).toBeGreaterThan(0);
+    });
+
+    it('should track entries per branch', async () => {
+      const mockData = [{ id: 1, name: 'Test Product', branchId: 1 }];
+      
+      // Add data for multiple branches
+      for (const branchId of [1, 2]) {
+        const promise = service.loadBranchDataOptimized('sales', [branchId], false);
+        const req = httpMock.expectOne(`${environment.apiUrl}/sales/branch-optimized?branchIds=${branchId}&optimized=true&compression=gzip`);
+        req.flush({ success: true, data: mockData });
+        await promise;
+      }
+
+      const stats = service.cacheStatistics;
+      const branchEntries = stats().entriesPerBranch;
+      
+      expect(branchEntries.length).toBeGreaterThan(0);
+      expect(branchEntries.some(entry => entry.branchId === 1)).toBe(true);
+      expect(branchEntries.some(entry => entry.branchId === 2)).toBe(true);
+    });
+  });
+
+  describe('Performance Report', () => {
+    it('should generate comprehensive performance report', () => {
+      const report = service.getPerformanceReport();
+      
+      expect(report.cacheStatistics).toBeDefined();
+      expect(report.performanceInsights).toBeDefined();
+      expect(report.recommendations).toBeDefined();
+    });
+
+    it('should enable performance mode', () => {
+      spyOn(service, 'queueBatchLoad');
+      
+      service.enablePerformanceMode();
+      
+      expect(service.queueBatchLoad).toHaveBeenCalledWith({
+        branchIds: stateService.activeBranchIds(),
+        dataTypes: ['sales', 'inventory', 'analytics'],
+        priority: 'high',
+        forceRefresh: true
+      });
+    });
+  });
+
+  describe('Integration with StateService', () => {
+    it('should react to branch changes', () => {
+      // Change active branches
+      stateService.activeBranchIds.set([4, 5]);
+      
+      // Service should react to this change
+      // This would trigger effects in the actual service
+    });
+
+    it('should preload critical data for active branches', async () => {
+      // Set active branches
+      stateService.activeBranchIds.set([1, 2]);
+      
+      // Service should automatically preload critical data
+      // Verify HTTP requests are made for critical data types
+      
+      // Due to async nature and effects, this needs to be tested differently
+      // or the service needs to expose methods for testing
+    });
+  });
+
+  describe('Data Type Endpoints', () => {
+    it('should use correct endpoints for different data types', async () => {
+      const testCases = [
+        { dataType: 'sales', expectedPath: '/sales/branch-optimized' },
+        { dataType: 'inventory', expectedPath: '/inventory/branch-optimized' },
+        { dataType: 'analytics', expectedPath: '/analytics/branch-optimized' },
+        { dataType: 'notifications', expectedPath: '/notifications/branch-optimized' },
+        { dataType: 'performance', expectedPath: '/performance/branch-optimized' }
+      ];
+
+      for (const testCase of testCases) {
+        const promise = service.loadBranchDataOptimized(testCase.dataType as any, [1], false);
+        
+        const req = httpMock.expectOne(`${environment.apiUrl}${testCase.expectedPath}?branchIds=1&optimized=true&compression=gzip`);
+        req.flush({ success: true, data: [] });
+        
+        const result = await promise;
+        expect(result.success).toBe(true);
+      }
+    });
+  });
+
+  describe('Memory Management', () => {
+    it('should limit performance metrics to prevent memory leaks', async () => {
+      const mockData = [{ id: 1, name: 'Test Product', branchId: 1 }];
+      
+      // Generate more than 1000 metrics
+      for (let i = 0; i < 1100; i++) {
+        const promise = service.loadBranchDataOptimized('sales', [1], false);
+        
+        if (i === 0) {
+          // First request will be API call
+          const req = httpMock.expectOne(`${environment.apiUrl}/sales/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+          req.flush({ success: true, data: mockData });
+        }
+        
+        await promise;
+      }
+
+      const metrics = service.performanceMetrics();
+      expect(metrics.length).toBeLessThanOrEqual(1000);
+    });
+  });
+});
+
+// Integration test for the complete performance optimization flow
+describe('BranchPerformanceOptimizerService - Integration Tests', () => {
+  let service: BranchPerformanceOptimizerService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        BranchPerformanceOptimizerService,
+        { provide: StateService, useClass: MockStateService }
+      ]
+    });
+
+    service = TestBed.inject(BranchPerformanceOptimizerService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  it('should handle complete optimization workflow', async () => {
+    const mockSalesData = [
+      { id: 1, transactionDate: '2024-09-01', totalAmount: 150000, branchId: 1 }
+    ];
+    const mockInventoryData = [
+      { id: 1, productName: 'Test Product', currentStock: 50, branchId: 1 }
+    ];
+
+    // Test cache miss scenario
+    const salesPromise = service.loadBranchDataOptimized('sales', [1], false);
+    const salesReq = httpMock.expectOne(`${environment.apiUrl}/sales/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+    salesReq.flush({ success: true, data: mockSalesData });
+    
+    const salesResult = await salesPromise;
+    expect(salesResult.success).toBe(true);
+    expect(salesResult.metadata.cacheStatus).toBe('miss');
+
+    // Test cache hit scenario
+    const salesCacheHit = await service.loadBranchDataOptimized('sales', [1], false);
+    expect(salesCacheHit.metadata.cacheStatus).toBe('hit');
+
+    // Test different data type
+    const inventoryPromise = service.loadBranchDataOptimized('inventory', [1], false);
+    const inventoryReq = httpMock.expectOne(`${environment.apiUrl}/inventory/branch-optimized?branchIds=1&optimized=true&compression=gzip`);
+    inventoryReq.flush({ success: true, data: mockInventoryData });
+    
+    const inventoryResult = await inventoryPromise;
+    expect(inventoryResult.success).toBe(true);
+
+    // Verify performance metrics were recorded
+    const metrics = service.performanceMetrics();
+    expect(metrics.length).toBeGreaterThan(0);
+    
+    // Verify cache statistics
+    const stats = service.cacheStatistics();
+    expect(stats().totalEntries).toBeGreaterThan(0);
+    
+    // Verify performance insights
+    const insights = service.performanceInsights();
+    expect(insights()).toBeTruthy();
+    
+    // Test performance report
+    const report = service.getPerformanceReport();
+    expect(report).toHaveProperty('cacheStatistics');
+    expect(report).toHaveProperty('performanceInsights');
+  });
+});

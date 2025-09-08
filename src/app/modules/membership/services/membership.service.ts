@@ -36,7 +36,8 @@ interface ApiResponse<T> {
   providedIn: 'root'
 })
 export class MembershipService {
-  private readonly baseUrl = `${environment.apiUrl}/Member`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api/Member';
   
   // State management
   private loadingSubject = new BehaviorSubject<boolean>(false);

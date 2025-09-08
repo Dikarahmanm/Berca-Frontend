@@ -20,7 +20,7 @@ import { StateService } from '../../../core/services/state.service';
 @Component({
   selector: 'app-base-layout',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [
     CommonModule,
     RouterModule,
@@ -170,8 +170,20 @@ export class BaseLayoutComponent implements OnInit, OnDestroy {
     sideCol$.pipe(takeUntil(this.destroy$)).subscribe(v => this.sidebarCollapsed = v);
     mobile$.pipe(takeUntil(this.destroy$)).subscribe(v => this.isMobile = v);
     user$.pipe(takeUntil(this.destroy$)).subscribe(u => {
-      this.username = u?.username ?? this.username;
-      this.role = u?.role ?? this.role;
+      console.log('🔍 Base Layout - User state updated:', u);
+      if (u) {
+        this.username = u.username || this.username;
+        this.role = u.role || this.role;
+      } else {
+        // If user is null, try localStorage again
+        const storedUsername = localStorage.getItem('username');
+        const storedRole = localStorage.getItem('role');
+        if (storedUsername && storedRole) {
+          this.username = storedUsername;
+          this.role = storedRole;
+          console.log('🔍 Base Layout - Fallback to localStorage:', { username: this.username, role: this.role });
+        }
+      }
     });
   }
 
@@ -185,15 +197,19 @@ export class BaseLayoutComponent implements OnInit, OnDestroy {
     this.sidebarCollapsed = this.layoutService.getSidebarCollapsed();
     this.isMobile = this.layoutService.getIsMobile();
 
-    // Seed user dari AuthService (kalau StateService belum sempat mirror)
-    const currentUser = this.authService.getCurrentUser(); // cookie-based user:contentReference[oaicite:3]{index=3}
-    if (currentUser) {
-      this.username = currentUser.username || '';
-      this.role = currentUser.role || '';
-    } else {
-      this.username = localStorage.getItem('username') || '';
-      this.role = localStorage.getItem('role') || '';
-    }
+    // Seed user dari AuthService dan fallback ke localStorage
+    const currentUser = this.authService.getCurrentUser();
+    
+    // Always try localStorage first, then AuthService
+    this.username = localStorage.getItem('username') || currentUser?.username || 'Guest User';
+    this.role = localStorage.getItem('role') || currentUser?.role || 'Guest';
+    
+    console.log('🔍 Base Layout - User data loaded:', { 
+      username: this.username, 
+      role: this.role,
+      fromLocalStorage: !!localStorage.getItem('username'),
+      fromAuthService: !!currentUser?.username
+    });
   }
 
   private subscribeToPageInfo(): void {

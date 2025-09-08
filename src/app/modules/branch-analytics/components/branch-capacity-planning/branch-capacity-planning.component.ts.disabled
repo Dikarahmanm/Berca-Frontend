@@ -1,0 +1,18 @@
+// src/app/modules/branch-analytics/components/branch-capacity-planning/branch-capacity-planning.component.ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-branch-capacity-planning',
+  template: `
+    <div class="branch-capacity-planning">
+      <h2>Branch Capacity Planning</h2>
+      <p>Branch capacity planning component placeholder</p>
+    </div>
+  `,
+  styles: [`
+    .branch-capacity-planning {
+      padding: 16px;
+    }
+  `]
+})
+export class BranchCapacityPlanningComponent {}

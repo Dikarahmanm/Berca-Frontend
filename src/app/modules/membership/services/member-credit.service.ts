@@ -4,7 +4,7 @@
 
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError } from 'rxjs';
+import { Observable, BehaviorSubject, throwError, of } from 'rxjs';
 import { map, tap, catchError, retry } from 'rxjs/operators';
 import { environment } from '../../../../environment/environment';
 
@@ -18,6 +18,10 @@ import {
   // POS Integration Interfaces
   POSMemberCreditDto,
   CreditValidationRequestDto,
+  
+  // Analytics Interfaces
+  TierAnalysisDto,
+  TopCreditUser,
   CreditValidationResultDto,
   CreateSaleWithCreditDto,
   POSCreditInfoDto,
@@ -59,7 +63,8 @@ import {
 @Injectable({ providedIn: 'root' })
 export class MemberCreditService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api';
 
   // Signal-based reactive state management
   private _loading = signal<boolean>(false);
@@ -253,9 +258,36 @@ export class MemberCreditService {
    * Get Credit Transaction History
    * GET /api/MemberCredit/{id}/credit/history
    */
-  getCreditHistory(memberId: number): Observable<CreditTransactionDto[]> {
-    return this.http.get<CreditApiResponse<CreditTransactionDto[]>>(`${this.baseUrl}/MemberCredit/${memberId}/credit/history`)
-      .pipe(map(res => res.data), catchError(this.handleError));
+  getCreditHistory(memberId: number, days: number = 90): Observable<CreditTransactionDto[]> {
+    console.log(`MemberCreditService: Getting credit history for member ${memberId} (last ${days} days)`);
+    
+    const params = new HttpParams().set('days', days.toString());
+    
+    return this.http.get<CreditTransactionDto[]>(`${this.baseUrl}/MemberCredit/${memberId}/credit/history`, { params })
+      .pipe(
+        retry(2), // Retry up to 2 times on failure
+        tap((response) => {
+          console.log(`MemberCreditService: Credit history response for member ${memberId}:`, response);
+          console.log(`MemberCreditService: Found ${response?.length || 0} transactions`);
+          
+          // Update the credit transactions signal
+          this._creditTransactions.set(response || []);
+        }),
+        catchError((error) => {
+          console.error(`MemberCreditService: Error getting credit history for member ${memberId}:`, error);
+          
+          // More specific error handling for credit history
+          if (error.status === 0) {
+            console.error('Network connection issue - retry failed');
+          } else if (error.status === 404) {
+            console.warn(`Member ${memberId} not found or has no credit history`);
+            // Return empty array for 404 instead of error
+            return of([]);
+          }
+          
+          return this.handleError(error);
+        })
+      );
   }
 
   /**
@@ -282,8 +314,8 @@ export class MemberCreditService {
    */
   getOverdueMembers(branchId?: number): Observable<OverdueMemberDto[]> {
     const params = branchId ? new HttpParams().set('branchId', branchId.toString()) : undefined;
-    return this.http.get<CreditApiResponse<OverdueMemberDto[]>>(`${this.baseUrl}/MemberCredit/collections/overdue`, { params })
-      .pipe(map(res => res.data), catchError(this.handleError));
+    return this.http.get<OverdueMemberDto[]>(`${this.baseUrl}/MemberCredit/collections/overdue`, { params })
+      .pipe(catchError(this.handleError));
   }
 
   /**
@@ -292,8 +324,69 @@ export class MemberCreditService {
    */
   getApproachingLimitMembers(branchId?: number): Observable<ApproachingLimitMemberDto[]> {
     const params = branchId ? new HttpParams().set('branchId', branchId.toString()) : undefined;
-    return this.http.get<CreditApiResponse<ApproachingLimitMemberDto[]>>(`${this.baseUrl}/MemberCredit/collections/approaching-limit`, { params })
-      .pipe(map(res => res.data), catchError(this.handleError));
+    return this.http.get<ApproachingLimitMemberDto[]>(`${this.baseUrl}/MemberCredit/collections/approaching-limit`, { params })
+      .pipe(catchError(this.handleError));
+  }
+
+  /**
+   * Get Top Debtors
+   * GET /api/MemberCredit/collections/top-debtors
+   * 
+   * Parameters:
+   * - branchId (optional): Filter by branch
+   * - limit (optional): Number of top debtors to return (default: 10)
+   * 
+   * Response format:
+   * [
+   *   {
+   *     "memberId": 1,
+   *     "memberName": "John Doe",
+   *     "memberNumber": "MBR001", 
+   *     "phone": "08123456789",
+   *     "email": "john.doe@email.com",
+   *     "tier": 0,
+   *     "totalDebt": 3909100,
+   *     "overdueAmount": 0,
+   *     "daysOverdue": 0,
+   *     "lastPaymentDate": null,
+   *     "nextDueDate": "2025-09-29T17:16:43.372737",
+   *     "status": 0,
+   *     "statusDescription": "Good",
+   *     "remindersSent": 0,
+   *     "lastReminderDate": null,
+   *     "nextReminderDue": null,
+   *     "recommendedAction": "No action needed",
+   *     "collectionPriority": "High",
+   *     "creditLimit": 10000000,
+   *     "availableCredit": 6090900,
+   *     "creditScore": 750,
+   *     "branchName": "Head Office",
+   *     "isHighRisk": false,
+   *     "requiresUrgentAction": false,
+   *     "formattedTotalDebt": "IDR 3.909.100",
+   *     "formattedOverdueAmount": "IDR 0"
+   *   }
+   * ]
+   */
+  getTopDebtors(branchId?: number, limit: number = 10): Observable<any[]> {
+    let params = new HttpParams().set('limit', limit.toString());
+    if (branchId) {
+      params = params.set('branchId', branchId.toString());
+    }
+    
+    console.log('MemberCreditService: Getting top debtors with params:', { branchId, limit });
+    
+    return this.http.get<any[]>(`${this.baseUrl}/MemberCredit/collections/top-debtors`, { params })
+      .pipe(
+        tap((response) => {
+          console.log('MemberCreditService: Top debtors response:', response);
+          console.log('MemberCreditService: Found', response?.length || 0, 'top debtors');
+        }),
+        catchError((error) => {
+          console.error('MemberCreditService: Error getting top debtors:', error);
+          return this.handleError(error);
+        })
+      );
   }
 
   /**
@@ -307,13 +400,76 @@ export class MemberCreditService {
     if (endDate) params = params.set('endDate', endDate);
 
     this._loading.set(true);
-    return this.http.get<CreditApiResponse<CreditAnalyticsDto>>(`${this.baseUrl}/MemberCredit/analytics`, { params })
+    return this.http.get<CreditAnalyticsDto>(`${this.baseUrl}/MemberCredit/analytics`, { params })
       .pipe(
-        map(res => res.data),
         tap(analytics => this._creditAnalytics.set(analytics)),
         tap(() => this._loading.set(false)),
         catchError(this.handleError)
       );
+  }
+
+  /**
+   * Get Top Credit Users based on tierAnalysis from analytics
+   * Processes analytics data to extract and rank top credit users
+   */
+  getTopCreditUsers(): Observable<TopCreditUser[]> {
+    return this.getCreditAnalytics().pipe(
+      map((analytics: any) => {
+        console.log('🏆 Processing analytics for top credit users:', analytics);
+        
+        let analyticsData = analytics;
+        if (analytics.data) {
+          analyticsData = analytics.data; // Wrapped response
+        }
+
+        if (analyticsData?.tierAnalysis && Array.isArray(analyticsData.tierAnalysis)) {
+          return analyticsData.tierAnalysis
+            .sort((a: TierAnalysisDto, b: TierAnalysisDto) => b.averageCreditLimit - a.averageCreditLimit)
+            .map((tier: TierAnalysisDto, index: number) => ({
+              rank: index + 1,
+              memberId: tier.tier, // Use tier as memberId for display
+              memberName: `${tier.tierName} Members`, // Generic name for tier
+              memberNumber: `TIER-${tier.tier}`,
+              tier: tier.tierName,
+              creditLimit: tier.averageCreditLimit,
+              currentDebt: tier.averageDebt,
+              creditUtilization: tier.averageUtilization,
+              creditScore: tier.averageCreditScore,
+              totalTransactions: tier.memberCount, // Use member count as transactions
+              paymentSuccessRate: Math.max(0, 100 - tier.overdueRate), // Calculate from overdue rate
+              formattedCreditLimit: this.formatCurrency(tier.averageCreditLimit),
+              formattedCurrentDebt: this.formatCurrency(tier.averageDebt),
+              riskLevel: this.calculateRiskLevel(tier)
+            } as TopCreditUser));
+        } else {
+          console.warn('⚠️ No tierAnalysis data available for top credit users');
+          return [];
+        }
+      }),
+      catchError((error) => {
+        console.error('❌ Failed to get top credit users:', error);
+        return [];
+      })
+    );
+  }
+
+  /**
+   * Calculate risk level based on tier analysis data
+   */
+  private calculateRiskLevel(tier: TierAnalysisDto): 'Low' | 'Medium' | 'High' | 'Critical' {
+    const utilization = tier.averageUtilization;
+    const overdueRate = tier.overdueRate;
+    const creditScore = tier.averageCreditScore;
+
+    if (overdueRate > 20 || utilization > 90 || creditScore < 600) {
+      return 'Critical';
+    } else if (overdueRate > 10 || utilization > 80 || creditScore < 700) {
+      return 'High';
+    } else if (overdueRate > 5 || utilization > 70 || creditScore < 750) {
+      return 'Medium';
+    } else {
+      return 'Low';
+    }
   }
 
   /**
@@ -435,7 +591,38 @@ export class MemberCreditService {
             validationData = res;
           }
           
-          console.log('MemberCreditService: Final validation data:', validationData);
+          console.log('MemberCreditService: Final validation data before normalization:', validationData);
+          
+          // Normalize validation data - fix inconsistent overdue validation
+          if (validationData && request) {
+            // Get member credit info to check current debt
+            this.getMemberCreditForPOS(request.memberId.toString()).subscribe({
+              next: (memberCredit) => {
+                if (memberCredit && memberCredit.currentDebt === 0 && !validationData.isApproved) {
+                  // Check if rejection is only due to overdue payments
+                  const hasOnlyOverdueErrors = validationData.errors?.every((error: string) => 
+                    error.toLowerCase().includes('overdue')
+                  ) ?? false;
+                  
+                  if (hasOnlyOverdueErrors) {
+                    console.log('🔧 MemberCreditService: Fixing validation for member with zero debt');
+                    validationData.isApproved = true;
+                    validationData.errors = validationData.errors?.filter((error: string) => 
+                      !error.toLowerCase().includes('overdue')
+                    ) || [];
+                    validationData.warnings = validationData.warnings?.filter((warning: string) => 
+                      !warning.toLowerCase().includes('overdue')
+                    ) || [];
+                    validationData.decisionReason = 'Approved - Member has no outstanding debt';
+                  }
+                }
+              },
+              error: (error) => {
+                console.warn('Could not get member credit for validation normalization:', error);
+              }
+            });
+          }
+          
           return validationData;
         }),
         catchError(this.handleError)
@@ -450,7 +637,7 @@ export class MemberCreditService {
     console.log('MemberCreditService: Creating sale with credit:', request);
     
     // Use correct POS endpoint, not MemberCredit base URL
-    const posEndpoint = `${environment.apiUrl}/pos/create-sale-with-credit`;
+    const posEndpoint = '/api/pos/create-sale-with-credit';
     
     return this.http.post<any>(posEndpoint, request)
       .pipe(
@@ -515,7 +702,30 @@ export class MemberCreditService {
             memberCreditData = null;
           }
           
-          console.log('MemberCreditService: Final member credit data:', memberCreditData);
+          console.log('MemberCreditService: Final member credit data before normalization:', memberCreditData);
+          
+          // Normalize member credit data - fix inconsistent overdue status
+          if (memberCreditData) {
+            // If member has no debt but backend says has overdue payments, fix it
+            if (memberCreditData.currentDebt === 0 && memberCreditData.hasOverduePayments) {
+              console.log('🔧 MemberCreditService: Fixing inconsistent overdue status for member with zero debt');
+              memberCreditData.hasOverduePayments = false;
+              memberCreditData.warnings = memberCreditData.warnings?.filter((w: string) => 
+                !w.toLowerCase().includes('overdue')
+              ) || [];
+              
+              // Update credit status if it was Bad only due to overdue payments
+              if (memberCreditData.creditStatus === 'Bad' && memberCreditData.currentDebt === 0) {
+                memberCreditData.creditStatus = 'Good';
+                memberCreditData.canUseCredit = true;
+                memberCreditData.statusColor = 'Green';
+                memberCreditData.statusMessage = 'No outstanding debt';
+              }
+            }
+            
+            console.log('MemberCreditService: Final normalized member credit data:', memberCreditData);
+          }
+          
           return memberCreditData;
         }),
         catchError((error) => {

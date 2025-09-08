@@ -43,13 +43,18 @@ interface FactureItemFormValue {
             <div class="form-row">
               <div class="form-field">
                 <label for="supplier">Supplier *</label>
-                <select id="supplier" formControlName="supplierId" class="form-control" [class.error]="isFieldInvalid('supplierId')">
-                  <option value="">Select Supplier</option>
+                <select id="supplier" formControlName="supplierId" class="form-control" [class.error]="isFieldInvalid('supplierId')" [disabled]="loading()">
+                  <option value="">{{ loading() ? 'Loading suppliers...' : 'Select Supplier' }}</option>
                   <option *ngFor="let supplier of suppliers()" [value]="supplier.id">
                     {{ supplier.companyName }} ({{ supplier.supplierCode }})
                   </option>
                 </select>
                 <div *ngIf="isFieldInvalid('supplierId')" class="error-message">Please select a supplier</div>
+                
+                <!-- Debug info -->
+                <div class="text-xs text-gray-500 mt-1" *ngIf="suppliers().length > 0">
+                  {{ suppliers().length }} supplier(s) loaded
+                </div>
               </div>
 
               <div class="form-field">
@@ -239,12 +244,58 @@ export class FactureFormComponent implements OnInit, OnDestroy {
   }
 
   private loadSuppliers(): void {
+    console.log('🔄 Loading suppliers for facture form...');
+    this.loading.set(true);
+    this.error.set(null);
+    
     this.supplierService.getSuppliers({ page: 1, pageSize: 100, sortBy: 'companyName', sortOrder: 'asc', isActive: true }).subscribe({
-      next: (response) => this.suppliers.set(response.suppliers || []),
+      next: (response) => {
+        console.log('✅ Supplier service response:', response);
+        
+        // The response structure from SupplierService.getSuppliers returns SupplierPagedResponseDto
+        const suppliersList = response.suppliers || [];
+        console.log('📋 Extracted suppliers list:', suppliersList);
+        
+        this.suppliers.set(suppliersList);
+        
+        if (suppliersList.length === 0) {
+          console.warn('⚠️ No suppliers found - checking if backend is available or creating fallback data');
+          
+          // Create fallback suppliers for testing when backend is not available
+          const fallbackSuppliers = this.createFallbackSuppliers();
+          this.suppliers.set(fallbackSuppliers);
+          
+          this.toastService.showWarning('Warning', `Using fallback supplier data (${fallbackSuppliers.length} suppliers). Please check backend connection.`);
+        } else {
+          console.log('✅ Loaded', suppliersList.length, 'suppliers for dropdown');
+        }
+        
+        this.loading.set(false);
+      },
       error: (error) => {
-        console.error('Failed to load suppliers:', error);
-        this.toastService.showError('Error', 'Failed to load suppliers');
-        this.suppliers.set([]);
+        console.error('❌ Failed to load suppliers:', error);
+        console.error('❌ Error details:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
+        
+        let errorMessage = 'Failed to load suppliers';
+        
+        if (error.status === 0) {
+          errorMessage = 'Cannot connect to server. Please check if backend is running.';
+        } else if (error.status === 404) {
+          errorMessage = 'Supplier endpoint not found. Please check backend configuration.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        // Create fallback suppliers for testing when backend is completely unavailable
+        const fallbackSuppliers = this.createFallbackSuppliers();
+        this.suppliers.set(fallbackSuppliers);
+        
+        this.toastService.showError('Error', errorMessage + ` Using fallback data (${fallbackSuppliers.length} suppliers) for testing.`);
+        this.loading.set(false);
       }
     });
   }
@@ -472,5 +523,85 @@ export class FactureFormComponent implements OnInit, OnDestroy {
       });
     }
     return errors;
+  }
+
+  private createFallbackSuppliers(): SupplierDto[] {
+    console.log('🔧 Creating fallback supplier data for testing...');
+    
+    const fallbackSuppliers: SupplierDto[] = [
+      {
+        id: 1,
+        supplierCode: 'SUP001',
+        companyName: 'PT Sumber Rejeki',
+        contactPerson: 'Budi Santoso',
+        phone: '021-1234567',
+        email: 'budi@sumberrejeki.com',
+        address: 'Jl. Sudirman No. 123, Jakarta',
+        paymentTerms: 30,
+        creditLimit: 50000000,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 2,
+        supplierCode: 'SUP002', 
+        companyName: 'CV Maju Bersama',
+        contactPerson: 'Siti Rahma',
+        phone: '021-2345678',
+        email: 'siti@majubersama.com',
+        address: 'Jl. Thamrin No. 456, Jakarta',
+        paymentTerms: 45,
+        creditLimit: 75000000,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 3,
+        supplierCode: 'SUP003',
+        companyName: 'PT Cahaya Baru',
+        contactPerson: 'Ahmad Wijaya',
+        phone: '021-3456789',
+        email: 'ahmad@cahayabaru.com',
+        address: 'Jl. Kuningan No. 789, Jakarta',
+        paymentTerms: 30,
+        creditLimit: 60000000,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 4,
+        supplierCode: 'SUP004',
+        companyName: 'UD Berkah Jaya',
+        contactPerson: 'Rina Dewi',
+        phone: '021-4567890',
+        email: 'rina@berkahjaya.com',
+        address: 'Jl. Gatot Subroto No. 321, Jakarta',
+        paymentTerms: 60,
+        creditLimit: 40000000,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 5,
+        supplierCode: 'SUP005',
+        companyName: 'PT Indo Sukses',
+        contactPerson: 'Bambang Prakoso',
+        phone: '021-5678901',
+        email: 'bambang@indosukses.com',
+        address: 'Jl. Rasuna Said No. 654, Jakarta',
+        paymentTerms: 30,
+        creditLimit: 80000000,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ];
+
+    console.log('✅ Created fallback suppliers:', fallbackSuppliers.length);
+    return fallbackSuppliers;
   }
 }

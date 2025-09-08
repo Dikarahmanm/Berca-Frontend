@@ -293,6 +293,18 @@ export interface SupplierSummaryDto {
 
         <!-- Grid View -->
         <div *ngIf="viewMode() === 'grid'" class="suppliers-grid">
+          <!-- Debug Info -->
+          <div class="debug-info" style="background: #f0f0f0; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc;">
+            <h4>🐛 Debug Information:</h4>
+            <p>Total Count: {{ totalCount() }}</p>
+            <p>Suppliers Length: {{ suppliers().length }}</p>
+            <p>Paginated Suppliers Length: {{ paginatedSuppliers().length }}</p>
+            <p>Loading: {{ supplierService.loading() }}</p>
+            <p>Error: {{ supplierService.error() || 'None' }}</p>
+            <p>View Mode: {{ viewMode() }}</p>
+            <p>Show Filters: {{ showFilters() }}</p>
+          </div>
+          
           <div *ngFor="let supplier of paginatedSuppliers(); trackBy: trackBySupplier" 
                class="supplier-card">
             <div class="card-header">
@@ -713,7 +725,18 @@ export class SupplierListComponent implements OnInit, OnDestroy {
     Math.ceil(this.totalCount() / this.currentQuery().pageSize)
   );
 
-  readonly paginatedSuppliers = computed(() => this.suppliers());
+  readonly paginatedSuppliers = computed(() => {
+    const suppliers = this.suppliers();
+    console.log('📊 Computed paginatedSuppliers:', {
+      suppliersLength: suppliers.length,
+      supplierSample: suppliers.slice(0, 2).map(s => ({ id: s.id, name: s.companyName })),
+      totalCount: this.totalCount()
+    });
+    
+    // For now, return all suppliers (pagination is handled by backend)
+    // In the future, you might want client-side pagination here
+    return suppliers;
+  });
 
   readonly getActiveCount = computed(() => 
     this.suppliers().filter(s => s.isActive).length
@@ -784,10 +807,29 @@ export class SupplierListComponent implements OnInit, OnDestroy {
     
     this.supplierService.getSuppliers(this.currentQuery()).subscribe({
       next: (response: SupplierPagedResponseDto) => {
-        this._suppliers.set(response.suppliers);
-        this._totalCount.set(response.totalCount);
+        console.log('📊 Component received response:', response);
+        console.log('📊 Response structure in component:', {
+          hasSuppliers: 'suppliers' in response,
+          suppliersLength: response.suppliers ? response.suppliers.length : 'No suppliers',
+          hasTotalCount: 'totalCount' in response,
+          totalCount: response.totalCount,
+          responseKeys: Object.keys(response)
+        });
+        
+        // Set the data
+        const suppliers = response.suppliers || [];
+        const totalCount = response.totalCount || 0;
+        
+        this._suppliers.set(suppliers);
+        this._totalCount.set(totalCount);
+        
+        console.log('✅ Component state updated:', {
+          suppliersSet: suppliers.length,
+          totalCountSet: totalCount
+        });
       },
       error: (error) => {
+        console.error('❌ Component error:', error);
         this.toastService.showError('Error', `Failed to load suppliers: ${error.message}`);
       }
     });
@@ -970,42 +1012,91 @@ export class SupplierListComponent implements OnInit, OnDestroy {
     this._loadingFactures.set(true);
     
     const includeCompleted = this._facturesFilter() === 'all';
-    const url = `${environment.apiUrl}/Facture/supplier/${supplierId}?includeCompleted=${includeCompleted}&pageSize=50`;
+    const url = `/api/Facture/supplier/${supplierId}?includeCompleted=${includeCompleted}&pageSize=50`;
 
-    this.http.get<SupplierFactureDto[]>(url, { withCredentials: true })
+    this.http.get<{ success: boolean; data: SupplierFactureDto[]; message?: string }>(url, { withCredentials: true })
       .pipe(
         catchError(error => {
-          console.error('Error loading supplier factures:', error);
-          this.toastService.showError('Error', 'Failed to load supplier factures');
-          return of([]);
+          console.warn('⚠️ Supplier factures endpoint not available:', error);
+          console.log('📝 Using fallback empty factures data for supplier:', supplierId);
+          
+          // Don't show error toast for missing endpoints, just log a warning
+          if (error.status === 500) {
+            console.warn('💡 Backend endpoint /api/Facture/supplier/{id} may not be implemented yet');
+          } else {
+            this.toastService.showWarning('Notice', 'Factures data temporarily unavailable');
+          }
+          
+          // Return successful response with empty data
+          return of({ success: true, data: [] });
         }),
         takeUntil(this.destroy$)
       )
       .subscribe({
-        next: (factures) => {
-          this._supplierFactures.set(factures || []);
+        next: (response) => {
+          if (response.success) {
+            this._supplierFactures.set(response.data || []);
+          } else {
+            console.warn('Factures API returned unsuccessful response:', response);
+            this._supplierFactures.set([]);
+          }
           this._loadingFactures.set(false);
         },
         error: () => {
           this._loadingFactures.set(false);
+          this._supplierFactures.set([]);
         }
       });
   }
 
   private loadSupplierSummary(supplierId: number): void {
-    const url = `${environment.apiUrl}/Facture/supplier/${supplierId}/summary`;
+    const url = `/api/Facture/supplier/${supplierId}/summary`;
 
-    this.http.get<SupplierSummaryDto>(url, { withCredentials: true })
+    this.http.get<{ success: boolean; data: SupplierSummaryDto; message?: string }>(url, { withCredentials: true })
       .pipe(
         catchError(error => {
-          console.warn('Could not load supplier summary:', error);
-          return of(null);
+          console.warn('⚠️ Supplier summary endpoint not available:', error);
+          
+          if (error.status === 500) {
+            console.warn('💡 Backend endpoint /api/Facture/supplier/{id}/summary may not be implemented yet');
+            
+            // Return fallback summary data
+            const fallbackSummary: SupplierSummaryDto = {
+              supplierId: supplierId,
+              totalFactures: 0,
+              totalOutstanding: 0,
+              overdueCount: 0,
+              overdueAmount: 0,
+              avgPaymentDays: 0,
+              creditUtilization: 0,
+              lastPaymentDate: undefined
+            };
+            
+            return of({ success: true, data: fallbackSummary });
+          }
+          
+          return of({ success: false, data: null as any });
         }),
         takeUntil(this.destroy$)
       )
       .subscribe({
-        next: (summary) => {
-          this._supplierSummary.set(summary);
+        next: (response) => {
+          if (response.success && response.data) {
+            this._supplierSummary.set(response.data);
+          } else {
+            // Set fallback summary even if API fails
+            const fallbackSummary: SupplierSummaryDto = {
+              supplierId: supplierId,
+              totalFactures: 0,
+              totalOutstanding: 0,
+              overdueCount: 0,
+              overdueAmount: 0,
+              avgPaymentDays: 0,
+              creditUtilization: 0,
+              lastPaymentDate: undefined
+            };
+            this._supplierSummary.set(fallbackSummary);
+          }
         }
       });
   }

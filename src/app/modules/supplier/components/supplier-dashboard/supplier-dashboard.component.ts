@@ -1312,8 +1312,9 @@ export class SupplierDashboardComponent implements OnInit, OnDestroy {
       }
     });
 
-    // Also load recent suppliers from supplier service
+    // Also load recent suppliers and stats from supplier service
     this.loadRecentSuppliers();
+    this.loadSupplierStats();
   }
 
   // Calculate stats from real analytics data
@@ -1383,17 +1384,25 @@ export class SupplierDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Load supplier statistics
+  // Load supplier statistics with enhanced logging
   private async loadStats(): Promise<void> {
+    console.log('🔍 Loading supplier statistics...');
+    
     try {
       this.supplierService.getSupplierStats().subscribe({
         next: (stats) => {
           this._stats.set(stats);
-          console.log('📊 Supplier stats loaded:', stats);
+          console.log('✅ Supplier stats loaded successfully:', {
+            totalSuppliers: stats.totalSuppliers,
+            activeSuppliers: stats.activeSuppliers,
+            totalCreditLimit: this.formatCurrency(stats.totalCreditLimit),
+            averagePaymentTerms: stats.averagePaymentTerms + ' days',
+            topSuppliersByAmount: stats.topSuppliersByAmount?.length || 0
+          });
         },
         error: (error) => {
-          console.error('Error loading supplier stats:', error);
-          // Set default/empty stats instead of error for stats
+          console.warn('⚠️ Supplier stats error (should have fallback):', error);
+          // Set default stats as last resort
           this._stats.set({
             totalSuppliers: 0,
             activeSuppliers: 0,
@@ -1408,8 +1417,13 @@ export class SupplierDashboardComponent implements OnInit, OnDestroy {
         }
       });
     } catch (error) {
-      console.error('Error in loadStats:', error);
+      console.error('Critical error in loadStats:', error);
     }
+  }
+  
+  // Add a separate method to load supplier stats
+  private loadSupplierStats(): void {
+    this.loadStats();
   }
 
   // Load supplier alerts (fallback method)

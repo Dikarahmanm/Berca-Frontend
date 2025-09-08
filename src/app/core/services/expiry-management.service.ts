@@ -57,7 +57,8 @@ import {
 export class ExpiryManagementService {
   private readonly http = inject(HttpClient);
   private readonly injector = inject(Injector);
-  private readonly baseUrl = `${environment.apiUrl}`;
+  // ✅ Use relative URL for proxy routing
+  private readonly baseUrl = '/api';
   
   // Signal-based state management
   private _expiryAnalytics = signal<ExpiryAnalytics | null>(null);

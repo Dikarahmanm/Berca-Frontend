@@ -1,0 +1,18 @@
+// src/app/modules/branch-analytics/components/branch-performance-comparison/branch-performance-comparison.component.ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-branch-performance-comparison',
+  template: `
+    <div class="branch-performance-comparison">
+      <h2>Branch Performance Comparison</h2>
+      <p>Branch performance comparison component placeholder</p>
+    </div>
+  `,
+  styles: [`
+    .branch-performance-comparison {
+      padding: 16px;
+    }
+  `]
+})
+export class BranchPerformanceComparisonComponent {}

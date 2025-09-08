@@ -666,7 +666,29 @@ export class POSCreditValidationComponent {
   // Computed properties
   isValid = computed(() => {
     const result = this.validationResult();
-    return result ? result.isApproved : false;
+    const member = this.memberCredit();
+    
+    if (!result) return false;
+    
+    // If backend says not approved, check if it's due to overdue payments with zero debt
+    if (!result.isApproved && member && member.currentDebt === 0) {
+      // Check if the only issue is overdue payments
+      const hasOnlyOverdueIssues = result.errors?.every(error => 
+        error.toLowerCase().includes('overdue')
+      ) ?? false;
+      
+      const hasNonOverdueErrors = result.errors?.some(error => 
+        !error.toLowerCase().includes('overdue')
+      ) ?? false;
+      
+      // If only overdue errors and member has no debt, consider it valid
+      if (hasOnlyOverdueIssues && !hasNonOverdueErrors) {
+        console.log('🔧 POS Credit Validation: Overriding validation for member with zero debt');
+        return true;
+      }
+    }
+    
+    return result.isApproved;
   });
 
   currentUsagePercentage = computed(() => {
@@ -830,14 +852,37 @@ export class POSCreditValidationComponent {
   // Utility methods
   getValidationMessages(): string {
     const result = this.validationResult();
+    const member = this.memberCredit();
     if (!result) return '';
     
     const messages: string[] = [];
+    
+    // Filter out overdue payment warnings if member has no debt
     if (result.warnings && result.warnings.length > 0) {
-      messages.push(...result.warnings);
+      const filteredWarnings = result.warnings.filter(warning => {
+        // If member has no current debt, ignore overdue payment warnings
+        if (member && member.currentDebt === 0 && 
+            warning.toLowerCase().includes('overdue')) {
+          console.log('🔧 POS Credit Validation: Ignoring overdue warning for member with zero debt:', warning);
+          return false;
+        }
+        return true;
+      });
+      messages.push(...filteredWarnings);
     }
+    
+    // Filter out overdue payment errors if member has no debt
     if (result.errors && result.errors.length > 0) {
-      messages.push(...result.errors);
+      const filteredErrors = result.errors.filter(error => {
+        // If member has no current debt, ignore overdue payment errors
+        if (member && member.currentDebt === 0 && 
+            error.toLowerCase().includes('overdue')) {
+          console.log('🔧 POS Credit Validation: Ignoring overdue error for member with zero debt:', error);
+          return false;
+        }
+        return true;
+      });
+      messages.push(...filteredErrors);
     }
     
     return messages.join(', ') || result.decisionReason || '';

@@ -4,6 +4,7 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, Injector, runInInjectionContext, ChangeDetectionStrategy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
@@ -18,15 +19,18 @@ import { toObservable } from '@angular/core/rxjs-interop';
 
 import { AuthService } from '../../core/services/auth.service';
 import { StateService } from '../../core/services/state.service';
+import { BranchService } from '../../core/services/branch.service';
 import { UnifiedNotificationCenterComponent } from '../components/unified-notification-center/unified-notification-center.component';
+import { BranchAccessDto } from '../../core/interfaces/branch.interfaces';
 
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
   imports: [
     CommonModule,
     RouterModule,
+    FormsModule,
     MatIconModule,
     MatButtonModule,
     MatMenuModule,
@@ -65,6 +69,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
   isDarkMode: boolean = false;
   showProfileDropdown: boolean = false;
 
+  // ===== NEW: Multi-Branch State =====
+  branchDropdownOpen = signal<boolean>(false);
+  branchSearchQuery = signal<string>('');
+  branchLoading = signal<boolean>(false);
+
   private roleDisplayMap: { [key: string]: string } = {
     'Admin': 'Administrator',
     'Manager': 'Manager',
@@ -73,11 +82,36 @@ export class TopbarComponent implements OnInit, OnDestroy {
     'Staff': 'Staff'
   };
 
+  // ===== NEW: Multi-Branch Service Injection =====
+  private state = inject(StateService);
+  private branchService = inject(BranchService);
+  
+  // ===== NEW: Multi-Branch Computed Properties =====
+  readonly accessibleBranches = this.state.accessibleBranches;
+  readonly selectedBranchId = this.state.selectedBranchId;
+  readonly selectedBranchIds = this.state.selectedBranchIds;
+  readonly isMultiSelectMode = this.state.isMultiSelectMode;
+  readonly activeBranch = this.state.activeBranch;
+  readonly canSwitchBranches = this.state.canSwitchBranches;
+  readonly hasMultipleBranches = this.state.hasMultipleBranches;
+  readonly branchDisplayText = this.state.branchDisplayText;
+
+  readonly filteredBranches = computed(() => {
+    const branches = this.accessibleBranches();
+    const query = this.branchSearchQuery().toLowerCase();
+    
+    if (!query) return branches;
+    
+    return branches.filter(branch => 
+      branch.branchName.toLowerCase().includes(query) ||
+      branch.branchCode.toLowerCase().includes(query)
+    );
+  });
+
   constructor(
     private router: Router,
     private authService: AuthService,
     private snackBar: MatSnackBar,
-    private state: StateService,
     private injector: Injector
   ) {}
 
@@ -85,6 +119,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
     this.initializeTopbar();
     this.checkMobileState();
     this.setupDocumentClickListener();
+    this.initializeBranchData();
 
     // ===== Signals → Observable (aman NG0203) =====
     const user$    = runInInjectionContext(this.injector, () => toObservable(this.state.user));
@@ -114,6 +149,24 @@ export class TopbarComponent implements OnInit, OnDestroy {
     
     // Load theme preference
     this.isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+    // Initialize branch data if user is logged in
+    const currentUser = this.state.user();
+    if (currentUser) {
+      this.initializeBranchData();
+    }
+  }
+
+  private async initializeBranchData(): Promise<void> {
+    try {
+      this.branchLoading.set(true);
+      await this.state.loadMyAccessibleBranches();
+      console.log('✅ Branch data initialized in topbar');
+    } catch (error) {
+      console.error('❌ Error initializing branch data:', error);
+    } finally {
+      this.branchLoading.set(false);
+    }
   }
 
 
@@ -148,14 +201,23 @@ export class TopbarComponent implements OnInit, OnDestroy {
   private onDocumentClick(event: Event): void {
     const target = event.target as HTMLElement;
     const profileWrapper = target.closest('.profile-wrapper');
+    const branchWrapper = target.closest('.branch-selector-wrapper');
     
     if (!profileWrapper) {
       this.showProfileDropdown = false;
+    }
+    
+    if (!branchWrapper) {
+      this.branchDropdownOpen.set(false);
     }
   }
 
   toggleProfileDropdown(): void {
     this.showProfileDropdown = !this.showProfileDropdown;
+    // Close branch dropdown if open
+    if (this.showProfileDropdown) {
+      this.branchDropdownOpen.set(false);
+    }
   }
 
 
@@ -224,5 +286,144 @@ export class TopbarComponent implements OnInit, OnDestroy {
       panelClass: ['snackbar-error']
     });
   }
+
+  // ===== NEW: Multi-Branch Methods =====
+
+  private loadBranchAccess(): void {
+    this.branchLoading.set(true);
+    
+    // Use new BranchService for dynamic branch loading - NO MORE MOCK FALLBACK
+    this.state.loadMyAccessibleBranches()
+      .then(() => {
+        console.log('✅ Branch data loaded from real API');
+      })
+      .catch((error) => {
+        console.error('❌ Error loading branch data from API:', error);
+        this.showErrorMessage('Unable to load branch data. Please check your connection and try again.');
+      })
+      .finally(() => {
+        this.branchLoading.set(false);
+      });
+  }
+
+  toggleBranchDropdown(): void {
+    this.branchDropdownOpen.update(open => !open);
+    if (this.branchDropdownOpen()) {
+      // Clear search when opening
+      this.branchSearchQuery.set('');
+    }
+  }
+
+  selectBranch(branchId: number): void {
+    if (!this.canSwitchBranches()) {
+      this.showErrorMessage('You do not have permission to switch branches');
+      return;
+    }
+
+    const branch = this.accessibleBranches().find(b => b.branchId === branchId);
+    if (!branch) {
+      this.showErrorMessage('Invalid branch selection');
+      return;
+    }
+
+    // Update selected branch
+    this.state.selectBranch(branchId);
+    
+    // Close dropdown
+    this.branchDropdownOpen.set(false);
+    this.branchSearchQuery.set('');
+    
+    // Show success message
+    this.showSuccessMessage(`Switched to ${branch.branchName}`);
+    
+    console.log('🔄 Branch switched to:', branch.branchName);
+  }
+
+  toggleMultiSelectMode(): void {
+    if (!this.canSwitchBranches()) {
+      this.showErrorMessage('You do not have permission to select multiple branches');
+      return;
+    }
+
+    const currentBranchId = this.selectedBranchId();
+    if (currentBranchId) {
+      this.state.setMultiSelectBranches([currentBranchId]);
+      this.showSuccessMessage('Multi-branch mode enabled');
+    }
+  }
+
+  toggleBranchSelection(branchId: number, event: Event): void {
+    event.stopPropagation();
+    
+    if (!this.canSwitchBranches()) {
+      this.showErrorMessage('You do not have permission to select branches');
+      return;
+    }
+
+    this.state.toggleBranchSelection(branchId);
+    
+    const selectedCount = this.selectedBranchIds().length;
+    if (selectedCount > 1) {
+      this.showSuccessMessage(`${selectedCount} branches selected`);
+    }
+  }
+
+  isBranchSelected(branchId: number): boolean {
+    const selectedIds = this.selectedBranchIds();
+    const currentId = this.selectedBranchId();
+    return selectedIds.includes(branchId) || currentId === branchId;
+  }
+
+  onBranchSearchChange(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.branchSearchQuery.set(target.value);
+  }
+
+  getBranchIcon(branch: BranchAccessDto | null): string {
+    if (!branch) return 'location_on';
+    if (branch.isHeadOffice) return 'corporate_fare';
+    if (branch.branchType === 'Branch') return 'store';
+    if (branch.branchType === 'SubBranch') return 'storefront';
+    return 'location_on';
+  }
+
+  getBranchAccessLevelColor(accessLevel: string): string {
+    switch (accessLevel) {
+      case 'Full': return 'var(--success)';
+      case 'Limited': return 'var(--warning)';
+      case 'ReadOnly': return 'var(--info)';
+      default: return 'var(--text-secondary)';
+    }
+  }
+
+  getBranchAccessLevelIcon(accessLevel: string): string {
+    switch (accessLevel) {
+      case 'Full': return 'admin_panel_settings';
+      case 'Limited': return 'edit';
+      case 'ReadOnly': return 'visibility';
+      default: return 'help_outline';
+    }
+  }
+
+  refreshBranchData(): void {
+    this.loadBranchAccess();
+  }
+
+  clearBranchSelection(): void {
+    if (!this.isMultiSelectMode()) return;
+    
+    this.state.setMultiSelectBranches([]);
+    this.showSuccessMessage('Branch selection cleared');
+  }
+
+  // REMOVED: Mock data methods - now using real API endpoints
+
+  // ✅ All mock data methods removed - now using real API endpoints:
+  // - AuthService.loadUserBranchAccess() → /api/UserBranchAssignment/user-access
+  // - BranchService.getAccessibleBranches() → /api/UserBranchAssignment/user-access
+  // - StateService.loadMyAccessibleBranches() → /api/UserBranchAssignment/user-access
+
+  // TrackBy function for branch list performance
+  trackByBranch = (index: number, branch: BranchAccessDto): number => branch.branchId;
 
 }

@@ -913,4 +913,52 @@ export class NotificationService {
   clearError(): void {
     this.errorSubject.next(null);
   }
+
+  /**
+   * Show success message via snackbar
+   */
+  showSuccess(message: string): void {
+    this.snackBar.open(message, 'Tutup', {
+      duration: 3000,
+      horizontalPosition: 'right',
+      verticalPosition: 'top',
+      panelClass: ['snackbar-success']
+    });
+  }
+
+  /**
+   * Show error message via snackbar
+   */
+  showError(message: string): void {
+    this.snackBar.open(message, 'Tutup', {
+      duration: 5000,
+      horizontalPosition: 'right',
+      verticalPosition: 'top',
+      panelClass: ['snackbar-error']
+    });
+  }
+
+  /**
+   * Show warning message via snackbar
+   */
+  showWarning(message: string): void {
+    this.snackBar.open(message, 'Tutup', {
+      duration: 4000,
+      horizontalPosition: 'right',
+      verticalPosition: 'top',
+      panelClass: ['snackbar-warning']
+    });
+  }
+
+  /**
+   * Show info message via snackbar
+   */
+  showInfo(message: string): void {
+    this.snackBar.open(message, 'Tutup', {
+      duration: 3000,
+      horizontalPosition: 'right',
+      verticalPosition: 'top',
+      panelClass: ['snackbar-info']
+    });
+  }
 }

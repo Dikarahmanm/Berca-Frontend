@@ -12,8 +12,8 @@ export interface Product {
   categoryId: number;
   categoryName?: string;
   categoryColor?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   // ✅ NEW: Add expiry date property
   expiryDate?: string;
   // Computed properties
@@ -96,7 +96,7 @@ export interface InventoryMutation {
   unitCost?: number;
   totalCost?: number;
   mutationDate: string;
-  createdAt: Date;
+  createdAt: string;
   createdBy?: string;
 }
 

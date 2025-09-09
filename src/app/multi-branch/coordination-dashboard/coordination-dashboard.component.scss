@@ -1,7 +1,7 @@
 // coordination-dashboard.component.scss
 // ✅ Updated to use consistent base styling from multi-branch-base.scss
 
-@import '../shared/styles/multi-branch-base.scss';
+@use '../shared/styles/multi-branch-base.scss' as *;
 
 // Force basic styling if import fails
 .multi-branch-container {

@@ -44,7 +44,7 @@ export class MockNotificationBackendService {
   // ===== MOCK API ENDPOINTS =====
 
   /**
-   * GET /api/multibranch/notifications
+   * GET /api/notifications
    */
   getNotifications(filters?: any): Observable<MultiBranchNotification[]> {
     return of(this.database.notifications).pipe(
@@ -83,7 +83,7 @@ export class MockNotificationBackendService {
   }
 
   /**
-   * GET /api/multibranch/notifications/{id}
+   * GET /api/notifications/{id}
    */
   getNotificationById(id: string): Observable<MultiBranchNotification | null> {
     const notification = this.database.notifications.find(n => n.id === id);

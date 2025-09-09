@@ -37,11 +37,11 @@ export const environment = {
     members: '/Member',
     memberPoints: '/Member/points',
     
-    // ✅ REAL: Notifications sesuai NotificationController
-    notifications: '/Notification',
-    notificationSummary: '/Notification/summary',
-    markAsRead: '/Notification/{id}/read',
-    markAllAsRead: '/Notification/read-all',
+    // ✅ REAL: Notifications sesuai NotificationController  
+    notifications: '/notifications',
+    notificationSummary: '/notifications/summary',
+    markAsRead: '/notifications/{id}/read',
+    markAllAsRead: '/notifications/read-all',
     
     // Reports & Analytics
     dashboard: '/Dashboard',

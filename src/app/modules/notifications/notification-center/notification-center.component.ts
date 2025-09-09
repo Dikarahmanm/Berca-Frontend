@@ -2,7 +2,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, timer } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,6 +10,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Import real service and interfaces
 import { NotificationService, NotificationDto, NotificationSummaryDto } from '../../../core/services/notification.service';
+
+// Type alias for template usage
+type NotificationModel = NotificationDto;
 
 type FilterType = 'all' | 'unread' | 'low_stock' | 'system' | 'sales';
 
@@ -51,6 +54,18 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    console.log('🔔 NotificationCenter component initialized');
+    
+    // 🧪 DEBUG: Test API connection first
+    this.notificationService.testApiConnection().subscribe({
+      next: (result) => {
+        console.log('🧪 API connection test result:', result);
+      },
+      error: (error) => {
+        console.error('🧪 API connection test failed:', error);
+      }
+    });
+    
     this.loadNotifications();
     this.loadSummary();
     this.setupReactiveUpdates();
@@ -62,21 +77,25 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Load notifications from real service
+   * Load notifications from real service (including smart notifications)
    */
   private loadNotifications() {
+    console.log('🔔 Component loadNotifications called');
     this.isLoading = true;
     this.error = null;
     
     const isReadFilter = this.selectedFilter === 'unread' ? false : undefined;
     
-    this.notificationService.getUserNotifications(this.page, this.pageSize, isReadFilter)
+    // STEP 1: Try combined notifications first
+    console.log('🔔 Attempting to load combined notifications...');
+    this.notificationService.getCombinedNotifications(this.page, this.pageSize, isReadFilter)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => this.isLoading = false)
       )
       .subscribe({
         next: (notifications) => {
+          console.log('✅ Combined notifications loaded:', notifications.length);
           if (this.page === 1) {
             this.notifications = notifications;
           } else {
@@ -86,25 +105,57 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
           this.updateFilterCounts();
         },
         error: (error) => {
-          this.error = 'Gagal memuat notifikasi. Silakan coba lagi.';
-          console.error('Error loading notifications:', error);
+          console.error('❌ Combined notifications failed:', error);
+          this.error = 'Gagal memuat notifikasi kombinasi. Mencoba notifikasi regular...';
+          
+          // FALLBACK: Try regular notifications only
+          this.notificationService.getAllBranchNotifications(this.page, this.pageSize, isReadFilter)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: (notifications) => {
+                console.log('✅ Fallback regular notifications loaded:', notifications.length);
+                if (this.page === 1) {
+                  this.notifications = notifications;
+                } else {
+                  this.notifications = [...this.notifications, ...notifications];
+                }
+                this.hasMoreNotifications = notifications.length === this.pageSize;
+                this.updateFilterCounts();
+                this.error = null; // Clear error since fallback worked
+              },
+              error: (fallbackError) => {
+                console.error('❌ Fallback regular notifications also failed:', fallbackError);
+                this.error = 'Gagal memuat notifikasi. Silakan coba lagi.';
+              }
+            });
         }
       });
   }
 
   /**
-   * Load notification summary from real service
+   * Load notification summary from real service (including smart notifications)
    */
   private loadSummary() {
-    this.notificationService.getNotificationSummary()
+    console.log('🔔 Component loadSummary called');
+    this.notificationService.getCombinedNotificationSummary()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (summary) => {
+          console.log('🔔 Component received combined summary:', summary);
           this.summary = summary;
           this.updateFilterCounts();
         },
         error: (error) => {
-          console.error('Error loading summary:', error);
+          console.error('Error loading combined summary:', error);
+          // Fallback to regular summary
+          this.notificationService.getNotificationSummary()
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: (summary) => {
+                this.summary = summary;
+                this.updateFilterCounts();
+              }
+            });
         }
       });
   }
@@ -113,14 +164,39 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
    * Setup reactive updates for real-time notifications
    */
   private setupReactiveUpdates() {
-    // Listen for new notifications in real-time if service supports it
-    this.notificationService.notifications$
+    console.log('🔔 Setting up reactive updates...');
+    
+    // Listen for unread count changes for real-time badge updates
+    this.notificationService.unreadCount$
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (notifications) => {
-          this.notifications = notifications;
+        next: (count) => {
+          console.log('🔔 Real-time unread count update:', count);
+          // Update filter counts when unread count changes
           this.updateFilterCounts();
         }
+      });
+
+    // Listen for summary updates
+    this.notificationService.summary$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (summary) => {
+          if (summary) {
+            console.log('🔔 Real-time summary update:', summary);
+            this.summary = summary;
+            this.updateFilterCounts();
+          }
+        }
+      });
+
+    // Auto-refresh every 30 seconds for real-time updates
+    timer(30000, 30000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        console.log('🔄 Auto-refreshing notifications...');
+        this.loadNotifications();
+        this.loadSummary();
       });
   }
 
@@ -162,21 +238,47 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
           break;
         case 'low_stock':
           filter.count = this.notifications.filter(n => 
-            ['LOW_STOCK', 'OUT_OF_STOCK', 'low_stock'].includes(n.type)
+            ['LOW_STOCK', 'OUT_OF_STOCK', 'low_stock', 'BatchExpiry', 'CriticalExpiry'].includes(n.type)
           ).length;
           break;
         case 'system':
           filter.count = this.notifications.filter(n => 
-            ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED', 'USER_LOGIN', 'string'].includes(n.type)
+            ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED', 'USER_LOGIN', 'system', 'alert'].includes(n.type)
           ).length;
           break;
         case 'sales':
           filter.count = this.notifications.filter(n => 
-            ['SALE_COMPLETED', 'MONTHLY_REVENUE', 'INVENTORY_AUDIT'].includes(n.type)
+            ['SALE_COMPLETED', 'MONTHLY_REVENUE', 'INVENTORY_AUDIT', 'sales', 'SALE_COMPLETED', 'daily-credit-summary'].includes(n.type)
           ).length;
           break;
       }
     });
+    console.log('🔔 Filter counts updated:', this.filterOptions.map(f => `${f.label}: ${f.count}`));
+  }
+
+  // Stats getter methods for template
+  getLowStockCount(): number {
+    return this.notifications.filter(n => 
+      ['LOW_STOCK', 'OUT_OF_STOCK', 'low_stock', 'BatchExpiry', 'CriticalExpiry'].includes(n.type)
+    ).length;
+  }
+
+  getSystemCount(): number {
+    return this.notifications.filter(n => 
+      ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED', 'USER_LOGIN', 'system', 'alert'].includes(n.type)
+    ).length;
+  }
+
+  getSalesCount(): number {
+    return this.notifications.filter(n => 
+      ['SALE_COMPLETED', 'MONTHLY_REVENUE', 'INVENTORY_AUDIT', 'sales', 'SALE_COMPLETED', 'daily-credit-summary'].includes(n.type)
+    ).length;
+  }
+
+  getCriticalCount(): number {
+    return this.notifications.filter(n => 
+      n.priority === 'Critical' || n.priority === 'High' || n.type === 'CriticalExpiry'
+    ).length;
   }
 
   /**
@@ -188,21 +290,41 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
       'LOW_STOCK': 'inventory_2',
       'OUT_OF_STOCK': 'production_quantity_limits',
       'low_stock': 'inventory_2',
+      'BatchExpiry': 'schedule',
+      'CriticalExpiry': 'warning_amber',
       
       // Sales Related
       'SALE_COMPLETED': 'point_of_sale',
       'MONTHLY_REVENUE': 'trending_up',
       'INVENTORY_AUDIT': 'fact_check',
+      'sales': 'point_of_sale',
+      'daily-credit-summary': 'account_balance',
       
       // System Related
       'SYSTEM_MAINTENANCE': 'build',
       'BACKUP_COMPLETED': 'backup',
       'USER_LOGIN': 'login',
-      'string': 'info',
+      'system': 'settings',
+      'alert': 'notification_important',
+      'success': 'check_circle',
+      'TEST': 'bug_report',
+      
+      // Smart Notifications (handled separately below)
+      
+      // Facture/Invoice
+      'facture-due-today': 'receipt',
+      'facture-overdue': 'receipt_long',
       
       // Default
+      'string': 'info',
       'CUSTOM': 'notifications'
     };
+    
+    // Check if it's a smart notification
+    if (notification?.metadata?.isSmartNotification) {
+      return 'smart_toy'; // Robot icon for smart notifications
+    }
+    
     return iconMap[notification?.type || 'default'] || 'notifications';
   }
 
@@ -291,6 +413,11 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
    * Get notification badge text berdasarkan tipe
    */
   getNotificationBadge(notification: NotificationDto | undefined): string {
+    // Smart notification badge
+    if (notification?.metadata?.isSmartNotification) {
+      return '🤖';
+    }
+
     const badges: { [key: string]: string } = {
       'LOW_STOCK': 'STOK',
       'OUT_OF_STOCK': 'HABIS',
@@ -515,24 +642,6 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
     return this.notifications.filter(n => !n.isRead).length;
   }
 
-  getLowStockCount(): number {
-    return this.notifications.filter(n => 
-      ['LOW_STOCK', 'OUT_OF_STOCK', 'low_stock'].includes(n.type)
-    ).length;
-  }
-
-  getSystemCount(): number {
-    return this.notifications.filter(n => 
-      ['SYSTEM_MAINTENANCE', 'BACKUP_COMPLETED', 'USER_LOGIN', 'string'].includes(n.type)
-    ).length;
-  }
-
-  getSalesCount(): number {
-    return this.notifications.filter(n => 
-      ['SALE_COMPLETED', 'MONTHLY_REVENUE', 'INVENTORY_AUDIT'].includes(n.type)
-    ).length;
-  }
-
   /**
    * Mark all notifications as read
    */
@@ -557,5 +666,40 @@ export class NotificationCenterComponent implements OnInit, OnDestroy {
         this.showError('Gagal menandai semua notifikasi sebagai sudah dibaca');
       }
     });
+  }
+
+  /**
+   * Check if notification is a smart notification
+   */
+  isSmartNotification(notification: NotificationDto): boolean {
+    return notification?.metadata?.isSmartNotification === true;
+  }
+
+  /**
+   * Get formatted potential loss for smart notifications
+   */
+  getFormattedPotentialLoss(notification: NotificationDto): string {
+    const loss = notification?.metadata?.potentialLoss;
+    if (!loss) return '';
+    
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    }).format(loss);
+  }
+
+  /**
+   * Get action items count for smart notifications
+   */
+  getActionItemsCount(notification: NotificationDto): number {
+    return notification?.metadata?.actionItems?.length || 0;
+  }
+
+  /**
+   * Check if notification has action items
+   */
+  hasActionItems(notification: NotificationDto): boolean {
+    return this.getActionItemsCount(notification) > 0;
   }
 }

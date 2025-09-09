@@ -64,7 +64,10 @@ export const branchInterceptor: HttpInterceptorFn = (req: HttpRequest<any>, next
     }
 
     // Add branch parameter to query string untuk GET requests
-    if (modifiedReq.method === 'GET' && selectedBranchId && !modifiedReq.params.has('branchId')) {
+    // Skip if allBranches=true is specified to get notifications from all branches
+    if (modifiedReq.method === 'GET' && selectedBranchId && 
+        !modifiedReq.params.has('branchId') && 
+        !modifiedReq.params.has('allBranches')) {
       modifiedReq = modifiedReq.clone({
         setParams: {
           branchId: selectedBranchId.toString()

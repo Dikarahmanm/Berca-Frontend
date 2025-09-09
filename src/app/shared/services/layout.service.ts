@@ -123,13 +123,14 @@ export class LayoutService {
           route: '/dashboard/branch-performance',
           roles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
         },
-        {
-          id: 'transfer-management',
-          label: 'Transfer Management',
-          icon: 'swap_horiz',
-          route: '/dashboard/transfers',
-          roles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
-        },
+        // DISABLED: Transfer Management temporarily disabled
+        // {
+        //   id: 'transfer-management',
+        //   label: 'Transfer Management',
+        //   icon: 'swap_horiz',
+        //   route: '/dashboard/transfers',
+        //   roles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
+        // },
         {
           id: 'optimization',
           label: 'Analytics',
@@ -266,12 +267,26 @@ export class LayoutService {
 
   private checkMobileState(): void {
     const isMobile = window.innerWidth <= 768;
+    const previousMobile = this.isMobileSubject.value;
+    
     this.isMobileSubject.next(isMobile);
     
     // Auto-collapse on mobile
     if (isMobile && !this.sidebarCollapsedSubject.value) {
       this.setSidebarCollapsed(true);
     }
+    
+    // Auto-expand on desktop if was mobile
+    if (!isMobile && previousMobile && this.sidebarCollapsedSubject.value) {
+      this.setSidebarCollapsed(false);
+    }
+    
+    console.log('📱 Mobile state checked:', {
+      width: window.innerWidth,
+      isMobile,
+      previousMobile,
+      sidebarCollapsed: this.sidebarCollapsedSubject.value
+    });
   }
 
   // ✅ UPDATED: Route mapping with proper dashboard home and analytics separation
@@ -295,7 +310,7 @@ export class LayoutService {
       '/dashboard/coordination': { title: 'Multi-Branch Coordination', breadcrumb: ['Dashboard', 'Multi-Branch', 'Coordination'] },
       '/dashboard/branches': { title: 'Branch Management', breadcrumb: ['Dashboard', 'Multi-Branch', 'Branches'] },
       '/dashboard/branch-performance': { title: 'Branch Performance', breadcrumb: ['Dashboard', 'Multi-Branch', 'Performance'] },
-      '/dashboard/transfers': { title: 'Transfer Management', breadcrumb: ['Dashboard', 'Multi-Branch', 'Transfers'] },
+      // DISABLED: '/dashboard/transfers': { title: 'Transfer Management', breadcrumb: ['Dashboard', 'Multi-Branch', 'Transfers'] },
       '/dashboard/select-branch': { title: 'Select Branch', breadcrumb: ['Dashboard', 'Multi-Branch', 'Select Branch'] }
     };
 
@@ -411,7 +426,7 @@ export class LayoutService {
       '/dashboard/coordination': 'Multi-Branch Coordination',
       '/dashboard/branches': 'Branch Management',
       '/dashboard/branch-performance': 'Branch Performance',
-      '/dashboard/transfers': 'Transfer Management',
+      // DISABLED: '/dashboard/transfers': 'Transfer Management',
       '/dashboard/select-branch': 'Select Branch',
       '/admin/multi-branch/analytics': 'Multi-Branch Analytics',
       '/admin/multi-branch/dashboard': 'Multi-Branch Administration'

@@ -7,8 +7,8 @@ import { roleGuard } from './core/guard/role.guard';
 import { branchRequiredGuard, multiBranchAdminGuard, coordinationAccessGuard } from './core/guards/branch-required.guard';
 import { 
   multiBranchCoordinationGuard, 
-  transferManagementGuard, 
-  transferApprovalGuard,
+  // transferManagementGuard, // DISABLED
+  // transferApprovalGuard, // DISABLED
   branchManagementGuard,
   multiBranchAnalyticsGuard,
   systemAdminGuard,
@@ -263,16 +263,17 @@ export const routes: Routes = [
           requiredRoles: ['Admin', 'HeadManager']
         }
       },
-      {
-        path: 'transfers',
-        loadComponent: () => import('./multi-branch/transfer-management/transfer-management.component').then(c => c.TransferManagementComponent),
-        canActivate: [roleGuard, transferManagementGuard],
-        data: {
-          title: 'Transfer Management',
-          breadcrumb: 'Transfers',
-          requiredRoles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
-        }
-      },
+      // DISABLED: Transfer Management temporarily disabled
+      // {
+      //   path: 'transfers',
+      //   loadComponent: () => import('./multi-branch/transfer-management/transfer-management.component').then(c => c.TransferManagementComponent),
+      //   canActivate: [roleGuard, transferManagementGuard],
+      //   data: {
+      //     title: 'Transfer Management',
+      //     breadcrumb: 'Transfers',
+      //     requiredRoles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
+      //   }
+      // },
       {
         path: 'branch-performance',
         loadComponent: () => import('./multi-branch/branch-performance/branch-performance.component').then(c => c.BranchPerformanceComponent),

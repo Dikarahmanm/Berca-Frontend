@@ -3,14 +3,15 @@
 // Menggunakan API nyata tanpa mock data sesuai NotificationController
 
 import { Injectable, Injector } from '@angular/core';
-import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
-import { Observable, BehaviorSubject, throwError, timer, of } from 'rxjs';
+import { HttpClient, HttpParams, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { Observable, BehaviorSubject, throwError, timer, of, combineLatest } from 'rxjs';
 import { map, catchError, tap, retry, shareReplay, switchMap } from 'rxjs/operators';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { environment } from '../../../environment/environment';
 import { AuthService } from './auth.service';
 import { ToastService } from '../../shared/services/toast.service';
+import { SmartNotificationApiService } from './smart-notification-api.service';
 // ===== BACKEND DTO INTERFACES ===== //
 // Sesuai dengan backend NotificationController response
 
@@ -22,17 +23,26 @@ export interface ApiResponse<T> {
 
 export interface NotificationDto {
   id: number;
+  userId?: number;
+  type: string;
   title: string;
   message: string;
-  type: string;
-  isRead: boolean;
   priority: string;
-  createdAt: string;
+  isRead: boolean;
   readAt?: string;
   actionUrl?: string;
   actionText?: string;
-  userId: number;
-  createdBy: string;
+  createdAt: string;
+  timeAgo: string;
+  isExpired: boolean;
+  branchId?: number;
+  branchName?: string;
+  userName?: string;
+  severity: string;
+  isArchived: boolean;
+  actionRequired: boolean;
+  expiresAt?: string;
+  metadata?: any;
 }
 
 export interface NotificationSummaryDto {
@@ -56,7 +66,7 @@ export interface CreateNotificationRequest {
   providedIn: 'root'
 })
 export class NotificationService {
-  private readonly apiUrl = `${environment.apiUrl}/Notification`;
+  private readonly apiUrl = `${environment.apiUrl}/notifications`;
   
   // ===== REACTIVE STATE ===== //
   private notificationsSubject = new BehaviorSubject<NotificationDto[]>([]);
@@ -77,47 +87,80 @@ export class NotificationService {
     private snackBar: MatSnackBar,
     private authService: AuthService,  // ✅ Add AuthService injection
     private injector: Injector,  // ✅ Added injector for router access
-    private toastService: ToastService  // ✅ Add ToastService for popup notifications
+    private toastService: ToastService,  // ✅ Add ToastService for popup notifications
+    private smartNotificationApi: SmartNotificationApiService  // ✅ Add SmartNotification API service
   ) {
-    console.log('🔔 NotificationService initialized with AuthService and ToastService');
+    console.log('🔔 NotificationService initialized with AuthService, ToastService, and SmartNotificationAPI');
     this.initializeRealTimeUpdates();
   }
 
   // ===== REAL API METHODS ===== //
 
   /**
+   * 🧪 DEBUG: Test API connection without auth
+   */
+  testApiConnection(): Observable<any> {
+    console.log('🧪 Testing API connection to:', this.apiUrl);
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    });
+    
+    return this.http.get(this.apiUrl, { headers, observe: 'response' }).pipe(
+      tap(response => {
+        console.log('🧪 Test API Response:', response);
+      }),
+      catchError(error => {
+        console.error('🧪 Test API Error:', error);
+        return of(error);
+      })
+    );
+  }
+
+  /**
    * ✅ REAL: Get unread notification count dari backend
-   * Endpoint: GET /api/Notification/summary
+   * Endpoint: GET /api/notifications/unread-count
    */
   getUnreadCount(): Observable<number> {
     console.log('🔔 === GETTING NOTIFICATION COUNT ===');
-    console.log('API URL:', `${this.apiUrl}/summary`);
+    console.log('API URL:', `${this.apiUrl}/unread-count`);
     console.log('Auth Status:', this.authService.isAuthenticated());
     console.log('Current User:', this.authService.getCurrentUser());
     console.log('Cookies:', document.cookie);
     
     // Check authentication first
-    if (!this.authService.isAuthenticated()) {
-      console.log('❌ User not authenticated, returning 0');
-      this.unreadCountSubject.next(0);
-      return of(0);
+    const isAuth = this.authService.isAuthenticated();
+    console.log('🔐 Authentication check:', {
+      isAuthenticated: isAuth,
+      currentUser: this.authService.getCurrentUser(),
+      localStorage: {
+        token: localStorage.getItem('token'),
+        username: localStorage.getItem('username'),
+        role: localStorage.getItem('role')
+      }
+    });
+    
+    // TEMPORARY: Skip auth check for debugging
+    if (!isAuth) {
+      console.log('⚠️ User not authenticated, but continuing for debug...');
+      // this.unreadCountSubject.next(0);
+      // return of(0);
     }
 
-    return this.http.get<ApiResponse<NotificationSummaryDto>>(`${this.apiUrl}/summary`).pipe(
+    return this.http.get<ApiResponse<number>>(`${this.apiUrl}/unread-count`).pipe(
       tap((response) => {
-        console.log('✅ Notification API Response:', response);
+        console.log('✅ Unread Count API Response:', response);
       }),
       map(response => {
-        if (response.success && response.data) {
-          this.unreadCountSubject.next(response.data.unreadCount);
-          this.summarySubject.next(response.data);
-          console.log('✅ Updated notification count:', response.data.unreadCount);
-          return response.data.unreadCount;
+        if (response.success && response.data !== undefined) {
+          this.unreadCountSubject.next(response.data);
+          console.log('✅ Updated unread count:', response.data);
+          return response.data;
         }
         throw new Error(response.message || 'Failed to get notification count');
       }),
       catchError((error: HttpErrorResponse) => {
-        console.error('❌ Notification API Error:', {
+        console.error('❌ Notification Count API Error:', {
           status: error.status,
           url: error.url,
           message: error.message,
@@ -136,13 +179,21 @@ export class NotificationService {
 
   /**
    * ✅ REAL: Get user notifications dengan filtering dan pagination
-   * Endpoint: GET /api/Notification
+   * Endpoint: GET /api/notifications
    */
   getUserNotifications(
     page: number = 1, 
     pageSize: number = 20, 
-    isRead?: boolean
+    isRead?: boolean,
+    type?: string,
+    priority?: string,
+    severity?: string,
+    allBranches: boolean = false
   ): Observable<NotificationDto[]> {
+    console.log('🔔 === GETTING USER NOTIFICATIONS ===');
+    console.log('Parameters:', { page, pageSize, isRead, type, priority, severity, allBranches });
+    console.log('API URL:', this.apiUrl);
+    
     let params = new HttpParams()
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
@@ -150,17 +201,69 @@ export class NotificationService {
     if (isRead !== undefined) {
       params = params.set('isRead', isRead.toString());
     }
+    
+    if (type) {
+      params = params.set('type', type);
+    }
+    
+    if (priority) {
+      params = params.set('priority', priority);
+    }
+    
+    if (severity) {
+      params = params.set('severity', severity);
+    }
 
-    return this.http.get<ApiResponse<NotificationDto[]>>(this.apiUrl, { params })
+    // If allBranches is true, explicitly set allBranches parameter to override branch filtering
+    if (allBranches) {
+      params = params.set('allBranches', 'true');
+      console.log('🔔 Requesting notifications from all branches');
+    }
+
+    return this.http.get<ApiResponse<any>>(this.apiUrl, { params })
       .pipe(
         map(response => {
+          console.log('🔔 Raw API Response:', response);
+          console.log('🔔 Response structure:', {
+            success: response.success,
+            hasData: !!response.data,
+            dataKeys: response.data ? Object.keys(response.data) : 'no data',
+            dataType: typeof response.data
+          });
+          
           if (response.success && response.data) {
+            // Handle different possible response structures
+            let notifications: NotificationDto[] = [];
+            
+            if (response.data.data && Array.isArray(response.data.data)) {
+              // Structure: { data: { data: NotificationDto[], totalCount: number } }
+              notifications = response.data.data;
+              console.log('✅ Notification data found (nested structure):', notifications.length, 'items');
+            } else if (Array.isArray(response.data)) {
+              // Structure: { data: NotificationDto[] }
+              notifications = response.data;
+              console.log('✅ Notification data found (direct array):', notifications.length, 'items');
+            } else if (response.data.notifications && Array.isArray(response.data.notifications)) {
+              // Structure: { data: { notifications: NotificationDto[], ... } }
+              notifications = response.data.notifications;
+              console.log('✅ Notification data found (notifications property):', notifications.length, 'items');
+            } else {
+              console.log('⚠️ Unexpected response structure, checking for array properties:', Object.keys(response.data));
+              // Try to find any array property that might contain notifications
+              const arrayProps = Object.keys(response.data).filter(key => Array.isArray((response.data as any)[key]));
+              if (arrayProps.length > 0) {
+                notifications = (response.data as any)[arrayProps[0]];
+                console.log(`✅ Found notification array in property '${arrayProps[0]}':`, notifications.length, 'items');
+              }
+            }
+            
             // Update local state untuk page 1 (fresh load)
             if (page === 1) {
-              this.notificationsSubject.next(response.data);
+              this.notificationsSubject.next(notifications);
             }
-            return response.data;
+            return notifications;
           }
+          console.log('❌ No notification data in response');
           throw new Error(response.message || 'Failed to load notifications');
         }),
         retry(1),
@@ -173,18 +276,39 @@ export class NotificationService {
   }
 
   /**
-   * ✅ REAL: Get notification summary
-   * Endpoint: GET /api/Notification/summary
+   * ✅ REAL: Get notification summary menggunakan stats endpoint
+   * Endpoint: GET /api/notifications/stats  
    */
   getNotificationSummary(): Observable<NotificationSummaryDto> {
-    return this.http.get<ApiResponse<NotificationSummaryDto>>(`${this.apiUrl}/summary`)
+    console.log('🔔 Getting notification summary from:', `${this.apiUrl}/stats`);
+    
+    return this.http.get<ApiResponse<{
+      total: number,
+      unread: number,
+      byType: any,
+      bySeverity: any,
+      byPriority: any,
+      actionRequired: number,
+      archived: number,
+      trends: any[]
+    }>>(`${this.apiUrl}/stats`)
       .pipe(
         map(response => {
+          console.log('🔔 Stats API Response:', response);
           if (response.success && response.data) {
-            this.summarySubject.next(response.data);
-            this.unreadCountSubject.next(response.data.unreadCount);
-            return response.data;
+            const summary: NotificationSummaryDto = {
+              totalCount: response.data.total || 0,
+              unreadCount: response.data.unread || 0,
+              recentNotifications: [],
+              lastUpdated: new Date().toISOString()
+            };
+            
+            console.log('✅ Parsed summary:', summary);
+            this.summarySubject.next(summary);
+            this.unreadCountSubject.next(summary.unreadCount);
+            return summary;
           }
+          console.log('❌ Stats API failed or no data');
           throw new Error(response.message || 'Failed to get notification summary');
         }),
         retry(1),
@@ -196,11 +320,25 @@ export class NotificationService {
   }
 
   /**
+   * Get notifications from all branches (bypasses branch filtering)
+   */
+  getAllBranchNotifications(
+    page: number = 1, 
+    pageSize: number = 20, 
+    isRead?: boolean,
+    type?: string,
+    priority?: string,
+    severity?: string
+  ): Observable<NotificationDto[]> {
+    return this.getUserNotifications(page, pageSize, isRead, type, priority, severity, true);
+  }
+
+  /**
    * ✅ REAL: Mark notification as read
-   * Endpoint: POST /api/Notification/{id}/read
+   * Endpoint: PUT /api/notifications/{id}/mark-read
    */
   markAsRead(notificationId: number): Observable<boolean> {
-    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/${notificationId}/read`, {})
+    return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/${notificationId}/mark-read`, {})
       .pipe(
         map(response => {
           if (response.success) {
@@ -213,17 +351,17 @@ export class NotificationService {
         }),
         catchError((error: HttpErrorResponse) => {
           this.handleApiError('Failed to mark notification as read', error);
-          return [false];
+          return of(false);
         })
       );
   }
 
   /**
    * ✅ REAL: Mark all notifications as read
-   * Endpoint: POST /api/Notification/read-all
+   * Endpoint: PUT /api/notifications/mark-all-read
    */
   markAllAsRead(): Observable<boolean> {
-    return this.http.post<ApiResponse<boolean>>(`${this.apiUrl}/read-all`, {})
+    return this.http.put<ApiResponse<boolean>>(`${this.apiUrl}/mark-all-read`, {})
       .pipe(
         map(response => {
           if (response.success) {
@@ -236,14 +374,14 @@ export class NotificationService {
         }),
         catchError((error: HttpErrorResponse) => {
           this.handleApiError('Failed to mark all notifications as read', error);
-          return [false];
+          return of(false);
         })
       );
   }
 
   /**
    * ✅ REAL: Create new notification (admin only)
-   * Endpoint: POST /api/Notification
+   * Endpoint: POST /api/notifications
    */
   createNotification(request: CreateNotificationRequest): Observable<NotificationDto> {
     return this.http.post<ApiResponse<NotificationDto>>(this.apiUrl, request)
@@ -268,7 +406,7 @@ export class NotificationService {
 
   /**
    * ✅ REAL: Delete notification
-   * Endpoint: DELETE /api/Notification/{id}
+   * Endpoint: DELETE /api/notifications/{id}
    */
   deleteNotification(notificationId: number): Observable<boolean> {
     return this.http.delete<ApiResponse<boolean>>(`${this.apiUrl}/${notificationId}`)
@@ -307,7 +445,7 @@ export class NotificationService {
           }
           
           // Get both count and latest notifications in one go
-          return this.getNotificationSummary().pipe(
+          return this.getCombinedNotificationSummary().pipe(
             map(summary => summary.unreadCount),
             catchError((error) => {
               console.warn('⚠️ Polling error, will retry in next cycle:', error);
@@ -341,10 +479,10 @@ export class NotificationService {
   }
 
   /**
-   * ✅ NEW: Background refresh without affecting UI loading states
+   * ✅ NEW: Background refresh without affecting UI loading states (includes smart notifications)
    */
   private refreshNotificationsInBackground(): void {
-    this.getUserNotifications(1, 20).subscribe({
+    this.getCombinedNotifications(1, 20).subscribe({
       next: (notifications) => {
         const previousNotifications = this.notificationsSubject.value;
         this.notificationsSubject.next(notifications);
@@ -361,12 +499,17 @@ export class NotificationService {
           });
         }
         
-        console.log('🔄 Background refresh completed:', notifications.length, 'notifications');
+        console.log('🔄 Background refresh completed:', notifications.length, 'notifications (including smart)');
       },
       error: (error) => {
         console.warn('Background notification refresh failed:', error);
+        // Fallback to regular notifications only
+        this.getUserNotifications(1, 20).subscribe();
       }
     });
+    
+    // Also refresh smart notifications independently
+    this.refreshSmartNotifications();
   }
 
   /**
@@ -389,6 +532,75 @@ export class NotificationService {
         return of(void 0);
       })
     );
+  }
+
+  /**
+   * Create notification after successful transaction
+   */
+  createTransactionNotification(transactionData: any): Observable<NotificationDto> {
+    console.log('💰 Creating transaction notification:', transactionData);
+    
+    const notification: CreateNotificationRequest = {
+      title: `Transaksi Berhasil - Rp ${transactionData.totalAmount?.toLocaleString('id-ID') || '0'}`,
+      message: `Transaksi ${transactionData.transactionId || 'T' + Date.now()} telah berhasil diproses. Total: Rp ${transactionData.totalAmount?.toLocaleString('id-ID') || '0'}`,
+      type: 'SALE_COMPLETED',
+      priority: 'Normal',
+      actionUrl: transactionData.receiptUrl || `/pos/transactions/${transactionData.transactionId}`,
+      actionText: 'Lihat Struk',
+      userId: transactionData.userId
+    };
+    
+    return this.createNotification(notification).pipe(
+      tap((createdNotification) => {
+        console.log('✅ Transaction notification created:', createdNotification);
+        // Immediately refresh to show the new notification
+        this.refreshNotificationsInBackground();
+      })
+    );
+  }
+
+  /**
+   * Create notification for low stock alerts
+   */
+  createLowStockNotification(productData: any): Observable<NotificationDto> {
+    console.log('📦 Creating low stock notification:', productData);
+    
+    const notification: CreateNotificationRequest = {
+      title: `Stok Menipis - ${productData.productName}`,
+      message: `Produk ${productData.productName} tersisa ${productData.currentStock} unit. Segera lakukan restocking.`,
+      type: 'LOW_STOCK',
+      priority: productData.currentStock <= 5 ? 'High' : 'Normal',
+      actionUrl: `/inventory/products/${productData.productId}`,
+      actionText: 'Kelola Stok'
+    };
+    
+    return this.createNotification(notification);
+  }
+
+  /**
+   * Auto-trigger notifications based on app events
+   */
+  handleAppEvent(eventType: string, eventData: any): void {
+    console.log('🔔 Handling app event:', eventType, eventData);
+    
+    switch (eventType) {
+      case 'transaction_completed':
+        this.createTransactionNotification(eventData).subscribe();
+        break;
+      case 'low_stock_detected':
+        this.createLowStockNotification(eventData).subscribe();
+        break;
+      case 'user_login':
+        this.createNotification({
+          title: 'Selamat Datang',
+          message: `Selamat datang kembali, ${eventData.userName}!`,
+          type: 'USER_LOGIN',
+          priority: 'Low'
+        }).subscribe();
+        break;
+      default:
+        console.log('⚠️ Unhandled event type:', eventType);
+    }
   }
 
   /**
@@ -960,5 +1172,108 @@ export class NotificationService {
       verticalPosition: 'top',
       panelClass: ['snackbar-info']
     });
+  }
+
+  // ===== SMART NOTIFICATIONS INTEGRATION ===== //
+
+  /**
+   * Get combined notifications (regular + smart)
+   */
+  getCombinedNotifications(
+    page: number = 1, 
+    pageSize: number = 20, 
+    isRead?: boolean,
+    type?: string,
+    priority?: string,
+    severity?: string,
+    branchId?: number
+  ): Observable<NotificationDto[]> {
+    console.log('🔔 Getting combined notifications (regular + smart)');
+    
+    return combineLatest([
+      this.getAllBranchNotifications(page, pageSize, isRead, type, priority, severity),
+      this.smartNotificationApi.getIntelligentNotifications(branchId)
+    ]).pipe(
+      map(([regularNotifications, smartNotifications]) => {
+        console.log('🔔 Regular notifications:', regularNotifications.length);
+        console.log('🤖 Smart notifications:', smartNotifications.length);
+        
+        // Convert smart notifications to standard format
+        const convertedSmartNotifications = this.smartNotificationApi.convertToStandardNotifications(smartNotifications);
+        
+        // Combine and sort by creation date (newest first)
+        const combined = [...regularNotifications, ...convertedSmartNotifications];
+        combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        console.log('🔔 Combined notifications total:', combined.length);
+        return combined.slice(0, pageSize); // Limit to pageSize
+      }),
+      catchError(error => {
+        console.error('❌ Error getting combined notifications:', error);
+        // Fallback to regular notifications only
+        return this.getAllBranchNotifications(page, pageSize, isRead, type, priority, severity);
+      })
+    );
+  }
+
+  /**
+   * Get combined notification summary (regular + smart)
+   */
+  getCombinedNotificationSummary(branchId?: number): Observable<NotificationSummaryDto> {
+    console.log('🔔 Getting combined notification summary');
+    
+    return combineLatest([
+      this.getNotificationSummary(),
+      this.smartNotificationApi.getIntelligentNotifications(branchId),
+      this.smartNotificationApi.getSystemHealth()
+    ]).pipe(
+      map(([regularSummary, smartNotifications, systemHealth]) => {
+        const smartUnreadCount = smartNotifications.length;
+        const combinedSummary: NotificationSummaryDto = {
+          totalCount: regularSummary.totalCount + smartNotifications.length,
+          unreadCount: regularSummary.unreadCount + smartUnreadCount,
+          recentNotifications: [
+            ...regularSummary.recentNotifications,
+            ...this.smartNotificationApi.convertToStandardNotifications(smartNotifications).slice(0, 5)
+          ].slice(0, 10), // Limit to 10 most recent
+          lastUpdated: new Date().toISOString()
+        };
+        
+        console.log('🔔 Combined summary:', combinedSummary);
+        
+        // Update the main summary subject with combined data
+        this.summarySubject.next(combinedSummary);
+        this.unreadCountSubject.next(combinedSummary.unreadCount);
+        
+        return combinedSummary;
+      }),
+      catchError(error => {
+        console.error('❌ Error getting combined summary:', error);
+        // Fallback to regular summary only
+        return this.getNotificationSummary();
+      })
+    );
+  }
+
+  /**
+   * Refresh smart notifications
+   */
+  refreshSmartNotifications(branchId?: number): void {
+    console.log('🤖 Refreshing smart notifications...');
+    this.smartNotificationApi.refreshAll(branchId);
+  }
+
+  /**
+   * Get system health data
+   */
+  getSystemHealth(): Observable<any> {
+    return this.smartNotificationApi.getSystemHealth();
+  }
+
+  /**
+   * Trigger critical expiry alerts
+   */
+  triggerCriticalExpiryAlerts(): Observable<boolean> {
+    return this.smartNotificationApi.triggerCriticalExpiryAlerts();
   }
 }

@@ -1,4 +1,19 @@
 <div class="multi-branch-container">
+  <!-- Error Alert -->
+  <div class="error-alert" *ngIf="error()">
+    <mat-card class="error-card">
+      <mat-card-content>
+        <div class="flex items-center">
+          <mat-icon class="text-red-600 mr-3">error</mat-icon>
+          <span class="text-red-800">{{ error() }}</span>
+          <button mat-icon-button (click)="clearError()" class="ml-auto">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
   <!-- Header Section -->
   <div class="page-header">
     <div class="header-content">
@@ -7,79 +22,184 @@
         Transfer Management
         <span class="realtime-indicator" [class.active]="!isLoading()">
           <span class="indicator-dot"></span>
-          {{ isLoading() ? 'Updating' : 'Live' }}
+          {{ isLoading() ? 'Updating...' : 'Live' }}
         </span>
       </h1>
       <div class="subtitle-stats">
-        <span class="stat-chip transfers">{{ transferSummary().totalActive }} Active</span>
-        <span class="stat-chip active" *ngIf="transferSummary().pending > 0">{{ transferSummary().pending }} Pending</span>
-        <span class="stat-chip branches" *ngIf="transferSummary().inTransit > 0">{{ transferSummary().inTransit }} In Transit</span>
+        <mat-chip-set>
+          <mat-chip class="stat-chip">{{ transferStatusCounts().pending + transferStatusCounts().approved + transferStatusCounts().in_transit }} Active</mat-chip>
+          <mat-chip class="stat-chip" *ngIf="transferStatusCounts().pending > 0" color="warn">{{ transferStatusCounts().pending }} Pending</mat-chip>
+          <mat-chip class="stat-chip" *ngIf="transferStatusCounts().in_transit > 0" color="accent">{{ transferStatusCounts().in_transit }} In Transit</mat-chip>
+        </mat-chip-set>
       </div>
     </div>
 
     <div class="header-actions">
-      <button class="btn btn-primary" (click)="openCreateTransferModal()">
+      <button mat-raised-button color="primary" (click)="openCreateTransferModal()">
         <mat-icon>add</mat-icon>
         New Transfer Request
       </button>
       
-      <button class="btn btn-secondary" (click)="loadTransfers()" [disabled]="isLoading()">
+      <button mat-raised-button (click)="refresh()" [disabled]="isLoading()">
         <mat-icon [class.spinning]="isLoading()">refresh</mat-icon>
         <span class="hide-mobile">Refresh</span>
       </button>
       
-      <button class="btn btn-outline" (click)="exportTransfers()">
+      <button mat-raised-button color="accent" (click)="exportTransfers()">
         <mat-icon>download</mat-icon>
         <span class="hide-mobile">Export</span>
       </button>
     </div>
   </div>
 
-  <!-- Stats Cards -->
-  <div class="stats-cards">
-    <div class="stat-card active-transfers">
-      <div class="stat-icon">
-        <mat-icon>local_shipping</mat-icon>
-      </div>
-      <div class="stat-value">{{ transferSummary().totalActive }}</div>
-      <p class="stat-label">Active Transfers</p>
-      <div class="stat-change positive">
-        Currently in progress
-      </div>
-    </div>
+  <!-- AI Recommendations Section -->
+  <div class="ai-recommendations-section" *ngIf="transferRecommendations().length > 0">
+    <mat-card>
+      <mat-card-header>
+        <div mat-card-avatar>
+          <mat-icon color="accent">psychology</mat-icon>
+        </div>
+        <mat-card-title>🤖 AI Transfer Recommendations</mat-card-title>
+        <mat-card-subtitle>Smart suggestions based on inventory analysis</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="recommendations-grid">
+          <div class="recommendation-card" 
+               *ngFor="let rec of transferRecommendations().slice(0, 3); trackBy: trackByRecommendationId"
+               [ngClass]="'urgency-' + rec.urgencyLevel.toLowerCase()">
+            
+            <div class="rec-header">
+              <div class="rec-urgency">
+                <mat-chip [class]="getUrgencyColor(rec.urgencyLevel)">
+                  {{ rec.urgencyLevel }}
+                </mat-chip>
+              </div>
+              <div class="rec-roi">
+                <span class="roi-value">{{ rec.roiPercentage }}%</span>
+                <span class="roi-label">ROI</span>
+              </div>
+            </div>
+            
+            <div class="rec-content">
+              <h4 class="rec-title">{{ rec.productName }}</h4>
+              <div class="rec-transfer">
+                <span class="source-branch">{{ rec.sourceBranchName }}</span>
+                <mat-icon>arrow_forward</mat-icon>
+                <span class="target-branch">{{ rec.targetBranchName }}</span>
+              </div>
+              <div class="rec-quantity">
+                <strong>{{ rec.recommendedQuantity }}</strong> units recommended
+              </div>
+              <p class="rec-reasoning">{{ rec.reasoning }}</p>
+            </div>
+            
+            <div class="rec-actions">
+              <button mat-raised-button color="primary" 
+                      (click)="createFromRecommendation(rec)">
+                <mat-icon>add</mat-icon>
+                Create Transfer
+              </button>
+              <span class="rec-value">{{ formatCurrency(rec.potentialValue) }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="recommendations-footer" *ngIf="transferRecommendations().length > 3">
+          <p>{{ transferRecommendations().length - 3 }} more recommendations available</p>
+          <button mat-stroked-button routerLink="/coordination/dashboard">
+            View All Recommendations
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
 
-    <div class="stat-card pending-approvals">
-      <div class="stat-icon">
-        <mat-icon>pending_actions</mat-icon>
-      </div>
-      <div class="stat-value">{{ transferSummary().pending }}</div>
-      <p class="stat-label">Pending Approval</p>
-      <div class="stat-change" [class.positive]="transferSummary().pending === 0" [class.negative]="transferSummary().pending > 0">
-        {{ transferSummary().pending === 0 ? 'All approved' : 'Needs attention' }}
-      </div>
-    </div>
+  <!-- Stats Cards with Real Metrics -->
+  <div class="stats-cards" *ngIf="transferMetrics() as metrics">
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <div class="stat-header">
+          <mat-icon color="primary">local_shipping</mat-icon>
+          <span class="stat-value">{{ metrics.totalTransfers }}</span>
+        </div>
+        <p class="stat-label">Total Transfers</p>
+        <div class="stat-change positive">
+          <mat-icon>trending_up</mat-icon>
+          System wide
+        </div>
+      </mat-card-content>
+    </mat-card>
 
-    <div class="stat-card total-branches">
-      <div class="stat-icon">
-        <mat-icon>directions_transit</mat-icon>
-      </div>
-      <div class="stat-value">{{ transferSummary().inTransit }}</div>
-      <p class="stat-label">In Transit</p>
-      <div class="stat-change neutral">
-        On the way
-      </div>
-    </div>
+    <mat-card class="stat-card" [class.alert]="pendingApprovals().length > 0">
+      <mat-card-content>
+        <div class="stat-header">
+          <mat-icon color="warn">pending_actions</mat-icon>
+          <span class="stat-value">{{ pendingApprovals().length }}</span>
+        </div>
+        <p class="stat-label">Pending Approvals</p>
+        <div class="stat-change" [class.positive]="pendingApprovals().length === 0" [class.negative]="pendingApprovals().length > 0">
+          <mat-icon>{{ pendingApprovals().length === 0 ? 'check_circle' : 'warning' }}</mat-icon>
+          {{ pendingApprovals().length === 0 ? 'All approved' : 'Need attention' }}
+        </div>
+      </mat-card-content>
+    </mat-card>
 
-    <div class="stat-card system-alerts">
-      <div class="stat-icon">
-        <mat-icon>check_circle</mat-icon>
-      </div>
-      <div class="stat-value">{{ transferSummary().completed }}</div>
-      <p class="stat-label">Completed Today</p>
-      <div class="stat-change positive">
-        Successfully delivered
-      </div>
-    </div>
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <div class="stat-header">
+          <mat-icon color="accent">directions_transit</mat-icon>
+          <span class="stat-value">{{ inTransitTransfers().length }}</span>
+        </div>
+        <p class="stat-label">In Transit</p>
+        <div class="stat-change neutral">
+          <mat-icon>local_shipping</mat-icon>
+          On the way
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <div class="stat-header">
+          <mat-icon color="primary">check_circle</mat-icon>
+          <span class="stat-value">{{ metrics.completedTransfers }}</span>
+        </div>
+        <p class="stat-label">Completed</p>
+        <div class="stat-change positive">
+          <mat-icon>done_all</mat-icon>
+          {{ metrics.successRate }}% success rate
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card" [class.alert]="criticalTransfers().length > 0">
+      <mat-card-content>
+        <div class="stat-header">
+          <mat-icon color="warn">priority_high</mat-icon>
+          <span class="stat-value">{{ criticalTransfers().length }}</span>
+        </div>
+        <p class="stat-label">Critical Transfers</p>
+        <div class="stat-change" [class.neutral]="criticalTransfers().length === 0" [class.negative]="criticalTransfers().length > 0">
+          <mat-icon>{{ criticalTransfers().length === 0 ? 'check' : 'warning' }}</mat-icon>
+          {{ criticalTransfers().length === 0 ? 'No urgents' : 'Require immediate action' }}
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <mat-card-content>
+        <div class="stat-header">
+          <mat-icon color="primary">attach_money</mat-icon>
+          <span class="stat-value">{{ formatCurrency(metrics.totalValue) }}</span>
+        </div>
+        <p class="stat-label">Total Value</p>
+        <div class="stat-change positive">
+          <mat-icon>trending_up</mat-icon>
+          Transfer portfolio
+        </div>
+      </mat-card-content>
+    </mat-card>
   </div>
 
   <!-- Filters and Search -->

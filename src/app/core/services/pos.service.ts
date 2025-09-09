@@ -97,6 +97,10 @@ export interface CalculateTotalRequest {
   globalDiscountPercent?: number;
 }
 
+export interface ValidateStockRequest {
+  items: CreateSaleItemRequest[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -338,15 +342,120 @@ export class POSService {
   }
 
   validateStock(items: CreateSaleItemRequest[]): Observable<BooleanApiResponse> {
-    console.log('🔍 Validating stock for items:', items);
+    // ✅ POTENTIAL FIX: Use wrapper object like calculateTotal API
+    const requestBody: ValidateStockRequest = {
+      items: items
+    };
     
-    return this.http.post<BooleanApiResponse>(`${this.apiUrl}/POS/validate-stock`, items, {
-      withCredentials: true
+    console.log('🔍 Validating stock for items:', items);
+    console.log('🔍 API URL:', `${this.apiUrl}/POS/validate-stock`);
+    
+    // Check if user is authenticated
+    console.log('🔐 Authentication Check:', {
+      cookies: document.cookie,
+      localStorage: Object.keys(localStorage),
+      sessionStorage: Object.keys(sessionStorage)
+    });
+    
+    console.log('🔍 Request headers and options:', {
+      withCredentials: true,
+      contentType: 'application/json'
+    });
+    
+    // Enhanced payload debugging with correct interface properties
+    console.log('🔍 Items payload structure:', items.map((item, index) => ({
+      index,
+      productId: item.productId,
+      productIdType: typeof item.productId,
+      quantity: item.quantity,
+      quantityType: typeof item.quantity,
+      sellPrice: item.sellPrice,
+      sellPriceType: typeof item.sellPrice,
+      unitPrice: item.unitPrice,
+      unitPriceType: typeof item.unitPrice,
+      discount: item.discount,
+      discountType: typeof item.discount,
+      discountAmount: item.discountAmount,
+      totalPrice: item.totalPrice,
+      notes: item.notes,
+      allKeys: Object.keys(item),
+      hasNullValues: Object.values(item).some(val => val === null),
+      hasUndefinedValues: Object.values(item).some(val => val === undefined),
+      fullItem: item
+    })));
+    
+    console.log('🔍 Items payload (JSON):', JSON.stringify(items, null, 2));
+    console.log('🔍 Request body with wrapper:', JSON.stringify(requestBody, null, 2));
+    
+    // Check for common issues
+    const issues: string[] = [];
+    items.forEach((item, index) => {
+      if (!item.productId) issues.push(`Item ${index}: Missing productId`);
+      if (item.quantity <= 0) issues.push(`Item ${index}: Invalid quantity (${item.quantity})`);
+      if (item.sellPrice < 0) issues.push(`Item ${index}: Invalid sellPrice (${item.sellPrice})`);
+      if (typeof item.productId !== 'number') issues.push(`Item ${index}: productId is not number (${typeof item.productId})`);
+      if (typeof item.quantity !== 'number') issues.push(`Item ${index}: quantity is not number (${typeof item.quantity})`);
+    });
+    
+    if (issues.length > 0) {
+      console.warn('⚠️ Potential payload issues:', issues);
+    }
+    
+    return this.http.post<BooleanApiResponse>(`${this.apiUrl}/POS/validate-stock`, requestBody, {
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json'
+      }
     }).pipe(
       tap(response => {
         console.log('✅ Stock validation response:', response);
       }),
-      catchError(this.handleError.bind(this))
+      catchError((error) => {
+        console.error('❌ Stock validation error details:', {
+          status: error.status,
+          statusText: error.statusText,
+          url: error.url,
+          error: error.error,
+          message: error.message,
+          sentItems: items,
+          sentRequestBody: requestBody,
+          requestWasAuthenticated: error.status !== 401,
+          fullError: error
+        });
+        
+        // Detailed error body logging
+        if (error.error) {
+          console.error('🔍 Detailed Error Body:', error.error);
+          console.error('🔍 Error Body Type:', typeof error.error);
+          console.error('🔍 Error Body Keys:', Object.keys(error.error));
+          
+          // If it's a validation error, log the validation details
+          if (error.error.errors) {
+            console.error('🔍 Validation Errors:', error.error.errors);
+          }
+          if (error.error.title) {
+            console.error('🔍 Error Title:', error.error.title);
+          }
+          if (error.error.detail) {
+            console.error('🔍 Error Detail:', error.error.detail);
+          }
+          if (error.error.message) {
+            console.error('🔍 Backend Error Message:', error.error.message);
+          }
+        }
+        
+        if (error.status === 401) {
+          console.error('🔐 Authentication Error - User may not be logged in properly');
+        } else if (error.status === 400) {
+          console.error('📋 Bad Request - Check payload format:', {
+            sentPayload: items,
+            sentRequestBody: requestBody,
+            errorBody: error.error
+          });
+        }
+        
+        return this.handleError(error);
+      })
     );
   }
 

@@ -116,6 +116,7 @@
   // Truncate long messages
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -263,11 +264,54 @@
   .notification-message {
     font-size: 0.85rem;
     -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
   
   .notification-meta {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+  }
+}
+
+// Smart Notification Styles
+.smart-badge {
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+  opacity: 0.8;
+}
+
+.smart-details {
+  margin: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  
+  .potential-loss, .action-items {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.8);
+    
+    .material-icons {
+      font-size: 1rem;
+    }
+  }
+  
+  .potential-loss {
+    color: #ff9800;
+    
+    .material-icons {
+      color: #ff9800;
+    }
+  }
+  
+  .action-items {
+    color: #2196f3;
+    
+    .material-icons {
+      color: #2196f3;
+    }
   }
 }

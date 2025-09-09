@@ -4,8 +4,8 @@ import { effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subject, Observable } from 'rxjs';
-import { takeUntil, debounceTime, distinctUntilChanged, switchMap, catchError, take } from 'rxjs/operators';
+import { Subject, Observable, throwError } from 'rxjs';
+import { takeUntil, debounceTime, distinctUntilChanged, switchMap, catchError, take, tap } from 'rxjs/operators';
 import { of } from 'rxjs';
 
 // Angular Material
@@ -921,7 +921,14 @@ clearSearch(): void {
   }
 
   processPayment(): void {
+    console.log('💳 processPayment called');
+    console.log('📱 User agent:', navigator.userAgent);
+    console.log('🖥️ Screen width:', window.innerWidth);
+    console.log('📱 Is mobile (width < 768):', window.innerWidth < 768);
+    
     const currentCart = this.cart();
+    console.log('🛒 Current cart:', currentCart);
+    
     if (currentCart.length === 0) {
       this.errorMessage.set('Keranjang kosong');
       this.clearMessages();
@@ -932,7 +939,7 @@ clearSearch(): void {
     const saleItems: CreateSaleItemRequest[] = currentCart.map(item => {
       const itemTotalPrice = item.quantity * item.product.sellPrice;
       const discountAmount = (itemTotalPrice * item.discount) / 100;
-      return {
+      const saleItem: CreateSaleItemRequest = {
         productId: item.product.id,
         quantity: item.quantity,
         discount: item.discount,
@@ -942,22 +949,44 @@ clearSearch(): void {
         unitPrice: item.product.sellPrice,
         totalPrice: itemTotalPrice - discountAmount
       };
+      
+      console.log('📦 Sale item created:', saleItem);
+      return saleItem;
     });
+
+    console.log('📋 All sale items for validation:', saleItems);
+    console.log('🔍 About to call validateStock...');
 
     this.isLoading.set(true);
     this.posService.validateStock(saleItems)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        tap(response => {
+          console.log('✅ validateStock response received:', response);
+        }),
+        catchError(error => {
+          console.error('❌ validateStock error in component:', error);
+          this.isLoading.set(false);
+          this.errorMessage.set(error.message || 'Gagal memvalidasi stok');
+          this.clearMessages();
+          return throwError(() => error);
+        }),
+        takeUntil(this.destroy$)
+      )
       .subscribe({
         next: (response: any) => {
+          console.log('✅ Stock validation successful:', response);
           this.isLoading.set(false);
           if (response.success && response.data) {
+            console.log('✅ Opening payment modal...');
             this.showPaymentModal.set(true);
           } else {
+            console.warn('⚠️ Stock validation failed:', response.message);
             this.errorMessage.set(response.message || 'Stok tidak mencukupi untuk beberapa item');
             this.clearMessages();
           }
         },
         error: (error: any) => {
+          console.error('❌ Subscription error:', error);
           this.isLoading.set(false);
           this.errorMessage.set(error.message || 'Gagal memvalidasi stok');
           this.clearMessages();

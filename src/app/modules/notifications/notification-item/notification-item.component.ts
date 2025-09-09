@@ -16,7 +16,7 @@ import { CommonModule } from '@angular/common'; // ✅ FIXED: Added CommonModule
 
 // Simple notification interface to avoid circular dependencies
 interface NotificationItem {
-  id: number;
+  id: number | string;
   type: string;
   title: string;
   message: string;
@@ -26,6 +26,13 @@ interface NotificationItem {
   priority: string;
   createdAt: string;
   readAt?: string;
+  metadata?: {
+    isSmartNotification?: boolean;
+    potentialLoss?: number;
+    actionItems?: string[];
+    affectedBatches?: any[];
+    [key: string]: any;
+  };
 }
 
 @Component({
@@ -56,14 +63,20 @@ export class NotificationItemComponent {
    */
   onDeleteClick(event: Event): void {
     event.stopPropagation(); // Prevent triggering item click
-    this.itemDeleted.emit(this.notification.id);
+    const id = typeof this.notification.id === 'string' ? 
+      parseInt(this.notification.id.replace('smart_', ''), 10) : 
+      this.notification.id;
+    this.itemDeleted.emit(id);
   }
 
   /**
    * Mark notification as read
    */
   private markAsRead(): void {
-    this.itemRead.emit(this.notification.id);
+    const id = typeof this.notification.id === 'string' ? 
+      parseInt(this.notification.id.replace('smart_', ''), 10) : 
+      this.notification.id;
+    this.itemRead.emit(id);
   }
 
   /**
@@ -158,5 +171,33 @@ export class NotificationItemComponent {
     const now = new Date();
     const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
     return diffInDays > 30;
+  }
+
+  /**
+   * Check if this is a smart notification
+   */
+  isSmartNotification(): boolean {
+    return this.notification.metadata?.isSmartNotification === true;
+  }
+
+  /**
+   * Get potential loss if available (for smart notifications)
+   */
+  getPotentialLoss(): string {
+    const loss = this.notification.metadata?.potentialLoss;
+    if (loss) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR'
+      }).format(loss);
+    }
+    return '';
+  }
+
+  /**
+   * Get action items count for smart notifications
+   */
+  getActionItemsCount(): number {
+    return this.notification.metadata?.actionItems?.length || 0;
   }
 }

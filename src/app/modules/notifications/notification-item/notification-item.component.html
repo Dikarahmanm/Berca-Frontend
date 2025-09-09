@@ -12,11 +12,27 @@
     <!-- Notification Content -->
     <div class="notification-content">
         <div class="notification-header">
-            <h4 class="notification-title">{{ notification.title }}</h4>
+            <h4 class="notification-title">
+                {{ notification.title }}
+                <!-- Smart Notification Badge -->
+                <span class="smart-badge" *ngIf="isSmartNotification()" title="Smart Notification">🤖</span>
+            </h4>
             <span class="notification-time">{{ formatTime(notification.createdAt) }}</span>
         </div>
 
         <p class="notification-message">{{ notification.message }}</p>
+
+        <!-- Smart Notification Details -->
+        <div class="smart-details" *ngIf="isSmartNotification()">
+            <div class="potential-loss" *ngIf="getPotentialLoss()">
+                <span class="material-icons">warning</span>
+                <span>Potential Loss: {{ getPotentialLoss() }}</span>
+            </div>
+            <div class="action-items" *ngIf="getActionItemsCount() > 0">
+                <span class="material-icons">checklist</span>
+                <span>{{ getActionItemsCount() }} action items</span>
+            </div>
+        </div>
 
         <div class="notification-meta">
             <span class="notification-type">{{ getTypeLabel() }}</span>

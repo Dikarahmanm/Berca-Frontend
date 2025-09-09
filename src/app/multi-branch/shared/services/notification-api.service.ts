@@ -52,7 +52,7 @@ export interface NotificationFilters {
   providedIn: 'root'
 })
 export class NotificationApiService {
-  private readonly baseUrl = `${environment.apiUrl}/api/multibranch/notifications`;
+  private readonly baseUrl = `${environment.apiUrl}/notifications`;
   
   // Real-time connection status
   private readonly _connectionStatus = signal<'connected' | 'disconnected' | 'reconnecting'>('disconnected');

@@ -1,7 +1,8 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { BehaviorSubject, Observable, interval } from 'rxjs';
-import { map, startWith } from 'rxjs/operators';
-import { MockNotificationBackendService } from './mock-notification-backend.service';
+import { BehaviorSubject, Observable, interval, of } from 'rxjs';
+import { map, startWith, catchError } from 'rxjs/operators';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { environment } from '../../../../environment/environment';
 
 export interface MultiBranchNotification {
   id: string;
@@ -40,10 +41,32 @@ export interface NotificationStats {
   actionRequired: number;
 }
 
+// API Response interfaces matching the real backend
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message: string;
+  timestamp: string;
+  errors?: any;
+  error?: any;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class MultiBranchNotificationService {
+  private readonly baseUrl = `${environment.apiUrl}/notifications`;
+  
   // Internal state
   private readonly _notifications = signal<MultiBranchNotification[]>([]);
   private readonly _isConnected = signal<boolean>(false);
@@ -99,37 +122,33 @@ export class MultiBranchNotificationService {
     return stats;
   });
 
-  constructor(private mockBackend: MockNotificationBackendService) {
+  constructor(private http: HttpClient) {
     this.initializeNotificationSystem();
-    this.startMockNotificationStream();
+    this.startRealTimeStream();
   }
 
   private initializeNotificationSystem() {
-    // Load initial notifications from mock backend
-    this.mockBackend.getNotifications().subscribe({
+    // Load initial notifications from real API
+    this.getNotifications().subscribe({
       next: (notifications) => {
         this._notifications.set(notifications);
         this._isConnected.set(true);
         this._lastUpdate.set(new Date().toISOString());
+        console.log('✅ Multi-branch notifications loaded from real API:', notifications.length);
       },
       error: (error) => {
-        console.error('Failed to load initial notifications:', error);
+        console.error('❌ Failed to load multi-branch notifications:', error);
         this._notifications.set([]);
         this._isConnected.set(false);
       }
     });
   }
 
-  private startMockNotificationStream() {
-    // Subscribe to mock backend's real-time notification stream
-    this.mockBackend.subscribeToRealTimeUpdates().subscribe({
-      next: (notification) => {
-        this.addNotification(notification);
-      },
-      error: (error) => {
-        console.error('Real-time notification stream error:', error);
-        this._isConnected.set(false);
-      }
+  private startRealTimeStream() {
+    // TODO: Implement SignalR real-time connection
+    // For now, use periodic polling
+    interval(30000).subscribe(() => {
+      this.refreshNotifications();
     });
     
     // Update connection status periodically
@@ -138,6 +157,150 @@ export class MultiBranchNotificationService {
     });
   }
 
+
+  // ===== HELPER METHODS =====
+  
+  /**
+   * Map notification type to MultiBranchNotification type
+   */
+  private mapNotificationType(type: string): MultiBranchNotification['type'] {
+    const typeMap: Record<string, MultiBranchNotification['type']> = {
+      'alert': 'alert',
+      'system': 'system',
+      'transfer': 'transfer',
+      'user': 'user',
+      'branch': 'branch',
+      'coordination': 'coordination',
+      'facture-overdue': 'system',
+      'daily-credit-summary': 'system',
+      'BatchExpiry': 'alert',
+      'SALE_COMPLETED': 'system',
+      'sales': 'system'
+    };
+    
+    return typeMap[type] || 'system';
+  }
+  
+  /**
+   * Map severity to MultiBranchNotification severity
+   */
+  private mapSeverity(severity: string): MultiBranchNotification['severity'] {
+    const severityMap: Record<string, MultiBranchNotification['severity']> = {
+      'info': 'info',
+      'warning': 'warning',
+      'error': 'error',
+      'success': 'success'
+    };
+    
+    return severityMap[severity] || 'info';
+  }
+  
+  /**
+   * Map priority to MultiBranchNotification priority
+   */
+  private mapPriority(priority: string): MultiBranchNotification['priority'] {
+    const priorityMap: Record<string, MultiBranchNotification['priority']> = {
+      'low': 'low',
+      'normal': 'medium',
+      'medium': 'medium',
+      'high': 'high',
+      'critical': 'critical'
+    };
+    
+    return priorityMap[priority?.toLowerCase()] || 'medium';
+  }
+
+  // ===== PUBLIC API METHODS =====
+
+  /**
+   * Get notifications with filtering (Real API)
+   */
+  getNotifications(filters?: NotificationFilters): Observable<MultiBranchNotification[]> {
+    let params = new HttpParams();
+    
+    if (filters) {
+      // Map filters to API parameters
+      if (filters.type) params = params.set('Type', filters.type);
+      if (filters.severity) params = params.set('Severity', filters.severity);
+      if (filters.branchId) params = params.set('BranchId', filters.branchId.toString());
+      if (filters.isRead !== undefined) params = params.set('IsRead', filters.isRead.toString());
+      if (filters.actionRequired !== undefined) params = params.set('ActionRequired', filters.actionRequired.toString());
+    }
+
+    return this.http.get<ApiResponse<{data: any[], totalCount: number}>>(
+      this.baseUrl, 
+      { params, withCredentials: true }
+    ).pipe(
+      map(response => {
+        if (!response.success) {
+          throw new Error(response.message);
+        }
+        
+        // Convert unified notifications to MultiBranchNotification format
+        const notifications: MultiBranchNotification[] = response.data.data.map(notification => ({
+          id: notification.id.toString(),
+          type: this.mapNotificationType(notification.type),
+          severity: this.mapSeverity(notification.severity),
+          priority: this.mapPriority(notification.priority),
+          title: notification.title,
+          message: notification.message,
+          branchId: notification.branchId,
+          branchName: notification.branchName,
+          userId: notification.userId,
+          userName: notification.userName,
+          timestamp: notification.createdAt,
+          createdAt: notification.createdAt,
+          isRead: notification.isRead,
+          isArchived: notification.isArchived,
+          actionRequired: notification.actionRequired,
+          actionUrl: notification.actionUrl,
+          expiresAt: notification.expiresAt,
+          metadata: notification.metadata
+        }));
+        
+        return notifications;
+      }),
+      catchError(error => {
+        console.error('Error fetching multi-branch notifications:', error);
+        return of([]); // Return observable of empty array
+      })
+    );
+  }
+
+  /**
+   * Create new notification (Real API)
+   */
+  createNotification(notification: Partial<MultiBranchNotification>): Observable<MultiBranchNotification> {
+    const payload = {
+      userId: notification.userId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      priority: notification.priority,
+      branchId: notification.branchId,
+      severity: notification.severity,
+      actionRequired: notification.actionRequired,
+      actionUrl: notification.actionUrl,
+      expiresAt: notification.expiresAt
+    };
+
+    return this.http.post<ApiResponse<MultiBranchNotification>>(
+      this.baseUrl,
+      payload,
+      { withCredentials: true }
+    ).pipe(
+      map(response => {
+        if (!response.success) {
+          throw new Error(response.message);
+        }
+        return response.data;
+      }),
+      catchError(error => {
+        console.error('Error creating notification:', error);
+        throw error;
+      })
+    );
+  }
 
   // Public methods
   addNotification(notification: MultiBranchNotification) {
@@ -149,64 +312,142 @@ export class MultiBranchNotificationService {
     this.showBrowserNotification(notification);
   }
 
-  markAsRead(notificationId: string) {
-    this.mockBackend.updateNotification(notificationId, { isRead: true }).subscribe({
-      next: (success) => {
-        if (success) {
+  refreshNotifications(): void {
+    this.getNotifications().subscribe({
+      next: (notifications) => {
+        this._notifications.set(notifications);
+        this._lastUpdate.set(new Date().toISOString());
+      },
+      error: (error) => {
+        console.error('Error refreshing notifications:', error);
+      }
+    });
+  }
+
+  markAsRead(notificationId: string): Observable<boolean> {
+    return this.http.put<ApiResponse<boolean>>(
+      `${this.baseUrl}/${notificationId}/mark-read`,
+      {},
+      { withCredentials: true }
+    ).pipe(
+      map(response => {
+        if (response.success) {
+          // Update local state
           const current = this._notifications();
           const updated = current.map(n => 
             n.id === notificationId ? { ...n, isRead: true } : n
           );
           this._notifications.set(updated);
           this._lastUpdate.set(new Date().toISOString());
+          return true;
         }
-      },
-      error: (error) => console.error('Failed to mark notification as read:', error)
-    });
+        return false;
+      }),
+      catchError(error => {
+        console.error('Failed to mark notification as read:', error);
+        return of(false);
+      })
+    );
   }
 
-  markAllAsRead() {
-    this.mockBackend.markAllAsRead().subscribe({
-      next: (success) => {
-        if (success) {
+  markAllAsRead(): Observable<boolean> {
+    return this.http.put<ApiResponse<boolean>>(
+      `${this.baseUrl}/mark-all-read`,
+      {},
+      { withCredentials: true }
+    ).pipe(
+      map(response => {
+        if (response.success) {
+          // Update local state
           const current = this._notifications();
           const updated = current.map(n => ({ ...n, isRead: true }));
           this._notifications.set(updated);
           this._lastUpdate.set(new Date().toISOString());
+          return true;
         }
-      },
-      error: (error) => console.error('Failed to mark all notifications as read:', error)
-    });
+        return false;
+      }),
+      catchError(error => {
+        console.error('Failed to mark all notifications as read:', error);
+        return of(false);
+      })
+    );
   }
 
-  archiveNotification(notificationId: string) {
-    this.mockBackend.updateNotification(notificationId, { isArchived: true }).subscribe({
-      next: (success) => {
-        if (success) {
+  archiveNotification(notificationId: string): Observable<boolean> {
+    return this.http.put<ApiResponse<boolean>>(
+      `${this.baseUrl}/${notificationId}/archive`,
+      {},
+      { withCredentials: true }
+    ).pipe(
+      map(response => {
+        if (response.success) {
+          // Update local state
           const current = this._notifications();
           const updated = current.map(n => 
             n.id === notificationId ? { ...n, isArchived: true, isRead: true } : n
           );
           this._notifications.set(updated);
           this._lastUpdate.set(new Date().toISOString());
+          return true;
         }
-      },
-      error: (error) => console.error('Failed to archive notification:', error)
-    });
+        return false;
+      }),
+      catchError(error => {
+        console.error('Failed to archive notification:', error);
+        return of(false);
+      })
+    );
   }
 
-  deleteNotification(notificationId: string) {
-    this.mockBackend.deleteNotification(notificationId).subscribe({
-      next: (success) => {
-        if (success) {
+  deleteNotification(notificationId: string): Observable<boolean> {
+    return this.http.delete<ApiResponse<boolean>>(
+      `${this.baseUrl}/${notificationId}`,
+      { withCredentials: true }
+    ).pipe(
+      map(response => {
+        if (response.success) {
+          // Update local state
           const current = this._notifications();
           const updated = current.filter(n => n.id !== notificationId);
           this._notifications.set(updated);
           this._lastUpdate.set(new Date().toISOString());
+          return true;
         }
-      },
-      error: (error) => console.error('Failed to delete notification:', error)
-    });
+        return false;
+      }),
+      catchError(error => {
+        console.error('Failed to delete notification:', error);
+        return of(false);
+      })
+    );
+  }
+
+  /**
+   * Get notification statistics (Real API)
+   */
+  getNotificationStats(): Observable<NotificationStats> {
+    return this.http.get<ApiResponse<any>>(
+      `${this.baseUrl}/stats`,
+      { withCredentials: true }
+    ).pipe(
+      map(response => {
+        if (!response.success) {
+          throw new Error(response.message);
+        }
+        return response.data;
+      }),
+      catchError(error => {
+        console.error('Error fetching notification stats:', error);
+        return of({
+          total: 0,
+          unread: 0,
+          byType: {},
+          bySeverity: {},
+          actionRequired: 0
+        });
+      })
+    );
   }
 
   getFilteredNotifications(filters: NotificationFilters): MultiBranchNotification[] {

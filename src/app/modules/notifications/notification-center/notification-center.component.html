@@ -119,11 +119,13 @@
 
             <!-- Notification Cards -->
             <div class="notification-item"
-                *ngFor="let notification of getFilteredNotifications(); trackBy: trackByNotificationId" [ngClass]="[
+                *ngFor="let notification of getFilteredNotifications(); trackBy: trackByNotificationId; let i = index" 
+                [ngClass]="[
                     !notification?.isRead ? 'unread' : '',
                     isNotificationExpired(notification) ? 'expired' : '',
                     getNotificationPriorityClass(notification)
-                ]" (click)="onNotificationClick(notification)">
+                ]" 
+                (click)="onNotificationClick(notification)">
 
                 <div class="notification-card">
                     <div class="notification-main">
@@ -136,8 +138,12 @@
                                 <div class="notification-meta-top">
                                     <div class="notification-badge">{{ getNotificationBadge(notification) }}</div>
                                     <span class="notification-type">{{ getNotificationTypeLabel(notification.type) }}</span>
-                                    <span class="notification-priority priority-{{ notification.priority.toLowerCase() || 'medium' }}">
+                                    <span class="notification-priority priority-{{ (notification.priority || 'medium').toLowerCase() }}">
                                         {{ getPriorityDisplayText(notification.priority || 'Medium') }}
+                                    </span>
+                                    <!-- Smart Notification Badge -->
+                                    <span class="smart-notification-badge" *ngIf="notification?.metadata?.isSmartNotification" title="Smart Notification">
+                                        🤖 AI
                                     </span>
                                 </div>
                                 <h4 class="notification-title-text">{{ notification.title || 'No Title' }}</h4>
@@ -145,9 +151,22 @@
 
                             <p class="notification-message">{{ notification.message || 'No Message' }}</p>
 
+                            <!-- Smart Notification Details -->
+                            <div class="smart-notification-details" *ngIf="notification?.metadata?.isSmartNotification">
+                                <div class="potential-loss" *ngIf="notification?.metadata?.potentialLoss">
+                                    <mat-icon>attach_money</mat-icon>
+                                    <span>Potensi Kerugian: {{ notification.metadata.potentialLoss | currency:'IDR':'symbol':'1.0-0' }}</span>
+                                </div>
+                                <div class="action-items" *ngIf="notification?.metadata?.actionItems?.length > 0">
+                                    <mat-icon>checklist</mat-icon>
+                                    <span>{{ notification.metadata.actionItems.length }} tindakan yang disarankan</span>
+                                </div>
+                            </div>
+
                             <div class="notification-meta-bottom">
                                 <span class="notification-date">{{ (notification.createdAt | date:'dd/MM/yyyy') || 'N/A' }}</span>
                                 <span class="notification-time">{{ (notification.createdAt | date:'HH:mm') || 'N/A' }}</span>
+                                <span class="notification-index">#{{ i + 1 }}</span>
                             </div>
                         </div>
 
@@ -155,7 +174,7 @@
                             <div class="unread-indicator" *ngIf="!notification?.isRead"></div>
                             <button mat-icon-button
                                     class="mark-read-btn"
-                                    (click)="markAsRead(notification?.id || 0)"
+                                    (click)="markAsRead(notification?.id || 0); $event.stopPropagation()"
                                     [disabled]="notification?.isRead"
                                     matTooltip="Tandai sebagai sudah dibaca">
                                 <mat-icon>{{ notification?.isRead ? 'done_all' : 'done' }}</mat-icon>
@@ -172,7 +191,7 @@
                     <div class="notification-action-button" *ngIf="notification?.actionUrl">
                         <button class="secondary-button" (click)="onNotificationClick(notification)">
                             <mat-icon>open_in_new</mat-icon>
-                            Lihat Detail
+                            {{ notification?.actionText || 'Lihat Detail' }}
                         </button>
                     </div>
 

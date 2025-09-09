@@ -133,16 +133,20 @@ export class SmartNotificationService {
   readonly error = this._error.asReadonly();
 
   // Computed properties for intelligent insights
-  readonly unreadNotifications = computed(() => 
-    this._notifications().filter(n => !n.isRead)
-  );
+  readonly unreadNotifications = computed(() => {
+    const notifications = this._notifications();
+    return Array.isArray(notifications) ? notifications.filter(n => !n.isRead) : [];
+  });
 
-  readonly criticalNotifications = computed(() => 
-    this._notifications().filter(n => !n.isRead && n.priority === ExpiryUrgency.CRITICAL)
-  );
+  readonly criticalNotifications = computed(() => {
+    const notifications = this._notifications();
+    return Array.isArray(notifications) ? notifications.filter(n => !n.isRead && n.priority === ExpiryUrgency.CRITICAL) : [];
+  });
 
   readonly notificationsByType = computed(() => {
     const notifications = this._notifications();
+    if (!Array.isArray(notifications)) return new Map<string, ExpiryNotification[]>();
+    
     const grouped = new Map<string, ExpiryNotification[]>();
     
     notifications.forEach(notification => {

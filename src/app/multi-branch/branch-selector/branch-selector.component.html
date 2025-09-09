@@ -1,0 +1,82 @@
+<div class="branch-selector-container">
+  <div class="branch-selector-header">
+    <h2>Select Branch</h2>
+    <p>Choose which branch you want to work with</p>
+  </div>
+
+  <div class="loading-indicator" *ngIf="isLoading">
+    <div class="spinner"></div>
+    <p>Loading available branches...</p>
+  </div>
+
+  <div class="branches-grid" *ngIf="!isLoading">
+    <div 
+      class="branch-card"
+      *ngFor="let branch of availableBranches()"
+      (click)="selectBranch(branch)"
+      role="button"
+      tabindex="0"
+      [attr.aria-label]="'Select ' + branch.branchName"
+    >
+      <div class="branch-card-header">
+        <h3>{{ branch.branchName }}</h3>
+        <span class="branch-code">{{ branch.branchCode }}</span>
+      </div>
+
+      <div class="branch-info">
+        <div class="branch-location" *ngIf="branch.address">
+          <i class="icon-location"></i>
+          <span>{{ branch.address }}</span>
+        </div>
+
+        <div class="branch-contact" *ngIf="branch.phone">
+          <i class="icon-phone"></i>
+          <span>{{ branch.phone }}</span>
+        </div>
+      </div>
+
+      <div class="branch-status">
+        <div class="status-indicator">
+          <span 
+            class="status-dot"
+            [class]="getBranchStatusClass(branch)"
+          ></span>
+          <span class="status-text">{{ getBranchStatusText(branch) }}</span>
+        </div>
+
+        <div class="health-score" *ngIf="branch.healthScore !== undefined">
+          <span 
+            class="health-indicator"
+            [class]="getHealthScoreClass(branch.healthScore)"
+          >
+            {{ branch.healthScore }}%
+          </span>
+        </div>
+      </div>
+
+      <div class="branch-meta" *ngIf="branch.managerName">
+        <small>Manager: {{ branch.managerName }}</small>
+      </div>
+
+      <div class="select-button">
+        <span>Select Branch</span>
+        <i class="icon-arrow-right"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && availableBranches().length === 0">
+    <div class="empty-icon">
+      <i class="icon-branch"></i>
+    </div>
+    <h3>No Branches Available</h3>
+    <p>You don't have access to any branches. Please contact your administrator.</p>
+    
+    <button 
+      class="btn btn-primary"
+      (click)="router.navigate(['/dashboard'])"
+    >
+      Go to Dashboard
+    </button>
+  </div>
+</div>

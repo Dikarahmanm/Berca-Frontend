@@ -1,0 +1,123 @@
+<div class="branch-required-container">
+  <div class="branch-required-content">
+    <div class="branch-icon">
+      <i class="icon-branch"></i>
+    </div>
+    
+    <h1>Branch Selection Required</h1>
+    <p class="main-message">
+      You need to select a branch before accessing this page.
+    </p>
+
+    <div class="user-info" *ngIf="user()">
+      <div class="info-card">
+        <div class="info-header">
+          <i class="icon-user"></i>
+          <h3>Current User</h3>
+        </div>
+        <div class="info-content">
+          <div class="info-item">
+            <span class="label">Username:</span>
+            <span class="value">{{ user()?.username }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Role:</span>
+            <span class="value">{{ user()?.role }}</span>
+          </div>
+          <div class="info-item" *ngIf="user()?.isMultiBranchUser">
+            <span class="label">Multi-Branch User:</span>
+            <span class="value badge-yes">Yes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="explanation-section">
+      <h3>Why do I need to select a branch?</h3>
+      <div class="explanation-list">
+        <div class="explanation-item">
+          <i class="icon-check-circle"></i>
+          <div>
+            <strong>Data Isolation:</strong>
+            <p>Each branch has its own data and operations that need to be kept separate.</p>
+          </div>
+        </div>
+        <div class="explanation-item">
+          <i class="icon-shield"></i>
+          <div>
+            <strong>Security:</strong>
+            <p>Branch selection ensures you only access data you're authorized to see.</p>
+          </div>
+        </div>
+        <div class="explanation-item">
+          <i class="icon-activity"></i>
+          <div>
+            <strong>Context:</strong>
+            <p>All operations will be performed within the context of your selected branch.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="branches-info" *ngIf="availableBranches().length > 0">
+      <h3>Available Branches</h3>
+      <p class="branches-count">
+        You have access to <strong>{{ availableBranches().length }}</strong> 
+        branch{{ availableBranches().length === 1 ? '' : 'es' }}.
+      </p>
+      
+      <div class="branches-preview">
+        <div 
+          class="branch-preview"
+          *ngFor="let branch of availableBranches().slice(0, 3)"
+        >
+          <div class="branch-preview-header">
+            <span class="branch-name">{{ branch.branchName }}</span>
+            <span class="branch-code">{{ branch.branchCode }}</span>
+          </div>
+          <div class="branch-preview-info" *ngIf="branch.address">
+            <i class="icon-map-pin"></i>
+            <span>{{ branch.address }}</span>
+          </div>
+        </div>
+        
+        <div class="more-branches" *ngIf="availableBranches().length > 3">
+          <span>+ {{ availableBranches().length - 3 }} more branches</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button 
+        class="btn btn-primary btn-large"
+        (click)="goToSelectBranch()"
+      >
+        <i class="icon-branch"></i>
+        Select Branch
+      </button>
+
+      <button 
+        class="btn btn-secondary"
+        (click)="goToDashboard()"
+      >
+        <i class="icon-home"></i>
+        Go to Dashboard
+      </button>
+
+      <button 
+        class="btn btn-outline"
+        (click)="refreshPage()"
+      >
+        <i class="icon-refresh-ccw"></i>
+        Refresh Page
+      </button>
+    </div>
+
+    <div class="help-section">
+      <p class="help-text">
+        <i class="icon-help-circle"></i>
+        Need help? Contact your system administrator if you can't see any available branches.
+      </p>
+    </div>
+  </div>
+</div>

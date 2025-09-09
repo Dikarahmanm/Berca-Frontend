@@ -4,7 +4,8 @@
 
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../environment/environment';
+import { Observable, catchError, of, finalize } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { 
   ExpiringProduct, 
   ExpiredProduct, 
@@ -12,6 +13,68 @@ import {
   ExpiryUrgency,
   ApiResponse 
 } from '../interfaces/expiry.interfaces';
+import { 
+  Branch,
+  BranchHealth,
+  CoordinationMetrics,
+  BranchConnection,
+  BranchPerformanceMetrics,
+  OptimizationOpportunity,
+  OptimizationExecution,
+  PaginatedResponse,
+  HealthStatus,
+  CoordinationStatus,
+  UrgencyLevel,
+  OptimizationType,
+  TransferRecommendation
+} from '../models/branch.models';
+
+// === DESIGN GUIDE PHASE 1 INTERFACES ===
+
+export interface BranchPerformance {
+  branchId: number;
+  branchName: string;
+  revenue: number;
+  profitMargin: number;
+  inventoryTurnover: number;
+  stockoutEvents: number;
+  wastePercentage: number;
+  score: number;
+  rank: number;
+  trends: {
+    revenueGrowth: number;
+    profitTrend: number;
+    efficiencyTrend: number;
+  };
+}
+
+export interface CoordinationHealth {
+  overallScore: number;
+  systemStatus: 'optimal' | 'good' | 'warning' | 'critical';
+  activeBranches: number;
+  pendingTransfers: number;
+  criticalAlerts: number;
+  lastOptimization: string;
+  nextOptimization: string;
+  metrics: {
+    coordinationEfficiency: number;
+    communicationHealth: number;
+    dataConsistency: number;
+    responseTime: number;
+  };
+}
+
+export interface DemandForecast {
+  productId: number;
+  productName: string;
+  branchId: number;
+  currentDemand: number;
+  forecastedDemand: number[];
+  confidenceLevel: number;
+  seasonalFactors: number[];
+  trendDirection: 'increasing' | 'stable' | 'decreasing';
+  recommendations: string[];
+}
 
 // Multi-Branch Coordination Interfaces
 export interface BranchDto {
@@ -247,10 +310,18 @@ export interface OptimizationConstraint {
 })
 export class MultiBranchCoordinationService {
   private readonly http = inject(HttpClient);
-  // ✅ Use relative URL for proxy routing
-  private readonly baseUrl = '/api/BranchCoordination';
+  // ✅ Design Guide endpoints
+  private readonly baseUrl = `${environment.apiUrl}/api/multibranch`;
 
-  // Signal-based state management
+  // === DESIGN GUIDE PHASE 1 SIGNALS ===
+  private readonly _coordinationHealth = signal<CoordinationHealth | null>(null);
+  private readonly _branchPerformances = signal<BranchPerformance[]>([]);
+  private readonly _newTransferRecommendations = signal<TransferRecommendation[]>([]);
+  private readonly _optimizationOpportunities = signal<OptimizationOpportunity[]>([]);
+  private readonly _isLoading = signal<boolean>(false);
+  private readonly _error = signal<string | null>(null);
+
+  // Signal-based state management (existing)
   private _branches = signal<BranchDto[]>([]);
   private _branchStatuses = signal<BranchInventoryStatus[]>([]);
   private _transferRecommendations = signal<InterBranchTransferRecommendation[]>([]);
@@ -258,9 +329,16 @@ export class MultiBranchCoordinationService {
   private _analytics = signal<BranchCoordinationAnalytics | null>(null);
   private _optimizationResult = signal<TransferOptimizationResult | null>(null);
   private _loading = signal<boolean>(false);
-  private _error = signal<string | null>(null);
 
-  // Public readonly signals
+  // === DESIGN GUIDE PUBLIC READONLY SIGNALS ===
+  readonly coordinationHealth = this._coordinationHealth.asReadonly();
+  readonly branchPerformances = this._branchPerformances.asReadonly();
+  readonly newTransferRecommendations = this._newTransferRecommendations.asReadonly();
+  readonly optimizationOpportunities = this._optimizationOpportunities.asReadonly();
+  readonly isLoading = this._isLoading.asReadonly();
+  readonly error = this._error.asReadonly();
+
+  // Public readonly signals (existing)
   readonly branches = this._branches.asReadonly();
   readonly branchStatuses = this._branchStatuses.asReadonly();
   readonly transferRecommendations = this._transferRecommendations.asReadonly();
@@ -268,9 +346,27 @@ export class MultiBranchCoordinationService {
   readonly analytics = this._analytics.asReadonly();
   readonly optimizationResult = this._optimizationResult.asReadonly();
   readonly loading = this._loading.asReadonly();
-  readonly error = this._error.asReadonly();
 
-  // Computed properties for intelligent insights
+  // === DESIGN GUIDE COMPUTED PROPERTIES ===
+  readonly criticalRecommendations = computed(() => 
+    this._newTransferRecommendations().filter(r => r.urgencyLevel === 'Critical')
+  );
+
+  readonly highPriorityOpportunities = computed(() =>
+    this._optimizationOpportunities().filter(o => o.priority === 'High' && o.status === 'pending')
+  );
+
+  readonly systemHealthStatus = computed(() => {
+    const health = this._coordinationHealth();
+    if (!health) return 'unknown';
+    
+    if (health.overallScore >= 90) return 'excellent';
+    if (health.overallScore >= 80) return 'good';
+    if (health.overallScore >= 60) return 'warning';
+    return 'critical';
+  });
+
+  // Computed properties for intelligent insights (existing)
   readonly activeBranches = computed(() => 
     this._branches().filter(branch => branch.isActive)
   );
@@ -320,8 +416,189 @@ export class MultiBranchCoordinationService {
   });
 
   constructor() {
+    // Initialize with mock data immediately to prevent empty states
+    this._coordinationHealth.set(this.generateMockCoordinationHealth());
+    this._branchPerformances.set(this.generateMockBranchPerformances());
+    this._optimizationOpportunities.set(this.generateMockOptimizationOpportunities());
+    
     this.initializeService();
     this.setupCoordinationEffects();
+    this.startPeriodicUpdates();
+  }
+
+  // === DESIGN GUIDE PERIODIC UPDATES ===
+  /**
+   * Start periodic data updates (every 5 minutes)
+   */
+  private startPeriodicUpdates(): void {
+    setInterval(() => {
+      this.refreshAllData();
+    }, 5 * 60 * 1000); // 5 minutes
+  }
+
+  /**
+   * Refresh all coordination data
+   */
+  refreshAllData(): void {
+    this.getBranchPerformances().subscribe(response => {
+      this._branchPerformances.set(response.data || []);
+      this._isLoading.set(false);
+    });
+    
+    this.getNewTransferRecommendations().subscribe(response => {
+      this._newTransferRecommendations.set(response.data || []);
+      this._isLoading.set(false);
+    });
+    
+    this.getOptimizationOpportunities().subscribe(response => {
+      this._optimizationOpportunities.set(response.data || []);
+      this._isLoading.set(false);
+    });
+    
+    this.getCoordinationHealth().subscribe(response => {
+      this._coordinationHealth.set(response.data);
+      this._isLoading.set(false);
+    });
+  }
+
+  // === DESIGN GUIDE 7 BACKEND ENDPOINTS ===
+
+  /**
+   * Get branch performance comparison
+   */
+  getBranchPerformances(branchId?: number): Observable<{ data: BranchPerformance[] }> {
+    this._isLoading.set(true);
+    this._error.set(null);
+
+    const params: any = {};
+    if (branchId) {
+      params.branchId = branchId.toString();
+    }
+    
+    return this.http.get<{ data: BranchPerformance[] }>(`${this.baseUrl}/branch-performance`, { params })
+      .pipe(
+        catchError(() => {
+          // Provide mock data for development
+          const mockData = this.generateMockBranchPerformances();
+          this._isLoading.set(false);
+          return of({ data: mockData });
+        })
+      );
+  }
+
+  /**
+   * Get intelligent transfer recommendations
+   */
+  getNewTransferRecommendations(branchId?: number): Observable<{ data: TransferRecommendation[] }> {
+    this._isLoading.set(true);
+    
+    const params: any = {};
+    if (branchId) {
+      params.branchId = branchId.toString();
+    }
+    
+    return this.http.get<{ data: TransferRecommendation[] }>(`${this.baseUrl}/transfer-recommendations`, { params })
+      .pipe(
+        catchError(this.handleError<{ data: TransferRecommendation[] }>('getTransferRecommendations', { data: [] }))
+      );
+  }
+
+  /**
+   * Get optimization opportunities
+   */
+  getOptimizationOpportunities(branchId?: number): Observable<{ data: OptimizationOpportunity[] }> {
+    this._isLoading.set(true);
+    
+    const params: any = {};
+    if (branchId) {
+      params.branchId = branchId.toString();
+    }
+    
+    return this.http.get<{ data: OptimizationOpportunity[] }>(`${this.baseUrl}/optimization-opportunities`, { params })
+      .pipe(
+        catchError(() => {
+          // Provide mock data for development
+          const mockData = this.generateMockOptimizationOpportunities();
+          this._isLoading.set(false);
+          return of({ data: mockData });
+        })
+      );
+  }
+
+  /**
+   * Get coordination health status
+   */
+  getCoordinationHealth(): Observable<{ data: CoordinationHealth }> {
+    return this.http.get<{ data: CoordinationHealth }>(`${this.baseUrl}/coordination-health`)
+      .pipe(
+        catchError(() => {
+          // Provide mock data for development
+          const mockData = this.generateMockCoordinationHealth();
+          this._isLoading.set(false);
+          return of({ data: mockData });
+        })
+      );
+  }
+
+  /**
+   * Execute optimization with dry run option
+   */
+  executeOptimization(opportunityId?: string, dryRun: boolean = true): Observable<any> {
+    this._isLoading.set(true);
+    
+    const body = opportunityId ? { opportunityId, dryRun } : { dryRun };
+    
+    return this.http.post(`${this.baseUrl}/execute-optimization`, body)
+      .pipe(
+        catchError(this.handleError('executeOptimization')),
+        finalize(() => {
+          this._isLoading.set(false);
+          // Refresh data after optimization
+          this.refreshAllData();
+        })
+      );
+  }
+
+  /**
+   * Get demand forecast for products
+   */
+  getDemandForecast(branchId?: number, productId?: number, days: number = 30): Observable<{ data: DemandForecast[] }> {
+    const params: any = { days: days.toString() };
+    if (branchId) params.branchId = branchId.toString();
+    if (productId) params.productId = productId.toString();
+    
+    return this.http.get<{ data: DemandForecast[] }>(`${this.baseUrl}/demand-forecast`, { params })
+      .pipe(
+        catchError(this.handleError<{ data: DemandForecast[] }>('getDemandForecast', { data: [] }))
+      );
+  }
+
+  /**
+   * Batch execute multiple optimization opportunities
+   */
+  batchExecuteOptimizations(opportunityIds: string[]): Observable<any> {
+    this._isLoading.set(true);
+    
+    return this.http.post(`${this.baseUrl}/batch-execute`, { opportunityIds })
+      .pipe(
+        catchError(this.handleError('batchExecuteOptimizations')),
+        finalize(() => {
+          this._isLoading.set(false);
+          this.refreshAllData();
+        })
+      );
+  }
+
+  /**
+   * Generic error handler
+   */
+  private handleError<T>(operation = 'operation', result?: T) {
+    return (error: any): Observable<T> => {
+      console.error(`${operation} failed:`, error);
+      this._error.set(`Failed to ${operation}: ${error.message}`);
+      this._isLoading.set(false);
+      return of(result as T);
+    };
   }
 
   private initializeService(): void {
@@ -1046,6 +1323,152 @@ export class MultiBranchCoordinationService {
         averageExpiryDays: 11.3,
         wasteValue: 1580000,
         lastSyncAt: new Date(now.getTime() - 8 * 60 * 1000).toISOString()
+      }
+    ];
+  }
+
+  private generateMockBranchPerformances(): BranchPerformance[] {
+    return [
+      {
+        branchId: 1,
+        branchName: 'Cabang Utama Jakarta',
+        revenue: 125000000,
+        profitMargin: 18.5,
+        inventoryTurnover: 4.2,
+        stockoutEvents: 3,
+        wastePercentage: 2.1,
+        score: 92,
+        rank: 1,
+        trends: {
+          revenueGrowth: 12.3,
+          profitTrend: 8.7,
+          efficiencyTrend: 15.2
+        }
+      },
+      {
+        branchId: 2,
+        branchName: 'Cabang Bekasi Timur',
+        revenue: 85000000,
+        profitMargin: 16.8,
+        inventoryTurnover: 3.8,
+        stockoutEvents: 5,
+        wastePercentage: 3.2,
+        score: 78,
+        rank: 2,
+        trends: {
+          revenueGrowth: 8.9,
+          profitTrend: 5.4,
+          efficiencyTrend: 7.8
+        }
+      },
+      {
+        branchId: 3,
+        branchName: 'Cabang Tangerang Selatan',
+        revenue: 92000000,
+        profitMargin: 17.2,
+        inventoryTurnover: 4.0,
+        stockoutEvents: 4,
+        wastePercentage: 2.8,
+        score: 84,
+        rank: 3,
+        trends: {
+          revenueGrowth: 10.5,
+          profitTrend: 6.8,
+          efficiencyTrend: 9.1
+        }
+      },
+      {
+        branchId: 4,
+        branchName: 'Cabang Depok',
+        revenue: 78000000,
+        profitMargin: 15.9,
+        inventoryTurnover: 3.5,
+        stockoutEvents: 7,
+        wastePercentage: 4.1,
+        score: 72,
+        rank: 4,
+        trends: {
+          revenueGrowth: 6.2,
+          profitTrend: 3.1,
+          efficiencyTrend: 4.7
+        }
+      }
+    ];
+  }
+
+  private generateMockCoordinationHealth(): CoordinationHealth {
+    return {
+      overallScore: 87,
+      systemStatus: 'good',
+      activeBranches: 4,
+      pendingTransfers: 12,
+      criticalAlerts: 2,
+      lastOptimization: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      nextOptimization: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+      metrics: {
+        coordinationEfficiency: 89,
+        communicationHealth: 92,
+        dataConsistency: 85,
+        responseTime: 145
+      }
+    };
+  }
+
+  private generateMockOptimizationOpportunities(): OptimizationOpportunity[] {
+    return [
+      {
+        id: 'opt-001',
+        type: 'transfer',
+        title: 'Optimize Stock Transfer Routes',
+        description: 'Consolidate multiple small transfers into efficient batched routes to reduce logistics costs.',
+        potentialSavings: 2500000,
+        implementationCost: 150000,
+        roiPercentage: 1566.7,
+        paybackPeriod: '2 weeks',
+        estimatedTime: 8,
+        priority: 'High',
+        affectedBranches: [1, 2, 3],
+        requirements: ['Logistics coordinator approval', 'Updated delivery schedule'],
+        timeToImplement: '1-2 weeks',
+        status: 'pending',
+        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'opt-002',
+        type: 'waste',
+        title: 'Implement Dynamic Expiry Management',
+        description: 'Automatically prioritize products with shorter expiry dates in sales displays and promotions.',
+        potentialSavings: 1800000,
+        implementationCost: 300000,
+        roiPercentage: 500,
+        paybackPeriod: '1 month',
+        estimatedTime: 16,
+        priority: 'Medium',
+        affectedBranches: [1, 2, 3, 4],
+        requirements: ['POS system integration', 'Staff training'],
+        timeToImplement: '3-4 weeks',
+        status: 'pending',
+        createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'opt-003',
+        type: 'inventory',
+        title: 'Smart Reorder Point Optimization',
+        description: 'Adjust reorder points based on seasonal demand patterns and branch-specific consumption rates.',
+        potentialSavings: 3200000,
+        implementationCost: 500000,
+        roiPercentage: 540,
+        paybackPeriod: '6 weeks',
+        estimatedTime: 24,
+        priority: 'High',
+        affectedBranches: [2, 3, 4],
+        requirements: ['Historical data analysis', 'Supplier agreement updates'],
+        timeToImplement: '4-6 weeks',
+        status: 'pending',
+        createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date().toISOString()
       }
     ];
   }

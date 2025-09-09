@@ -64,6 +64,9 @@ export interface CurrentUser {
   accessibleBranches?: number[];
   branchRole?: string;
   canSwitchBranches?: boolean;
+  // DESIGN GUIDE PROPERTIES
+  branchId?: number;
+  isMultiBranchUser?: boolean;
 }
 
 // NEW: Branch access response interface

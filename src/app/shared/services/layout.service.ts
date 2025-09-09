@@ -107,7 +107,59 @@ export class LayoutService {
       ]
     },
     {
-      title: 'ANALYTICS', // ✅ NEW: Dedicated analytics section
+      title: 'MULTI-BRANCH', // ✅ NEW: Multi-branch coordination section
+      items: [
+        {
+          id: 'coordination-dashboard',
+          label: 'Coordination',
+          icon: 'hub',
+          route: '/dashboard/coordination',
+          roles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
+        },
+        {
+          id: 'branch-performance',
+          label: 'Branch Performance',
+          icon: 'trending_up',
+          route: '/dashboard/branch-performance',
+          roles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
+        },
+        {
+          id: 'transfer-management',
+          label: 'Transfer Management',
+          icon: 'swap_horiz',
+          route: '/dashboard/transfers',
+          roles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
+        },
+        {
+          id: 'optimization',
+          label: 'Analytics',
+          icon: 'auto_fix_high',
+          route: '/admin/multi-branch/analytics',
+          roles: ['Admin', 'HeadManager']
+        }
+      ]
+    },
+    {
+      title: 'BRANCH MANAGEMENT', // ✅ NEW: Branch administration section
+      items: [
+        {
+          id: 'branch-list',
+          label: 'Branches',
+          icon: 'store',
+          route: '/dashboard/branches',
+          roles: ['Admin', 'HeadManager']
+        },
+        {
+          id: 'branch-selector',
+          label: 'Switch Branch',
+          icon: 'swap_horizontal_circle',
+          route: '/dashboard/select-branch',
+          roles: ['Admin', 'HeadManager', 'BranchManager']
+        }
+      ]
+    },
+    {
+      title: 'ANALYTICS', // ✅ EXISTING: Dedicated analytics section
       items: [
         {
           id: 'analytics',
@@ -238,7 +290,13 @@ export class LayoutService {
       '/dashboard/supplier': { title: 'Supplier Management', breadcrumb: ['Dashboard', 'Suppliers'] },
       '/dashboard/facture': { title: 'Facture Management', breadcrumb: ['Dashboard', 'Factures'] },
       '/profile': { title: 'User Profile', breadcrumb: ['Profile'] },
-      '/settings': { title: 'Settings', breadcrumb: ['Settings'] }
+      '/settings': { title: 'Settings', breadcrumb: ['Settings'] },
+      // ✅ UPDATED: Multi-branch routes with dashboard paths
+      '/dashboard/coordination': { title: 'Multi-Branch Coordination', breadcrumb: ['Dashboard', 'Multi-Branch', 'Coordination'] },
+      '/dashboard/branches': { title: 'Branch Management', breadcrumb: ['Dashboard', 'Multi-Branch', 'Branches'] },
+      '/dashboard/branch-performance': { title: 'Branch Performance', breadcrumb: ['Dashboard', 'Multi-Branch', 'Performance'] },
+      '/dashboard/transfers': { title: 'Transfer Management', breadcrumb: ['Dashboard', 'Multi-Branch', 'Transfers'] },
+      '/dashboard/select-branch': { title: 'Select Branch', breadcrumb: ['Dashboard', 'Multi-Branch', 'Select Branch'] }
     };
 
     const pageInfo = titleMap[url] || { title: 'Dashboard', breadcrumb: ['Dashboard'] };
@@ -298,6 +356,40 @@ export class LayoutService {
     }
   }
 
+  // ✅ NEW: Coordination alerts badge update
+  updateCoordinationBadge(count: number): void {
+    const navConfig = this.navigationConfig.find(section => section.title === 'MULTI-BRANCH');
+    if (navConfig) {
+      const coordinationItem = navConfig.items.find(item => item.id === 'coordination-dashboard');
+      if (coordinationItem) {
+        if (count > 0) {
+          coordinationItem.badge = count > 99 ? '99+' : count.toString();
+          coordinationItem.badgeColor = 'warn';
+        } else {
+          delete coordinationItem.badge;
+          delete coordinationItem.badgeColor;
+        }
+      }
+    }
+  }
+
+  // ✅ NEW: Transfer alerts badge update
+  updateTransferBadge(count: number): void {
+    const navConfig = this.navigationConfig.find(section => section.title === 'MULTI-BRANCH');
+    if (navConfig) {
+      const transferItem = navConfig.items.find(item => item.id === 'transfer-management');
+      if (transferItem) {
+        if (count > 0) {
+          transferItem.badge = count > 99 ? '99+' : count.toString();
+          transferItem.badgeColor = 'primary';
+        } else {
+          delete transferItem.badge;
+          delete transferItem.badgeColor;
+        }
+      }
+    }
+  }
+
   // ✅ UPDATED: Page title mapping with proper dashboard home and analytics
   getPageTitle(route: string): string {
     const titleMap: { [key: string]: string } = {
@@ -314,7 +406,15 @@ export class LayoutService {
       '/dashboard/supplier': 'Supplier Management',
       '/dashboard/facture': 'Facture Management',
       '/profile': 'User Profile',
-      '/settings': 'Settings'
+      '/settings': 'Settings',
+      // ✅ UPDATED: Multi-branch page titles with dashboard paths
+      '/dashboard/coordination': 'Multi-Branch Coordination',
+      '/dashboard/branches': 'Branch Management',
+      '/dashboard/branch-performance': 'Branch Performance',
+      '/dashboard/transfers': 'Transfer Management',
+      '/dashboard/select-branch': 'Select Branch',
+      '/admin/multi-branch/analytics': 'Multi-Branch Analytics',
+      '/admin/multi-branch/dashboard': 'Multi-Branch Administration'
     };
 
     return titleMap[route] || 'Dashboard';

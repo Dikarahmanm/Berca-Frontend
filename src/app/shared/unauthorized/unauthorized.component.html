@@ -1,0 +1,85 @@
+<div class="unauthorized-container">
+  <div class="unauthorized-content">
+    <div class="error-icon">
+      <i class="icon-shield-x"></i>
+    </div>
+    
+    <h1>Access Denied</h1>
+    <p class="error-message">
+      You don't have permission to access this page or resource.
+    </p>
+
+    <div class="user-info" *ngIf="user()">
+      <div class="info-item">
+        <span class="label">Current User:</span>
+        <span class="value">{{ user()?.username }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Role:</span>
+        <span class="value">{{ user()?.role }}</span>
+      </div>
+      <div class="info-item" *ngIf="selectedBranch()">
+        <span class="label">Current Branch:</span>
+        <span class="value">{{ selectedBranch()?.branchName }}</span>
+      </div>
+    </div>
+
+    <div class="suggestions">
+      <h3>What can you do?</h3>
+      <ul>
+        <li>Check if you have the required role or permissions</li>
+        <li>Ensure you've selected the correct branch</li>
+        <li>Contact your administrator for access</li>
+        <li>Go back to the previous page</li>
+      </ul>
+    </div>
+
+    <div class="action-buttons">
+      <button 
+        class="btn btn-secondary"
+        (click)="goBack()"
+      >
+        <i class="icon-arrow-left"></i>
+        Go Back
+      </button>
+
+      <button 
+        class="btn btn-primary"
+        (click)="goToDashboard()"
+      >
+        <i class="icon-home"></i>
+        Dashboard
+      </button>
+
+      <button 
+        class="btn btn-outline"
+        (click)="goToSelectBranch()"
+        *ngIf="user()?.isMultiBranchUser"
+      >
+        <i class="icon-branch"></i>
+        Select Branch
+      </button>
+
+      <button 
+        class="btn btn-outline"
+        (click)="contactAdmin()"
+      >
+        <i class="icon-mail"></i>
+        Contact Admin
+      </button>
+    </div>
+
+    <div class="logout-section">
+      <p class="logout-text">
+        Having trouble? Try logging in with a different account.
+      </p>
+      <button 
+        class="btn btn-link"
+        (click)="logout()"
+      >
+        <i class="icon-log-out"></i>
+        Logout
+      </button>
+    </div>
+  </div>
+</div>

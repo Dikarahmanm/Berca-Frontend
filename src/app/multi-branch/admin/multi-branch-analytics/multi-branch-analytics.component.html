@@ -1,0 +1,543 @@
+<div class="multi-branch-analytics">
+  <!-- Header Section -->
+  <div class="analytics-header">
+    <div class="header-content">
+      <h1>Multi-Branch Network Analytics</h1>
+      <p class="header-subtitle">Comprehensive insights, trends, and forecasting across the entire branch network</p>
+    </div>
+    
+    <div class="header-controls">
+      <div class="period-selector">
+        <label>Analysis Period:</label>
+        <div class="period-buttons">
+          <button 
+            *ngFor="let period of ['1M', '3M', '6M', '1Y']"
+            class="period-btn"
+            [class.active]="selectedPeriod() === period"
+            (click)="setPeriod($any(period))"
+          >
+            {{ period === '1M' ? '1 Month' : period === '3M' ? '3 Months' : period === '6M' ? '6 Months' : '1 Year' }}
+          </button>
+        </div>
+      </div>
+      
+      <div class="export-actions">
+        <button class="btn btn-outline" (click)="exportExecutiveSummary()">
+          <i class="icon-file-text"></i>
+          Export Summary
+        </button>
+        <button class="btn btn-primary" (click)="exportReport()">
+          <i class="icon-download"></i>
+          Full Report
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Navigation -->
+  <div class="view-navigation">
+    <button 
+      *ngFor="let view of ['overview', 'trends', 'regional', 'forecast', 'executive']"
+      class="view-btn"
+      [class.active]="selectedView() === view"
+      (click)="setView($any(view))"
+    >
+      <i 
+        class="icon-bar-chart-2" 
+        *ngIf="view === 'overview'"
+      ></i>
+      <i 
+        class="icon-trending-up" 
+        *ngIf="view === 'trends'"
+      ></i>
+      <i 
+        class="icon-map" 
+        *ngIf="view === 'regional'"
+      ></i>
+      <i 
+        class="icon-zap" 
+        *ngIf="view === 'forecast'"
+      ></i>
+      <i 
+        class="icon-briefcase" 
+        *ngIf="view === 'executive'"
+      ></i>
+      {{ view | titlecase }}
+    </button>
+    
+    <button 
+      class="refresh-btn"
+      (click)="refreshData()"
+      [disabled]="isLoading()"
+    >
+      <i class="icon-refresh-cw" [class.spinning]="isLoading()"></i>
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-overlay" *ngIf="isLoading()">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <p>Loading analytics data...</p>
+    </div>
+  </div>
+
+  <!-- Overview View -->
+  <div class="analytics-content" *ngIf="selectedView() === 'overview' && !isLoading()">
+    <!-- Network KPIs -->
+    <div class="kpi-grid" *ngIf="networkAnalytics()">
+      <div class="kpi-card revenue">
+        <div class="kpi-header">
+          <h3>Total Revenue</h3>
+          <i class="icon-dollar-sign"></i>
+        </div>
+        <div class="kpi-value">{{ formatCurrency(networkAnalytics()!.totalRevenue) }}</div>
+        <div class="kpi-growth" [class]="getGrowthClass(networkAnalytics()!.revenueGrowth)">
+          <i [class]="getGrowthIcon(networkAnalytics()!.revenueGrowth)"></i>
+          {{ formatPercentage(networkAnalytics()!.revenueGrowth) }}
+        </div>
+      </div>
+
+      <div class="kpi-card transactions">
+        <div class="kpi-header">
+          <h3>Total Transactions</h3>
+          <i class="icon-shopping-cart"></i>
+        </div>
+        <div class="kpi-value">{{ formatNumber(networkAnalytics()!.totalTransactions) }}</div>
+        <div class="kpi-growth" [class]="getGrowthClass(networkAnalytics()!.transactionGrowth)">
+          <i [class]="getGrowthIcon(networkAnalytics()!.transactionGrowth)"></i>
+          {{ formatPercentage(networkAnalytics()!.transactionGrowth) }}
+        </div>
+      </div>
+
+      <div class="kpi-card satisfaction">
+        <div class="kpi-header">
+          <h3>Customer Satisfaction</h3>
+          <i class="icon-heart"></i>
+        </div>
+        <div class="kpi-value">{{ formatPercentage(networkAnalytics()!.customerSatisfaction) }}</div>
+        <div class="kpi-growth" [class]="getGrowthClass(networkAnalytics()!.satisfactionGrowth)">
+          <i [class]="getGrowthIcon(networkAnalytics()!.satisfactionGrowth)"></i>
+          {{ formatPercentage(networkAnalytics()!.satisfactionGrowth) }}
+        </div>
+      </div>
+
+      <div class="kpi-card efficiency">
+        <div class="kpi-header">
+          <h3>Network Efficiency</h3>
+          <i class="icon-activity"></i>
+        </div>
+        <div class="kpi-value">{{ formatPercentage(networkAnalytics()!.operationalEfficiency) }}</div>
+        <div class="kpi-growth" [class]="getGrowthClass(networkAnalytics()!.efficiencyGrowth)">
+          <i [class]="getGrowthIcon(networkAnalytics()!.efficiencyGrowth)"></i>
+          {{ formatPercentage(networkAnalytics()!.efficiencyGrowth) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Average Metrics -->
+    <div class="average-metrics" *ngIf="averageMetrics()">
+      <h2>Network Averages</h2>
+      <div class="metrics-grid">
+        <div class="metric-item">
+          <span class="metric-label">Revenue per Branch</span>
+          <span class="metric-value">{{ formatCurrency(averageMetrics()!.revenuePerBranch) }}</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Transactions per Branch</span>
+          <span class="metric-value">{{ formatNumber(averageMetrics()!.transactionsPerBranch) }}</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Average Efficiency</span>
+          <span class="metric-value">{{ formatPercentage(averageMetrics()!.avgEfficiency) }}</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Average Satisfaction</span>
+          <span class="metric-value">{{ formatPercentage(averageMetrics()!.avgSatisfaction) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Insights -->
+    <div class="insights-section" *ngIf="keyInsights().length > 0">
+      <h2>Key Insights</h2>
+      <div class="insights-list">
+        <div 
+          *ngFor="let insight of keyInsights()"
+          class="insight-card"
+          [class]="getInsightClass(insight.type)"
+        >
+          <div class="insight-header">
+            <h4>{{ insight.title }}</h4>
+            <span class="impact-badge" [class]="'impact-' + insight.impact">
+              {{ insight.impact | titlecase }}
+            </span>
+          </div>
+          <p>{{ insight.description }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trends View -->
+  <div class="analytics-content" *ngIf="selectedView() === 'trends' && !isLoading()">
+    <div class="trends-header">
+      <h2>Performance Trends</h2>
+      <p>Historical performance analysis over the selected period</p>
+    </div>
+
+    <div class="trends-charts" *ngIf="trendAnalysis()">
+      <!-- Chart placeholder - would integrate with Chart.js or similar -->
+      <div class="chart-container">
+        <h3>Revenue Trend</h3>
+        <div class="chart-placeholder">
+          <p>Revenue trend chart visualization would be rendered here</p>
+          <small>Data points: {{ trendAnalysis()!.revenue.length }} | Period: {{ trendAnalysis()!.period }}</small>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>Transaction Volume</h3>
+        <div class="chart-placeholder">
+          <p>Transaction trend chart visualization would be rendered here</p>
+          <small>Data points: {{ trendAnalysis()!.transactions.length }} | Period: {{ trendAnalysis()!.period }}</small>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>Customer Satisfaction</h3>
+        <div class="chart-placeholder">
+          <p>Satisfaction trend chart visualization would be rendered here</p>
+          <small>Data points: {{ trendAnalysis()!.satisfaction.length }} | Period: {{ trendAnalysis()!.period }}</small>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>Operational Efficiency</h3>
+        <div class="chart-placeholder">
+          <p>Efficiency trend chart visualization would be rendered here</p>
+          <small>Data points: {{ trendAnalysis()!.efficiency.length }} | Period: {{ trendAnalysis()!.period }}</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regional View -->
+  <div class="analytics-content" *ngIf="selectedView() === 'regional' && !isLoading()">
+    <div class="regional-header">
+      <h2>Regional Performance Comparison</h2>
+      <div class="region-selector">
+        <label>Filter by Region:</label>
+        <select (change)="setRegion($any($event.target).value)" [value]="selectedRegion()">
+          <option value="all">All Regions</option>
+          <option *ngFor="let region of regionalData()" [value]="region.region">
+            {{ region.region }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Top Performing Regions -->
+    <div class="top-regions" *ngIf="topPerformingRegions().length > 0">
+      <h3>Top Performing Regions</h3>
+      <div class="regions-podium">
+        <div 
+          *ngFor="let region of topPerformingRegions(); let i = index"
+          class="podium-item"
+          [class]="'rank-' + (i + 1)"
+        >
+          <div class="rank-badge">#{{ i + 1 }}</div>
+          <div class="region-info">
+            <h4>{{ region.region }}</h4>
+            <div class="region-stats">
+              <div class="stat">
+                <span class="stat-label">Performance</span>
+                <span class="stat-value">{{ formatPercentage(region.performance) }}</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Revenue</span>
+                <span class="stat-value">{{ formatCurrency(region.revenue) }}</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Growth</span>
+                <span class="stat-value" [class]="getGrowthClass(region.growth)">
+                  {{ formatPercentage(region.growth) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Regional Comparison Table -->
+    <div class="regional-table">
+      <h3>Detailed Regional Analysis</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Region</th>
+            <th>Branches</th>
+            <th>Revenue</th>
+            <th>Revenue/Branch</th>
+            <th>Growth</th>
+            <th>Market Share</th>
+            <th>Performance</th>
+            <th>Top Branch</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let region of filteredRegionalData()">
+            <td>
+              <div class="region-name">{{ region.region }}</div>
+            </td>
+            <td>{{ region.branches }}</td>
+            <td>{{ formatCurrency(region.revenue) }}</td>
+            <td>{{ formatCurrency(region.revenuePerBranch) }}</td>
+            <td>
+              <span class="growth-indicator" [class]="getGrowthClass(region.growth)">
+                <i [class]="getGrowthIcon(region.growth)"></i>
+                {{ formatPercentage(region.growth) }}
+              </span>
+            </td>
+            <td>{{ formatPercentage(region.marketShare) }}</td>
+            <td>
+              <div class="performance-bar">
+                <div class="performance-fill" [style.width.%]="region.performance"></div>
+                <span class="performance-text">{{ formatPercentage(region.performance) }}</span>
+              </div>
+            </td>
+            <td>
+              <button 
+                class="branch-link"
+                (click)="navigateToBranchDetails(region.topBranch)"
+              >
+                {{ region.topBranch }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Forecast View -->
+  <div class="analytics-content" *ngIf="selectedView() === 'forecast' && !isLoading()">
+    <div class="forecast-header">
+      <h2>Performance Forecasting</h2>
+      <p>Predictive analytics and future performance projections</p>
+    </div>
+
+    <div class="forecast-grid" *ngIf="forecastData().length > 0">
+      <div 
+        *ngFor="let forecast of forecastData()"
+        class="forecast-card"
+      >
+        <div class="forecast-header">
+          <h3>{{ forecast.metric }}</h3>
+          <div class="forecast-trend" [class]="getTrendClass(forecast.trend)">
+            <i [class]="getTrendIcon(forecast.trend)"></i>
+            {{ forecast.trend | titlecase }}
+          </div>
+        </div>
+
+        <div class="forecast-current">
+          <span class="current-label">Current</span>
+          <span class="current-value">
+            <ng-container *ngIf="forecast.metric === 'Revenue'">{{ formatCurrency(forecast.currentValue) }}</ng-container>
+            <ng-container *ngIf="forecast.metric !== 'Revenue'">{{ formatPercentage(forecast.currentValue) }}</ng-container>
+          </span>
+        </div>
+
+        <div class="forecast-projections">
+          <div class="projection-item">
+            <span class="projection-period">Next Month</span>
+            <span class="projection-value">
+              <ng-container *ngIf="forecast.metric === 'Revenue'">{{ formatCurrency(forecast.forecast.nextMonth) }}</ng-container>
+              <ng-container *ngIf="forecast.metric !== 'Revenue'">{{ formatPercentage(forecast.forecast.nextMonth) }}</ng-container>
+            </span>
+          </div>
+          <div class="projection-item">
+            <span class="projection-period">Next Quarter</span>
+            <span class="projection-value">
+              <ng-container *ngIf="forecast.metric === 'Revenue'">{{ formatCurrency(forecast.forecast.nextQuarter) }}</ng-container>
+              <ng-container *ngIf="forecast.metric !== 'Revenue'">{{ formatPercentage(forecast.forecast.nextQuarter) }}</ng-container>
+            </span>
+          </div>
+          <div class="projection-item">
+            <span class="projection-period">Next Year</span>
+            <span class="projection-value">
+              <ng-container *ngIf="forecast.metric === 'Revenue'">{{ formatCurrency(forecast.forecast.nextYear) }}</ng-container>
+              <ng-container *ngIf="forecast.metric !== 'Revenue'">{{ formatPercentage(forecast.forecast.nextYear) }}</ng-container>
+            </span>
+          </div>
+        </div>
+
+        <div class="forecast-confidence">
+          <div class="confidence-label">Confidence Level</div>
+          <div class="confidence-bar">
+            <div 
+              class="confidence-fill"
+              [class]="getConfidenceClass(forecast.confidence)"
+              [style.width.%]="forecast.confidence"
+            ></div>
+          </div>
+          <div class="confidence-value">{{ formatPercentage(forecast.confidence) }}</div>
+        </div>
+
+        <div class="forecast-factors">
+          <div class="factors-label">Key Factors</div>
+          <ul class="factors-list">
+            <li *ngFor="let factor of forecast.factors">{{ factor }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Executive View -->
+  <div class="analytics-content" *ngIf="selectedView() === 'executive' && !isLoading()">
+    <div class="executive-summary" *ngIf="executiveSummary()">
+      <div class="summary-header">
+        <h2>Executive Summary</h2>
+        <div class="summary-period">{{ executiveSummary()!.period }}</div>
+      </div>
+
+      <!-- Key Metrics Overview -->
+      <div class="executive-metrics">
+        <h3>Key Performance Indicators</h3>
+        <div class="exec-metrics-grid">
+          <div class="exec-metric">
+            <div class="metric-icon">
+              <i class="icon-dollar-sign"></i>
+            </div>
+            <div class="metric-data">
+              <div class="metric-value">{{ formatCurrency(executiveSummary()!.keyMetrics.totalRevenue) }}</div>
+              <div class="metric-label">Total Revenue</div>
+              <div class="metric-growth" [class]="getGrowthClass(executiveSummary()!.keyMetrics.revenueGrowth)">
+                {{ formatPercentage(executiveSummary()!.keyMetrics.revenueGrowth) }} growth
+              </div>
+            </div>
+          </div>
+
+          <div class="exec-metric">
+            <div class="metric-icon">
+              <i class="icon-activity"></i>
+            </div>
+            <div class="metric-data">
+              <div class="metric-value">{{ formatPercentage(executiveSummary()!.keyMetrics.networkEfficiency) }}</div>
+              <div class="metric-label">Network Efficiency</div>
+            </div>
+          </div>
+
+          <div class="exec-metric">
+            <div class="metric-icon">
+              <i class="icon-heart"></i>
+            </div>
+            <div class="metric-data">
+              <div class="metric-value">{{ formatPercentage(executiveSummary()!.keyMetrics.customerSatisfaction) }}</div>
+              <div class="metric-label">Customer Satisfaction</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Executive Sections -->
+      <div class="executive-sections">
+        <div class="exec-section achievements">
+          <h3><i class="icon-award"></i> Key Achievements</h3>
+          <ul class="exec-list">
+            <li *ngFor="let achievement of executiveSummary()!.achievements" class="achievement-item">
+              <i class="icon-check-circle"></i>
+              {{ achievement }}
+            </li>
+          </ul>
+        </div>
+
+        <div class="exec-section challenges">
+          <h3><i class="icon-alert-triangle"></i> Current Challenges</h3>
+          <ul class="exec-list">
+            <li *ngFor="let challenge of executiveSummary()!.challenges" class="challenge-item">
+              <i class="icon-alert-circle"></i>
+              {{ challenge }}
+            </li>
+          </ul>
+        </div>
+
+        <div class="exec-section recommendations">
+          <h3><i class="icon-lightbulb"></i> Strategic Recommendations</h3>
+          <ul class="exec-list">
+            <li *ngFor="let recommendation of executiveSummary()!.recommendations" class="recommendation-item">
+              <i class="icon-arrow-right"></i>
+              {{ recommendation }}
+            </li>
+          </ul>
+        </div>
+
+        <div class="exec-section next-actions">
+          <h3><i class="icon-target"></i> Next Actions</h3>
+          <ul class="exec-list">
+            <li *ngFor="let action of executiveSummary()!.nextActions" class="action-item">
+              <i class="icon-play-circle"></i>
+              {{ action }}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Competitive Analysis -->
+    <div class="competitive-analysis" *ngIf="competitiveAnalysis()">
+      <h2>Competitive Landscape</h2>
+      
+      <div class="market-position">
+        <div class="position-card">
+          <h3>Market Position</h3>
+          <div class="position-rank">#{{ competitiveAnalysis()!.marketPosition }}</div>
+          <div class="market-share">{{ formatPercentage(competitiveAnalysis()!.marketShare) }} Market Share</div>
+        </div>
+
+        <div class="competitors-overview">
+          <h4>Competitor Comparison</h4>
+          <div class="competitors-list">
+            <div 
+              *ngFor="let competitor of competitiveAnalysis()!.competitorComparison"
+              class="competitor-item"
+            >
+              <div class="competitor-header">
+                <span class="competitor-name">{{ competitor.name }}</span>
+                <span class="competitor-share">{{ formatPercentage(competitor.marketShare) }}</span>
+              </div>
+              <div class="competitor-analysis">
+                <div class="strength">
+                  <i class="icon-plus-circle"></i>
+                  <span>{{ competitor.strength }}</span>
+                </div>
+                <div class="weakness">
+                  <i class="icon-minus-circle"></i>
+                  <span>{{ competitor.weakness }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="swot-analysis">
+        <div class="swot-section opportunities">
+          <h4><i class="icon-trending-up"></i> Opportunities</h4>
+          <ul>
+            <li *ngFor="let opportunity of competitiveAnalysis()!.opportunities">{{ opportunity }}</li>
+          </ul>
+        </div>
+
+        <div class="swot-section threats">
+          <h4><i class="icon-alert-triangle"></i> Threats</h4>
+          <ul>
+            <li *ngFor="let threat of competitiveAnalysis()!.threats">{{ threat }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

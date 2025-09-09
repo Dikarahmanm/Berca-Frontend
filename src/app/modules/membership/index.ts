@@ -6,7 +6,6 @@ import { MembershipService } from './services/membership.service';
 export { MembershipListComponent } from './components/membership-list/membership-list.component';
 export { MembershipFormComponent } from './components/membership-form/membership-form.component';
 export { MemberPointsComponent } from './components/member-points/member-points.component';
-export { MembershipTestComponent } from './components/membership-test/membership-test.component';
 
 // Services
 export { MembershipService } from './services/membership.service';

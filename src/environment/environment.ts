@@ -5,6 +5,7 @@ export const environment = {
   // ✅ REAL: Backend API URLs sesuai .NET 9 API
   apiUrl: 'http://localhost:5171/api', // HTTP as required, not HTTPS due to SSL cert issues
   baseUrl: 'http://localhost:5171', // For auth and admin endpoints
+  wsUrl: 'ws://localhost:5171', // WebSocket URL for real-time features
   apiVersion: 'v1',
   
   // App Configuration

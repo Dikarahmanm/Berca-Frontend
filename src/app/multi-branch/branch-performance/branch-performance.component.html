@@ -1,0 +1,354 @@
+<div class="branch-performance">
+  <!-- Header Section -->
+  <div class="page-header">
+    <div class="header-content">
+      <h1>Branch Performance Analytics</h1>
+      <p class="header-subtitle">Comprehensive performance analysis and comparison across all branches</p>
+    </div>
+    
+    <div class="header-actions">
+      <button 
+        class="btn btn-secondary"
+        (click)="exportData()"
+        [disabled]="isLoading()"
+      >
+        <i class="icon-download"></i>
+        Export Data
+      </button>
+      
+      <button 
+        class="btn btn-primary"
+        (click)="refreshData()"
+        [disabled]="isLoading()"
+      >
+        <i class="icon-refresh-cw" [class.spinning]="isLoading()"></i>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Period and Filter Controls -->
+  <div class="controls-section">
+    <div class="period-selector">
+      <label>Time Period:</label>
+      <div class="period-buttons">
+        <button 
+          *ngFor="let period of ['7d', '30d', '90d', '1y']"
+          class="period-btn"
+          [class.active]="selectedPeriod() === period"
+          (click)="setPeriod($any(period))"
+        >
+          {{ period === '7d' ? '7 Days' : period === '30d' ? '30 Days' : period === '90d' ? '90 Days' : '1 Year' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="comparison-selector">
+      <label>Show:</label>
+      <select (change)="onComparisonModeChange($event)" [value]="comparisonMode()">
+        <option value="all">All Branches</option>
+        <option value="top5">Top 5 Performers</option>
+        <option value="bottom5">Bottom 5 Performers</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Performance Overview Cards -->
+  <div class="overview-section" *ngIf="performanceMetrics()">
+    <h2>Performance Overview</h2>
+    
+    <div class="overview-cards">
+      <div class="overview-card revenue">
+        <div class="card-header">
+          <h3>Total Revenue</h3>
+          <i class="icon-dollar-sign"></i>
+        </div>
+        <div class="card-value">{{ formatCurrency(performanceMetrics()!.totalRevenue) }}</div>
+        <div class="card-subtitle">Across all branches</div>
+      </div>
+
+      <div class="overview-card profit">
+        <div class="card-header">
+          <h3>Avg Profit Margin</h3>
+          <i class="icon-trending-up"></i>
+        </div>
+        <div class="card-value">{{ formatPercentage(performanceMetrics()!.avgProfitMargin) }}</div>
+        <div class="card-subtitle">Network average</div>
+      </div>
+
+      <div class="overview-card efficiency">
+        <div class="card-header">
+          <h3>Inventory Turnover</h3>
+          <i class="icon-repeat"></i>
+        </div>
+        <div class="card-value">{{ performanceMetrics()!.avgInventoryTurnover.toFixed(1) }}x</div>
+        <div class="card-subtitle">Average turnover rate</div>
+      </div>
+
+      <div class="overview-card satisfaction">
+        <div class="card-header">
+          <h3>Customer Satisfaction</h3>
+          <i class="icon-heart"></i>
+        </div>
+        <div class="card-value">{{ formatPercentage(performanceMetrics()!.avgSatisfaction) }}</div>
+        <div class="card-subtitle">Network average</div>
+      </div>
+    </div>
+
+    <!-- Top and Bottom Performers -->
+    <div class="performers-section">
+      <div class="top-performer">
+        <h4>Top Performer</h4>
+        <div class="performer-card excellent">
+          <div class="performer-info">
+            <div class="performer-name">{{ performanceMetrics()!.topPerformer.branchName }}</div>
+            <div class="performer-rank">#{{ performanceMetrics()!.topPerformer.rank }}</div>
+          </div>
+          <div class="performer-metrics">
+            <div class="metric">
+              <span class="metric-label">Revenue</span>
+              <span class="metric-value">{{ formatCurrency(performanceMetrics()!.topPerformer.currentPeriod.revenue) }}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Profit Margin</span>
+              <span class="metric-value">{{ formatPercentage(performanceMetrics()!.topPerformer.currentPeriod.profitMargin) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-performer">
+        <h4>Needs Attention</h4>
+        <div class="performer-card attention">
+          <div class="performer-info">
+            <div class="performer-name">{{ performanceMetrics()!.worstPerformer.branchName }}</div>
+            <div class="performer-rank">#{{ performanceMetrics()!.worstPerformer.rank }}</div>
+          </div>
+          <div class="performer-metrics">
+            <div class="metric">
+              <span class="metric-label">Revenue</span>
+              <span class="metric-value">{{ formatCurrency(performanceMetrics()!.worstPerformer.currentPeriod.revenue) }}</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Profit Margin</span>
+              <span class="metric-value">{{ formatPercentage(performanceMetrics()!.worstPerformer.currentPeriod.profitMargin) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Performance Chart Section -->
+  <div class="chart-section">
+    <div class="chart-header">
+      <h2>Performance Visualization</h2>
+      
+      <div class="chart-controls">
+        <div class="metric-selector">
+          <label>Metric:</label>
+          <select (change)="onMetricChange($event)" [value]="selectedMetric()">
+            <option value="revenue">Revenue</option>
+            <option value="profit">Profit Margin</option>
+            <option value="efficiency">Efficiency Metrics</option>
+            <option value="quality">Quality Metrics</option>
+          </select>
+        </div>
+
+        <div class="chart-type-selector">
+          <label>Chart Type:</label>
+          <div class="chart-type-buttons">
+            <button 
+              *ngFor="let type of ['bar', 'line', 'radar']"
+              class="chart-type-btn"
+              [class.active]="chartType() === type"
+              (click)="setChartType($any(type))"
+            >
+              <i class="icon-{{ type === 'bar' ? 'bar-chart' : type === 'line' ? 'line-chart' : 'pie-chart' }}"></i>
+              {{ type | titlecase }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart Container (Placeholder for chart library) -->
+    <div class="chart-container">
+      <div class="chart-placeholder" *ngIf="!isLoading()">
+        <div class="chart-info">
+          <h3>{{ selectedMetric() | titlecase }} Performance</h3>
+          <p>Chart visualization for {{ chartData().labels.length }} branches</p>
+        </div>
+        
+        <!-- Simple Bar Chart Representation -->
+        <div class="simple-chart" *ngIf="chartType() === 'bar' && chartData().datasets.length > 0">
+          <div class="chart-bars">
+            <div 
+              class="chart-bar"
+              *ngFor="let value of chartData().datasets[0].data; let i = index"
+              [style.height.%]="(value / getMaxValue(chartData().datasets[0].data)) * 100"
+              [title]="chartData().labels[i] + ': ' + formatMetricValue(value)"
+            >
+              <div class="bar-value">{{ formatMetricValue(value) }}</div>
+              <div class="bar-label">{{ chartData().labels[i] }}</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Chart integration placeholder -->
+        <div class="chart-integration-note" *ngIf="chartType() !== 'bar'">
+          <p>{{ chartType() | titlecase }} chart visualization would be rendered here with chart library integration</p>
+          <small>Data available for {{ chartData().labels.length }} branches</small>
+        </div>
+      </div>
+      
+      <div class="chart-loading" *ngIf="isLoading()">
+        <div class="spinner"></div>
+        <p>Loading chart data...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detailed Performance Table -->
+  <div class="performance-table">
+    <div class="table-header">
+      <h2>Detailed Performance Analysis</h2>
+      <div class="table-info">
+        <span>Showing {{ filteredComparisons().length }} branches</span>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Branch</th>
+            <th>Revenue</th>
+            <th>Profit Margin</th>
+            <th>Inventory Turnover</th>
+            <th>Customer Satisfaction</th>
+            <th>Growth Trends</th>
+            <th>Performance Level</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr 
+            *ngFor="let comparison of filteredComparisons(); trackBy: trackByBranchId"
+            class="performance-row"
+            [class]="getPerformanceLevelClass(comparison.percentile)"
+          >
+            <td>
+              <div class="rank-cell">
+                <span class="rank-number">#{{ comparison.rank }}</span>
+                <span class="percentile">{{ comparison.percentile }}th percentile</span>
+              </div>
+            </td>
+            
+            <td>
+              <div class="branch-cell">
+                <div class="branch-name">{{ comparison.branchName }}</div>
+                <span class="performance-badge" [class]="getPerformanceLevelClass(comparison.percentile)">
+                  {{ getPerformanceLevel(comparison.percentile) }}
+                </span>
+              </div>
+            </td>
+            
+            <td>
+              <div class="metric-cell">
+                <div class="current-value">{{ formatCurrency(comparison.currentPeriod.revenue) }}</div>
+                <div class="growth-indicator" [class]="getGrowthClass(comparison.growth.revenueGrowth)">
+                  <i [class]="getGrowthIcon(comparison.growth.revenueGrowth)"></i>
+                  {{ formatPercentage(comparison.growth.revenueGrowth) }}
+                </div>
+              </div>
+            </td>
+            
+            <td>
+              <div class="metric-cell">
+                <div class="current-value">{{ formatPercentage(comparison.currentPeriod.profitMargin) }}</div>
+                <div class="growth-indicator" [class]="getGrowthClass(comparison.growth.profitGrowth)">
+                  <i [class]="getGrowthIcon(comparison.growth.profitGrowth)"></i>
+                  {{ formatPercentage(comparison.growth.profitGrowth) }}
+                </div>
+              </div>
+            </td>
+            
+            <td>
+              <div class="metric-cell">
+                <div class="current-value">{{ comparison.currentPeriod.inventoryTurnover.toFixed(1) }}x</div>
+                <div class="additional-info">
+                  <small>{{ comparison.currentPeriod.stockoutEvents }} stockouts</small>
+                </div>
+              </div>
+            </td>
+            
+            <td>
+              <div class="metric-cell">
+                <div class="current-value">{{ formatPercentage(comparison.currentPeriod.customerSatisfaction) }}</div>
+                <div class="growth-indicator" [class]="getGrowthClass(comparison.growth.satisfactionGrowth)">
+                  <i [class]="getGrowthIcon(comparison.growth.satisfactionGrowth)"></i>
+                  {{ formatPercentage(comparison.growth.satisfactionGrowth) }}
+                </div>
+              </div>
+            </td>
+            
+            <td>
+              <div class="trends-cell">
+                <div class="trend-indicators">
+                  <div class="trend-item">
+                    <span class="trend-label">Revenue</span>
+                    <span class="trend-value" [class]="getGrowthClass(comparison.growth.revenueGrowth)">
+                      {{ comparison.growth.revenueGrowth > 0 ? '+' : '' }}{{ formatPercentage(comparison.growth.revenueGrowth) }}
+                    </span>
+                  </div>
+                  <div class="trend-item">
+                    <span class="trend-label">Efficiency</span>
+                    <span class="trend-value" [class]="getGrowthClass(comparison.growth.efficiencyGrowth)">
+                      {{ comparison.growth.efficiencyGrowth > 0 ? '+' : '' }}{{ formatPercentage(comparison.growth.efficiencyGrowth) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            
+            <td>
+              <div class="performance-level-cell">
+                <span class="level-badge" [class]="getPerformanceLevelClass(comparison.percentile)">
+                  {{ getPerformanceLevel(comparison.percentile) }}
+                </span>
+                <div class="level-score">{{ comparison.percentile }}/100</div>
+              </div>
+            </td>
+            
+            <td>
+              <div class="action-buttons">
+                <button 
+                  class="btn btn-sm btn-outline"
+                  (click)="viewBranchDetails(comparison.branchId)"
+                  title="View Branch Details"
+                >
+                  <i class="icon-eye"></i>
+                  Details
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="filteredComparisons().length === 0 && !isLoading()">
+        <div class="empty-icon">
+          <i class="icon-bar-chart-2"></i>
+        </div>
+        <h3>No Performance Data</h3>
+        <p>No branch performance data available for the selected period.</p>
+        <button class="btn btn-primary" (click)="refreshData()">
+          Refresh Data
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

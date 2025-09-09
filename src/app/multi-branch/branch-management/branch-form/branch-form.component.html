@@ -1,0 +1,671 @@
+<div class="branch-form-container">
+  <!-- Header Section -->
+  <div class="form-header">
+    <div class="header-content">
+      <div class="title-section">
+        <h1>{{ pageTitle() }}</h1>
+        <p class="form-subtitle">
+          {{ isEditMode() ? 'Update branch information and settings' : 'Create a new branch in your network' }}
+        </p>
+      </div>
+      
+      <div class="header-actions">
+        <button 
+          type="button"
+          class="btn btn-outline"
+          (click)="cancel()"
+        >
+          Cancel
+        </button>
+        
+        <button 
+          type="button"
+          class="btn btn-primary"
+          (click)="onSubmit()"
+          [disabled]="!branchForm.valid || isSaving()"
+        >
+          <i class="icon-loader" *ngIf="isSaving()" [class.spinning]="isSaving()"></i>
+          <i class="icon-save" *ngIf="!isSaving()"></i>
+          {{ isSaving() ? 'Saving...' : (isEditMode() ? 'Update Branch' : 'Create Branch') }}
+        </button>
+      </div>
+    </div>
+    
+    <!-- Progress Indicator -->
+    <div class="progress-section">
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="formProgress()"></div>
+      </div>
+      
+      <div class="step-indicators">
+        <div 
+          *ngFor="let title of stepTitles; let i = index"
+          class="step-indicator"
+          [class.active]="currentStep() === i + 1"
+          [class.completed]="currentStep() > i + 1"
+          (click)="goToStep(i + 1)"
+        >
+          <div class="step-number">
+            <i class="icon-check" *ngIf="currentStep() > i + 1"></i>
+            <span *ngIf="currentStep() <= i + 1">{{ i + 1 }}</span>
+          </div>
+          <div class="step-title">{{ title }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="isLoading()">
+    <div class="loading-spinner"></div>
+    <p>Loading branch data...</p>
+  </div>
+
+  <!-- Form Content -->
+  <form [formGroup]="branchForm" *ngIf="!isLoading()" class="branch-form">
+    
+    <!-- Step 1: Basic Information -->
+    <div class="form-step" *ngIf="currentStep() === 1">
+      <div class="step-header">
+        <h2>Basic Information</h2>
+        <p>Enter the basic details for the branch</p>
+      </div>
+      
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label for="branchName">Branch Name *</label>
+          <input 
+            type="text"
+            id="branchName"
+            formControlName="branchName"
+            placeholder="Enter branch name"
+            [class.error]="getFieldError('branchName')"
+          />
+          <div class="field-error" *ngIf="getFieldError('branchName')">
+            {{ getFieldError('branchName') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="branchCode">Branch Code *</label>
+          <input 
+            type="text"
+            id="branchCode"
+            formControlName="branchCode"
+            placeholder="e.g., JKT001"
+            [class.error]="getFieldError('branchCode')"
+            style="text-transform: uppercase;"
+          />
+          <div class="field-hint">3-10 uppercase letters and numbers</div>
+          <div class="field-error" *ngIf="getFieldError('branchCode')">
+            {{ getFieldError('branchCode') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Branch Status</label>
+          <div class="toggle-switch">
+            <input 
+              type="checkbox"
+              id="isActive"
+              formControlName="isActive"
+            />
+            <label for="isActive" class="toggle-label">
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">{{ branchForm.get('isActive')?.value ? 'Active' : 'Inactive' }}</span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="managerName">Manager Name *</label>
+          <input 
+            type="text"
+            id="managerName"
+            formControlName="managerName"
+            placeholder="Enter manager's full name"
+            [class.error]="getFieldError('managerName')"
+          />
+          <div class="field-error" *ngIf="getFieldError('managerName')">
+            {{ getFieldError('managerName') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="managerEmail">Manager Email *</label>
+          <input 
+            type="email"
+            id="managerEmail"
+            formControlName="managerEmail"
+            placeholder="manager@example.com"
+            [class.error]="getFieldError('managerEmail')"
+          />
+          <div class="field-error" *ngIf="getFieldError('managerEmail')">
+            {{ getFieldError('managerEmail') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="managerPhone">Manager Phone *</label>
+          <input 
+            type="tel"
+            id="managerPhone"
+            formControlName="managerPhone"
+            placeholder="+62-21-12345678"
+            [class.error]="getFieldError('managerPhone')"
+          />
+          <div class="field-error" *ngIf="getFieldError('managerPhone')">
+            {{ getFieldError('managerPhone') }}
+          </div>
+        </div>
+      </div>
+      
+      <div class="services-section">
+        <h3>Allowed Services</h3>
+        <p>Select the services this branch is authorized to provide</p>
+        
+        <div class="services-grid">
+          <div 
+            *ngFor="let service of availableServices"
+            class="service-item"
+            [class.selected]="isServiceSelected(service)"
+            (click)="onServiceToggle(service)"
+          >
+            <div class="service-checkbox">
+              <i class="icon-check" *ngIf="isServiceSelected(service)"></i>
+            </div>
+            <div class="service-info">
+              <span class="service-name">{{ service }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Contact & Location -->
+    <div class="form-step" *ngIf="currentStep() === 2">
+      <div class="step-header">
+        <h2>Contact & Location</h2>
+        <p>Provide address and contact information</p>
+      </div>
+      
+      <div class="form-grid">
+        <div class="form-group full-width">
+          <label for="address">Street Address *</label>
+          <textarea 
+            id="address"
+            formControlName="address"
+            placeholder="Enter complete street address"
+            rows="3"
+            [class.error]="getFieldError('address')"
+          ></textarea>
+          <div class="field-error" *ngIf="getFieldError('address')">
+            {{ getFieldError('address') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="city">City *</label>
+          <input 
+            type="text"
+            id="city"
+            formControlName="city"
+            placeholder="Enter city name"
+            [class.error]="getFieldError('city')"
+          />
+          <div class="field-error" *ngIf="getFieldError('city')">
+            {{ getFieldError('city') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="region">Region *</label>
+          <select 
+            id="region"
+            formControlName="region"
+            [class.error]="getFieldError('region')"
+          >
+            <option value="">Select region</option>
+            <option 
+              *ngFor="let region of availableRegions"
+              [value]="region"
+            >
+              {{ region }}
+            </option>
+          </select>
+          <div class="field-error" *ngIf="getFieldError('region')">
+            {{ getFieldError('region') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="postalCode">Postal Code *</label>
+          <input 
+            type="text"
+            id="postalCode"
+            formControlName="postalCode"
+            placeholder="12345"
+            maxlength="5"
+            [class.error]="getFieldError('postalCode')"
+          />
+          <div class="field-error" *ngIf="getFieldError('postalCode')">
+            {{ getFieldError('postalCode') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="phone">Branch Phone *</label>
+          <input 
+            type="tel"
+            id="phone"
+            formControlName="phone"
+            placeholder="+62-21-12345678"
+            [class.error]="getFieldError('phone')"
+          />
+          <div class="field-error" *ngIf="getFieldError('phone')">
+            {{ getFieldError('phone') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="email">Branch Email *</label>
+          <input 
+            type="email"
+            id="email"
+            formControlName="email"
+            placeholder="branch@example.com"
+            [class.error]="getFieldError('email')"
+          />
+          <div class="field-error" *ngIf="getFieldError('email')">
+            {{ getFieldError('email') }}
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="website">Website (Optional)</label>
+          <input 
+            type="url"
+            id="website"
+            formControlName="website"
+            placeholder="https://example.com"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="latitude">Latitude (Optional)</label>
+          <input 
+            type="number"
+            id="latitude"
+            formControlName="latitude"
+            placeholder="-6.200000"
+            step="0.000001"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="longitude">Longitude (Optional)</label>
+          <input 
+            type="number"
+            id="longitude"
+            formControlName="longitude"
+            placeholder="106.816666"
+            step="0.000001"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Operating Hours -->
+    <div class="form-step" *ngIf="currentStep() === 3">
+      <div class="step-header">
+        <h2>Operating Hours</h2>
+        <p>Set the operational schedule for this branch</p>
+      </div>
+      
+      <div class="operating-hours-controls">
+        <button 
+          type="button"
+          class="btn btn-sm btn-outline"
+          (click)="toggleAllDays(true)"
+        >
+          Open All Days
+        </button>
+        
+        <button 
+          type="button"
+          class="btn btn-sm btn-outline"
+          (click)="toggleAllDays(false)"
+        >
+          Close All Days
+        </button>
+      </div>
+      
+      <div formGroupName="operatingHours" class="operating-hours">
+        <div 
+          *ngFor="let day of ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']"
+          [formGroupName]="day"
+          class="day-schedule"
+        >
+          <div class="day-header">
+            <label class="day-name">{{ day | titlecase }}</label>
+            
+            <div class="day-toggle">
+              <input 
+                type="checkbox"
+                [id]="day + 'IsOpen'"
+                formControlName="isOpen"
+              />
+              <label [for]="day + 'IsOpen'" class="toggle-label">
+                <span class="toggle-slider"></span>
+                <span class="toggle-text">
+                  {{ branchForm.get('operatingHours.' + day + '.isOpen')?.value ? 'Open' : 'Closed' }}
+                </span>
+              </label>
+            </div>
+            
+            <button 
+              type="button"
+              class="copy-btn"
+              (click)="copyScheduleToAll(day)"
+              *ngIf="branchForm.get('operatingHours.' + day + '.isOpen')?.value"
+              title="Copy this schedule to all days"
+            >
+              <i class="icon-copy"></i>
+            </button>
+          </div>
+          
+          <div class="day-times" *ngIf="branchForm.get('operatingHours.' + day + '.isOpen')?.value">
+            <div class="time-group">
+              <label>Opening Time</label>
+              <input 
+                type="time"
+                formControlName="openTime"
+              />
+            </div>
+            
+            <div class="time-group">
+              <label>Closing Time</label>
+              <input 
+                type="time"
+                formControlName="closeTime"
+              />
+            </div>
+            
+            <div class="time-group">
+              <label>Break Start (Optional)</label>
+              <input 
+                type="time"
+                formControlName="breakStart"
+              />
+            </div>
+            
+            <div class="time-group">
+              <label>Break End (Optional)</label>
+              <input 
+                type="time"
+                formControlName="breakEnd"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: System & Compliance Settings -->
+    <div class="form-step" *ngIf="currentStep() === 4">
+      <div class="step-header">
+        <h2>System & Compliance Settings</h2>
+        <p>Configure system parameters and compliance requirements</p>
+      </div>
+      
+      <!-- System Settings -->
+      <div class="settings-section">
+        <h3>System Settings</h3>
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="timezone">Timezone *</label>
+            <select id="timezone" formControlName="timezone">
+              <option 
+                *ngFor="let tz of availableTimezones"
+                [value]="tz"
+              >
+                {{ tz }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="currency">Currency *</label>
+            <select id="currency" formControlName="currency">
+              <option 
+                *ngFor="let curr of availableCurrencies"
+                [value]="curr"
+              >
+                {{ curr }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="language">Language *</label>
+            <select id="language" formControlName="language">
+              <option 
+                *ngFor="let lang of availableLanguages"
+                [value]="lang"
+              >
+                {{ lang }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="maxDailyTransactions">Max Daily Transactions *</label>
+            <input 
+              type="number"
+              id="maxDailyTransactions"
+              formControlName="maxDailyTransactions"
+              min="100"
+              max="10000"
+              [class.error]="getFieldError('maxDailyTransactions')"
+            />
+            <div class="field-hint">Current: {{ branchForm.get('maxDailyTransactions')?.value }} transactions</div>
+            <div class="field-error" *ngIf="getFieldError('maxDailyTransactions')">
+              {{ getFieldError('maxDailyTransactions') }}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="backupFrequency">Backup Frequency *</label>
+            <select id="backupFrequency" formControlName="backupFrequency">
+              <option value="hourly">Hourly</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="maintenanceWindow">Maintenance Window *</label>
+            <input 
+              type="text"
+              id="maintenanceWindow"
+              formControlName="maintenanceWindow"
+              placeholder="02:00-04:00"
+            />
+            <div class="field-hint">Format: HH:MM-HH:MM</div>
+          </div>
+        </div>
+        
+        <div class="toggle-settings">
+          <div class="toggle-item">
+            <label>Auto-sync Enabled</label>
+            <div class="toggle-switch">
+              <input 
+                type="checkbox"
+                id="autoSyncEnabled"
+                formControlName="autoSyncEnabled"
+              />
+              <label for="autoSyncEnabled" class="toggle-label">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="toggle-item">
+            <label>Notifications Enabled</label>
+            <div class="toggle-switch">
+              <input 
+                type="checkbox"
+                id="notificationsEnabled"
+                formControlName="notificationsEnabled"
+              />
+              <label for="notificationsEnabled" class="toggle-label">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Compliance Settings -->
+      <div class="settings-section">
+        <h3>Compliance Settings</h3>
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="maxTransactionAmount">Max Transaction Amount *</label>
+            <input 
+              type="number"
+              id="maxTransactionAmount"
+              formControlName="maxTransactionAmount"
+              min="1000000"
+              [class.error]="getFieldError('maxTransactionAmount')"
+            />
+            <div class="field-hint">Current: {{ formatCurrency(branchForm.get('maxTransactionAmount')?.value || 0) }}</div>
+            <div class="field-error" *ngIf="getFieldError('maxTransactionAmount')">
+              {{ getFieldError('maxTransactionAmount') }}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="auditLogRetention">Audit Log Retention (days) *</label>
+            <input 
+              type="number"
+              id="auditLogRetention"
+              formControlName="auditLogRetention"
+              min="30"
+              max="2555"
+              [class.error]="getFieldError('auditLogRetention')"
+            />
+            <div class="field-error" *ngIf="getFieldError('auditLogRetention')">
+              {{ getFieldError('auditLogRetention') }}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="dataEncryptionLevel">Data Encryption Level *</label>
+            <select id="dataEncryptionLevel" formControlName="dataEncryptionLevel">
+              <option value="basic">Basic</option>
+              <option value="standard">Standard</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="accessControlLevel">Access Control Level *</label>
+            <select id="accessControlLevel" formControlName="accessControlLevel">
+              <option value="basic">Basic</option>
+              <option value="standard">Standard</option>
+              <option value="strict">Strict</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="reportingFrequency">Reporting Frequency *</label>
+            <select id="reportingFrequency" formControlName="reportingFrequency">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="toggle-settings">
+          <div class="toggle-item">
+            <label>Require Manager Approval</label>
+            <div class="toggle-switch">
+              <input 
+                type="checkbox"
+                id="requireManagerApproval"
+                formControlName="requireManagerApproval"
+              />
+              <label for="requireManagerApproval" class="toggle-label">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Validation Errors Summary -->
+    <div class="validation-errors" *ngIf="validationErrors().length > 0">
+      <h4>Please fix the following issues:</h4>
+      <div class="error-list">
+        <div 
+          *ngFor="let error of validationErrors()"
+          class="error-item"
+          [class]="'severity-' + error.severity"
+        >
+          <i class="icon-alert-triangle" *ngIf="error.severity === 'warning'"></i>
+          <i class="icon-alert-circle" *ngIf="error.severity === 'error'"></i>
+          <span>{{ error.message }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Controls -->
+    <div class="form-navigation">
+      <div class="nav-left">
+        <button 
+          type="button"
+          class="btn btn-outline"
+          (click)="previousStep()"
+          [disabled]="currentStep() === 1"
+        >
+          <i class="icon-chevron-left"></i>
+          Previous
+        </button>
+      </div>
+      
+      <div class="nav-center">
+        <span class="step-info">Step {{ currentStep() }} of {{ maxSteps }}</span>
+      </div>
+      
+      <div class="nav-right">
+        <button 
+          type="button"
+          class="btn btn-primary"
+          (click)="nextStep()"
+          *ngIf="currentStep() < maxSteps"
+          [disabled]="!canProceedToNextStep()"
+        >
+          Next
+          <i class="icon-chevron-right"></i>
+        </button>
+        
+        <button 
+          type="button"
+          class="btn btn-success"
+          (click)="onSubmit()"
+          *ngIf="currentStep() === maxSteps"
+          [disabled]="!branchForm.valid || isSaving()"
+        >
+          <i class="icon-loader" *ngIf="isSaving()" [class.spinning]="isSaving()"></i>
+          <i class="icon-save" *ngIf="!isSaving()"></i>
+          {{ isSaving() ? 'Saving...' : (isEditMode() ? 'Update Branch' : 'Create Branch') }}
+        </button>
+      </div>
+    </div>
+  </form>
+</div>

@@ -4,6 +4,18 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guard/auth.guard';
 import { roleGuard } from './core/guard/role.guard';
+import { branchRequiredGuard, multiBranchAdminGuard, coordinationAccessGuard } from './core/guards/branch-required.guard';
+import { 
+  multiBranchCoordinationGuard, 
+  transferManagementGuard, 
+  transferApprovalGuard,
+  branchManagementGuard,
+  multiBranchAnalyticsGuard,
+  systemAdminGuard,
+  branchAccessGuard,
+  financialDataGuard,
+  dataExportGuard
+} from './multi-branch/shared/guards/multi-branch-role.guard';
 
 export const routes: Routes = [
   {
@@ -19,7 +31,7 @@ export const routes: Routes = [
       import('./dashboard/dashboard.component').then(
         (m) => m.DashboardComponent
       ),
-    canActivate: [authGuard],
+    canActivate: [authGuard, branchRequiredGuard],
     children: [
       {
         path: '',
@@ -230,6 +242,57 @@ export const routes: Routes = [
           requiredRoles: ['Admin', 'Manager', 'User', 'Cashier'],
         },
       },
+      // ✅ NEW: Multi-branch routes as dashboard children
+      {
+        path: 'coordination',
+        loadComponent: () => import('./multi-branch/coordination-dashboard/coordination-dashboard.component').then(c => c.CoordinationDashboardComponent),
+        canActivate: [roleGuard, multiBranchCoordinationGuard],
+        data: {
+          title: 'Multi-Branch Coordination',
+          breadcrumb: 'Coordination',
+          requiredRoles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
+        }
+      },
+      {
+        path: 'branches',
+        loadComponent: () => import('./multi-branch/branch-management/branch-list/branch-list.component').then(c => c.BranchListComponent),
+        canActivate: [roleGuard, branchManagementGuard],
+        data: {
+          title: 'Branch Management',
+          breadcrumb: 'Branches',
+          requiredRoles: ['Admin', 'HeadManager']
+        }
+      },
+      {
+        path: 'transfers',
+        loadComponent: () => import('./multi-branch/transfer-management/transfer-management.component').then(c => c.TransferManagementComponent),
+        canActivate: [roleGuard, transferManagementGuard],
+        data: {
+          title: 'Transfer Management',
+          breadcrumb: 'Transfers',
+          requiredRoles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
+        }
+      },
+      {
+        path: 'branch-performance',
+        loadComponent: () => import('./multi-branch/branch-performance/branch-performance.component').then(c => c.BranchPerformanceComponent),
+        canActivate: [roleGuard, multiBranchAnalyticsGuard],
+        data: {
+          title: 'Branch Performance',
+          breadcrumb: 'Performance',
+          requiredRoles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
+        }
+      },
+      {
+        path: 'select-branch',
+        loadComponent: () => import('./multi-branch/branch-selector/branch-selector.component').then(c => c.BranchSelectorComponent),
+        canActivate: [roleGuard],
+        data: {
+          title: 'Select Branch',
+          breadcrumb: 'Select Branch',
+          requiredRoles: ['Admin', 'HeadManager', 'BranchManager']
+        }
+      },
     ],
     title: 'Dashboard - Toko Eniwan POS',
   },
@@ -238,6 +301,19 @@ export const routes: Routes = [
     path: 'sales/:id',
     redirectTo: '/dashboard/pos/transaction/:id',
     pathMatch: 'full',
+  },
+
+  // === UTILITY ROUTES ===
+  {
+    path: 'unauthorized',
+    loadComponent: () => import('./shared/unauthorized/unauthorized.component').then(c => c.UnauthorizedComponent),
+    title: 'Unauthorized - Toko Eniwan POS'
+  },
+  {
+    path: 'branch-required',
+    loadComponent: () => import('./shared/branch-required/branch-required.component').then(c => c.BranchRequiredComponent),
+    canActivate: [authGuard],
+    title: 'Branch Selection Required - Toko Eniwan POS'
   },
 
   {

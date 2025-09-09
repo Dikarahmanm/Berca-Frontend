@@ -88,6 +88,9 @@ integration-test.*
 performance-*.test.*
 
 # CLI and development tools
-*.vsix
+*.vs
 node_modules/@anthropic-ai/
 node_modules/@cursor/
+integration.md
+multi-branch-core-services.md
+multi-branch-notification-api-spec.md

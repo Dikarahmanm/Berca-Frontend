@@ -1,6 +1,7 @@
 // src/app/core/services/state.service.ts
 // Enhanced Multi-Branch State Management with Angular 20 Signals
 import { Injectable, signal, computed, inject, effect } from '@angular/core';
+import { Router } from '@angular/router';
 import { AuthService, CurrentUser } from './auth.service';
 import { NotificationService } from './notification.service';
 import { LayoutService } from '../../shared/services/layout.service';
@@ -15,6 +16,19 @@ import {
   MultiBranchFilterDto
 } from '../interfaces/branch.interfaces';
 import { AccessibleBranchDto } from '../models/branch.interface';
+import { Branch, HealthStatus } from '../models/branch.models';
+
+// === DESIGN GUIDE INTERFACES ===
+
+export interface User {
+  id: number;
+  username: string;
+  role: 'Admin' | 'HeadManager' | 'BranchManager' | 'Manager' | 'User';
+  branchId?: number;
+  branch?: Branch;
+  permissions: string[];
+  isMultiBranchUser: boolean;
+}
 
 @Injectable({ providedIn: 'root' })
 export class StateService {
@@ -38,6 +52,11 @@ export class StateService {
   private _branchErrors = signal<Map<number, string>>(new Map());
   private _lastBranchSync = signal<string | null>(null);
 
+  // === DESIGN GUIDE NEW SIGNALS ===
+  private readonly _availableBranches = signal<Branch[]>([]);
+  private readonly _branchRequired = signal<boolean>(false);
+  private readonly _coordinationAlerts = signal<number>(0);
+
   // ===== Public readonly - Existing =====
   readonly user = this._user.asReadonly();
   readonly loading = this._loading.asReadonly();
@@ -57,6 +76,11 @@ export class StateService {
   readonly branchLoadingStates = this._branchLoadingStates.asReadonly();
   readonly branchErrors = this._branchErrors.asReadonly();
   readonly lastBranchSync = this._lastBranchSync.asReadonly();
+
+  // === DESIGN GUIDE NEW PUBLIC READONLY SIGNALS ===
+  readonly availableBranches = this._availableBranches.asReadonly();
+  readonly branchRequired = this._branchRequired.asReadonly();
+  readonly coordinationAlerts = this._coordinationAlerts.asReadonly();
 
   // ===== Existing Computed Properties =====
   readonly isAuthenticated = computed(() => !!this._user());
@@ -155,6 +179,33 @@ export class StateService {
 
   readonly hasMultipleBranches = computed(() => this._accessibleBranches().length > 1);
 
+  // === DESIGN GUIDE NEW COMPUTED PROPERTIES ===
+  readonly selectedBranch = computed(() => {
+    const branchId = this._selectedBranchId();
+    const branches = this._availableBranches();
+    return branches.find(b => b.id === branchId) || null;
+  });
+
+  readonly isMultiBranchMode = computed(() => {
+    const user = this._user();
+    return user && this.hasMultipleBranches() && ['Admin', 'HeadManager'].includes(user.role);
+  });
+
+  readonly canSelectBranch = computed(() => {
+    const user = this._user();
+    return user && ['Admin', 'HeadManager', 'BranchManager'].includes(user.role);
+  });
+
+  readonly branchHealthStatus = computed((): HealthStatus => {
+    const branch = this.selectedBranch();
+    if (!branch?.healthScore) return 'unknown';
+    
+    if (branch.healthScore >= 90) return 'excellent';
+    if (branch.healthScore >= 75) return 'good';
+    if (branch.healthScore >= 50) return 'warning';
+    return 'critical';
+  });
+
   readonly currentBranchPermissions = computed(() => {
     const branchId = this._selectedBranchId();
     const userRoles = this._userBranchRoles();
@@ -167,37 +218,108 @@ export class StateService {
     return permissions.includes('branch.manage');
   });
 
-  private auth = inject(AuthService);
+  private auth = inject(AuthService, { optional: true });
   private layout = inject(LayoutService);
   private notif = inject(NotificationService);
   private branchService = inject(BranchService);
+  private router = inject(Router);
 
   constructor() {
+    // Initialize with mock branches for development
+    this._availableBranches.set([
+      {
+        id: 1,
+        branchId: 1,
+        branchName: 'Main Branch',
+        branchCode: 'MAIN',
+        address: 'Jl. Sudirman No. 123',
+        city: 'Jakarta',
+        province: 'DKI Jakarta',
+        isActive: true,
+        branchType: 'head_office',
+        openingDate: '2020-01-01',
+        healthScore: 95,
+        coordinationStatus: 'optimal',
+        pendingTransfers: 2,
+        criticalAlerts: 0
+      },
+      {
+        id: 2,
+        branchId: 2,
+        branchName: 'Branch Bekasi',
+        branchCode: 'BKS',
+        address: 'Jl. Ahmad Yani No. 456',
+        city: 'Bekasi',
+        province: 'Jawa Barat',
+        isActive: true,
+        branchType: 'regional',
+        openingDate: '2021-03-15',
+        healthScore: 87,
+        coordinationStatus: 'optimal',
+        pendingTransfers: 1,
+        criticalAlerts: 1
+      },
+      {
+        id: 3,
+        branchId: 3,
+        branchName: 'Branch Tangerang',
+        branchCode: 'TNG',
+        address: 'Jl. Raya Serpong No. 789',
+        city: 'Tangerang',
+        province: 'Banten',
+        isActive: true,
+        branchType: 'local',
+        openingDate: '2021-06-01',
+        healthScore: 82,
+        coordinationStatus: 'warning',
+        pendingTransfers: 3,
+        criticalAlerts: 2
+      }
+    ]);
+
     // Seed awal (kalau AuthService sudah punya user dari cookie/localStorage)
     try {
-      const seed = this.auth.getCurrentUser?.();
+      const seed = this.auth?.getCurrentUser?.();
       if (seed) this._user.set(seed);
-    } catch {}
+    } catch (error) {
+      console.warn('StateService: Could not get current user during initialization:', error);
+    }
 
-    // Mirror AuthService → signals
-    this.auth.currentUser$
-      .pipe(takeUntilDestroyed())
-      .subscribe((u) => this._user.set(u));
+    // === DESIGN GUIDE AUTO-SAVE EFFECT ===
+    // Auto-save selected branch to localStorage
+    effect(() => {
+      const branchId = this._selectedBranchId();
+      if (branchId) {
+        localStorage.setItem('selectedBranchId', branchId.toString());
+      }
+    });
 
-    this.auth.isLoggedIn$
-      .pipe(takeUntilDestroyed())
-      .subscribe((logged) => {
-        if (!logged) {
-          this._user.set(null);
-          // Clear branch data on logout
-          this._accessibleBranches.set([]);
-          this._selectedBranchId.set(null);
-          this._selectedBranchIds.set([]);
-        } else {
-          // Load accessible branches on login
-          this.loadMyAccessibleBranches();
-        }
-      });
+    // Load saved branch on startup
+    this.loadSavedBranchSelection();
+
+    // Mirror AuthService → signals (with null safety)
+    if (this.auth) {
+      this.auth.currentUser$
+        .pipe(takeUntilDestroyed())
+        .subscribe((u) => this._user.set(u));
+
+      this.auth.isLoggedIn$
+        .pipe(takeUntilDestroyed())
+        .subscribe((logged) => {
+          if (!logged) {
+            this._user.set(null);
+            // Clear branch data on logout
+            this._accessibleBranches.set([]);
+            this._selectedBranchId.set(null);
+            this._selectedBranchIds.set([]);
+          } else {
+            // Load accessible branches on login
+            this.loadMyAccessibleBranches();
+          }
+        });
+    } else {
+      console.warn('StateService: AuthService not available during initialization');
+    }
 
     // Mirror LayoutService → signals
     this.layout.sidebarCollapsed$
@@ -226,7 +348,7 @@ export class StateService {
     this.layout.setSidebarCollapsed(next);
   }
 
-  setUser(u: CurrentUser | null) {
+  setUserLegacy(u: CurrentUser | null) {
     this._user.set(u);
     if (u) {
       this.initializeUserBranchContext(u);
@@ -243,8 +365,116 @@ export class StateService {
   }
 
   logoutToLogin() {
-    this.auth.logout().subscribe();
+    if (this.auth) {
+      this.auth.logout().subscribe();
+    }
     this.clearBranchState();
+  }
+
+  // === DESIGN GUIDE NEW METHODS ===
+
+  setUser(user: User): void {
+    this._user.set(user as any);
+    
+    // Auto-set branch for single-branch users
+    if (user.branchId && !user.isMultiBranchUser) {
+      this._selectedBranchId.set(user.branchId);
+    }
+    
+    // Load available branches for multi-branch users
+    if (user.isMultiBranchUser) {
+      this.loadAvailableBranches();
+    }
+  }
+
+  logout(): void {
+    this._user.set(null);
+    this._selectedBranchId.set(null);
+    this._availableBranches.set([]);
+    this._branchRequired.set(false);
+    this._coordinationAlerts.set(0);
+    
+    localStorage.removeItem('selectedBranchId');
+    this.router.navigate(['/login']);
+  }
+
+  /**
+   * Set selected branch for operations
+   */
+  selectBranch(branchId: number): void {
+    const branches = this._availableBranches();
+    const branch = branches.find(b => b.id === branchId);
+    
+    if (branch && branch.isActive) {
+      this._selectedBranchId.set(branchId);
+      this._branchRequired.set(false);
+      
+      // Navigate to appropriate page if currently on branch-required page
+      if (this.router.url.includes('branch-required')) {
+        this.router.navigate(['/dashboard']);
+      }
+    }
+  }
+
+  /**
+   * Set available branches list
+   */
+  setAvailableBranches(branches: Branch[]): void {
+    this._availableBranches.set(branches);
+  }
+
+  /**
+   * Update branch health score
+   */
+  updateBranchHealth(branchId: number, healthScore: number, coordinationStatus: 'optimal' | 'warning' | 'error'): void {
+    const branches = this._availableBranches();
+    const updatedBranches = branches.map(branch => 
+      branch.id === branchId 
+        ? { ...branch, healthScore, coordinationStatus, lastSync: new Date().toISOString() }
+        : branch
+    );
+    this._availableBranches.set(updatedBranches);
+  }
+
+  /**
+   * Set branch requirement flag
+   */
+  setBranchRequired(required: boolean): void {
+    this._branchRequired.set(required);
+  }
+
+  /**
+   * Update coordination alerts count
+   */
+  setCoordinationAlerts(count: number): void {
+    this._coordinationAlerts.set(count);
+  }
+
+  /**
+   * Check if user has multi-branch permissions
+   */
+  hasMultiBranchAccess(): boolean {
+    const user = this._user();
+    return user?.isMultiBranchUser || ['Admin', 'HeadManager'].includes(user?.role || '');
+  }
+
+  /**
+   * Check if specific branch access is allowed
+   */
+  canAccessBranch(branchId: number): boolean {
+    const user = this._user();
+    if (!user) return false;
+
+    // Admin and HeadManager can access all branches
+    if (['Admin', 'HeadManager'].includes(user.role)) return true;
+
+    // Multi-branch users can access branches in their list
+    if (user.isMultiBranchUser) {
+      return this._availableBranches().some(b => b.id === branchId);
+    }
+
+    // Single-branch users can only access their own branch
+    return user.branchId === branchId;
   }
 
   // ===== NEW: Multi-Branch Actions =====
@@ -259,8 +489,8 @@ export class StateService {
     }
   }
 
-  selectBranch(branchId: number): void {
-    if (this.canAccessBranch(branchId)) {
+  selectBranchLegacy(branchId: number): void {
+    if (this.canAccessBranchLegacy(branchId)) {
       this._selectedBranchId.set(branchId);
       this._isMultiSelectMode.set(false);
       this._selectedBranchIds.set([]);
@@ -271,7 +501,7 @@ export class StateService {
   }
 
   setMultiSelectBranches(branchIds: number[]): void {
-    const validIds = branchIds.filter(id => this.canAccessBranch(id));
+    const validIds = branchIds.filter(id => this.canAccessBranchLegacy(id));
     this._selectedBranchIds.set(validIds);
     this._isMultiSelectMode.set(true);
     this._selectedBranchId.set(null);
@@ -457,7 +687,7 @@ export class StateService {
     };
   }
 
-  private canAccessBranch(branchId: number): boolean {
+  private canAccessBranchLegacy(branchId: number): boolean {
     const branches = this._accessibleBranches();
     return branches.some(b => b.branchId === branchId && b.canRead);
   }
@@ -507,6 +737,41 @@ export class StateService {
     // This would call the actual API to sync branch data
     // For now, just update the sync timestamp
     this._lastBranchSync.set(new Date().toISOString());
+  }
+
+  // === DESIGN GUIDE PRIVATE METHODS ===
+
+  private loadSavedBranchSelection(): void {
+    const savedBranchId = localStorage.getItem('selectedBranchId');
+    if (savedBranchId) {
+      this._selectedBranchId.set(parseInt(savedBranchId, 10));
+    }
+  }
+
+  private loadAvailableBranches(): void {
+    // This would typically call an API
+    // For now, using mock data structure
+    const mockBranches: Branch[] = [
+      {
+        id: 1,
+        branchName: 'Head Office Jakarta',
+        branchCode: 'HO-JKT',
+        address: 'Jl. Sudirman No. 123, Jakarta',
+        city: 'Jakarta',
+        province: 'DKI Jakarta',
+        phone: '+62-21-1234-5678',
+        email: 'hq@tokoeniwan.com',
+        managerName: 'Budi Santoso',
+        isActive: true,
+        branchType: 'head_office',
+        openingDate: '2024-01-01',
+        healthScore: 95,
+        coordinationStatus: 'optimal'
+      },
+      // ... more branches would be loaded from API
+    ];
+    
+    this._availableBranches.set(mockBranches);
   }
 
   // ===== Branch Permission Helpers =====

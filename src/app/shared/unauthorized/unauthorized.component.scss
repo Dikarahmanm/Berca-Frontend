@@ -1,0 +1,224 @@
+.unauthorized-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--error-light, #fef2f2) 0%, var(--surface-color, #ffffff) 100%);
+  padding: 2rem;
+}
+
+.unauthorized-content {
+  max-width: 600px;
+  width: 100%;
+  background: var(--surface-color, #ffffff);
+  border-radius: 16px;
+  padding: 3rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  text-align: center;
+}
+
+.error-icon {
+  margin-bottom: 2rem;
+
+  i {
+    font-size: 4rem;
+    color: var(--error-color, #ef4444);
+  }
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary, #111827);
+  margin-bottom: 1rem;
+}
+
+.error-message {
+  font-size: 1.2rem;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.user-info {
+  background: var(--info-background, #f0f9ff);
+  border: 1px solid var(--info-border, #e0f2fe);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--info-divider, #e6f3ff);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .label {
+    font-weight: 500;
+    color: var(--text-secondary, #6b7280);
+  }
+
+  .value {
+    font-weight: 600;
+    color: var(--text-primary, #111827);
+  }
+}
+
+.suggestions {
+  background: var(--warning-background, #fffbeb);
+  border: 1px solid var(--warning-border, #fde68a);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: left;
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--warning-text, #92400e);
+    margin-bottom: 1rem;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+
+    li {
+      padding: 0.5rem 0;
+      color: var(--warning-text, #92400e);
+      position: relative;
+      padding-left: 1.5rem;
+
+      &::before {
+        content: '•';
+        color: var(--warning-color, #f59e0b);
+        font-weight: bold;
+        position: absolute;
+        left: 0;
+      }
+    }
+  }
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+
+  i {
+    margin-right: 0.5rem;
+  }
+
+  &.btn-primary {
+    background: var(--primary-color, #2563eb);
+    color: white;
+
+    &:hover {
+      background: var(--primary-dark, #1d4ed8);
+      transform: translateY(-1px);
+    }
+  }
+
+  &.btn-secondary {
+    background: var(--secondary-color, #6b7280);
+    color: white;
+
+    &:hover {
+      background: var(--secondary-dark, #4b5563);
+      transform: translateY(-1px);
+    }
+  }
+
+  &.btn-outline {
+    background: transparent;
+    color: var(--primary-color, #2563eb);
+    border: 2px solid var(--primary-color, #2563eb);
+
+    &:hover {
+      background: var(--primary-color, #2563eb);
+      color: white;
+      transform: translateY(-1px);
+    }
+  }
+
+  &.btn-link {
+    background: transparent;
+    color: var(--error-color, #ef4444);
+    border: 1px solid var(--error-light, #fecaca);
+    font-size: 0.85rem;
+
+    &:hover {
+      background: var(--error-light, #fef2f2);
+      transform: translateY(-1px);
+    }
+  }
+}
+
+.logout-section {
+  border-top: 1px solid var(--border-color, #e5e7eb);
+  padding-top: 2rem;
+
+  .logout-text {
+    color: var(--text-tertiary, #9ca3af);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .unauthorized-container {
+    padding: 1rem;
+  }
+
+  .unauthorized-content {
+    padding: 2rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  .error-message {
+    font-size: 1rem;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    align-items: center;
+
+    .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}

@@ -1,0 +1,449 @@
+<div class="admin-dashboard">
+  <!-- Header Section -->
+  <div class="dashboard-header">
+    <div class="header-content">
+      <h1>Multi-Branch System Administration</h1>
+      <p class="header-subtitle">Complete control and monitoring of the multi-branch network</p>
+    </div>
+    
+    <div class="header-actions">
+      <div class="timeframe-selector">
+        <label>Timeframe:</label>
+        <div class="timeframe-buttons">
+          <button 
+            *ngFor="let period of ['24h', '7d', '30d']"
+            class="timeframe-btn"
+            [class.active]="selectedTimeframe() === period"
+            (click)="setTimeframe($any(period))"
+          >
+            {{ period === '24h' ? '24 Hours' : period === '7d' ? '7 Days' : '30 Days' }}
+          </button>
+        </div>
+      </div>
+      
+      <button 
+        class="btn btn-primary"
+        (click)="refreshDashboard()"
+        [disabled]="isLoading()"
+      >
+        <i class="icon-refresh-cw" [class.spinning]="isLoading()"></i>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- System Status Alert -->
+  <div 
+    class="system-alert"
+    [class]="getStatusClass(systemStatus())"
+    *ngIf="systemStatus() === 'critical' || systemStatus() === 'warning'"
+  >
+    <div class="alert-icon">
+      <i class="icon-alert-triangle" *ngIf="systemStatus() === 'warning'"></i>
+      <i class="icon-alert-circle" *ngIf="systemStatus() === 'critical'"></i>
+    </div>
+    <div class="alert-content">
+      <h3>System Attention Required</h3>
+      <p>
+        <ng-container *ngIf="systemStatus() === 'critical'">
+          Critical system alerts detected. Immediate attention required.
+        </ng-container>
+        <ng-container *ngIf="systemStatus() === 'warning'">
+          System warnings detected. Review recommended.
+        </ng-container>
+      </p>
+    </div>
+    <button class="btn btn-outline btn-sm" (click)="navigateToSystemLogs()">
+      View Details
+    </button>
+  </div>
+
+  <!-- Quick Stats Overview -->
+  <div class="quick-stats" *ngIf="quickStats()">
+    <div class="stat-card revenue">
+      <div class="stat-header">
+        <h3>Total Revenue</h3>
+        <i class="icon-dollar-sign"></i>
+      </div>
+      <div class="stat-value">{{ formatCurrency(quickStats()!.totalRevenue) }}</div>
+      <div class="stat-period">Last {{ selectedTimeframe() }}</div>
+    </div>
+
+    <div class="stat-card users">
+      <div class="stat-header">
+        <h3>Active Users</h3>
+        <i class="icon-users"></i>
+      </div>
+      <div class="stat-value">{{ quickStats()!.activeUsers }}</div>
+      <div class="stat-period">Currently online</div>
+    </div>
+
+    <div class="stat-card branches">
+      <div class="stat-header">
+        <h3>Active Branches</h3>
+        <i class="icon-git-branch"></i>
+      </div>
+      <div class="stat-value">{{ quickStats()!.activeBranches }}</div>
+      <div class="stat-period">Operational</div>
+    </div>
+
+    <div class="stat-card uptime">
+      <div class="stat-header">
+        <h3>System Uptime</h3>
+        <i class="icon-clock"></i>
+      </div>
+      <div class="stat-value">{{ quickStats()!.systemUptime }}</div>
+      <div class="stat-period">Current session</div>
+    </div>
+  </div>
+
+  <!-- Main Dashboard Content -->
+  <div class="dashboard-grid">
+    
+    <!-- System Health Panel -->
+    <div class="dashboard-panel system-health">
+      <div class="panel-header">
+        <h2>System Health</h2>
+        <span class="status-indicator" [class]="getStatusClass(systemStatus())">
+          {{ systemStatus() | titlecase }}
+        </span>
+      </div>
+      
+      <div class="panel-content" *ngIf="systemHealth()">
+        <div class="health-metrics">
+          <div class="health-metric">
+            <div class="metric-label">CPU Load</div>
+            <div class="metric-bar">
+              <div 
+                class="metric-fill"
+                [class]="getSystemLoadClass(systemHealth()!.systemLoad)"
+                [style.width.%]="systemHealth()!.systemLoad"
+              ></div>
+            </div>
+            <div class="metric-value">{{ systemHealth()!.systemLoad }}%</div>
+          </div>
+          
+          <div class="health-metric">
+            <div class="metric-label">Memory Usage</div>
+            <div class="metric-bar">
+              <div 
+                class="metric-fill"
+                [class]="getSystemLoadClass(systemHealth()!.memoryUsage)"
+                [style.width.%]="systemHealth()!.memoryUsage"
+              ></div>
+            </div>
+            <div class="metric-value">{{ systemHealth()!.memoryUsage }}%</div>
+          </div>
+          
+          <div class="health-metric">
+            <div class="metric-label">Disk Usage</div>
+            <div class="metric-bar">
+              <div 
+                class="metric-fill"
+                [class]="getSystemLoadClass(systemHealth()!.diskUsage)"
+                [style.width.%]="systemHealth()!.diskUsage"
+              ></div>
+            </div>
+            <div class="metric-value">{{ systemHealth()!.diskUsage }}%</div>
+          </div>
+        </div>
+        
+        <div class="health-stats">
+          <div class="health-stat">
+            <span class="stat-label">Network Latency</span>
+            <span class="stat-value">{{ systemHealth()!.networkLatency }}ms</span>
+          </div>
+          <div class="health-stat">
+            <span class="stat-label">Last Backup</span>
+            <span class="stat-value">{{ formatTimeAgo(systemHealth()!.lastBackup) }}</span>
+          </div>
+          <div class="health-stat">
+            <span class="stat-label">Total Transactions</span>
+            <span class="stat-value">{{ systemHealth()!.totalTransactions | number }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerts Summary Panel -->
+    <div class="dashboard-panel alerts-summary">
+      <div class="panel-header">
+        <h2>System Alerts</h2>
+        <div class="alerts-count" *ngIf="alertsSummary()">
+          {{ alertsSummary()!.total }} Total
+        </div>
+      </div>
+      
+      <div class="panel-content" *ngIf="alertsSummary()">
+        <div class="alerts-breakdown">
+          <div class="alert-type critical">
+            <div class="alert-icon">
+              <i class="icon-alert-circle"></i>
+            </div>
+            <div class="alert-info">
+              <div class="alert-count">{{ alertsSummary()!.critical }}</div>
+              <div class="alert-label">Critical</div>
+            </div>
+          </div>
+          
+          <div class="alert-type warning">
+            <div class="alert-icon">
+              <i class="icon-alert-triangle"></i>
+            </div>
+            <div class="alert-info">
+              <div class="alert-count">{{ alertsSummary()!.warning }}</div>
+              <div class="alert-label">Warning</div>
+            </div>
+          </div>
+          
+          <div class="alert-type info">
+            <div class="alert-icon">
+              <i class="icon-info"></i>
+            </div>
+            <div class="alert-info">
+              <div class="alert-count">{{ alertsSummary()!.info }}</div>
+              <div class="alert-label">Info</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="alerts-actions">
+          <button class="btn btn-sm btn-outline" (click)="navigateToSystemLogs()">
+            View All Alerts
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Branch Management Panel -->
+    <div class="dashboard-panel branch-management">
+      <div class="panel-header">
+        <h2>Branch Overview</h2>
+        <button class="btn btn-sm btn-primary" (click)="navigateToBranchManagement()">
+          Manage Branches
+        </button>
+      </div>
+      
+      <div class="panel-content" *ngIf="branchSummary()">
+        <div class="branch-stats">
+          <div class="branch-stat-item">
+            <div class="stat-number">{{ branchSummary()!.totalBranches }}</div>
+            <div class="stat-label">Total Branches</div>
+          </div>
+          <div class="branch-stat-item">
+            <div class="stat-number">{{ branchSummary()!.activeBranches }}</div>
+            <div class="stat-label">Active</div>
+          </div>
+          <div class="branch-stat-item">
+            <div class="stat-number">{{ branchSummary()!.offlineBranches }}</div>
+            <div class="stat-label">Offline</div>
+          </div>
+          <div class="branch-stat-item">
+            <div class="stat-number">{{ branchSummary()!.pendingApprovals }}</div>
+            <div class="stat-label">Pending Approvals</div>
+          </div>
+        </div>
+        
+        <div class="branch-performance">
+          <div class="performance-metric">
+            <span class="metric-label">Network Performance</span>
+            <div class="metric-bar">
+              <div 
+                class="metric-fill"
+                [style.width.%]="branchSummary()!.avgPerformance"
+              ></div>
+            </div>
+            <span class="metric-value">{{ formatPercentage(branchSummary()!.avgPerformance) }}</span>
+          </div>
+        </div>
+        
+        <div class="branches-attention" *ngIf="branchSummary()!.branchesNeedingAttention.length > 0">
+          <h4>Branches Needing Attention</h4>
+          <div class="attention-list">
+            <div 
+              *ngFor="let branch of branchSummary()!.branchesNeedingAttention"
+              class="attention-item"
+              (click)="viewBranchDetails(branch.id)"
+            >
+              <div class="branch-info">
+                <span class="branch-name">{{ branch.branchName }}</span>
+                <span class="branch-status" [class]="'status-' + (branch.coordinationStatus || 'offline')">
+                  {{ branch.coordinationStatus || 'offline' | titlecase }}
+                </span>
+              </div>
+              <i class="icon-chevron-right"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Management Panel -->
+    <div class="dashboard-panel user-management">
+      <div class="panel-header">
+        <h2>User Management</h2>
+        <button class="btn btn-sm btn-primary" (click)="navigateToUserManagement()">
+          Manage Users
+        </button>
+      </div>
+      
+      <div class="panel-content" *ngIf="userSummary()">
+        <div class="user-stats">
+          <div class="user-stat">
+            <div class="stat-icon">
+              <i class="icon-users"></i>
+            </div>
+            <div class="stat-data">
+              <div class="stat-number">{{ userSummary()!.totalUsers }}</div>
+              <div class="stat-label">Total Users</div>
+            </div>
+          </div>
+          
+          <div class="user-stat">
+            <div class="stat-icon">
+              <i class="icon-user-check"></i>
+            </div>
+            <div class="stat-data">
+              <div class="stat-number">{{ userSummary()!.activeUsers }}</div>
+              <div class="stat-label">Active</div>
+            </div>
+          </div>
+          
+          <div class="user-stat">
+            <div class="stat-icon">
+              <i class="icon-user-plus"></i>
+            </div>
+            <div class="stat-data">
+              <div class="stat-number">{{ userSummary()!.newUsersToday }}</div>
+              <div class="stat-label">New Today</div>
+            </div>
+          </div>
+          
+          <div class="user-stat">
+            <div class="stat-icon">
+              <i class="icon-user-x"></i>
+            </div>
+            <div class="stat-data">
+              <div class="stat-number">{{ userSummary()!.blockedUsers }}</div>
+              <div class="stat-label">Blocked</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="role-distribution">
+          <h4>Role Distribution</h4>
+          <div class="role-list">
+            <div 
+              *ngFor="let role of userSummary()!.roleDistribution | keyvalue; trackBy: trackByRole"
+              class="role-item"
+            >
+              <span class="role-name">{{ role.key }}</span>
+              <span class="role-count">{{ role.value }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity Panel -->
+    <div class="dashboard-panel recent-activity">
+      <div class="panel-header">
+        <h2>Recent Activity</h2>
+        <button class="btn btn-sm btn-outline" (click)="navigateToSystemLogs()">
+          View All
+        </button>
+      </div>
+      
+      <div class="panel-content" *ngIf="userSummary()">
+        <div class="activity-list">
+          <div 
+            *ngFor="let activity of userSummary()!.recentActivity; trackBy: trackByActivityId"
+            class="activity-item"
+            [class]="getSeverityClass(activity.severity)"
+          >
+            <div class="activity-icon">
+              <i 
+                class="icon-info" 
+                *ngIf="activity.severity === 'info'"
+              ></i>
+              <i 
+                class="icon-alert-triangle" 
+                *ngIf="activity.severity === 'warning'"
+              ></i>
+              <i 
+                class="icon-alert-circle" 
+                *ngIf="activity.severity === 'error'"
+              ></i>
+            </div>
+            
+            <div class="activity-content">
+              <div class="activity-action">{{ activity.action }}</div>
+              <div class="activity-details">
+                <span class="activity-user">{{ activity.username }}</span>
+                <span class="activity-separator">•</span>
+                <span class="activity-branch">{{ activity.branchName }}</span>
+                <span class="activity-separator">•</span>
+                <span class="activity-time">{{ formatTimeAgo(activity.timestamp) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions Panel -->
+    <div class="dashboard-panel quick-actions">
+      <div class="panel-header">
+        <h2>System Controls</h2>
+        <div class="maintenance-indicator" *ngIf="systemConfig()">
+          <span 
+            class="maintenance-status"
+            [class]="systemConfig()!.maintenanceMode ? 'maintenance-on' : 'maintenance-off'"
+          >
+            {{ systemConfig()!.maintenanceMode ? 'Maintenance Mode ON' : 'System Operational' }}
+          </span>
+        </div>
+      </div>
+      
+      <div class="panel-content">
+        <div class="actions-grid">
+          <button 
+            class="action-btn"
+            (click)="toggleMaintenanceMode()"
+            [class]="systemConfig()?.maintenanceMode ? 'btn-danger' : 'btn-warning'"
+          >
+            <i class="icon-settings"></i>
+            <span>{{ systemConfig()?.maintenanceMode ? 'Disable Maintenance' : 'Enable Maintenance' }}</span>
+          </button>
+          
+          <button class="action-btn btn-info" (click)="runSystemBackup()">
+            <i class="icon-database"></i>
+            <span>Run Backup</span>
+          </button>
+          
+          <button class="action-btn btn-secondary" (click)="clearSystemCache()">
+            <i class="icon-trash-2"></i>
+            <span>Clear Cache</span>
+          </button>
+          
+          <button class="action-btn btn-danger" (click)="restartSystem()">
+            <i class="icon-power"></i>
+            <span>Restart System</span>
+          </button>
+        </div>
+        
+        <div class="navigation-actions">
+          <button class="nav-btn" (click)="navigateToAnalytics()">
+            <i class="icon-bar-chart-2"></i>
+            <span>System Analytics</span>
+          </button>
+          
+          <button class="nav-btn" (click)="navigateToCoordination()">
+            <i class="icon-git-merge"></i>
+            <span>Coordination Hub</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

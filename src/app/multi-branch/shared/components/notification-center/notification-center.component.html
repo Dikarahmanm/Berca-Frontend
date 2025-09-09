@@ -1,0 +1,236 @@
+<div class="notification-center" [class.visible]="isVisible()">
+  <!-- Header -->
+  <div class="notification-header">
+    <div class="header-title">
+      <h3>Notifications</h3>
+      <div class="connection-status" [class]="getConnectionStatusClass()">
+        <i class="icon-wifi" *ngIf="isConnected()"></i>
+        <i class="icon-wifi-off" *ngIf="!isConnected()"></i>
+        <span>{{ getConnectionStatusText() }}</span>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <button 
+        class="action-btn"
+        (click)="markAllAsRead()"
+        [disabled]="unreadCount() === 0"
+        title="Mark All as Read"
+      >
+        <i class="icon-check-double"></i>
+      </button>
+      
+      <button 
+        class="action-btn"
+        (click)="clearFilters()"
+        title="Clear Filters"
+      >
+        <i class="icon-filter-x"></i>
+      </button>
+      
+      <button 
+        class="action-btn"
+        (click)="hide()"
+        title="Close"
+      >
+        <i class="icon-x"></i>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Search and Filters -->
+  <div class="notification-controls">
+    <div class="search-box">
+      <i class="icon-search"></i>
+      <input 
+        type="text"
+        placeholder="Search notifications..."
+        [value]="searchQuery()"
+        (input)="onSearchInput($event)"
+      />
+      <button 
+        class="clear-search"
+        (click)="clearSearch()"
+        *ngIf="searchQuery()"
+      >
+        <i class="icon-x"></i>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Tabs -->
+  <div class="notification-tabs">
+    <button 
+      *ngFor="let tab of tabs"
+      class="tab-btn"
+      [class.active]="selectedTab() === tab.key"
+      (click)="selectTab(tab.key)"
+    >
+      <i [class]="tab.icon"></i>
+      <span>{{ tab.label }}</span>
+      <div class="tab-count" *ngIf="getTabCount(tab.key) > 0">
+        {{ getTabCount(tab.key) }}
+      </div>
+    </button>
+  </div>
+  
+  <!-- Quick Stats -->
+  <div class="notification-stats" *ngIf="notificationStats()">
+    <div class="stat-item">
+      <span class="stat-label">Total</span>
+      <span class="stat-value">{{ notificationStats()!.total }}</span>
+    </div>
+    
+    <div class="stat-item unread">
+      <span class="stat-label">Unread</span>
+      <span class="stat-value">{{ notificationStats()!.unread }}</span>
+    </div>
+    
+    <div class="stat-item urgent" *ngIf="notificationStats()!.actionRequired > 0">
+      <span class="stat-label">Action Required</span>
+      <span class="stat-value">{{ notificationStats()!.actionRequired }}</span>
+    </div>
+  </div>
+  
+  <!-- Notification List -->
+  <div class="notification-list">
+    <div class="list-header" *ngIf="filteredNotifications().length > 0">
+      <span class="result-count">{{ filteredNotifications().length }} notification(s)</span>
+      <button class="export-btn" (click)="exportNotifications()" title="Export Notifications">
+        <i class="icon-download"></i>
+      </button>
+    </div>
+    
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="!isConnected()">
+      <i class="icon-wifi-off"></i>
+      <p>Connecting to notification service...</p>
+    </div>
+    
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="isConnected() && filteredNotifications().length === 0">
+      <i class="icon-bell-off"></i>
+      <h4>No notifications found</h4>
+      <p *ngIf="selectedTab() === 'all' && searchQuery() === ''">
+        You're all caught up! No new notifications at this time.
+      </p>
+      <p *ngIf="selectedTab() !== 'all' || searchQuery() !== ''">
+        No notifications match your current filters.
+      </p>
+      <button class="btn btn-sm btn-outline" (click)="clearFilters()" *ngIf="selectedTab() !== 'all' || searchQuery() !== ''">
+        Clear Filters
+      </button>
+    </div>
+    
+    <!-- Notification Items -->
+    <div class="notifications-container">
+      <div 
+        *ngFor="let notification of filteredNotifications(); trackBy: trackByNotificationId"
+        class="notification-item"
+        [class.unread]="!notification.isRead"
+        [class.urgent]="notification.actionRequired || notification.severity === 'error'"
+        [class]="getSeverityClass(notification.severity) + ' ' + getTypeClass(notification.type)"
+        (click)="handleNotificationClick(notification)"
+      >
+        <div class="notification-icon">
+          <i [class]="getNotificationIcon(notification)" [style.color]="getNotificationColor(notification)"></i>
+        </div>
+        
+        <div class="notification-content">
+          <div class="notification-header">
+            <h4 class="notification-title">{{ notification.title }}</h4>
+            <div class="notification-time">{{ formatTimeAgo(notification.timestamp) }}</div>
+          </div>
+          
+          <div class="notification-message">{{ notification.message }}</div>
+          
+          <div class="notification-meta" *ngIf="notification.branchName || notification.userName">
+            <span class="branch-info" *ngIf="notification.branchName">
+              <i class="icon-git-branch"></i>
+              {{ notification.branchName }}
+            </span>
+            
+            <span class="user-info" *ngIf="notification.userName">
+              <i class="icon-user"></i>
+              {{ notification.userName }}
+            </span>
+          </div>
+          
+          <div class="notification-badges" *ngIf="shouldShowBadge(notification)">
+            <span 
+              class="notification-badge"
+              [class]="getSeverityClass(notification.severity)"
+            >
+              {{ getBadgeText(notification) }}
+            </span>
+          </div>
+        </div>
+        
+        <div class="notification-actions">
+          <button 
+            class="action-btn"
+            (click)="markAsRead(notification, $event)"
+            *ngIf="!notification.isRead"
+            title="Mark as Read"
+          >
+            <i class="icon-check"></i>
+          </button>
+          
+          <button 
+            class="action-btn"
+            (click)="archiveNotification(notification, $event)"
+            title="Archive"
+          >
+            <i class="icon-archive"></i>
+          </button>
+          
+          <button 
+            class="action-btn danger"
+            (click)="deleteNotification(notification, $event)"
+            title="Delete"
+          >
+            <i class="icon-trash-2"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Footer -->
+  <div class="notification-footer" *ngIf="isConnected()">
+    <div class="footer-info">
+      <span class="last-update">Last updated: {{ formatTimeAgo(lastUpdate()) }}</span>
+    </div>
+    
+    <div class="footer-actions">
+      <button class="btn btn-sm btn-outline" (click)="viewAllSystemAlerts()">
+        <i class="icon-alert-triangle"></i>
+        System Alerts
+      </button>
+      
+      <button class="btn btn-sm btn-outline" (click)="viewTransfers()">
+        <i class="icon-arrow-right-left"></i>
+        Transfers
+      </button>
+      
+      <button class="btn btn-sm btn-outline" (click)="viewSystemHealth()">
+        <i class="icon-activity"></i>
+        System Health
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Notification Trigger Button (for standalone usage) -->
+<button 
+  class="notification-trigger"
+  (click)="toggleVisibility()"
+  [class.has-urgent]="hasUnreadUrgent()"
+  title="Notifications"
+>
+  <i class="icon-bell"></i>
+  <span class="notification-count" *ngIf="unreadCount() > 0">
+    {{ unreadCount() > 99 ? '99+' : unreadCount() }}
+  </span>
+  <span class="urgent-indicator" *ngIf="hasUnreadUrgent()"></span>
+</button>

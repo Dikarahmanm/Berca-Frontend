@@ -70,6 +70,17 @@
                             <span class="toggle-text">System</span>
                         </label>
                     </div>
+
+                    <div class="toggle-group">
+                        <label class="toggle-label">
+                            <input type="checkbox" class="toggle-input" 
+                                [checked]="preferences().multiBranchEnabled"
+                                (change)="onMultiBranchToggleChange($event)" 
+                                [attr.aria-label]="'Toggle multi-branch notifications. Currently ' + (preferences().multiBranchEnabled ? 'enabled' : 'disabled')">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Multi-Branch</span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </header>
@@ -209,7 +220,7 @@
                 </div>
             </section>
 
-            <div class="dropdown-divider" *ngIf="preferences().smartEnabled && preferences().basicEnabled"></div>
+            <div class="dropdown-divider" *ngIf="preferences().smartEnabled && (preferences().basicEnabled || preferences().multiBranchEnabled)"></div>
 
             <!-- System Notifications Section -->
             <section class="system-section" *ngIf="preferences().basicEnabled" aria-label="System notifications">
@@ -279,14 +290,88 @@
                 </div>
             </section>
 
-            <!-- Both Disabled State -->
-            <div class="empty-state disabled" *ngIf="!preferences().smartEnabled && !preferences().basicEnabled"
+            <div class="dropdown-divider" *ngIf="(preferences().smartEnabled || preferences().basicEnabled) && preferences().multiBranchEnabled"></div>
+
+            <!-- Multi-Branch Notifications Section -->
+            <section class="multibranch-section" *ngIf="preferences().multiBranchEnabled" aria-label="Multi-branch notifications">
+
+                <div class="notification-group multibranch" *ngIf="multiBranchNotifications().length > 0" role="group"
+                    [attr.aria-label]="'Multi-branch updates: ' + multiBranchNotifications().length + ' items'">
+
+                    <div class="group-header">
+                        <svg class="group-icon multibranch" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M8,3A2,2 0 0,0 6,5V9A2,2 0 0,0 8,11H11V13A2,2 0 0,0 13,15H16V17A2,2 0 0,0 18,19A2,2 0 0,0 20,17A2,2 0 0,0 18,15A2,2 0 0,0 16,17V15H13V13A2,2 0 0,0 11,11A2,2 0 0,0 13,9V7A2,2 0 0,0 15,5A2,2 0 0,0 13,3A2,2 0 0,0 11,5V7A2,2 0 0,0 8,9V5A2,2 0 0,0 8,3Z"/>
+                        </svg>
+                        <h4 class="group-title">Multi-Branch Updates</h4>
+                        <span class="group-count" [attr.aria-label]="multiBranchNotifications().length + ' multi-branch updates'">
+                            {{ multiBranchNotifications().length }}
+                        </span>
+                    </div>
+
+                    <div class="notification-list" role="list">
+                        <article class="notification-item multibranch"
+                            *ngFor="let notification of getMultiBranchNotificationsSlice(); trackBy: trackByNotificationId"
+                            (click)="handleNotificationClick(notification, 'multibranch')"
+                            (keydown.enter)="handleNotificationClick(notification, 'multibranch')"
+                            (keydown.space)="handleNotificationClick(notification, 'multibranch')"
+                            [class.unread]="!notification.isRead"
+                            [attr.aria-label]="getNotificationAriaLabel(notification) + (notification.isRead ? '' : '. Unread')"
+                            tabindex="0" role="listitem button">
+
+                            <div class="notification-content">
+                                <h5 class="notification-title" [class.unread]="!notification.isRead">
+                                    {{ notification.title }}
+                                    <span class="unread-indicator" *ngIf="!notification.isRead"
+                                        aria-label="Unread"></span>
+                                </h5>
+                                <p class="notification-message">{{ notification.message }}</p>
+                                <div class="notification-branch-info">
+                                    <span class="branch-name">{{ notification.branchName }}</span>
+                                    <span class="notification-type">{{ notification.type }}</span>
+                                </div>
+                                <time class="notification-time" [attr.datetime]="notification.createdAt">
+                                    {{ formatRelativeTime(notification.createdAt) }}
+                                </time>
+                            </div>
+
+                            <div class="notification-actions">
+                                <span class="priority-chip" [class]="'priority-' + notification.priority.toLowerCase()"
+                                    [attr.aria-label]="'Priority: ' + notification.priority">
+                                    {{ notification.priority }}
+                                </span>
+
+                                <button type="button" class="action-btn mark-read" *ngIf="!notification.isRead"
+                                    (click)="markAsRead(notification.id, 'multibranch'); $event.stopPropagation()"
+                                    title="Mark as read"
+                                    [attr.aria-label]="'Mark ' + notification.title + ' as read'">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <path d="M9,20.42L2.79,14.21L5.62,11.38L9,14.77L18.88,4.88L21.71,7.71L9,20.42Z"/>
+                                    </svg>
+                                    <span class="sr-only">Mark as read</span>
+                                </button>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+
+                <!-- No Multi-Branch Notifications State -->
+                <div class="empty-state multibranch" *ngIf="multiBranchNotifications().length === 0" role="status"
+                    aria-label="No multi-branch notifications">
+                    <svg class="empty-icon info" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M8,3A2,2 0 0,0 6,5V9A2,2 0 0,0 8,11H11V13A2,2 0 0,0 13,15H16V17A2,2 0 0,0 18,19A2,2 0 0,0 20,17A2,2 0 0,0 18,15A2,2 0 0,0 16,17V15H13V13A2,2 0 0,0 11,11A2,2 0 0,0 13,9V7A2,2 0 0,0 15,5A2,2 0 0,0 13,3A2,2 0 0,0 11,5V7A2,2 0 0,0 8,9V5A2,2 0 0,0 8,3Z"/>
+                    </svg>
+                    <p class="empty-message">No multi-branch updates</p>
+                </div>
+            </section>
+
+            <!-- All Disabled State -->
+            <div class="empty-state disabled" *ngIf="!preferences().smartEnabled && !preferences().basicEnabled && !preferences().multiBranchEnabled"
                 role="status" aria-label="All notifications disabled">
                 <svg class="empty-icon disabled" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M20,18.69L19.37,18.06L13,11.69V4A1,1 0 0,0 12,3A1,1 0 0,0 11,4V11.69L5.37,6.06L4.63,6.8L10.69,12.86C10.89,13.06 11,13.32 11,13.59V19A1,1 0 0,0 12,20A1,1 0 0,0 13,19V13.59C13,13.32 12.89,13.06 12.69,12.86L20,18.69Z"/>
                 </svg>
                 <p class="empty-message">All notifications disabled</p>
-                <p class="empty-submessage">Enable smart or system notifications above</p>
+                <p class="empty-submessage">Enable smart, system, or multi-branch notifications above</p>
             </div>
         </div>
 

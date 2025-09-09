@@ -9,6 +9,7 @@ import { NotificationService } from './core/services/notification.service';
 import { LayoutService } from './shared/services/layout.service';
 
 import { appHttpInterceptor } from './core/interceptors/app-http.interceptor';
+import { branchInterceptor } from './core/interceptors/branch.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -19,7 +20,7 @@ export const appConfig: ApplicationConfig = {
         anchorScrolling: 'enabled',
       }),
     ),
-    provideHttpClient(withInterceptors([appHttpInterceptor])),
+    provideHttpClient(withInterceptors([appHttpInterceptor, branchInterceptor])),
     provideAnimations(),
     provideZoneChangeDetection({ eventCoalescing: true }),
     AuthService,

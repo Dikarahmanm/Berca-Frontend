@@ -1,0 +1,89 @@
+<div class="simple-test-container" style="padding: 20px; background: white; margin: 20px;">
+  <h1 style="color: #333; font-size: 24px; margin-bottom: 20px;">🚀 Coordination Dashboard Test</h1>
+  
+  <!-- Simple Stats Display -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
+      <h3 style="margin: 0 0 8px 0; color: #495057;">Total Branches</h3>
+      <div style="font-size: 24px; font-weight: bold; color: #007bff;">{{ totalBranches() || 0 }}</div>
+    </div>
+    
+    <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
+      <h3 style="margin: 0 0 8px 0; color: #495057;">Active Branches</h3>
+      <div style="font-size: 24px; font-weight: bold; color: #28a745;">{{ activeBranches() || 0 }}</div>
+    </div>
+    
+    <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
+      <h3 style="margin: 0 0 8px 0; color: #495057;">System Status</h3>
+      <div style="font-size: 18px; font-weight: bold; color: #fd7e14;">{{ systemStatus() || 'Unknown' }}</div>
+    </div>
+    
+    <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
+      <h3 style="margin: 0 0 8px 0; color: #495057;">Loading</h3>
+      <div [style.color]="isLoading() ? '#dc3545' : '#28a745'" style="font-size: 18px; font-weight: bold;">
+        {{ isLoading() ? 'Yes' : 'No' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Coordination Health -->
+  <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+    <h2 style="margin: 0 0 16px 0; color: #333;">Coordination Health</h2>
+    <div *ngIf="coordinationHealth(); else noHealthData">
+      <p><strong>Overall Score:</strong> {{ coordinationHealth()?.overallScore || 0 }}%</p>
+      <p><strong>System Status:</strong> {{ coordinationHealth()?.systemStatus || 'Unknown' }}</p>
+      <p><strong>Pending Transfers:</strong> {{ coordinationHealth()?.pendingTransfers || 0 }}</p>
+      <p><strong>Critical Alerts:</strong> {{ coordinationHealth()?.criticalAlerts || 0 }}</p>
+    </div>
+    <ng-template #noHealthData>
+      <p style="color: #dc3545;">❌ No coordination health data available</p>
+    </ng-template>
+  </div>
+
+  <!-- Branch Performances -->
+  <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+    <h2 style="margin: 0 0 16px 0; color: #333;">Branch Performances</h2>
+    <div *ngIf="branchPerformances().length > 0; else noPerformanceData">
+      <div *ngFor="let branch of branchPerformances().slice(0, 3)" 
+           style="background: white; padding: 12px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #dee2e6;">
+        <h4 style="margin: 0 0 8px 0; color: #495057;">{{ branch.branchName }}</h4>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 14px;">
+          <div><strong>Score:</strong> {{ branch.score }}/100</div>
+          <div><strong>Revenue:</strong> {{ branch.revenue | currency:'IDR':'symbol':'1.0-0' }}</div>
+          <div><strong>Profit Margin:</strong> {{ branch.profitMargin }}%</div>
+        </div>
+      </div>
+    </div>
+    <ng-template #noPerformanceData>
+      <p style="color: #dc3545;">❌ No performance data available</p>
+    </ng-template>
+  </div>
+
+  <!-- Actions -->
+  <div style="margin-top: 20px;">
+    <button (click)="refreshDashboard()" 
+            style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-right: 10px;">
+      🔄 Refresh Data
+    </button>
+    
+    <button (click)="navigateToTransfers()" 
+            style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+      📦 View Transfers
+    </button>
+  </div>
+
+  <!-- Debug Information -->
+  <details style="margin-top: 20px;">
+    <summary style="cursor: pointer; padding: 10px; background: #e9ecef; border-radius: 4px;">🔍 Debug Information</summary>
+    <div style="background: #f8f9fa; padding: 15px; margin-top: 5px; border-radius: 4px; font-family: monospace; font-size: 12px;">
+      <div><strong>Component State:</strong></div>
+      <div>- isLoading: {{ isLoading() }}</div>
+      <div>- totalBranches: {{ totalBranches() }}</div>
+      <div>- activeBranches: {{ activeBranches() }}</div>
+      <div>- coordinationHealth available: {{ coordinationHealth() ? 'Yes' : 'No' }}</div>
+      <div>- branchPerformances count: {{ branchPerformances().length }}</div>
+      <div>- optimizationOpportunities count: {{ optimizationOpportunities().length }}</div>
+      <div>- Last updated: {{ formatLastUpdated() }}</div>
+    </div>
+  </details>
+</div>

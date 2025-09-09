@@ -1,0 +1,566 @@
+<div class="multi-branch-container">
+  <!-- Header Section -->
+  <div class="page-header">
+    <div class="header-content">
+      <h1 class="page-title">
+        <mat-icon>swap_horiz</mat-icon>
+        Transfer Management
+        <span class="realtime-indicator" [class.active]="!isLoading()">
+          <span class="indicator-dot"></span>
+          {{ isLoading() ? 'Updating' : 'Live' }}
+        </span>
+      </h1>
+      <div class="subtitle-stats">
+        <span class="stat-chip transfers">{{ transferSummary().totalActive }} Active</span>
+        <span class="stat-chip active" *ngIf="transferSummary().pending > 0">{{ transferSummary().pending }} Pending</span>
+        <span class="stat-chip branches" *ngIf="transferSummary().inTransit > 0">{{ transferSummary().inTransit }} In Transit</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="openCreateTransferModal()">
+        <mat-icon>add</mat-icon>
+        New Transfer Request
+      </button>
+      
+      <button class="btn btn-secondary" (click)="loadTransfers()" [disabled]="isLoading()">
+        <mat-icon [class.spinning]="isLoading()">refresh</mat-icon>
+        <span class="hide-mobile">Refresh</span>
+      </button>
+      
+      <button class="btn btn-outline" (click)="exportTransfers()">
+        <mat-icon>download</mat-icon>
+        <span class="hide-mobile">Export</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-cards">
+    <div class="stat-card active-transfers">
+      <div class="stat-icon">
+        <mat-icon>local_shipping</mat-icon>
+      </div>
+      <div class="stat-value">{{ transferSummary().totalActive }}</div>
+      <p class="stat-label">Active Transfers</p>
+      <div class="stat-change positive">
+        Currently in progress
+      </div>
+    </div>
+
+    <div class="stat-card pending-approvals">
+      <div class="stat-icon">
+        <mat-icon>pending_actions</mat-icon>
+      </div>
+      <div class="stat-value">{{ transferSummary().pending }}</div>
+      <p class="stat-label">Pending Approval</p>
+      <div class="stat-change" [class.positive]="transferSummary().pending === 0" [class.negative]="transferSummary().pending > 0">
+        {{ transferSummary().pending === 0 ? 'All approved' : 'Needs attention' }}
+      </div>
+    </div>
+
+    <div class="stat-card total-branches">
+      <div class="stat-icon">
+        <mat-icon>directions_transit</mat-icon>
+      </div>
+      <div class="stat-value">{{ transferSummary().inTransit }}</div>
+      <p class="stat-label">In Transit</p>
+      <div class="stat-change neutral">
+        On the way
+      </div>
+    </div>
+
+    <div class="stat-card system-alerts">
+      <div class="stat-icon">
+        <mat-icon>check_circle</mat-icon>
+      </div>
+      <div class="stat-value">{{ transferSummary().completed }}</div>
+      <p class="stat-label">Completed Today</p>
+      <div class="stat-change positive">
+        Successfully delivered
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters and Search -->
+  <div class="filters-section">
+    <div class="filters-group">
+      <div class="filter-item">
+        <label>Status:</label>
+        <select (change)="onStatusFilterChange($event)" [value]="filterStatus()">
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="in_transit">In Transit</option>
+          <option value="completed">Completed</option>
+          <option value="rejected">Rejected</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Priority:</label>
+        <select (change)="setPriorityFilter($any($event.target).value)" [value]="filterPriority()">
+          <option value="all">All Priority</option>
+          <option value="urgent">Urgent</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+
+      <div class="filter-item search-item">
+        <label>Search:</label>
+        <div class="search-input">
+          <i class="icon-search"></i>
+          <input 
+            type="text" 
+            placeholder="Search transfers..."
+            (input)="onSearchChange($event)"
+            [value]="searchTerm()"
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-state" *ngIf="isLoading()">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <p>Loading transfers...</p>
+    </div>
+  </div>
+
+  <!-- Transfers Table -->
+  <div class="transfers-table" *ngIf="!isLoading()">
+    <div class="table-header">
+      <div class="table-title">
+        <h3>Transfer Requests ({{ filteredTransfers().length }})</h3>
+      </div>
+      
+      <div class="table-controls">
+        <div class="sort-controls">
+          <label>Sort by:</label>
+          <select (change)="setSorting($any($event.target).value)">
+            <option value="requestedAt">Request Date</option>
+            <option value="priority">Priority</option>
+            <option value="status">Status</option>
+            <option value="fromBranchName">From Branch</option>
+            <option value="toBranchName">To Branch</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Transfer ID</th>
+            <th>Product</th>
+            <th>From → To</th>
+            <th>Quantity</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Requested</th>
+            <th>Delivery</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr 
+            *ngFor="let transfer of filteredTransfers(); trackBy: trackByTransferId"
+            class="transfer-row"
+          >
+            <td>
+              <div class="transfer-id">
+                <strong>TR-{{ transfer.id.toString().padStart(4, '0') }}</strong>
+                <small *ngIf="transfer.trackingNumber">{{ transfer.trackingNumber }}</small>
+              </div>
+            </td>
+            
+            <td>
+              <div class="product-info">
+                <div class="product-name">{{ transfer.productName }}</div>
+                <small class="product-sku">{{ transfer.productSku }}</small>
+              </div>
+            </td>
+            
+            <td>
+              <div class="branch-transfer">
+                <div class="from-branch">{{ transfer.fromBranchName }}</div>
+                <i class="icon-arrow-right transfer-arrow"></i>
+                <div class="to-branch">{{ transfer.toBranchName }}</div>
+              </div>
+            </td>
+            
+            <td>
+              <div class="quantity-info">
+                <div class="requested">{{ transfer.requestedQuantity }} requested</div>
+                <div class="approved" *ngIf="transfer.approvedQuantity">
+                  {{ transfer.approvedQuantity }} approved
+                </div>
+              </div>
+            </td>
+            
+            <td>
+              <span class="status-badge" [class]="getStatusClass(transfer.status)">
+                {{ transfer.status | titlecase }}
+              </span>
+            </td>
+            
+            <td>
+              <span class="priority-badge" [class]="getPriorityClass(transfer.priority)">
+                {{ transfer.priority | titlecase }}
+              </span>
+            </td>
+            
+            <td>
+              <div class="date-info">
+                <div class="requested-date">{{ formatDate(transfer.requestedAt) }}</div>
+                <small class="requested-by">by {{ transfer.requestedBy }}</small>
+              </div>
+            </td>
+            
+            <td>
+              <div class="delivery-info">
+                <div *ngIf="transfer.estimatedDelivery" class="estimated">
+                  Est: {{ formatDate(transfer.estimatedDelivery) }}
+                </div>
+                <div *ngIf="transfer.actualDelivery" class="actual">
+                  Actual: {{ formatDate(transfer.actualDelivery) }}
+                </div>
+                <span *ngIf="!transfer.estimatedDelivery && !transfer.actualDelivery" class="no-date">
+                  Not scheduled
+                </span>
+              </div>
+            </td>
+            
+            <td>
+              <div class="action-buttons">
+                <!-- View Details -->
+                <button 
+                  class="btn btn-sm btn-outline"
+                  (click)="showTransferDetails(transfer)"
+                  title="View Details"
+                >
+                  <i class="icon-eye"></i>
+                </button>
+                
+                <!-- Approve (for pending transfers) -->
+                <button 
+                  *ngIf="canApprove(transfer)"
+                  class="btn btn-sm btn-success"
+                  (click)="approveTransfer(transfer)"
+                  title="Approve Transfer"
+                >
+                  <i class="icon-check"></i>
+                </button>
+                
+                <!-- Reject (for pending transfers) -->
+                <button 
+                  *ngIf="canApprove(transfer)"
+                  class="btn btn-sm btn-danger"
+                  (click)="rejectTransfer(transfer)"
+                  title="Reject Transfer"
+                >
+                  <i class="icon-x"></i>
+                </button>
+                
+                <!-- Mark In Transit -->
+                <button 
+                  *ngIf="canMarkInTransit(transfer)"
+                  class="btn btn-sm btn-warning"
+                  (click)="markInTransit(transfer)"
+                  title="Mark In Transit"
+                >
+                  <i class="icon-truck"></i>
+                </button>
+                
+                <!-- Mark Completed -->
+                <button 
+                  *ngIf="canMarkCompleted(transfer)"
+                  class="btn btn-sm btn-primary"
+                  (click)="markCompleted(transfer)"
+                  title="Mark Completed"
+                >
+                  <i class="icon-check-circle"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="filteredTransfers().length === 0">
+        <div class="empty-icon">
+          <i class="icon-inbox"></i>
+        </div>
+        <h3>No transfers found</h3>
+        <p>No transfer requests match your current filters.</p>
+        <button class="btn btn-primary" (click)="openCreateTransferModal()">
+          Create New Transfer
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Transfer Modal -->
+<div class="modal-overlay" *ngIf="showCreateTransferModal" (click)="closeCreateTransferModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Create New Transfer Request</h3>
+      <button class="modal-close" (click)="closeCreateTransferModal()">
+        <i class="icon-x"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <form>
+        <div class="form-row">
+          <div class="form-group">
+            <label>From Branch</label>
+            <select [(ngModel)]="newTransferForm.fromBranchId" name="fromBranch" required>
+              <option value="">Select source branch</option>
+              <option *ngFor="let branch of availableBranches()" [value]="branch.id">
+                {{ branch.branchName }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>To Branch</label>
+            <select [(ngModel)]="newTransferForm.toBranchId" name="toBranch" required>
+              <option value="">Select destination branch</option>
+              <option *ngFor="let branch of availableBranches()" [value]="branch.id">
+                {{ branch.branchName }}
+              </option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Product</label>
+            <select [(ngModel)]="newTransferForm.productId" name="product" required>
+              <option value="">Select product</option>
+              <option value="101">Laptop Dell Inspiron 15</option>
+              <option value="102">Mouse Wireless Logitech</option>
+              <option value="103">Smartphone Samsung Galaxy</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Quantity</label>
+            <input 
+              type="number" 
+              [(ngModel)]="newTransferForm.requestedQuantity"
+              name="quantity"
+              min="1"
+              required
+            >
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Priority</label>
+            <select [(ngModel)]="newTransferForm.priority" name="priority" required>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Reason for Transfer</label>
+          <textarea 
+            [(ngModel)]="newTransferForm.reason"
+            name="reason"
+            rows="3"
+            placeholder="Explain why this transfer is needed..."
+            required
+          ></textarea>
+        </div>
+      </form>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeCreateTransferModal()">
+        Cancel
+      </button>
+      <button 
+        class="btn btn-primary" 
+        (click)="createTransfer()"
+        [disabled]="!isCreateFormValid()"
+      >
+        Create Transfer Request
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Transfer Details Modal -->
+<div class="modal-overlay" *ngIf="showDetailsModal && selectedTransfer()" (click)="closeDetailsModal()">
+  <div class="modal-content transfer-details-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Transfer Details - TR-{{ selectedTransfer()!.id.toString().padStart(4, '0') }}</h3>
+      <button class="modal-close" (click)="closeDetailsModal()">
+        <i class="icon-x"></i>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="transfer-details-content" *ngIf="selectedTransfer() as transfer">
+        <!-- Status and Priority -->
+        <div class="details-section">
+          <h4>Status & Priority</h4>
+          <div class="status-priority-info">
+            <div class="status-info">
+              <span class="label">Status:</span>
+              <span class="status-badge" [class]="getStatusClass(transfer.status)">
+                {{ transfer.status | titlecase }}
+              </span>
+            </div>
+            <div class="priority-info">
+              <span class="label">Priority:</span>
+              <span class="priority-badge" [class]="getPriorityClass(transfer.priority)">
+                {{ transfer.priority | titlecase }}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Transfer Information -->
+        <div class="details-section">
+          <h4>Transfer Information</h4>
+          <div class="transfer-info-grid">
+            <div class="info-item">
+              <span class="label">From Branch:</span>
+              <span class="value">{{ transfer.fromBranchName }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">To Branch:</span>
+              <span class="value">{{ transfer.toBranchName }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Product:</span>
+              <span class="value">{{ transfer.productName }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">SKU:</span>
+              <span class="value">{{ transfer.productSku }}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Requested Quantity:</span>
+              <span class="value">{{ transfer.requestedQuantity }}</span>
+            </div>
+            <div class="info-item" *ngIf="transfer.approvedQuantity">
+              <span class="label">Approved Quantity:</span>
+              <span class="value">{{ transfer.approvedQuantity }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Timeline -->
+        <div class="details-section">
+          <h4>Timeline</h4>
+          <div class="timeline">
+            <div class="timeline-item">
+              <div class="timeline-marker"></div>
+              <div class="timeline-content">
+                <div class="timeline-title">Transfer Requested</div>
+                <div class="timeline-date">{{ formatDate(transfer.requestedAt) }}</div>
+                <div class="timeline-user">by {{ transfer.requestedBy }}</div>
+              </div>
+            </div>
+            
+            <div class="timeline-item" *ngIf="transfer.approvedAt">
+              <div class="timeline-marker approved"></div>
+              <div class="timeline-content">
+                <div class="timeline-title">Transfer Approved</div>
+                <div class="timeline-date">{{ formatDate(transfer.approvedAt) }}</div>
+                <div class="timeline-user" *ngIf="transfer.approvedBy">by {{ transfer.approvedBy }}</div>
+              </div>
+            </div>
+            
+            <div class="timeline-item" *ngIf="transfer.estimatedDelivery">
+              <div class="timeline-marker estimated"></div>
+              <div class="timeline-content">
+                <div class="timeline-title">Estimated Delivery</div>
+                <div class="timeline-date">{{ formatDate(transfer.estimatedDelivery) }}</div>
+                <div class="timeline-tracking" *ngIf="transfer.trackingNumber">
+                  Tracking: {{ transfer.trackingNumber }}
+                </div>
+              </div>
+            </div>
+            
+            <div class="timeline-item" *ngIf="transfer.actualDelivery">
+              <div class="timeline-marker completed"></div>
+              <div class="timeline-content">
+                <div class="timeline-title">Delivered</div>
+                <div class="timeline-date">{{ formatDate(transfer.actualDelivery) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Reason and Notes -->
+        <div class="details-section">
+          <h4>Reason & Notes</h4>
+          <div class="reason-notes">
+            <div class="reason">
+              <span class="label">Reason for Transfer:</span>
+              <p>{{ transfer.reason }}</p>
+            </div>
+            <div class="notes" *ngIf="transfer.notes">
+              <span class="label">Additional Notes:</span>
+              <p>{{ transfer.notes }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closeDetailsModal()">
+        Close
+      </button>
+      
+      <!-- Action buttons based on status -->
+      <ng-container *ngIf="selectedTransfer() as transfer">
+        <button 
+          *ngIf="canApprove(transfer)"
+          class="btn btn-success"
+          (click)="approveTransfer(transfer); closeDetailsModal()"
+        >
+          <i class="icon-check"></i>
+          Approve Transfer
+        </button>
+        
+        <button 
+          *ngIf="canMarkInTransit(transfer)"
+          class="btn btn-warning"
+          (click)="markInTransit(transfer); closeDetailsModal()"
+        >
+          <i class="icon-truck"></i>
+          Mark In Transit
+        </button>
+        
+        <button 
+          *ngIf="canMarkCompleted(transfer)"
+          class="btn btn-primary"
+          (click)="markCompleted(transfer); closeDetailsModal()"
+        >
+          <i class="icon-check-circle"></i>
+          Mark Completed
+        </button>
+      </ng-container>
+    </div>
+  </div>
+</div>

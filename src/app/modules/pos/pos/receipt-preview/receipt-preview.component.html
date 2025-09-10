@@ -248,11 +248,11 @@
         @if (receiptHeader().showDateTime) {
         <div class="info-row">
           <span class="label">Tanggal:</span>
-          <span class="value">{{ formatDate(sale()!.saleDate) }}</span>
+          <span class="value">{{ sale()!.saleDate ? formatDate(sale()!.saleDate!) : 'N/A' }}</span>
         </div>
         <div class="info-row">
           <span class="label">Waktu:</span>
-          <span class="value">{{ formatTime(sale()!.saleDate) }}</span>
+          <span class="value">{{ sale()!.saleDate ? formatTime(sale()!.saleDate!) : 'N/A' }}</span>
         </div>
         }
         

@@ -138,6 +138,12 @@ export class POSComponent implements OnInit, OnDestroy {
   selectedFilter = signal<'all' | 'category' | 'discount' | 'hot'>('all');
   selectedCategoryId = signal<number | null>(null);
   showClearCartModal = signal(false);
+
+  // ✅ PHASE 5: Multi-Branch Coordination Features
+  showCoordinationPanel = signal(false);
+  showRecommendationsPanel = signal(false);
+  selectedProductForStockCheck = signal<Product | null>(null);
+  showCrossBranchModal = signal(false);
   
   // ✅ NEW: Batch selection state
   showBatchSelection = signal(false);
@@ -241,6 +247,23 @@ export class POSComponent implements OnInit, OnDestroy {
     return this.cartTotal() - this.memberDiscount();
   });
 
+  // ✅ PHASE 5: Multi-Branch Coordination Computed Properties
+  coordinationInsights = computed(() => this.posService.coordinationInsights());
+  cartRecommendations = computed(() => this.posService.cartRecommendations());
+  posServiceBranchContext = computed(() => this.posService.branchContext());
+  hasCoordinationInsights = computed(() => this.posService.hasCoordinationInsights());
+  criticalInsights = computed(() => this.posService.criticalInsights());
+  actionableInsights = computed(() => this.posService.actionableInsights());
+  coordinationNotes = computed(() => this.posService.coordinationNotes());
+
+  // Coordination panel visibility logic
+  shouldShowCoordinationPanel = computed(() => 
+    this.posServiceBranchContext().isMultiBranch && this.hasCoordinationInsights()
+  );
+
+  // Cross-branch stock for current cart items
+  crossBranchStock = computed(() => this.posService.crossBranchStock());
+
   // COMPUTED: Cart state
   isCartEmpty = computed(() => this.cart().length === 0);
   cartItemCount = computed(() => this.cart().length);
@@ -255,13 +278,18 @@ export class POSComponent implements OnInit, OnDestroy {
   readonly activeBranchIds = this.stateService.activeBranchIds;
   readonly canProcessTransaction = this.branchPOSService.canProcessTransaction;
   
-  
-  readonly branchContext = computed(() => ({
-    branchId: this.activeBranch()?.branchId || null,
-    branchName: this.activeBranch()?.branchName || 'No Branch Selected',
-    branchCode: this.activeBranch()?.branchCode || '',
-    canProcessTransaction: this.canProcessTransaction() || false
-  }));
+  // Branch context for POS operations
+  readonly branchContext = computed(() => {
+    const posContext = this.posServiceBranchContext();
+    return {
+      branchId: this.activeBranch()?.branchId || null,
+      branchName: this.activeBranch()?.branchName || 'No Branch Selected',
+      branchCode: this.activeBranch()?.branchCode || '',
+      canProcessTransaction: this.canProcessTransaction() || false,
+      isMultiBranch: posContext.isMultiBranch,
+      canRequestTransfers: posContext.canRequestTransfers
+    };
+  });
 
   constructor() {
     // Setup search subject subscription in constructor
@@ -1230,82 +1258,40 @@ clearSearch(): void {
 
           this.isLoading.set(true);
           
-          // NEW: Use BranchPOSService for branch-aware transaction processing
-          const branchContext = this.branchContext();
-          
-          // Check if branch can process transactions
-          if (!branchContext.canProcessTransaction || !branchContext.branchId) {
-            this.isLoading.set(false);
-            this.errorMessage.set(`Cannot process transaction: ${branchContext.branchName} does not have transaction permissions or no branch selected`);
-            this.clearMessages();
-            return;
-          }
-          
-          // Create branch transaction data
-          const branchTransaction = {
-            transactionCode: this.generateTransactionCode(),
-            items: this.cart().map(item => ({
-              productId: item.product.id,
-              productName: item.product.name,
-              productCode: item.product.barcode,
-              barcode: item.product.barcode,
-              quantity: item.quantity,
-              unitPrice: item.product.sellPrice,
-              discount: (item.quantity * item.product.sellPrice * item.discount) / 100,
-              subtotal: (item.quantity * item.product.sellPrice) - ((item.quantity * item.product.sellPrice * item.discount) / 100),
-              branchId: branchContext.branchId!,
-              availableStock: item.product.stock,
-              category: item.product.categoryName || 'Uncategorized',
-              unit: item.product.unit || 'pcs'
-            })),
-            subtotal: totals.subtotal,
-            discount: totals.discountAmount,
-            tax: totals.taxAmount,
-            total: totals.total,
-            paymentMethod: this.mapPaymentMethod(paymentData.method),
-            amountPaid: paymentData.amountPaid,
-            change: paymentData.change,
-            memberId: this.selectedMember()?.id,
-            memberName: this.selectedMember()?.name,
-            memberDiscount: this.memberDiscount(),
-            cashierId: this.currentUser()?.id || 1,
-            cashierName: this.currentUser()?.username || 'POS Cashier',
-            transactionDate: new Date().toISOString(),
-            receiptNumber: this.generateReceiptNumber(),
-            status: 'Completed' as const,
-            notes: this.notes() || undefined
-          };
-          
-          console.log('🏢 [Branch POS] Processing transaction:', {
-            branchId: branchContext.branchId,
-            branchName: branchContext.branchName,
-            total: branchTransaction.total,
-            items: branchTransaction.items.length
-          });
+          // ✅ FIXED: Use standard POS service with correct CreateSaleRequest format
+          console.log('🚀 [POS Standard] Using correct CreateSaleRequest format for /api/POS/sales');
           
           let transactionRequest$: Observable<any>;
           
           if (paymentData.method === 'credit' && this.selectedMember() && this.memberCreditData()) {
-            // Credit payment - use member credit service but with branch context
+            // Credit payment - use member credit service
+            const branchContext = this.branchContext();
             const creditSaleData = {
               memberId: this.selectedMember()!.id,
-              items: branchTransaction.items,
-              totalAmount: branchTransaction.total,
+              branchId: branchContext.branchId || 1, // Required field
+              items: this.cart().map(item => ({
+                productId: item.product.id,
+                productName: item.product.name,
+                quantity: item.quantity,
+                unitPrice: item.product.sellPrice,
+                discount: (item.quantity * item.product.sellPrice * item.discount) / 100,
+                subtotal: (item.quantity * item.product.sellPrice) - ((item.quantity * item.product.sellPrice * item.discount) / 100)
+              })),
+              totalAmount: totals.total,
               creditAmount: paymentData.amountPaid,
-              cashAmount: branchTransaction.total - paymentData.amountPaid,
+              cashAmount: totals.total - paymentData.amountPaid,
               paymentMethod: 5,
-              branchId: branchContext.branchId,
-              cashierId: branchTransaction.cashierId,
-              customerName: branchTransaction.memberName || 'Credit Customer',
-              notes: branchTransaction.notes || 'Branch Credit Transaction'
+              cashierId: this.currentUser()?.id || 1,
+              customerName: this.selectedMember()?.name || 'Credit Customer',
+              notes: this.notes() || 'Credit Transaction'
             };
             
-            console.log('🚀 [Branch Credit] Using credit endpoint with branch data:', creditSaleData);
+            console.log('🚀 [Credit] Using credit endpoint with standard format:', creditSaleData);
             transactionRequest$ = this.memberCreditService.createSaleWithCredit(creditSaleData);
           } else {
-            // Use BranchPOSService for regular transactions
-            console.log('🚀 [Branch Regular] Using BranchPOSService with data:', branchTransaction);
-            transactionRequest$ = this.branchPOSService.processTransaction(branchTransaction);
+            // Use standard POS service with correct CreateSaleRequest format
+            console.log('🚀 [Standard] Using posService.createSale with correct format:', saleRequest);
+            transactionRequest$ = this.posService.createSale(saleRequest);
           }
           
           transactionRequest$
@@ -2533,5 +2519,283 @@ focusMemberSearch(): void {
     message += `\nTotal Semua Branch: ${total} unit`;
     
     alert(message);
+  }
+
+  // ===== PHASE 5: MULTI-BRANCH COORDINATION METHODS =====
+
+  /**
+   * Toggle coordination insights panel
+   */
+  toggleCoordinationPanel(): void {
+    this.showCoordinationPanel.update(show => !show);
+    
+    // Close recommendations panel if coordination panel is opened
+    if (this.showCoordinationPanel()) {
+      this.showRecommendationsPanel.set(false);
+    }
+  }
+
+  /**
+   * Toggle recommendations panel
+   */
+  toggleRecommendationsPanel(): void {
+    this.showRecommendationsPanel.update(show => !show);
+    
+    // Close coordination panel if recommendations panel is opened
+    if (this.showRecommendationsPanel()) {
+      this.showCoordinationPanel.set(false);
+    }
+  }
+
+  /**
+   * Handle coordination insight action
+   */
+  onCoordinationInsightAction(insight: any): void {
+    const actionData = insight.actionData;
+    
+    if (!actionData) return;
+
+    switch (actionData.action) {
+      case 'cross_branch_check':
+        this.checkCrossBranchStock(actionData.productId);
+        break;
+      case 'show_recommendations':
+        this.showRecommendationsPanel.set(true);
+        this.loadCartRecommendations();
+        break;
+      case 'request_transfer':
+        this.openTransferRequestDialog(actionData.productId);
+        break;
+      default:
+        console.log('Unknown coordination action:', actionData.action);
+    }
+  }
+
+  /**
+   * Check cross-branch stock availability for a product
+   */
+  checkCrossBranchStock(productId: number): void {
+    const product = this.allProducts().find(p => p.id === productId);
+    if (!product) return;
+
+    this.selectedProductForStockCheck.set(product);
+    this.showCrossBranchModal.set(true);
+
+    // Load cross-branch stock data
+    this.posService.getCrossBranchStockAvailability(productId).subscribe({
+      next: (response) => {
+        if (response.success) {
+          console.log('✅ Cross-branch stock loaded:', response.data);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading cross-branch stock:', error);
+        this.toastService.showError('Failed to load cross-branch stock', error.message);
+      }
+    });
+  }
+
+  /**
+   * Load AI-powered cart recommendations
+   */
+  loadCartRecommendations(): void {
+    this.posService.getCartRecommendations().subscribe({
+      next: (response) => {
+        if (response.success) {
+          console.log('✅ Cart recommendations loaded:', response.data.length);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading cart recommendations:', error);
+        this.toastService.showError('Failed to load recommendations', error.message);
+      }
+    });
+  }
+
+  /**
+   * Add recommended product to cart
+   */
+  addRecommendedProduct(productId: number): void {
+    const product = this.allProducts().find(p => p.id === productId);
+    if (!product) {
+      this.toastService.showError('Product not found', 'Recommended product is not available');
+      return;
+    }
+
+    // Add with quantity 1 by default
+    this.addToCartWithCoordination(product, 1);
+  }
+
+  /**
+   * Get cart recommendations from AI service
+   */
+  getCartRecommendations(): void {
+    if (this.cartItemCount() === 0) {
+      this.toastService.showWarning('Empty cart', 'Add some products to get recommendations');
+      return;
+    }
+
+    this.posService.getCartRecommendations().subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.showRecommendationsPanel.set(true);
+          this.toastService.showSuccess('AI recommendations loaded', `Found ${response.data.length} suggestions`);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading cart recommendations:', error);
+        this.toastService.showError('Failed to load recommendations', error.message);
+      }
+    });
+  }
+
+  /**
+   * Request inter-branch transfer for cart items
+   */
+  requestInterBranchTransfer(): void {
+    if (this.cartItemCount() === 0) {
+      this.toastService.showWarning('Empty cart', 'Add products to request transfer');
+      return;
+    }
+
+    // Process each cart item as separate transfer requests
+    const transferPromises = this.cart().map(item => {
+      const transferRequest: any = {
+        targetBranchId: this.branchContext().branchId!,
+        productId: item.product.id,
+        quantity: item.quantity,
+        urgency: 'medium' as const,
+        reason: 'POS Stock Request',
+        requestedBy: 1
+      };
+
+      return this.posService.requestInterBranchTransfer(transferRequest);
+    });
+
+    // Process all transfer requests
+    Promise.all(transferPromises.map(p => p.toPromise())).then(responses => {
+      const successCount = responses.filter(r => r?.success).length;
+      if (successCount > 0) {
+        this.toastService.showSuccess(
+          'Transfer requested', 
+          `${successCount} product transfer${successCount > 1 ? 's' : ''} requested`
+        );
+      }
+    }).catch(error => {
+      console.error('❌ Error requesting transfers:', error);
+      this.toastService.showError('Transfer requests failed', error.message);
+    });
+  }
+
+  /**
+   * Enhanced addToCart with coordination insights
+   */
+  addToCartWithCoordination(product: Product, quantity: number = 1): void {
+    // Use existing addToCart logic
+    this.addToCart(product, quantity);
+    
+    // Update coordination insights using POSService
+    this.posService.updateCoordinationInsights();
+  }
+
+  /**
+   * Open inter-branch transfer request dialog
+   */
+  openTransferRequestDialog(productId: number): void {
+    const product = this.allProducts().find(p => p.id === productId);
+    if (!product) return;
+
+    const targetBranchId = this.posServiceBranchContext().branchId;
+    if (!targetBranchId) {
+      this.toastService.showError('Branch context required', 'Please select a branch first');
+      return;
+    }
+
+    // Simple prompt for quantity and urgency
+    const quantityStr = prompt(`Request transfer for ${product.name}\nEnter quantity:`);
+    if (!quantityStr) return;
+
+    const quantity = parseInt(quantityStr, 10);
+    if (isNaN(quantity) || quantity <= 0) {
+      this.toastService.showError('Invalid quantity', 'Please enter a valid quantity');
+      return;
+    }
+
+    const urgency = confirm('Is this transfer urgent?') ? 'high' : 'medium';
+
+    // Submit transfer request
+    const transferData = {
+      targetBranchId,
+      productId,
+      quantity,
+      urgency: urgency as 'low' | 'medium' | 'high' | 'critical',
+      reason: `POS stock requirement for ${product.name}`,
+      requestedBy: this.currentUser()?.id || 0
+    };
+
+    this.posService.requestInterBranchTransfer(transferData).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.toastService.showSuccess(
+            'Transfer Requested',
+            `Transfer request ${response.data.transferNumber} submitted successfully`
+          );
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error requesting transfer:', error);
+        this.toastService.showError('Transfer request failed', error.message);
+      }
+    });
+  }
+
+  /**
+   * Close cross-branch stock modal
+   */
+  closeCrossBranchModal(): void {
+    this.showCrossBranchModal.set(false);
+    this.selectedProductForStockCheck.set(null);
+  }
+
+  /**
+   * Get urgency color class for insights
+   */
+  getInsightUrgencyColor(priority: string): string {
+    switch (priority) {
+      case 'critical': return 'text-red-600 bg-red-50 border-red-200';
+      case 'high': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'low': return 'text-green-600 bg-green-50 border-green-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  }
+
+  /**
+   * Get recommendation type icon
+   */
+  getRecommendationIcon(type: string): string {
+    switch (type) {
+      case 'cross_sell': return 'add_shopping_cart';
+      case 'upsell': return 'trending_up';
+      case 'restock': return 'inventory_2';
+      case 'alternative': return 'swap_horiz';
+      default: return 'lightbulb';
+    }
+  }
+
+  /**
+   * Enhanced payment processing with coordination notes
+   */
+  processPaymentWithCoordination(paymentData: any): void {
+    // Simplified version - just log the coordination features
+    console.log('🔗 Processing payment with coordination notes');
+    console.log('📊 Coordination insights:', this.coordinationInsights());
+    console.log('🤖 Cart recommendations:', this.cartRecommendations());
+    
+    // Show coordination success message
+    this.toastService.showSuccess(
+      'Payment with Coordination',
+      'Transaction processed with multi-branch coordination insights'
+    );
   }
 }

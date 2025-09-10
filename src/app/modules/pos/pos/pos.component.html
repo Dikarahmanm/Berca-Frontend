@@ -233,6 +233,88 @@
           }
         }
         
+        <!-- ✅ PHASE 5: Mobile Branch Coordination Panel -->
+        @if (branchContext().isMultiBranch && cartItemCount() > 0) {
+          <div class="mobile-coordination-section">
+            <button 
+              class="mobile-coordination-toggle" 
+              (click)="toggleCoordinationPanel()"
+              [class.active]="showCoordinationPanel()"
+            >
+              <svg class="coordination-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span>Branch Coordination</span>
+              @if (coordinationInsights().length > 0) {
+                <span class="insights-badge">{{coordinationInsights().length}}</span>
+              }
+              <svg class="chevron" viewBox="0 0 24 24" fill="currentColor">
+                @if (showCoordinationPanel()) {
+                  <path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/>
+                } @else {
+                  <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+                }
+              </svg>
+            </button>
+            
+            @if (showCoordinationPanel()) {
+              <div class="mobile-coordination-panel">
+                <!-- Mobile Coordination Insights -->
+                @if (coordinationInsights().length > 0) {
+                  <div class="mobile-insights-list">
+                    @for (insight of coordinationInsights(); track insight.title) {
+                      <div class="mobile-insight-item" 
+                           [class.critical]="insight.priority === 'critical'" 
+                           [class.warning]="insight.priority === 'high'">
+                        <div class="insight-header">
+                          <span class="insight-title">{{insight.title}}</span>
+                          <span class="insight-priority" [class]="insight.priority">{{insight.priority}}</span>
+                        </div>
+                        <div class="insight-message">{{insight.message}}</div>
+                        @if (insight.actionable) {
+                          <button 
+                            class="mobile-insight-action"
+                            (click)="onCoordinationInsightAction(insight)"
+                          >
+                            {{insight.actionText || 'View Details'}}
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="no-insights-message">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    <span>No coordination insights available</span>
+                  </div>
+                }
+                
+                <!-- Mobile AI Recommendations -->
+                @if (cartRecommendations().length > 0) {
+                  <div class="mobile-recommendations">
+                    <h6 class="mobile-rec-title">AI Recommendations</h6>
+                    @for (rec of cartRecommendations(); track rec.productId) {
+                      <div class="mobile-rec-item" [class]="rec.urgency">
+                        <div class="rec-info">
+                          <span class="rec-product">{{rec.productName}}</span>
+                          <span class="rec-reasoning">{{rec.reasoning}}</span>
+                        </div>
+                        <div class="rec-value">
+                          @if (rec.potentialValue) {
+                            <span class="potential-value">+{{formatCurrency(rec.potentialValue)}}</span>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+        
         <!-- Global Discount -->
         <div class="global-discount">
           <label for="globalDisc">Global Discount (%):</label>
@@ -726,6 +808,148 @@
             </div>
           }
         </div>
+
+        <!-- ✅ PHASE 5: Multi-Branch Coordination Section -->
+        @if (branchContext().isMultiBranch && cartItemCount() > 0) {
+          <div class="coordination-section">
+            <h4 class="section-title">
+              Branch Coordination
+              <button 
+                class="toggle-coordination-btn" 
+                (click)="toggleCoordinationPanel()"
+                [class.active]="showCoordinationPanel()"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  @if (showCoordinationPanel()) {
+                    <path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/>
+                  } @else {
+                    <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+                  }
+                </svg>
+              </button>
+            </h4>
+            
+            @if (showCoordinationPanel()) {
+              <div class="coordination-panel">
+                <!-- Cross-Branch Stock Insights -->
+                @if (coordinationInsights().length > 0) {
+                  <div class="stock-insights">
+                    <h5>Coordination Insights</h5>
+                    @for (insight of coordinationInsights(); track insight.title) {
+                      <div class="insight-item" [class.critical]="insight.priority === 'critical'" [class.warning]="insight.priority === 'high'">
+                        <div class="insight-info">
+                          <span class="product-name">{{insight.title}}</span>
+                          <span class="stock-info">{{insight.message}}</span>
+                        </div>
+                        <div class="insight-actions">
+                          @if (insight.actionable) {
+                            <button 
+                              class="suggestion-btn"
+                              (click)="onCoordinationInsightAction(insight)"
+                              [title]="insight.actionText || 'View Details'"
+                            >
+                              <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                              </svg>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+                
+                <!-- AI Recommendations Panel -->
+                @if (showRecommendationsPanel()) {
+                  <div class="recommendations-panel">
+                    <div class="recommendations-header">
+                      <h5>AI Recommendations</h5>
+                      <button 
+                        class="close-recommendations"
+                        (click)="toggleRecommendationsPanel()"
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    @if (cartRecommendations().length > 0) {
+                      <div class="recommendations-list">
+                        @for (rec of cartRecommendations(); track rec.productId) {
+                          <div class="recommendation-item" [class]="rec.urgency">
+                            <div class="rec-info">
+                              <span class="rec-product">{{rec.productName}}</span>
+                              <span class="rec-reason">{{rec.reasoning}}</span>
+                              <span class="rec-confidence">{{rec.confidence}}% confidence</span>
+                            </div>
+                            <button 
+                              class="add-rec-btn"
+                              (click)="addRecommendedProduct(rec.productId)"
+                              [disabled]="isProductInCart(rec.productId)"
+                            >
+                              @if (isProductInCart(rec.productId)) {
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                </svg>
+                              } @else {
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                                </svg>
+                              }
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <div class="no-recommendations">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/>
+                        </svg>
+                        <p>No recommendations available</p>
+                      </div>
+                    }
+                  </div>
+                }
+                
+                <!-- Coordination Actions -->
+                <div class="coordination-actions">
+                  <button 
+                    class="coord-action-btn"
+                    (click)="getCartRecommendations()"
+                    [disabled]="cartItemCount() === 0"
+                  >
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/>
+                    </svg>
+                    Get AI Suggestions
+                  </button>
+                  
+                  @if (branchContext().canRequestTransfers) {
+                    <button 
+                      class="coord-action-btn transfer-btn"
+                      (click)="requestInterBranchTransfer()"
+                      [disabled]="cartItemCount() === 0"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14,12L10,8V11H2V13H10V16M20,18V6C20,4.89 19.1,4 18,4H6A2,2 0 0,0 4,6V9H6V6H18V18H6V15H4V18A2,2 0 0,0 6,20H18C19.1,20 20,19.1 20,18Z"/>
+                      </svg>
+                      Request Transfer
+                    </button>
+                  }
+                </div>
+                
+                <!-- Transaction Notes -->
+                @if (coordinationNotes()) {
+                  <div class="coordination-notes">
+                    <h5>Transaction Notes</h5>
+                    <div class="notes-content">{{coordinationNotes()}}</div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
 
         <!-- Global Discount Section -->
         @if (cartItemCount() > 0) {

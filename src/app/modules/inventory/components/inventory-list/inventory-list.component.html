@@ -687,8 +687,8 @@
                     <mat-icon>qr_code</mat-icon>
                     {{ product.barcode }}
                   </span>
-                  <span class="category-chip" [style.background-color]="getCategoryColor(product.categoryId)">
-                    {{ getCategoryName(product.categoryId) }}
+                  <span class="category-chip" [style.background-color]="getCategoryColor(product.categoryId, product)">
+                    {{ getCategoryName(product.categoryId, product) }}
                   </span>
                 </div>
               </div>
@@ -711,10 +711,6 @@
                 <div class="detail-item">
                   <span class="detail-label">Description:</span>
                   <span class="detail-value">{{ product.description || 'No description' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="detail-label">Unit:</span>
-                  <span class="detail-value">{{ product.unit }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="detail-label">Created:</span>
@@ -1003,8 +999,8 @@
             <h3 class="product-name">{{ product.name }}</h3>
             <div class="product-barcode">{{ product.barcode }}</div>
           </div>
-          <div class="category-chip" [style.background-color]="getCategoryColor(product.categoryId)">
-            {{ getCategoryName(product.categoryId) }}
+          <div class="category-chip" [style.background-color]="getCategoryColor(product.categoryId, product)">
+            {{ getCategoryName(product.categoryId, product) }}
           </div>
         </div>
         
@@ -1092,8 +1088,8 @@
                   <div class="mobile-info-row">
                     <span class="mobile-label">Category:</span>
                     <mat-chip class="mobile-category-chip"
-                      [style.background-color]="getCategoryColor(product.categoryId)">
-                      {{ getCategoryName(product.categoryId) }}
+                      [style.background-color]="getCategoryColor(product.categoryId, product)">
+                      {{ getCategoryName(product.categoryId, product) }}
                     </mat-chip>
                   </div>
                   <div class="mobile-info-row" *ngIf="isColumnVisible('buyPrice')">
@@ -1140,9 +1136,9 @@
           <ng-container matColumnDef="category">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="categoryName">Category</th>
             <td mat-cell *matCellDef="let product" class="category-info">
-              <mat-chip class="category-chip" [style.background-color]="getCategoryColor(product.categoryId)"
+              <mat-chip class="category-chip" [style.background-color]="getCategoryColor(product.categoryId, product)"
                 [style.color]="'white'">
-                {{ getCategoryName(product.categoryId) }}
+                {{ getCategoryName(product.categoryId, product) }}
               </mat-chip>
             </td>
           </ng-container>

@@ -62,14 +62,37 @@ export class InventoryService {
     if (filter?.sortBy) params = params.set('sortBy', filter.sortBy);
     if (filter?.sortOrder) params = params.set('sortOrder', filter.sortOrder);
 
-    return this.http.get<ApiResponse<ProductListResponse>>(this.baseUrl, { params })
+    return this.http.get<any>(this.baseUrl, { params })
       .pipe(
         map(response => {
-          if (response.success) {
-            this.productsSubject.next(response.data.products);
-            return response.data;
+          console.log('🔄 Raw Product API Response:', response);
+          
+          // Handle the actual backend response structure
+          if (response && response.success && response.data) {
+            const products = response.data.products || [];
+            const totalItems = response.data.totalCount || 0;
+            const currentPage = response.data.currentPage || 1;
+            const totalPages = response.data.totalPages || 1;
+            
+            console.log('✅ Products parsed successfully:', {
+              productsCount: products.length,
+              totalItems,
+              currentPage,
+              sampleProduct: products[0]
+            });
+            
+            this.productsSubject.next(products);
+            
+            return {
+              products,
+              totalItems,
+              totalPages,
+              currentPage,
+              pageSize: filter?.pageSize || 20
+            } as ProductListResponse;
           }
-          throw new Error(response.message || 'Failed to fetch products');
+          
+          throw new Error(response?.message || 'Invalid response format');
         }),
         catchError(error => this.handleError(error))
       );
@@ -87,6 +110,37 @@ export class InventoryService {
             return response.data;
           }
           throw new Error(response.message || 'Product not found');
+        }),
+        catchError(error => this.handleError(error))
+      );
+  }
+
+  /**
+   * ✅ NEW: Get products with batch summary for enhanced inventory display
+   * Backend: GET /api/Product/with-batch-summary
+   */
+  getProductsWithBatchSummary(filter?: ProductFilter): Observable<ProductWithBatchSummaryDto[]> {
+    let params = new HttpParams();
+    
+    if (filter?.search) params = params.set('search', filter.search);
+    if (filter?.categoryId) params = params.set('categoryId', filter.categoryId.toString());
+    if (filter?.isActive !== undefined) params = params.set('isActive', filter.isActive.toString());
+    if (filter?.page) params = params.set('page', filter.page.toString());
+    if (filter?.pageSize) params = params.set('pageSize', filter.pageSize.toString());
+    if (filter?.sortBy) params = params.set('sortBy', filter.sortBy);
+    if (filter?.sortOrder) params = params.set('sortOrder', filter.sortOrder);
+
+    return this.http.get<any>(`${this.baseUrl}/with-batch-summary`, { params })
+      .pipe(
+        map(response => {
+          console.log('🔄 Raw Product Batch Summary Response:', response);
+          
+          if (response && response.success && response.data) {
+            console.log('✅ Products with batch summary loaded:', response.data.length);
+            return response.data;
+          }
+          
+          throw new Error(response?.message || 'Failed to fetch products with batch summary');
         }),
         catchError(error => this.handleError(error))
       );

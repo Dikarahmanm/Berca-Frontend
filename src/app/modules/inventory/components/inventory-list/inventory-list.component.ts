@@ -677,14 +677,49 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
 
   // ===== UTILITY METHODS =====
 
-  getCategoryName(categoryId: number): string {
+  getCategoryName(categoryId: number, product?: any): string {
+    // First, try to get category name from product data (most efficient)
+    if (product?.categoryName) {
+      return product.categoryName;
+    }
+    
+    // Find product in current data that has this categoryId and get its categoryName
+    const productWithCategory = this.products.data.find(p => p.categoryId === categoryId && p.categoryName);
+    if (productWithCategory?.categoryName) {
+      return productWithCategory.categoryName;
+    }
+    
+    // Fallback: Search in categories array (less efficient but covers edge cases)
     const category = this.categories().find(c => c.id === categoryId);
-    return category?.name || 'Unknown';
+    if (category?.name) {
+      return category.name;
+    }
+    
+    // Ultimate fallback: Return Unknown with categoryId for debugging
+    console.warn(`Category not found for categoryId: ${categoryId}`);
+    return `Category #${categoryId}`;
   }
 
-  getCategoryColor(categoryId: number): string {
+  getCategoryColor(categoryId: number, product?: any): string {
+    // First, try to get category color from product data (most efficient)
+    if (product?.categoryColor) {
+      return product.categoryColor;
+    }
+    
+    // Find product in current data that has this categoryId and get its categoryColor
+    const productWithCategory = this.products.data.find(p => p.categoryId === categoryId && p.categoryColor);
+    if (productWithCategory?.categoryColor) {
+      return productWithCategory.categoryColor;
+    }
+    
+    // Fallback: Search in categories array (less efficient but covers edge cases)
     const category = this.categories().find(c => c.id === categoryId);
-    return category?.color || '#666666';
+    if (category?.color) {
+      return category.color;
+    }
+    
+    // Ultimate fallback
+    return '#666666';
   }
 
   // ✅ UPDATED: Enhanced getStockStatus method moved to line 1852 - using new return type

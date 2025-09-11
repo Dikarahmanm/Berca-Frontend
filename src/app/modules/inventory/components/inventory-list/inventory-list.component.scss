@@ -1230,6 +1230,29 @@
         align-items: center;
         gap: var(--s3);
 
+        .smart-inventory-btn {
+          background: linear-gradient(45deg, #6366f1, #8b5cf6);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 12px 24px;
+          font-size: var(--text-sm);
+          font-weight: 600;
+          min-height: 44px;
+          box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+          transition: all 0.2s ease;
+          margin-right: var(--s2);
+
+          &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+          }
+
+          mat-icon {
+            margin-right: 8px;
+          }
+        }
+
         .add-btn {
           background: var(--primary);
           color: white;

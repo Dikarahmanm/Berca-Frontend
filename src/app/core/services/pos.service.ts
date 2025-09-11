@@ -551,29 +551,82 @@ export class POSService {
       return this.validateStockLegacy(productIdOrItems);
     }
     
-    // Handle POS.md signature (productId, quantity)
+    // Handle POS.md signature (productId, quantity) with enhanced error handling
     const productId = productIdOrItems as number;
+    const requestedQuantity = quantity || 1;
+    
+    // Validate inputs
+    if (!productId || productId <= 0) {
+      console.error('❌ Invalid product ID for stock validation:', productId);
+      return of({ 
+        available: false, 
+        currentStock: 0,
+        crossBranchOptions: [],
+        transferSuggestions: [],
+        error: 'Invalid product ID'
+      });
+    }
+    
+    if (requestedQuantity <= 0) {
+      console.error('❌ Invalid quantity for stock validation:', requestedQuantity);
+      return of({ 
+        available: false, 
+        currentStock: 0,
+        crossBranchOptions: [],
+        transferSuggestions: [],
+        error: 'Invalid quantity'
+      });
+    }
+    
     const params = { 
       productId: productId.toString(), 
-      quantity: (quantity || 1).toString(),
+      quantity: requestedQuantity.toString(),
       checkCrossBranch: 'true'
     };
 
     return this.http.get<any>(`${this.baseUrl}/validate-stock`, { params })
       .pipe(
-        map(response => ({
-          available: response.available,
-          currentStock: response.currentStock,
-          crossBranchOptions: response.crossBranchOptions || [],
-          transferSuggestions: response.transferSuggestions || []
-        })),
+        timeout(3000), // 3 second timeout for stock validation
+        map(response => {
+          try {
+            // Validate response structure
+            if (!response || typeof response.available !== 'boolean') {
+              throw new Error('Invalid stock validation response structure');
+            }
+            
+            return {
+              available: response.available,
+              currentStock: Math.max(0, response.currentStock || 0),
+              crossBranchOptions: Array.isArray(response.crossBranchOptions) ? response.crossBranchOptions : [],
+              transferSuggestions: Array.isArray(response.transferSuggestions) ? response.transferSuggestions : []
+            };
+          } catch (processingError: any) {
+            console.error('❌ Error processing stock validation response:', processingError);
+            return { 
+              available: false, 
+              currentStock: 0,
+              crossBranchOptions: [],
+              transferSuggestions: [],
+              error: 'Failed to process stock validation response'
+            };
+          }
+        }),
         catchError(error => {
-          console.error('Stock validation failed:', error);
+          const errorType = error.name === 'TimeoutError' ? 'timeout' : 'service error';
+          console.error(`❌ Stock validation failed (${errorType}) for product ${productId}:`, error.message);
+          
+          // Try to get stock from local cart data as fallback
+          const cartItem = this._cartItems().find(item => item.product.id === productId);
+          const fallbackStock = cartItem?.product.stock || 0;
+          const fallbackAvailable = fallbackStock >= requestedQuantity;
+          
           return of({ 
-            available: false, 
-            currentStock: 0,
+            available: fallbackAvailable, 
+            currentStock: fallbackStock,
             crossBranchOptions: [],
-            transferSuggestions: []
+            transferSuggestions: [],
+            error: `Stock validation ${errorType} - using cached data`,
+            isFallback: true
           });
         })
       );
@@ -803,25 +856,47 @@ export class POSService {
     combineLatest([
       this.coordinationService.getDemandForecast(7, product.id).pipe(
         timeout(2000),
-        catchError(() => of([]))
+        catchError((error) => {
+          console.warn(`⚠️ Demand forecast failed for product ${product.id}:`, error.message);
+          return of([]);
+        })
       )
-    ]).subscribe(([demandForecastResponse]) => {
-      // Enhance product dengan coordination data
-      const demandForecast = Array.isArray(demandForecastResponse) ? 
-        demandForecastResponse : 
-        (demandForecastResponse as any)?.data || [];
-      const forecast = demandForecast.find((f: any) => f.productId === product.id);
-      const transfers: any[] = []; // Get from coordination service later
+    ]).subscribe({
+      next: ([demandForecastResponse]) => {
+        try {
+          // Enhance product dengan coordination data
+          const demandForecast = Array.isArray(demandForecastResponse) ? 
+            demandForecastResponse : 
+            (demandForecastResponse as any)?.data || [];
+          const forecast = demandForecast.find((f: any) => f.productId === product.id);
+          const transfers: any[] = []; // Get from coordination service later
 
-      product.coordinationData = {
-        crossBranchStock: this.calculateCrossBranchStock(product.id),
-        transferRecommendations: this.mapToTransferSuggestions(transfers),
-        demandForecast: forecast ? {
-          predicted7Days: forecast.totalPredictedDemand,
-          confidence: forecast.forecastAccuracy
-        } : undefined,
-        pricingOptimization: this.calculatePricingOptimization(product, forecast)
-      };
+          product.coordinationData = {
+            crossBranchStock: this.calculateCrossBranchStock(product.id),
+            transferRecommendations: this.mapToTransferSuggestions(transfers),
+            demandForecast: forecast ? {
+              predicted7Days: forecast.totalPredictedDemand || 0,
+              confidence: forecast.forecastAccuracy || 0.5
+            } : undefined,
+            pricingOptimization: this.calculatePricingOptimization(product, forecast)
+          };
+        } catch (error: any) {
+          console.error(`❌ Error enhancing product ${product.id} with coordination data:`, error);
+          // Set minimal coordination data to prevent template errors
+          product.coordinationData = {
+            crossBranchStock: 0,
+            transferRecommendations: []
+          };
+        }
+      },
+      error: (error) => {
+        console.error(`❌ Critical error in product coordination enhancement for product ${product.id}:`, error);
+        // Ensure product has basic coordination data structure
+        product.coordinationData = {
+          crossBranchStock: 0,
+          transferRecommendations: []
+        };
+      }
     });
   }
 
@@ -844,23 +919,89 @@ export class POSService {
       return;
     }
 
-    // Calculate coordination insights
-    const insights = {
-      branchPerformanceImpact: this.calculateBranchPerformanceImpact(),
-      optimizationSuggestions: this.generateOptimizationSuggestions(),
-      transferOpportunities: this.identifyTransferOpportunities()
-    };
+    const branchId = this.stateService.selectedBranchId();
+    const productIds = cartItems.map(item => item.product.id);
+    
+    if (!branchId) {
+      this._coordinationInsights.set(null);
+      return;
+    }
 
-    this._coordinationInsights.set(insights);
+    // Get real coordination insights from service with enhanced error handling
+    this.coordinationService.getMultiBranchAnalysis(branchId, productIds)
+      .pipe(
+        timeout(5000), // 5 second timeout for coordination analysis
+        map(analysis => {
+          try {
+            return {
+              branchPerformanceImpact: this.calculateBranchPerformanceImpact(analysis),
+              optimizationSuggestions: this.generateOptimizationSuggestions(analysis),
+              transferOpportunities: this.identifyTransferOpportunities(analysis)
+            };
+          } catch (error: any) {
+            console.error('❌ Error processing coordination analysis:', error);
+            // Return fallback data on processing error
+            return {
+              branchPerformanceImpact: this.calculateBranchPerformanceImpact(),
+              optimizationSuggestions: [`Analysis processing failed: ${error.message}`],
+              transferOpportunities: this.identifyTransferOpportunities()
+            };
+          }
+        }),
+        catchError(error => {
+          const errorType = error.name === 'TimeoutError' ? 'timeout' : 'service';
+          console.warn(`⚠️ Coordination insights ${errorType} failure:`, error.message);
+          
+          // Return comprehensive fallback data
+          return of({
+            branchPerformanceImpact: this.calculateBranchPerformanceImpact(),
+            optimizationSuggestions: [
+              `Coordination service ${errorType === 'timeout' ? 'timed out' : 'unavailable'} - using offline calculations`,
+              'Some features may be limited without coordination data'
+            ],
+            transferOpportunities: this.identifyTransferOpportunities()
+          });
+        })
+      )
+      .subscribe({
+        next: (insights) => {
+          this._coordinationInsights.set(insights);
+        },
+        error: (error) => {
+          console.error('❌ Critical error in coordination insights subscription:', error);
+          // Set minimal insights to prevent template errors
+          this._coordinationInsights.set({
+            branchPerformanceImpact: 0,
+            optimizationSuggestions: ['Coordination system temporarily unavailable'],
+            transferOpportunities: []
+          });
+        }
+      });
   }
 
   /**
    * Calculate cross-branch stock untuk product
    */
   private calculateCrossBranchStock(productId: number): number {
-    // This would call a coordination service method
-    // For now, return mock data
-    return Math.floor(Math.random() * 500) + 100;
+    // Get real cross-branch stock from coordination service
+    let totalStock = 0;
+    
+    this.coordinationService.getMultiBranchAnalysis(
+      this.stateService.selectedBranchId() || 1,
+      [productId]
+    ).subscribe({
+      next: (analysis) => {
+        const productAnalysis = analysis.find(p => p.productId === productId);
+        totalStock = productAnalysis?.totalCrossBranchStock || 0;
+      },
+      error: () => {
+        // Fallback to current branch stock if coordination service fails
+        totalStock = this._cartItems()
+          .find(item => item.product.id === productId)?.product.stock || 0;
+      }
+    });
+    
+    return totalStock;
   }
 
   /**
@@ -896,36 +1037,81 @@ export class POSService {
   /**
    * Calculate branch performance impact
    */
-  private calculateBranchPerformanceImpact(): number {
+  private calculateBranchPerformanceImpact(analysis?: any[]): number {
     const total = this.cartTotal();
-    const currentBranch = this.stateService.selectedBranch();
     
-    // Mock calculation - in real implementation, would use branch performance data
+    if (analysis && analysis.length > 0) {
+      // Use real coordination analysis data
+      const averageImpact = analysis.reduce((sum, item) => {
+        const stockRatio = item.totalCrossBranchStock > 0 
+          ? item.branchStocks.find((b: any) => b.branchId === this.stateService.selectedBranchId())?.currentStock / item.totalCrossBranchStock
+          : 0;
+        return sum + (stockRatio * 0.2); // Impact based on stock distribution
+      }, 0) / analysis.length;
+      
+      return total * Math.max(0.05, Math.min(0.25, averageImpact)); // 5-25% impact range
+    }
+    
+    // Fallback calculation
     return total * 0.15; // 15% estimated impact on branch performance
   }
 
   /**
    * Generate optimization suggestions
    */
-  private generateOptimizationSuggestions(): string[] {
+  private generateOptimizationSuggestions(analysis?: any[]): string[] {
     const suggestions: string[] = [];
     const cartItems = this._cartItems();
 
-    // Analyze cart untuk suggestions
-    cartItems.forEach(item => {
-      if (item.product.coordinationData?.pricingOptimization) {
-        const pricing = item.product.coordinationData.pricingOptimization;
-        if (pricing.suggestedPrice !== item.product.price) {
+    if (analysis && analysis.length > 0) {
+      // Use real coordination analysis for suggestions
+      analysis.forEach(item => {
+        const cartItem = cartItems.find(c => c.product.id === item.productId);
+        if (!cartItem) return;
+        
+        // Check stock optimization
+        const currentBranchStock = item.branchStocks.find((b: any) => 
+          b.branchId === this.stateService.selectedBranchId()
+        );
+        
+        if (currentBranchStock && currentBranchStock.currentStock < cartItem.quantity) {
+          const availableBranches = item.branchStocks.filter((b: any) => 
+            b.branchId !== this.stateService.selectedBranchId() && 
+            b.currentStock >= cartItem.quantity
+          );
+          
+          if (availableBranches.length > 0) {
+            suggestions.push(
+              `${item.productName}: Consider transfer from ${availableBranches[0].branchName} (${availableBranches[0].currentStock} available)`
+            );
+          }
+        }
+        
+        // Check for optimization opportunities
+        if (item.transferOpportunities && item.transferOpportunities.length > 0) {
+          const bestOpportunity = item.transferOpportunities[0];
           suggestions.push(
-            `Consider adjusting ${item.product.name} price to ${pricing.suggestedPrice} (${pricing.reason})`
+            `${item.productName}: Transfer opportunity from ${bestOpportunity.fromBranchName} (${bestOpportunity.potentialSavings} savings)`
           );
         }
-      }
+      });
+    } else {
+      // Fallback: Analyze cart untuk suggestions
+      cartItems.forEach(item => {
+        if (item.product.coordinationData?.pricingOptimization) {
+          const pricing = item.product.coordinationData.pricingOptimization;
+          if (pricing.suggestedPrice !== item.product.price) {
+            suggestions.push(
+              `Consider adjusting ${item.product.name} price to ${pricing.suggestedPrice} (${pricing.reason})`
+            );
+          }
+        }
 
-      if (item.coordinationAlerts && item.coordinationAlerts.length > 0) {
-        suggestions.push(...item.coordinationAlerts);
-      }
-    });
+        if (item.coordinationAlerts && item.coordinationAlerts.length > 0) {
+          suggestions.push(...item.coordinationAlerts);
+        }
+      });
+    }
 
     return suggestions;
   }
@@ -933,15 +1119,34 @@ export class POSService {
   /**
    * Identify transfer opportunities
    */
-  private identifyTransferOpportunities(): TransferSuggestion[] {
+  private identifyTransferOpportunities(analysis?: any[]): TransferSuggestion[] {
     const opportunities: TransferSuggestion[] = [];
     const cartItems = this._cartItems();
 
-    cartItems.forEach(item => {
-      if (item.product.coordinationData?.transferRecommendations) {
-        opportunities.push(...item.product.coordinationData.transferRecommendations);
-      }
-    });
+    if (analysis && analysis.length > 0) {
+      // Use real coordination analysis for transfer opportunities
+      analysis.forEach(item => {
+        if (item.transferOpportunities && item.transferOpportunities.length > 0) {
+          item.transferOpportunities.forEach((opportunity: any) => {
+            opportunities.push({
+              fromBranchId: opportunity.fromBranchId,
+              fromBranchName: opportunity.fromBranchName,
+              availableQuantity: opportunity.recommendedQuantity,
+              transferTime: opportunity.estimatedTime || '2-4 hours',
+              priority: opportunity.priority as 'Low' | 'Medium' | 'High',
+              cost: opportunity.transferCost || (opportunity.potentialSavings * 0.1)
+            });
+          });
+        }
+      });
+    } else {
+      // Fallback: Use product coordination data
+      cartItems.forEach(item => {
+        if (item.product.coordinationData?.transferRecommendations) {
+          opportunities.push(...item.product.coordinationData.transferRecommendations);
+        }
+      });
+    }
 
     return opportunities;
   }
@@ -1520,41 +1725,60 @@ export class POSService {
         throw new Error('No stock data available');
       }),
       catchError(error => {
-        console.warn('⚠️ Cross-branch stock API not available, using mock data');
+        console.warn('⚠️ Cross-branch stock API not available, using coordination service fallback');
         
-        // Mock data for development
-        const mockData: CrossBranchStockResponse['data'] = [
-          {
-            branchId: 1,
-            branchName: 'Central Branch',
-            productId: productId,
-            productName: 'Product ' + productId,
-            availableStock: 25,
-            reservedStock: 5,
-            minStock: 10,
-            status: 'available',
-            distance: 2.5,
-            transferTime: '2-4 hours'
-          },
-          {
-            branchId: 2,
-            branchName: 'North Branch',
-            productId: productId,
-            productName: 'Product ' + productId,
-            availableStock: 8,
-            reservedStock: 2,
-            minStock: 10,
-            status: 'low_stock',
-            distance: 5.0,
-            transferTime: '4-6 hours'
-          }
-        ];
-
-        return of({
-          success: true,
-          data: mockData,
-          message: 'Mock cross-branch stock data'
-        });
+        // Use coordination service as fallback
+        return this.coordinationService.getMultiBranchAnalysis(
+          this.stateService.selectedBranchId() || 1,
+          [productId]
+        ).pipe(
+          map(analysis => {
+            const productAnalysis = analysis.find(p => p.productId === productId);
+            if (!productAnalysis) {
+              throw new Error('Product analysis not found');
+            }
+            
+            // Convert coordination service data to CrossBranchStockResponse format
+            const crossBranchData: CrossBranchStockResponse['data'] = productAnalysis.branchStocks.map((branch: any) => ({
+              branchId: branch.branchId,
+              branchName: branch.branchName,
+              productId: productId,
+              productName: productAnalysis.productName,
+              availableStock: branch.currentStock,
+              reservedStock: 0, // Not provided by coordination service
+              minStock: branch.minimumStock || 10,
+              status: branch.currentStock > (branch.minimumStock || 10) 
+                ? 'available' 
+                : branch.currentStock > 0 
+                  ? 'low_stock' 
+                  : 'out_of_stock',
+              distance: 2.5, // Default distance
+              transferTime: '2-4 hours' // Default transfer time
+            }));
+            
+            // Update cross-branch stock cache
+            const currentStock = this._crossBranchStock();
+            this._crossBranchStock.set({
+              ...currentStock,
+              [productId]: crossBranchData
+            });
+            
+            return {
+              success: true,
+              data: crossBranchData,
+              message: 'Cross-branch stock from coordination service'
+            } as CrossBranchStockResponse;
+          }),
+          catchError(coordError => {
+            console.error('⚠️ Coordination service also failed:', coordError);
+            // Return empty data instead of mock data
+            return of({
+              success: false,
+              data: [],
+              message: 'Cross-branch stock unavailable: ' + coordError.message
+            });
+          })
+        );
       })
     );
   }
@@ -1588,28 +1812,62 @@ export class POSService {
         }
       }),
       catchError(error => {
-        console.warn('⚠️ Cart recommendations API not available, using mock data');
+        console.warn('⚠️ Cart recommendations API not available, using coordination service fallback');
         
-        // Mock recommendations for development
-        const mockRecommendations: ProductRecommendation[] = [
-          {
-            productId: 999,
-            productName: 'Recommended Product A',
-            reason: 'Customers who bought these items often also purchase this product',
-            reasoning: 'Customers who bought these items often also purchase this product',
-            confidence: 0.85,
-            expectedDemand: 25000,
-            potentialValue: 25000,
-            urgency: 'medium'
-          }
-        ];
-
-        this._cartRecommendations.set(mockRecommendations);
-        return of({
-          success: true,
-          data: mockRecommendations,
-          message: 'Mock recommendations data'
-        });
+        // Use coordination service as fallback with enhanced error handling
+        return this.coordinationService.getRecommendations(
+          branchContext.branchId!,
+          productIds
+        ).pipe(
+          timeout(3000), // 3 second timeout for recommendations
+          map(recommendations => {
+            try {
+              const convertedRecommendations: ProductRecommendation[] = (recommendations || []).map(rec => {
+                // Validate required fields
+                if (!rec.productId || !rec.productName) {
+                  console.warn('⚠️ Invalid recommendation data:', rec);
+                  return null;
+                }
+                
+                return {
+                  productId: rec.productId,
+                  productName: rec.productName,
+                  reason: rec.reasoning || 'Recommended based on branch data',
+                  reasoning: rec.reasoning || 'Recommended based on branch data',
+                  confidence: Math.max(0, Math.min(1, rec.confidence || 0.5)),
+                  expectedDemand: Math.max(0, rec.potentialValue || 0),
+                  potentialValue: Math.max(0, rec.potentialValue || 0),
+                  urgency: ['low', 'medium', 'high', 'critical'].includes(rec.urgency) ? rec.urgency : 'medium'
+                };
+              }).filter(rec => rec !== null) as ProductRecommendation[];
+              
+              this._cartRecommendations.set(convertedRecommendations);
+              return {
+                success: true,
+                data: convertedRecommendations,
+                message: `${convertedRecommendations.length} recommendations from coordination service`
+              };
+            } catch (processingError: any) {
+              console.error('❌ Error processing recommendations:', processingError);
+              this._cartRecommendations.set([]);
+              return {
+                success: false,
+                data: [],
+                message: 'Failed to process recommendations: ' + processingError.message
+              };
+            }
+          }),
+          catchError(coordError => {
+            const errorType = coordError.name === 'TimeoutError' ? 'timeout' : 'service error';
+            console.warn(`⚠️ Coordination service recommendations failed (${errorType}):`, coordError.message);
+            this._cartRecommendations.set([]);
+            return of({
+              success: false,
+              data: [],
+              message: `Recommendations unavailable due to ${errorType}`
+            });
+          })
+        );
       })
     );
   }
@@ -1643,21 +1901,53 @@ export class POSService {
         }
       }),
       catchError(error => {
-        console.warn('⚠️ Transfer request API not available, using mock response');
+        console.warn('⚠️ Transfer request API not available, using coordination service');
         
-        // Mock response for development
-        const mockResponse: TransferRequestResponse = {
-          success: true,
-          data: {
-            transferId: Date.now(),
-            transferNumber: `TR-${Date.now()}`,
-            status: 'pending',
-            estimatedDelivery: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-          },
-          message: 'Transfer request submitted successfully (mock)'
-        };
-
-        return of(mockResponse);
+        // Use coordination service for transfer requests with enhanced error handling
+        return this.coordinationService.requestTransfer(
+          requestPayload.targetBranchId,
+          requestPayload.sourceBranchId || this.stateService.selectedBranchId() || 1,
+          requestPayload.productId,
+          requestPayload.quantity,
+          requestPayload.urgency
+        ).pipe(
+          timeout(10000), // 10 second timeout for transfer requests
+          map(transferResult => {
+            try {
+              // Validate transfer result
+              if (!transferResult || !transferResult.transferId) {
+                throw new Error('Invalid transfer result received');
+              }
+              
+              const response: TransferRequestResponse = {
+                success: true,
+                data: {
+                  transferId: transferResult.transferId,
+                  transferNumber: transferResult.transferReference || `TR-${transferResult.transferId}`,
+                  status: (['pending', 'approved', 'rejected'].includes(transferResult.status) 
+                    ? transferResult.status 
+                    : 'pending') as 'pending' | 'approved' | 'rejected',
+                  estimatedDelivery: transferResult.estimatedDelivery || 
+                    new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                },
+                message: 'Transfer request submitted via coordination service'
+              };
+              
+              console.log('✅ Transfer request successful:', response.data.transferNumber);
+              return response;
+            } catch (processingError: any) {
+              console.error('❌ Error processing transfer result:', processingError);
+              throw new Error('Failed to process transfer result: ' + processingError.message);
+            }
+          }),
+          catchError(coordError => {
+            const errorType = coordError.name === 'TimeoutError' ? 'timeout' : 'service error';
+            console.error(`❌ Transfer request failed (${errorType}):`, coordError.message);
+            return throwError(() => new Error(
+              `Transfer request failed due to ${errorType}. Please try again or contact support.`
+            ));
+          })
+        );
       })
     );
   }

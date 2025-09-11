@@ -1,0 +1,1015 @@
+<!-- Smart Inventory Management Header -->
+<div class="smart-inventory-header">
+  <div class="header-content">
+    <div class="header-main">
+      <div class="header-icon">
+        <i class="material-icons">psychology</i>
+      </div>
+      <div class="header-text">
+        <h1>Smart Inventory Management</h1>
+        <p>AI-powered inventory coordination untuk {{ currentBranchName() || 'All Branches' }}</p>
+      </div>
+    </div>
+    
+    <div class="header-actions">
+      <div class="ai-status">
+        <div class="status-indicator" [ngClass]="systemHealthStatus().color">
+          <i class="material-icons">{{ systemHealthStatus().score >= 75 ? 'check_circle' : 'warning' }}</i>
+          <span>{{ systemHealthStatus().status }}</span>
+        </div>
+      </div>
+      
+      <button class="refresh-btn" (click)="refreshData()" [disabled]="isLoading()">
+        <i class="material-icons" [class.spin]="isLoading()">refresh</i>
+        <span>Refresh</span>
+      </button>
+      
+      <button class="train-btn" (click)="trainMLModels()" [disabled]="isLoading()">
+        <i class="material-icons">model_training</i>
+        <span>Train Models</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Loading State -->
+<div *ngIf="isLoading()" class="loading-state">
+  <div class="loading-spinner"></div>
+  <p>Loading AI inventory analysis...</p>
+</div>
+
+<!-- Error State -->
+<div *ngIf="error()" class="error-state">
+  <div class="error-content">
+    <i class="material-icons">error</i>
+    <h3>Unable to load Smart Inventory</h3>
+    <p>{{ error() }}</p>
+    <button (click)="refreshData()" class="retry-btn">
+      <i class="material-icons">refresh</i>
+      Try Again
+    </button>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div *ngIf="!isLoading() && !error()" class="smart-inventory-content">
+
+  <!-- Navigation Tabs -->
+  <div class="inventory-tabs">
+    <button 
+      *ngFor="let tab of tabs" 
+      class="tab-button"
+      [class.active]="activeTab() === tab.id"
+      (click)="switchTab(tab.id)"
+    >
+      <i class="material-icons">{{ tab.icon }}</i>
+      <span>{{ tab.name }}</span>
+      <span *ngIf="tab.badge && tab.badge > 0" class="tab-badge">{{ tab.badge }}</span>
+    </button>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="tab-content">
+
+    <!-- Overview Tab -->
+    <div *ngIf="activeTab() === 'overview'" class="overview-tab">
+      
+      <!-- Key Metrics Cards -->
+      <div class="metrics-grid">
+        
+        <!-- Model Health Card -->
+        <div class="metric-card health-card">
+          <div class="card-header">
+            <i class="material-icons">health_and_safety</i>
+            <h3>AI System Health</h3>
+          </div>
+          <div class="card-content">
+            <div class="health-score" [ngClass]="getHealthScoreClass(systemHealthStatus().score)">
+              {{ systemHealthStatus().score }}/100
+            </div>
+            <div class="health-status">{{ systemHealthStatus().status }}</div>
+          </div>
+        </div>
+
+        <!-- Anomalies Card -->
+        <div class="metric-card anomalies-card">
+          <div class="card-header">
+            <i class="material-icons">warning</i>
+            <h3>Critical Anomalies</h3>
+          </div>
+          <div class="card-content">
+            <div class="anomaly-count">{{ highPriorityAnomalies().length }}</div>
+            <div class="anomaly-label">Require attention</div>
+          </div>
+        </div>
+
+        <!-- Expiry Card -->
+        <div class="metric-card expiry-card">
+          <div class="card-header">
+            <i class="material-icons">schedule</i>
+            <h3>Critical Expiry Items</h3>
+          </div>
+          <div class="card-content">
+            <div class="expiry-count">{{ criticalExpiryItems().length }}</div>
+            <div class="expiry-label">Expire within 3 days</div>
+          </div>
+        </div>
+
+        <!-- Wastage Card -->
+        <div class="metric-card wastage-card">
+          <div class="card-header">
+            <i class="material-icons">money_off</i>
+            <h3>Total Wasted Value</h3>
+          </div>
+          <div class="card-content">
+            <div class="wastage-amount">{{ formatCurrency(totalWastedValue()) }}</div>
+            <div class="wastage-label">This month</div>
+          </div>
+        </div>
+
+        <!-- Insights Card -->
+        <div class="metric-card insights-card">
+          <div class="card-header">
+            <i class="material-icons">insights</i>
+            <h3>AI Insights</h3>
+          </div>
+          <div class="card-content">
+            <div class="insights-count">{{ aiInsightsCount() }}</div>
+            <div class="insights-label">Available recommendations</div>
+          </div>
+        </div>
+
+        <!-- Transfers Card -->
+        <div class="metric-card transfers-card">
+          <div class="card-header">
+            <i class="material-icons">swap_horiz</i>
+            <h3>Smart Transfers</h3>
+          </div>
+          <div class="card-content">
+            <div class="transfers-count">{{ actionableTransfers().length }}</div>
+            <div class="transfers-label">High confidence recommendations</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <h3>Quick Actions</h3>
+        <div class="actions-grid">
+          <button (click)="switchTab('forecasting')" class="action-card">
+            <i class="material-icons">trending_up</i>
+            <span>View Demand Forecasts</span>
+          </button>
+          <button (click)="switchTab('anomalies')" class="action-card">
+            <i class="material-icons">warning</i>
+            <span>Check Anomalies</span>
+          </button>
+          <button (click)="switchTab('expiry')" class="action-card">
+            <i class="material-icons">schedule</i>
+            <span>Manage Expiry Items</span>
+          </button>
+          <button (click)="switchTab('transfers')" class="action-card">
+            <i class="material-icons">swap_horiz</i>
+            <span>Smart Transfers</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Forecasting Tab -->
+    <div *ngIf="activeTab() === 'forecasting'" class="forecasting-tab">
+      <div class="tab-header">
+        <h3>Demand Forecasting</h3>
+        <div class="forecasting-controls">
+          <label>Forecast Days:</label>
+          <select [value]="forecastDays()" (change)="updateForecastDays(+$any($event.target).value)">
+            <option value="7">7 days</option>
+            <option value="14">14 days</option>
+            <option value="30">30 days</option>
+            <option value="60">60 days</option>
+            <option value="90">90 days</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="forecasts-grid">
+        <div *ngFor="let forecast of demandForecasts()" class="forecast-card enhanced">
+          <div class="forecast-header">
+            <h4>{{ forecast.productName || 'Product ID: ' + forecast.productId }}</h4>
+            <div class="forecast-meta">
+              <span class="model-type">{{ forecast.modelType }}</span>
+              <span class="confidence-badge" [class]="forecast.confidence >= 80 ? 'high-confidence' : forecast.confidence >= 60 ? 'medium-confidence' : 'low-confidence'">
+                {{ formatConfidence(forecast.confidence) }}
+              </span>
+            </div>
+          </div>
+          
+          <div class="forecast-content">
+            <div class="forecast-summary">
+              <div class="prediction-today" *ngIf="forecast.predictions[0]">
+                <span class="label">Today's Prediction:</span>
+                <span class="value">{{ forecast.predictions[0].predictedDemand.toFixed(1) }} units</span>
+                <span class="range">({{ forecast.predictions[0].lowerBound.toFixed(1) }} - {{ forecast.predictions[0].upperBound.toFixed(1) }})</span>
+              </div>
+              
+              <div class="forecast-details">
+                <div class="detail-item">
+                  <span class="label">Training Points:</span>
+                  <span class="value">{{ forecast.trainingDataPoints }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Generated:</span>
+                  <span class="value">{{ formatDate(forecast.generatedAt) }}</span>
+                </div>
+              </div>
+              
+              <div class="forecast-message" *ngIf="forecast.message">
+                <i class="material-icons">info</i>
+                <span>{{ forecast.message }}</span>
+              </div>
+            </div>
+            
+            <!-- Mini Forecast Chart -->
+            <div class="mini-chart">
+              <div class="chart-title">7-Day Trend</div>
+              <div class="chart-bars">
+                <div *ngFor="let prediction of forecast.predictions.slice(0, 7); let i = index" 
+                     class="chart-bar"
+                     [style.height.%]="(prediction.predictedDemand / getMaxPrediction(forecast.predictions.slice(0, 7))) * 100">
+                  <span class="bar-value">{{ prediction.predictedDemand.toFixed(0) }}</span>
+                  <span class="bar-date">{{ formatShortDate(prediction.date) }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Metrics -->
+            <div class="forecast-metrics" *ngIf="forecast.metrics.meanAbsoluteError > 0">
+              <h5>Model Performance</h5>
+              <div class="metrics-grid">
+                <div class="metric">
+                  <span class="metric-label">MAE:</span>
+                  <span class="metric-value">{{ forecast.metrics.meanAbsoluteError.toFixed(2) }}</span>
+                </div>
+                <div class="metric">
+                  <span class="metric-label">RMSE:</span>
+                  <span class="metric-value">{{ forecast.metrics.rootMeanSquareError.toFixed(2) }}</span>
+                </div>
+                <div class="metric">
+                  <span class="metric-label">R²:</span>
+                  <span class="metric-value">{{ forecast.metrics.r2Score.toFixed(3) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Anomalies Tab -->
+    <div *ngIf="activeTab() === 'anomalies'" class="anomalies-tab">
+      <div class="tab-header">
+        <div>
+          <h3>Anomaly Detection</h3>
+          <p class="tab-description">AI-powered detection of unusual patterns in your inventory data</p>
+        </div>
+        <div class="tab-actions">
+          <button (click)="refreshAnomalies()" [disabled]="isLoading()" class="refresh-btn">
+            <i class="material-icons" [class.spin]="isLoading()">refresh</i>
+            Refresh
+          </button>
+        </div>
+      </div>
+      
+      <div class="anomaly-stats">
+        <div class="stat-chip critical">
+          <span class="count">{{ criticalAnomalies().length }}</span>
+          <span class="label">Critical</span>
+        </div>
+        <div class="stat-chip high">
+          <span class="count">{{ highPriorityAnomalies().length }}</span>
+          <span class="label">High Priority</span>
+        </div>
+        <div class="stat-chip total">
+          <span class="count">{{ anomalies().length }}</span>
+          <span class="label">Total</span>
+        </div>
+      </div>
+      
+      <div class="anomalies-grid">
+        <!-- Show message when no anomalies are detected -->
+        <div *ngIf="anomalies().length === 0" class="no-data-message">
+          <div class="no-data-content">
+            <i class="material-icons">check_circle</i>
+            <h4>No Anomalies Detected</h4>
+            <p>Great! Your inventory data looks normal. All metrics are within expected ranges.</p>
+            <button (click)="refreshData()" class="refresh-btn">
+              <i class="material-icons">refresh</i>
+              Refresh Data
+            </button>
+          </div>
+        </div>
+
+        <!-- Anomaly cards -->
+        <div *ngFor="let anomaly of anomalies()" class="anomaly-card enhanced" [ngClass]="getAnomalySeverityClass(anomaly.anomalyScore)">
+          <div class="anomaly-header">
+            <div class="anomaly-type-badge">{{ anomaly.anomalyType }}</div>
+            <span class="anomaly-score">{{ (anomaly.anomalyScore * 100).toFixed(1) }}%</span>
+          </div>
+          
+          <div class="anomaly-content">
+            <h4>{{ anomaly.title }}</h4>
+            <p class="anomaly-description">{{ anomaly.description }}</p>
+            
+            <div class="anomaly-context" *ngIf="anomaly.context">
+              <div class="context-details">
+                <div *ngIf="anomaly.context.productName" class="context-item">
+                  <span class="label">Product:</span>
+                  <span class="value">{{ anomaly.context.productName }}</span>
+                </div>
+                <div *ngIf="anomaly.context.branchName" class="context-item">
+                  <span class="label">Branch:</span>
+                  <span class="value">{{ anomaly.context.branchName }}</span>
+                </div>
+                <div *ngIf="anomaly.context.deviationPercentage" class="context-item">
+                  <span class="label">Deviation:</span>
+                  <span class="value deviation">{{ anomaly.context.deviationPercentage.toFixed(1) }}%</span>
+                </div>
+              </div>
+              
+              <div class="expected-vs-actual" *ngIf="anomaly.context.expectedValues && anomaly.context.actualValues">
+                <div class="comparison-grid">
+                  <div *ngFor="let key of getObjectKeys(anomaly.context.expectedValues)" class="comparison-row">
+                    <span class="metric-name">{{ key }}:</span>
+                    <span class="expected">Expected: {{ formatCurrency(anomaly.context.expectedValues[key]) }}</span>
+                    <span class="actual">Actual: {{ formatCurrency(anomaly.context.actualValues[key]) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="anomaly-causes" *ngIf="anomaly.possibleCauses?.length">
+              <h5>Possible Causes:</h5>
+              <ul>
+                <li *ngFor="let cause of anomaly.possibleCauses">{{ cause }}</li>
+              </ul>
+            </div>
+            
+            <div class="anomaly-actions" *ngIf="anomaly.recommendedActions?.length">
+              <h5>Recommended Actions:</h5>
+              <ul>
+                <li *ngFor="let action of anomaly.recommendedActions">{{ action }}</li>
+              </ul>
+            </div>
+            
+            <div class="anomaly-meta">
+              <small class="anomaly-date">Detected: {{ formatDate(anomaly.detectedAt) }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clustering Tab -->
+    <div *ngIf="activeTab() === 'clustering'" class="clustering-tab">
+      <div class="tab-header">
+        <h3>Product Clustering</h3>
+        <div class="clustering-stats">
+          <div class="stat-item">
+            <span class="label">Total Clusters:</span>
+            <span class="value">{{ productClusters().length }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Total Products:</span>
+            <span class="value">{{ getTotalClusteredProducts() }}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="clusters-grid">
+        <div *ngFor="let cluster of productClusters()" class="cluster-card enhanced">
+          <div class="cluster-header">
+            <h4 [style.color]="getClusterColor(cluster.clusterId)">
+              {{ cluster.clusterName || 'Cluster ' + cluster.clusterId }}
+            </h4>
+            <div class="cluster-meta">
+              <span class="cluster-size">{{ cluster.productCount }} products</span>
+              <span class="cluster-id">#{{ cluster.clusterId }}</span>
+            </div>
+          </div>
+          
+          <div class="cluster-content">
+            <div class="cluster-description" *ngIf="cluster.clusterDescription">
+              <p>{{ cluster.clusterDescription }}</p>
+            </div>
+            
+            <div class="cluster-characteristics" *ngIf="cluster.characteristics && getObjectKeys(cluster.characteristics).length > 0">
+              <h5>Characteristics:</h5>
+              <div class="characteristics-tags">
+                <span *ngFor="let key of getObjectKeys(cluster.characteristics)" class="characteristic-tag">
+                  {{ key }}: {{ cluster.characteristics[key] }}
+                </span>
+              </div>
+            </div>
+            
+            <div class="cluster-metrics" *ngIf="cluster.metrics">
+              <h5>Cluster Quality:</h5>
+              <div class="metrics-grid">
+                <div class="metric" *ngIf="cluster.metrics.silhouetteScore > 0">
+                  <span class="metric-label">Silhouette Score:</span>
+                  <span class="metric-value">{{ cluster.metrics.silhouetteScore.toFixed(3) }}</span>
+                </div>
+                <div class="metric" *ngIf="cluster.metrics.intraClusterDistance > 0">
+                  <span class="metric-label">Intra-cluster Distance:</span>
+                  <span class="metric-value">{{ cluster.metrics.intraClusterDistance.toFixed(3) }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="cluster-products">
+              <h5>Products in this cluster:</h5>
+              <div class="product-grid">
+                <div *ngFor="let product of cluster.products.slice(0, 8)" class="product-item">
+                  <span class="product-name">{{ product.productName || 'Product #' + product.productId }}</span>
+                  <span class="product-distance">Distance: {{ product.distance.toFixed(2) }}</span>
+                </div>
+                <div *ngIf="cluster.products.length > 8" class="more-products">
+                  +{{ cluster.products.length - 8 }} more products
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expiry & Batch Tab -->
+    <div *ngIf="activeTab() === 'expiry'" class="expiry-tab">
+      <h3>Expiry & Batch Management</h3>
+      
+      <!-- Expiry Overview -->
+      <div class="expiry-overview" *ngIf="expiryAnalytics()">
+        <div class="expiry-stats">
+          <div class="stat-item">
+            <span class="stat-label">Total Batches</span>
+            <span class="stat-value">{{ expiryAnalytics()!.totalBatches }}</span>
+          </div>
+          <div class="stat-item critical">
+            <span class="stat-label">Critical</span>
+            <span class="stat-value">{{ expiryAnalytics()!.criticalBatches }}</span>
+          </div>
+          <div class="stat-item expired">
+            <span class="stat-label">Expired</span>
+            <span class="stat-value">{{ expiryAnalytics()!.expiredBatches }}</span>
+          </div>
+          <div class="stat-item waste">
+            <span class="stat-label">Wasted Value</span>
+            <span class="stat-value">{{ formatCurrency(expiryAnalytics()!.wastedValue) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- FIFO Recommendations -->
+      <div class="fifo-recommendations">
+        <h4>FIFO Recommendations</h4>
+        <div class="recommendations-list">
+          <div *ngFor="let recommendation of fifoRecommendations()" class="recommendation-card" [ngClass]="getExpiryStatusClass(recommendation.expiryStatus)">
+            <div class="recommendation-header">
+              <h5>{{ recommendation.productName }}</h5>
+              <span class="batch-number">Batch: {{ recommendation.batchNumber }}</span>
+            </div>
+            <div class="recommendation-content">
+              <div class="expiry-info">
+                <span class="expiry-status" [ngClass]="getExpiryStatusColor(recommendation.expiryStatus)">
+                  {{ recommendation.expiryStatus }}
+                </span>
+                <span class="days-until">{{ formatDaysUntilExpiry(recommendation.daysUntilExpiry) }}</span>
+              </div>
+              <div class="stock-info">
+                <span>Stock: {{ recommendation.currentStock }} units</span>
+              </div>
+              <div class="recommendation-action">
+                <strong>{{ recommendation.recommendedAction }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transfers Tab -->
+    <div *ngIf="activeTab() === 'transfers'" class="transfers-tab">
+      <div class="tab-header">
+        <h3>Smart Transfer Recommendations</h3>
+        <div class="transfer-stats" *ngIf="transferRecommendations()">
+          <div class="stat-item">
+            <span class="label">Total Recommendations:</span>
+            <span class="value">{{ transferRecommendations()!.totalRecommendations }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">High Confidence:</span>
+            <span class="value">{{ transferRecommendations()!.highConfidenceRecommendations }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Model Accuracy:</span>
+            <span class="value">{{ formatConfidence(transferRecommendations()!.modelAccuracy * 100) }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="label">Total Value:</span>
+            <span class="value">{{ formatCurrency(totalTransferValue()) }}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="transfers-grid" *ngIf="transferRecommendations()">
+        <div *ngFor="let transfer of transferRecommendations()!.recommendations" class="transfer-card enhanced">
+          <div class="transfer-header">
+            <h4>{{ transfer.productName || 'Product #' + transfer.productId }}</h4>
+            <div class="transfer-meta">
+              <span class="confidence-badge" [class]="transfer.mlConfidenceScore >= 0.8 ? 'high-confidence' : transfer.mlConfidenceScore >= 0.6 ? 'medium-confidence' : 'low-confidence'">
+                {{ (transfer.mlConfidenceScore * 100).toFixed(1) }}%
+              </span>
+              <span class="success-probability">{{ (transfer.successProbability * 100).toFixed(0) }}% success</span>
+            </div>
+          </div>
+          
+          <div class="transfer-content">
+            <div class="transfer-route">
+              <div class="branch-info source">
+                <span class="branch-label">From:</span>
+                <span class="branch-name">{{ transfer.sourceBranchName }}</span>
+                <span class="branch-id">(ID: {{ transfer.sourceBranchId }})</span>
+              </div>
+              <div class="transfer-arrow">
+                <i class="material-icons">arrow_forward</i>
+              </div>
+              <div class="branch-info target">
+                <span class="branch-label">To:</span>
+                <span class="branch-name">{{ transfer.targetBranchName }}</span>
+                <span class="branch-id">(ID: {{ transfer.targetBranchId }})</span>
+              </div>
+            </div>
+            
+            <div class="transfer-details">
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="label">Quantity:</span>
+                  <span class="value highlight">{{ transfer.recommendedQuantity }} units</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Expected ROI:</span>
+                  <span class="value positive">{{ (transfer.expectedROI * 100).toFixed(1) }}%</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Risk Score:</span>
+                  <span class="value" [class]="transfer.riskScore <= 0.3 ? 'low-risk' : transfer.riskScore <= 0.6 ? 'medium-risk' : 'high-risk'">
+                    {{ (transfer.riskScore * 100).toFixed(0) }}%
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Net Benefit:</span>
+                  <span class="value benefit">{{ formatCurrency(transfer.netBenefit) }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="transfer-reasoning" *ngIf="transfer.reasoningFactors?.length">
+              <h5>Analysis:</h5>
+              <ul>
+                <li *ngFor="let factor of transfer.reasoningFactors">{{ factor }}</li>
+              </ul>
+            </div>
+            
+            <div class="transfer-features" *ngIf="transfer.mlFeatures && getObjectKeys(transfer.mlFeatures).length > 0">
+              <h5>ML Features:</h5>
+              <div class="features-grid">
+                <div *ngFor="let key of getObjectKeys(transfer.mlFeatures)" class="feature-item">
+                  <span class="feature-name">{{ key }}:</span>
+                  <span class="feature-value">{{ transfer.mlFeatures[key] }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="transfer-timing">
+              <span class="optimal-date">Optimal Date: {{ formatDate(transfer.optimalTransferDate) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Tab -->
+    <div *ngIf="activeTab() === 'analytics'" class="analytics-tab">
+      <div class="tab-header">
+        <h3>Predictive Analytics</h3>
+        <div class="analytics-meta" *ngIf="predictiveAnalytics()">
+          <span class="generation-time">Generated: {{ formatDate(predictiveAnalytics()!.generatedAt) }}</span>
+          <span class="analysis-type">Type: {{ predictiveAnalytics()!.analysisType }}</span>
+          <span class="branch-scope">{{ predictiveAnalytics()!.branchName || 'All Branches' }}</span>
+        </div>
+      </div>
+      
+      <div *ngIf="predictiveAnalytics()" class="analytics-content">
+        <!-- Analytics Summary -->
+        <div class="analytics-summary">
+          <div class="summary-grid">
+            <div class="summary-item confidence">
+              <span class="label">Overall Confidence</span>
+              <span class="value">{{ formatConfidence(predictiveAnalytics()!.overallConfidence) }}</span>
+            </div>
+            <div class="summary-item risks">
+              <span class="label">Risk Predictions</span>
+              <span class="value">{{ predictiveAnalytics()!.riskPredictions.length }}</span>
+            </div>
+            <div class="summary-item opportunities">
+              <span class="label">Optimization Value</span>
+              <span class="value">{{ formatCurrency(optimizationOpportunitiesValue()) }}</span>
+            </div>
+            <div class="summary-item insights">
+              <span class="label">Business Insights</span>
+              <span class="value">{{ predictiveAnalytics()!.insights.length }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Confidences -->
+        <div class="model-confidences" *ngIf="predictiveAnalytics()!.modelConfidences">
+          <h4>Model Performance</h4>
+          <div class="confidence-grid">
+            <div *ngFor="let key of getObjectKeys(predictiveAnalytics()!.modelConfidences)" class="confidence-item">
+              <span class="model-name">{{ key }}</span>
+              <div class="confidence-bar">
+                <div class="confidence-fill" [style.width.%]="predictiveAnalytics()!.modelConfidences[key] * 100"></div>
+              </div>
+              <span class="confidence-value">{{ (predictiveAnalytics()!.modelConfidences[key] * 100).toFixed(1) }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Risk Predictions -->
+        <div class="risk-predictions" *ngIf="predictiveAnalytics()!.riskPredictions.length">
+          <h4>Risk Predictions</h4>
+          <div class="risks-grid">
+            <div *ngFor="let risk of predictiveAnalytics()!.riskPredictions" class="risk-card" [class]="'severity-' + risk.severity.toLowerCase()">
+              <div class="risk-header">
+                <span class="risk-type">{{ risk.riskType }}</span>
+                <span class="risk-probability">{{ (risk.probability * 100).toFixed(0) }}%</span>
+              </div>
+              <div class="risk-content">
+                <p class="risk-description">{{ risk.description }}</p>
+                <div class="risk-details">
+                  <div class="risk-detail">
+                    <span class="label">Severity:</span>
+                    <span class="value severity">{{ risk.severity }}</span>
+                  </div>
+                  <div class="risk-detail" *ngIf="risk.potentialImpact > 0">
+                    <span class="label">Impact:</span>
+                    <span class="value impact">{{ formatCurrency(risk.potentialImpact) }}</span>
+                  </div>
+                  <div class="risk-detail">
+                    <span class="label">Predicted Date:</span>
+                    <span class="value date">{{ formatDate(risk.predictedDate) }}</span>
+                  </div>
+                </div>
+                
+                <div class="risk-mitigation" *ngIf="risk.mitigationActions?.length">
+                  <h5>Mitigation Actions:</h5>
+                  <ul>
+                    <li *ngFor="let action of risk.mitigationActions">{{ action }}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Optimization Opportunities -->
+        <div class="optimization-opportunities" *ngIf="predictiveAnalytics()!.optimizationOpportunities.length">
+          <h4>Optimization Opportunities</h4>
+          <div class="opportunities-grid">
+            <div *ngFor="let opportunity of predictiveAnalytics()!.optimizationOpportunities" class="opportunity-card">
+              <div class="opportunity-header">
+                <span class="opportunity-type">{{ opportunity.opportunityType }}</span>
+                <span class="opportunity-value">{{ formatCurrency(opportunity.potentialValue) }}</span>
+              </div>
+              <div class="opportunity-content">
+                <h5>{{ opportunity.title }}</h5>
+                <p class="opportunity-description">{{ opportunity.description }}</p>
+                <div class="opportunity-details">
+                  <div class="detail">
+                    <span class="label">Success Probability:</span>
+                    <span class="value">{{ (opportunity.successProbability * 100).toFixed(0) }}%</span>
+                  </div>
+                  <div class="detail">
+                    <span class="label">ML Confidence:</span>
+                    <span class="value">{{ (opportunity.mlConfidence * 100).toFixed(1) }}%</span>
+                  </div>
+                  <div class="detail" *ngIf="opportunity.complexity">
+                    <span class="label">Complexity:</span>
+                    <span class="value">{{ opportunity.complexity }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Business Insights -->
+        <div class="insights-section" *ngIf="predictiveAnalytics()!.insights.length">
+          <h4>Business Insights</h4>
+          <div class="insights-grid">
+            <div *ngFor="let insight of predictiveAnalytics()!.insights" class="insight-card" [class]="'impact-' + insight.impact.toLowerCase()">
+              <div class="insight-header">
+                <span class="insight-category">{{ insight.category }}</span>
+                <span class="insight-confidence">{{ (insight.confidence * 100).toFixed(0) }}%</span>
+              </div>
+              <div class="insight-content">
+                <h5>{{ insight.title }}</h5>
+                <p class="insight-description">{{ insight.description }}</p>
+                <div class="insight-meta">
+                  <span class="impact-level">Impact: {{ insight.impact }}</span>
+                  <span class="significance">Significance: {{ (insight.significance * 100).toFixed(0) }}%</span>
+                </div>
+                
+                <div class="insight-actions" *ngIf="insight.recommendedActions?.length">
+                  <h6>Recommended Actions:</h6>
+                  <ul>
+                    <li *ngFor="let action of insight.recommendedActions">{{ action }}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model Insights/Explanation Tab -->
+    <div *ngIf="activeTab() === 'explanation'" class="explanation-tab">
+      <div class="tab-header">
+        <h3>Model Insights & Explanations</h3>
+        <p class="tab-description">Understanding how AI models make predictions and recommendations</p>
+      </div>
+      
+      <div *ngIf="modelExplanation()" class="explanation-content">
+        <div class="explanation-meta">
+          <span class="generation-time">Generated: {{ formatDate(modelExplanation()!.generatedAt) }}</span>
+          <span class="model-type">Analysis Type: {{ modelExplanation()!.modelType }}</span>
+        </div>
+
+        <!-- Feature Importance -->
+        <div class="feature-importance">
+          <h4>Feature Importance Analysis</h4>
+          
+          <div class="model-features">
+            <div class="features-section">
+              <h5>Demand Forecasting Features</h5>
+              <div class="features-grid">
+                <div *ngFor="let key of getObjectKeys(modelExplanation()!.demandForecastFeatures)" class="feature-bar">
+                  <span class="feature-name">{{ key }}</span>
+                  <div class="importance-bar">
+                    <div class="importance-fill" [style.width.%]="modelExplanation()!.demandForecastFeatures[key] * 100"></div>
+                  </div>
+                  <span class="importance-value">{{ (modelExplanation()!.demandForecastFeatures[key] * 100).toFixed(1) }}%</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="features-section">
+              <h5>Anomaly Detection Features</h5>
+              <div class="features-grid">
+                <div *ngFor="let key of getObjectKeys(modelExplanation()!.anomalyDetectionFeatures)" class="feature-bar">
+                  <span class="feature-name">{{ key }}</span>
+                  <div class="importance-bar">
+                    <div class="importance-fill" [style.width.%]="modelExplanation()!.anomalyDetectionFeatures[key] * 100"></div>
+                  </div>
+                  <span class="importance-value">{{ (modelExplanation()!.anomalyDetectionFeatures[key] * 100).toFixed(1) }}%</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="features-section">
+              <h5>Clustering Features</h5>
+              <div class="features-grid">
+                <div *ngFor="let key of getObjectKeys(modelExplanation()!.clusteringFeatures)" class="feature-bar">
+                  <span class="feature-name">{{ key }}</span>
+                  <div class="importance-bar">
+                    <div class="importance-fill" [style.width.%]="modelExplanation()!.clusteringFeatures[key] * 100"></div>
+                  </div>
+                  <span class="importance-value">{{ (modelExplanation()!.clusteringFeatures[key] * 100).toFixed(1) }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Interpretations -->
+        <div class="model-interpretations">
+          <h4>How Models Work</h4>
+          <div class="interpretations-grid">
+            <div *ngFor="let key of getObjectKeys(modelExplanation()!.modelInterpretation)" class="interpretation-card">
+              <h5>{{ key }}</h5>
+              <p>{{ modelExplanation()!.modelInterpretation[key] }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Business Impact -->
+        <div class="business-impact">
+          <h4>Business Impact Metrics</h4>
+          <div class="impact-grid">
+            <div *ngFor="let key of getObjectKeys(modelExplanation()!.businessImpact)" class="impact-card">
+              <h5>{{ key }}</h5>
+              <p>{{ modelExplanation()!.businessImpact[key] }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Health Tab -->
+    <div *ngIf="activeTab() === 'health'" class="health-tab">
+      <div class="tab-header">
+        <h3>Model Health Status</h3>
+        <p class="tab-description">Monitor and maintain AI model performance</p>
+      </div>
+      
+      <div *ngIf="modelHealth()" class="health-content">
+        <!-- Overall Health -->
+        <div class="health-overview">
+          <div class="overall-score" [ngClass]="getHealthScoreClass(modelHealth()!.overallHealthScore)">
+            <span class="score-value">{{ modelHealth()!.overallHealthScore.toFixed(1) }}</span>
+            <span class="score-label">/100</span>
+          </div>
+          <div class="health-details">
+            <div class="detail-item">
+              <span class="label">Overall Status:</span>
+              <span class="value" [ngClass]="systemHealthStatus().color">{{ modelHealth()!.overallHealth }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Last Checked:</span>
+              <span class="value">{{ formatDate(modelHealth()!.checkedAt) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Health Summary -->
+        <div class="health-summary">
+          <div class="summary-stats">
+            <div class="stat-item healthy">
+              <span class="count">{{ modelHealthSummary().healthy }}</span>
+              <span class="label">Healthy Models</span>
+            </div>
+            <div class="stat-item warning">
+              <span class="count">{{ modelHealthSummary().warning }}</span>
+              <span class="label">Warning</span>
+            </div>
+            <div class="stat-item critical">
+              <span class="count">{{ modelHealthSummary().critical }}</span>
+              <span class="label">Critical</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Individual Model Health -->
+        <div class="models-health">
+          <h4>Individual Model Status</h4>
+          <div class="models-grid">
+            
+            <!-- Demand Forecast Model -->
+            <div class="model-card" [class]="modelHealth()!.demandForecastModel.isHealthy ? 'healthy' : 'unhealthy'">
+              <div class="model-header">
+                <h5>Demand Forecasting</h5>
+                <span class="health-badge" [class]="modelHealth()!.demandForecastModel.isHealthy ? 'healthy' : 'unhealthy'">
+                  {{ modelHealth()!.demandForecastModel.isHealthy ? 'Healthy' : 'Needs Attention' }}
+                </span>
+              </div>
+              <div class="model-details">
+                <div class="health-score">
+                  <span class="label">Health Score:</span>
+                  <span class="value">{{ modelHealth()!.demandForecastModel.healthScore }}/100</span>
+                </div>
+                <div class="accuracy">
+                  <span class="label">Accuracy:</span>
+                  <span class="value">{{ (modelHealth()!.demandForecastModel.accuracyScore * 100).toFixed(1) }}%</span>
+                </div>
+                <div class="data-points">
+                  <span class="label">Data Points:</span>
+                  <span class="value">{{ modelHealth()!.demandForecastModel.dataPoints }}</span>
+                </div>
+                <div class="last-trained">
+                  <span class="label">Last Trained:</span>
+                  <span class="value">{{ formatDate(modelHealth()!.demandForecastModel.lastTrained) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Anomaly Detection Model -->
+            <div class="model-card" [class]="modelHealth()!.anomalyDetectionModel.isHealthy ? 'healthy' : 'unhealthy'">
+              <div class="model-header">
+                <h5>Anomaly Detection</h5>
+                <span class="health-badge" [class]="modelHealth()!.anomalyDetectionModel.isHealthy ? 'healthy' : 'unhealthy'">
+                  {{ modelHealth()!.anomalyDetectionModel.isHealthy ? 'Healthy' : 'Needs Attention' }}
+                </span>
+              </div>
+              <div class="model-details">
+                <div class="health-score">
+                  <span class="label">Health Score:</span>
+                  <span class="value">{{ modelHealth()!.anomalyDetectionModel.healthScore }}/100</span>
+                </div>
+                <div class="accuracy">
+                  <span class="label">Accuracy:</span>
+                  <span class="value">{{ (modelHealth()!.anomalyDetectionModel.accuracyScore * 100).toFixed(1) }}%</span>
+                </div>
+                <div class="data-points">
+                  <span class="label">Data Points:</span>
+                  <span class="value">{{ modelHealth()!.anomalyDetectionModel.dataPoints }}</span>
+                </div>
+                <div class="last-trained">
+                  <span class="label">Last Trained:</span>
+                  <span class="value">{{ formatDate(modelHealth()!.anomalyDetectionModel.lastTrained) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Clustering Model -->
+            <div class="model-card" [class]="modelHealth()!.clusteringModel.isHealthy ? 'healthy' : 'unhealthy'">
+              <div class="model-header">
+                <h5>Product Clustering</h5>
+                <span class="health-badge" [class]="modelHealth()!.clusteringModel.isHealthy ? 'healthy' : 'unhealthy'">
+                  {{ modelHealth()!.clusteringModel.isHealthy ? 'Healthy' : 'Needs Attention' }}
+                </span>
+              </div>
+              <div class="model-details">
+                <div class="health-score">
+                  <span class="label">Health Score:</span>
+                  <span class="value">{{ modelHealth()!.clusteringModel.healthScore }}/100</span>
+                </div>
+                <div class="accuracy">
+                  <span class="label">Accuracy:</span>
+                  <span class="value">{{ (modelHealth()!.clusteringModel.accuracyScore * 100).toFixed(1) }}%</span>
+                </div>
+                <div class="data-points">
+                  <span class="label">Data Points:</span>
+                  <span class="value">{{ modelHealth()!.clusteringModel.dataPoints }}</span>
+                </div>
+                <div class="last-trained">
+                  <span class="label">Last Trained:</span>
+                  <span class="value">{{ formatDate(modelHealth()!.clusteringModel.lastTrained) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Transfer Recommendation Model -->
+            <div class="model-card" [class]="modelHealth()!.transferRecommendationModel.isHealthy ? 'healthy' : 'unhealthy'">
+              <div class="model-header">
+                <h5>Transfer Recommendations</h5>
+                <span class="health-badge" [class]="modelHealth()!.transferRecommendationModel.isHealthy ? 'healthy' : 'unhealthy'">
+                  {{ modelHealth()!.transferRecommendationModel.isHealthy ? 'Healthy' : 'Needs Attention' }}
+                </span>
+              </div>
+              <div class="model-details">
+                <div class="health-score">
+                  <span class="label">Health Score:</span>
+                  <span class="value">{{ modelHealth()!.transferRecommendationModel.healthScore }}/100</span>
+                </div>
+                <div class="accuracy">
+                  <span class="label">Accuracy:</span>
+                  <span class="value">{{ (modelHealth()!.transferRecommendationModel.accuracyScore * 100).toFixed(1) }}%</span>
+                </div>
+                <div class="data-points">
+                  <span class="label">Data Points:</span>
+                  <span class="value">{{ modelHealth()!.transferRecommendationModel.dataPoints }}</span>
+                </div>
+                <div class="last-trained">
+                  <span class="label">Last Trained:</span>
+                  <span class="value">{{ formatDate(modelHealth()!.transferRecommendationModel.lastTrained) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Warnings and Recommendations -->
+        <div class="health-recommendations" *ngIf="modelHealth()!.recommendations?.length || modelHealth()!.warnings?.length">
+          <div class="warnings" *ngIf="modelHealth()!.warnings?.length">
+            <h4>⚠️ Warnings</h4>
+            <ul>
+              <li *ngFor="let warning of modelHealth()!.warnings">{{ warning }}</li>
+            </ul>
+          </div>
+          
+          <div class="recommendations" *ngIf="modelHealth()!.recommendations?.length">
+            <h4>💡 Recommendations</h4>
+            <ul>
+              <li *ngFor="let recommendation of modelHealth()!.recommendations">{{ recommendation }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>

@@ -259,35 +259,147 @@
             
             @if (showCoordinationPanel()) {
               <div class="mobile-coordination-panel">
-                <!-- Mobile Coordination Insights -->
-                @if (coordinationInsights().length > 0) {
-                  <div class="mobile-insights-list">
-                    @for (insight of coordinationInsights(); track insight.title) {
-                      <div class="mobile-insight-item" 
-                           [class.critical]="insight.priority === 'critical'" 
-                           [class.warning]="insight.priority === 'high'">
-                        <div class="insight-header">
-                          <span class="insight-title">{{insight.title}}</span>
-                          <span class="insight-priority" [class]="insight.priority">{{insight.priority}}</span>
-                        </div>
-                        <div class="insight-message">{{insight.message}}</div>
-                        @if (insight.actionable) {
-                          <button 
-                            class="mobile-insight-action"
-                            (click)="onCoordinationInsightAction(insight)"
-                          >
-                            {{insight.actionText || 'View Details'}}
-                          </button>
-                        }
+                <!-- Branch Health Status (Mobile) -->
+                <div class="mobile-branch-health">
+                  <div class="branch-info">
+                    <svg class="branch-icon" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    <div class="branch-details">
+                      <span class="branch-name">{{branchContext().branchName}}</span>
+                      <div class="branch-metrics">
+                        <span class="health-score" [class]="getBranchHealthClass()">
+                          {{branchContext().healthScore}}% Health
+                        </span>
+                        <span class="coordination-score">
+                          {{coordinationHealthStatus()}}% Sync
+                        </span>
                       </div>
-                    }
+                    </div>
                   </div>
-                } @else {
+                  <button class="refresh-btn" (click)="refreshCoordinationData()" [disabled]="isLoading()">
+                    <svg viewBox="0 0 24 24" fill="currentColor" [class.spin]="isLoading()">
+                      <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Mobile Coordination Insights -->
+                @if (coordinationInsights() && coordinationInsights().optimizationSuggestions?.length > 0) {
+                  <div class="mobile-insights-section">
+                    <h6 class="section-title">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      Optimization Suggestions
+                    </h6>
+                    <div class="mobile-insights-list">
+                      @for (suggestion of coordinationInsights().optimizationSuggestions; track $index; let i = $index) {
+                        @if (i < 3) {
+                          <div class="mobile-insight-item">
+                            <div class="insight-icon">
+                              <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                              </svg>
+                            </div>
+                            <div class="insight-content">
+                              <span class="insight-text">{{suggestion}}</span>
+                            </div>
+                          </div>
+                        }
+                      }
+                      @if (coordinationInsights().optimizationSuggestions.length > 3) {
+                        <button class="show-all-btn" (click)="showAllSuggestions()">
+                          Show {{coordinationInsights().optimizationSuggestions.length - 3}} more
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+
+                <!-- Mobile Transfer Opportunities -->
+                @if (coordinationInsights() && coordinationInsights().transferOpportunities?.length > 0) {
+                  <div class="mobile-transfer-section">
+                    <h6 class="section-title">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
+                      </svg>
+                      Transfer Opportunities
+                    </h6>
+                    <div class="mobile-transfer-list">
+                      @for (transfer of coordinationInsights().transferOpportunities; track transfer.fromBranchId; let i = $index) {
+                        @if (i < 2) {
+                          <div class="mobile-transfer-item" [class]="transfer.priority.toLowerCase()">
+                            <div class="transfer-header">
+                              <span class="from-branch">{{transfer.fromBranchName}}</span>
+                              <span class="priority-badge" [class]="transfer.priority.toLowerCase()">
+                                {{transfer.priority}}
+                              </span>
+                            </div>
+                            <div class="transfer-details">
+                              <span class="quantity">{{transfer.availableQuantity}} units</span>
+                              <span class="time">{{transfer.transferTime}}</span>
+                              <span class="cost">{{formatCurrency(transfer.cost)}}</span>
+                            </div>
+                          </div>
+                        }
+                      }
+                      @if (coordinationInsights().transferOpportunities.length > 2) {
+                        <button class="show-all-btn" (click)="showAllTransfers()">
+                          Show {{coordinationInsights().transferOpportunities.length - 2}} more
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+
+                <!-- Mobile Performance Impact -->
+                @if (coordinationInsights() && coordinationInsights().branchPerformanceImpact > 0) {
+                  <div class="mobile-performance-section">
+                    <div class="performance-card">
+                      <div class="performance-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z"/>
+                        </svg>
+                      </div>
+                      <div class="performance-content">
+                        <span class="performance-label">Performance Impact</span>
+                        <span class="performance-value">
+                          +{{formatCurrency(coordinationInsights().branchPerformanceImpact)}}
+                        </span>
+                        <span class="performance-desc">to branch metrics</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+
+                <!-- Mobile Action Buttons -->
+                <div class="mobile-action-buttons">
+                  <button class="action-btn primary" (click)="viewFullCoordination()">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                    </svg>
+                    View Full Dashboard
+                  </button>
+                  <button class="action-btn secondary" (click)="requestTransfer()" [disabled]="!hasTransferOpportunities()">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
+                    </svg>
+                    Request Transfer
+                  </button>
+                </div>
+                
+                @if (!coordinationInsights() || ((!coordinationInsights().optimizationSuggestions || coordinationInsights().optimizationSuggestions.length === 0) && 
+                     (!coordinationInsights().transferOpportunities || coordinationInsights().transferOpportunities.length === 0) &&
+                     (!coordinationInsights().branchPerformanceImpact || coordinationInsights().branchPerformanceImpact <= 0))) {
                   <div class="no-insights-message">
                     <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                     </svg>
                     <span>No coordination insights available</span>
+                    <button class="retry-btn" (click)="refreshCoordinationData()">
+                      Try Again
+                    </button>
                   </div>
                 }
                 

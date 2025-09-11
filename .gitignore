@@ -92,7 +92,11 @@ performance-*.test.*
 node_modules/@anthropic-ai/
 node_modules/@cursor/
 integration.md
-multi-branch-core-services.md
 multi-branch-notification-api-spec.md
 multibranchNotificationAPI.md
+
 POS.md
+multi-branch-core-services.md
+src/app/modules/inventory/components/smart-inventory/ENHANCEMENT_SUMMARY.md
+src/app/multi-branch/transfer-management/transfer-management.component.ts
+src/app/multi-branch/transfer-management/transfer-management.component.html

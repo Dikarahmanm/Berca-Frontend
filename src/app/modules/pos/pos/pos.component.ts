@@ -287,7 +287,8 @@ export class POSComponent implements OnInit, OnDestroy {
       branchCode: this.activeBranch()?.branchCode || '',
       canProcessTransaction: this.canProcessTransaction() || false,
       isMultiBranch: posContext.isMultiBranch,
-      canRequestTransfers: posContext.canRequestTransfers
+      canRequestTransfers: posContext.canRequestTransfers,
+      healthScore: 75 // Mock health score - in real app would come from coordination service
     };
   });
 
@@ -2134,9 +2135,9 @@ focusMemberSearch(): void {
   
   private generateTransactionCode(): string {
     const branchCode = this.branchContext().branchCode || 'GEN';
-    const timestamp = Date.now().toString().slice(-6);
-    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-    return `${branchCode}-${timestamp}${random}`;
+    const timestamp = Date.now();
+    const sequence = (timestamp % 10000).toString().padStart(4, '0');
+    return `${branchCode}-${sequence}`;
   }
 
   private generateReceiptNumber(): string {
@@ -2797,5 +2798,74 @@ focusMemberSearch(): void {
       'Payment with Coordination',
       'Transaction processed with multi-branch coordination insights'
     );
+  }
+
+  // ===== MISSING METHODS FOR COORDINATION PANEL =====
+
+  /**
+   * Get branch health class for styling
+   */
+  getBranchHealthClass(): string {
+    const healthScore = this.branchContext().healthScore || 0;
+    if (healthScore >= 80) return 'health-excellent';
+    if (healthScore >= 60) return 'health-good';
+    if (healthScore >= 40) return 'health-fair';
+    return 'health-poor';
+  }
+
+  /**
+   * Get coordination health status
+   */
+  coordinationHealthStatus(): number {
+    // Mock coordination health - in real app would come from coordination service
+    return 85;
+  }
+
+  /**
+   * Refresh coordination data
+   */
+  refreshCoordinationData(): void {
+    console.log('🔄 Refreshing coordination data...');
+    // This would call the coordination service to refresh data
+  }
+
+  /**
+   * Show all suggestions
+   */
+  showAllSuggestions(): void {
+    console.log('📊 Showing all optimization suggestions...');
+    // This would navigate to a detailed suggestions view
+  }
+
+  /**
+   * Show all transfers
+   */
+  showAllTransfers(): void {
+    console.log('🚛 Showing all transfer opportunities...');
+    // This would navigate to a detailed transfers view
+  }
+
+  /**
+   * View full coordination dashboard
+   */
+  viewFullCoordination(): void {
+    console.log('🎛️ Opening full coordination dashboard...');
+    this.router.navigate(['/dashboard/multi-branch/coordination']);
+  }
+
+  /**
+   * Request transfer
+   */
+  requestTransfer(): void {
+    console.log('📦 Requesting transfer...');
+    // This would open a transfer request modal
+  }
+
+  /**
+   * Check if there are transfer opportunities
+   */
+  hasTransferOpportunities(): boolean {
+    const insights = this.coordinationInsights();
+    return insights?.transferOpportunities && insights.transferOpportunities.length > 0;
   }
 }

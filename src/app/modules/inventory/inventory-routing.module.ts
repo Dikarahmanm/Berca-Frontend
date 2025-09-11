@@ -45,6 +45,16 @@ const routes: Routes = [
       breadcrumb: 'Stock',
       requiredRoles: ['Admin', 'Manager', 'User']
     }
+  },
+  {
+    path: 'smart-inventory',
+    loadComponent: () => import('./components/smart-inventory/smart-inventory.component').then(c => c.SmartInventoryComponent),
+    canActivate: [roleGuard],
+    data: {
+      title: 'Smart Inventory Management',
+      breadcrumb: 'Smart Inventory',
+      requiredRoles: ['Admin', 'Manager']
+    }
   }
 ];
 

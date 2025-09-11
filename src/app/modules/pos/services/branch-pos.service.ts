@@ -322,8 +322,8 @@ export class BranchPOSService {
         }),
         catchError(error => {
           console.error('❌ Error loading recent transactions:', error);
-          // Return mock data for development
-          return of(this.generateMockTransactions());
+          // Return empty array if API fails
+          return of([]);
         })
       );
   }
@@ -344,7 +344,7 @@ export class BranchPOSService {
         map(response => response.success ? response.data : {} as BranchSalesReport),
         catchError(error => {
           console.error('❌ Error generating report:', error);
-          return of(this.generateMockReport());
+          return of({} as BranchSalesReport);
         })
       );
   }
@@ -423,80 +423,7 @@ export class BranchPOSService {
     return 'Terima kasih telah berbelanja bersama kami!';
   }
 
-  // ===== MOCK DATA GENERATORS =====
-
-  private generateMockTransactions(): BranchTransactionDto[] {
-    const branch = this.activeBranch();
-    if (!branch) return [];
-
-    return [
-      {
-        id: 1,
-        transactionCode: 'TRX-001',
-        branchId: branch.branchId,
-        branchName: branch.branchName,
-        branchCode: branch.branchCode,
-        items: [
-          {
-            productId: 1,
-            productName: 'Indomie Goreng',
-            productCode: 'P001',
-            barcode: '8998866200015',
-            quantity: 2,
-            unitPrice: 3500,
-            discount: 0,
-            subtotal: 7000,
-            branchId: branch.branchId,
-            availableStock: 50,
-            category: 'Food',
-            unit: 'pcs'
-          }
-        ],
-        subtotal: 7000,
-        discount: 0,
-        tax: 0,
-        total: 7000,
-        paymentMethod: 'cash',
-        amountPaid: 10000,
-        change: 3000,
-        cashierId: 1,
-        cashierName: 'Kasir 1',
-        transactionDate: new Date().toISOString(),
-        receiptNumber: this.generateReceiptNumber(branch.branchCode),
-        status: 'Completed'
-      }
-    ];
-  }
-
-  private generateMockReport(): BranchSalesReport {
-    const branch = this.activeBranch();
-    if (!branch) return {} as BranchSalesReport;
-
-    return {
-      branchId: branch.branchId,
-      branchName: branch.branchName,
-      branchCode: branch.branchCode,
-      dateRange: {
-        start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        end: new Date().toISOString()
-      },
-      totalTransactions: 45,
-      totalAmount: 2150000,
-      averageTransaction: 47777,
-      topProducts: [
-        { productName: 'Indomie Goreng', quantity: 120, revenue: 420000 },
-        { productName: 'Aqua 600ml', quantity: 85, revenue: 255000 }
-      ],
-      paymentMethodBreakdown: {
-        cash: 1200000,
-        card: 650000,
-        digital: 300000,
-        credit: 0
-      },
-      memberTransactions: 18,
-      memberDiscount: 125000
-    };
-  }
+  // ===== REMOVED: Mock data generators - now using real API data only =====
 
   // ===== PUBLIC UTILITIES =====
 

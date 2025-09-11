@@ -324,6 +324,28 @@
                 <p>Showing individual batches with FIFO ordering, expiry tracking, and detailed batch information.</p>
               </div>
             </div>
+            
+            <!-- ✅ NEW: Layout Toggle Buttons -->
+            <div class="layout-toggle-section">
+              <span class="toggle-label">View:</span>
+              <div class="layout-toggle-group">
+                <button 
+                  mat-icon-button 
+                  [class.active]="batchLayoutMode() === 'grid'"
+                  (click)="toggleBatchLayout()"
+                  matTooltip="Grid View">
+                  <mat-icon>grid_view</mat-icon>
+                </button>
+                <button 
+                  mat-icon-button 
+                  [class.active]="batchLayoutMode() === 'column'"
+                  (click)="toggleBatchLayout()"
+                  matTooltip="List View">
+                  <mat-icon>view_list</mat-icon>
+                </button>
+              </div>
+            </div>
+            
             <div class="batch-stats" *ngIf="productsWithDetailedBatches().length > 0">
               <div class="stat-item">
                 <span class="stat-value">{{ productsWithDetailedBatches().length }}</span>
@@ -360,11 +382,17 @@
       </mat-card>
     </div>
 
-    <!-- Batch Cards Grid -->
-    <div class="batch-cards-container" *ngIf="!loadingBatchDetails() && productsWithDetailedBatches().length > 0">
+    <!-- ✅ NEW: Dynamic Batch Layout Container -->
+    <div class="batch-layout-container" 
+         [class.grid-layout]="batchLayoutMode() === 'grid'"
+         [class.column-layout]="batchLayoutMode() === 'column'"
+         *ngIf="!loadingBatchDetails() && productsWithDetailedBatches().length > 0">
       
-      <!-- ✅ FLEXIBLE: Product Batch Groups with Compact Headers -->
-      <div class="product-batch-group" *ngFor="let productGroup of productsWithDetailedBatches(); trackBy: trackByProductGroup">
+      <!-- ✅ REDESIGNED: Product Batch Groups with Modern Layout -->
+      <div class="product-batch-group" 
+           [class.grid-mode]="batchLayoutMode() === 'grid'"
+           [class.column-mode]="batchLayoutMode() === 'column'"
+           *ngFor="let productGroup of productsWithDetailedBatches(); trackBy: trackByProductGroup">
         
         <!-- ✅ COMPACT: Redesigned Product Header for Space Efficiency -->
         <div class="product-header-compact">
@@ -401,13 +429,17 @@
           </div>
         </div>
 
-          <!-- ✅ HORIZONTAL: Batch Cards Layout -->
-          <div class="batch-cards-horizontal">
+          <!-- ✅ DYNAMIC: Batch Cards Layout (Grid or Column) -->
+          <div class="batch-cards-layout" 
+               [class.cards-grid]="batchLayoutMode() === 'grid'"
+               [class.cards-column]="batchLayoutMode() === 'column'">
               
-              <!-- Batch Card -->
-              <div class="batch-card" 
+              <!-- ✅ MODERN: Redesigned Batch Card -->
+              <div class="modern-batch-card" 
                    *ngFor="let batch of productGroup.batches; trackBy: trackByBatch"
-                   [ngClass]="getBatchCardClasses(batch)">
+                   [ngClass]="getBatchCardClasses(batch)"
+                   [class.grid-card]="batchLayoutMode() === 'grid'"
+                   [class.column-card]="batchLayoutMode() === 'column'">
                 
                 <!-- Batch Header -->
                 <div class="batch-header">
@@ -1585,6 +1617,9 @@
     </mat-card>
   </div>
 
-  <!-- Modal Backdrop -->
-  <div class="modal-backdrop" *ngIf="selectedProductForBatches" (click)="selectedProductForBatches = null"></div>
+
+
+  <!-- Modal Backdrops -->
+  <div class="modal-backdrop" *ngIf="selectedProductForBatches || showBulkUpdateModal()" 
+       (click)="selectedProductForBatches ? (selectedProductForBatches = null) : closeBulkUpdateModal()"></div>
 </div>

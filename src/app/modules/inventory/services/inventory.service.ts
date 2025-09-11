@@ -636,5 +636,58 @@ export class InventoryService {
     
     return throwError(() => new Error(message));
   }
+
+  // ===== BULK UPDATE OPERATIONS =====
+
+  /**
+   * Bulk update products with expiry dates and batches for categories that require expiry tracking
+   */
+  bulkUpdateProductsWithExpiryBatches(request: BulkUpdateExpiryBatchesRequest): Observable<ApiResponse<BulkUpdateResult>> {
+    return this.http.post<ApiResponse<BulkUpdateResult>>(`${this.baseUrl}/bulk-update-expiry-batches`, request)
+      .pipe(
+        tap(response => {
+          if (response.success) {
+            console.log('✅ Bulk update completed:', response.data);
+          }
+        }),
+        catchError(this.handleError)
+      );
+  }
+
+  /**
+   * Get products that need expiry tracking but don't have batches yet
+   */
+  getProductsNeedingExpiryBatches(categoryIds?: number[]): Observable<ApiResponse<Product[]>> {
+    let params = new HttpParams();
+    if (categoryIds && categoryIds.length > 0) {
+      params = params.set('categoryIds', categoryIds.join(','));
+    }
+    params = params.set('needsExpiryTracking', 'true');
+    params = params.set('hasBatches', 'false');
+
+    return this.http.get<ApiResponse<Product[]>>(`${this.baseUrl}`, { params })
+      .pipe(catchError(this.handleError));
+  }
+}
+
+// ✅ NEW: Interfaces for bulk update
+export interface BulkUpdateExpiryBatchesRequest {
+  categoryIds?: number[];
+  forceUpdate?: boolean;
+  defaultExpiryDate?: string;
+  defaultExpiryDays?: number;
+  defaultProductionDate?: string;
+  defaultCostPerUnit?: number;
+  defaultSupplierName?: string;
+}
+
+export interface BulkUpdateResult {
+  totalProcessed: number;
+  updatedCount: number;
+  skippedCount: number;
+  errorCount: number;
+  processedProducts: string[];
+  errors: string[];
+  processedAt: string;
 }
 

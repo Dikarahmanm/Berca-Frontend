@@ -21,9 +21,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { Subscription, debounceTime, distinctUntilChanged, firstValueFrom } from 'rxjs';
 
-import { InventoryService } from '../../services/inventory.service';
+import { InventoryService, BulkUpdateExpiryBatchesRequest, BulkUpdateResult } from '../../services/inventory.service';
 // NEW: Branch-aware services
 import { BranchInventoryService, BranchProductDto, BranchInventoryFilter } from '../../services/branch-inventory.service';
 import { StateService } from '../../../../core/services/state.service';
@@ -137,7 +138,8 @@ export interface ProductBatchWithDetails extends ProductBatch {
     MatProgressSpinnerModule,
     MatMenuModule,
     MatSnackBarModule,
-    MatDividerModule
+    MatDividerModule,
+    MatCheckboxModule
   ],
   templateUrl: './inventory-list.component.html',
   styleUrls: ['./inventory-list.component.scss']
@@ -259,6 +261,8 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   // ✅ NEW: Batch view data structures
   productsWithDetailedBatches = signal<ProductWithBatchesGroup[]>([]);
   batchViewMode = signal(false);
+  // ✅ NEW: Batch view layout mode (grid or column)
+  batchLayoutMode = signal<'grid' | 'column'>('grid');
   loadingBatchDetails = signal(false);
   
   // All possible table columns (enhanced with batch columns)
@@ -281,6 +285,13 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   
   // Forms and filters
   filterForm!: FormGroup;
+  bulkUpdateForm!: FormGroup;
+
+  // ✅ NEW: Bulk update state
+  showBulkUpdateModal = signal(false);
+  bulkUpdateLoading = signal(false);
+  bulkUpdateResult = signal<BulkUpdateResult | null>(null);
+  bulkUpdatePreview = signal<{ productsToUpdate: number; categoriesAffected: number; } | null>(null);
   
   // UI state signals
   loading = signal(false);
@@ -371,6 +382,14 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
       expiryFilter: [ExpiryFilterType.ALL], // ✅ NEW: Expiry filter
       sortBy: ['name'],
       sortOrder: ['asc']
+    });
+
+    // ✅ NEW: Initialize bulk update form
+    this.bulkUpdateForm = this.fb.group({
+      categoryIds: [[]],
+      defaultExpiryDays: [365],
+      defaultSupplierName: ['System Migration'],
+      forceUpdate: [false]
     });
   }
 
@@ -1757,6 +1776,16 @@ onCategoryFilterChange(event: any): void {
   }
 
   /**
+   * Toggle batch view layout between grid and column view
+   */
+  toggleBatchLayout(): void {
+    const currentLayout = this.batchLayoutMode();
+    const newLayout = currentLayout === 'grid' ? 'column' : 'grid';
+    this.batchLayoutMode.set(newLayout);
+    console.log(`🎨 Batch layout changed to: ${newLayout}`);
+  }
+
+  /**
    * Load detailed batch view data - showing individual batches grouped by product
    */
   private async loadDetailedBatchView(): Promise<void> {
@@ -2872,6 +2901,126 @@ onCategoryFilterChange(event: any): void {
       console.warn('Error getting branch context:', error);
       return 'Current: Toko Eniwan Purwakarta'; // Safe fallback
     }
+  }
+
+  // ===== BULK UPDATE METHODS =====
+
+  /**
+   * Open bulk update modal
+   */
+  openBulkUpdateModal(): void {
+    this.showBulkUpdateModal.set(true);
+    this.bulkUpdateResult.set(null);
+    this.bulkUpdatePreview.set(null);
+    
+    // Reset form to default values
+    this.bulkUpdateForm.patchValue({
+      categoryIds: [],
+      defaultExpiryDays: 365,
+      defaultSupplierName: 'System Migration',
+      forceUpdate: false
+    });
+  }
+
+  /**
+   * Close bulk update modal
+   */
+  closeBulkUpdateModal(): void {
+    this.showBulkUpdateModal.set(false);
+    this.bulkUpdateResult.set(null);
+    this.bulkUpdatePreview.set(null);
+    this.bulkUpdateLoading.set(false);
+  }
+
+  /**
+   * Preview bulk update - shows how many products will be affected
+   */
+  previewBulkUpdate(): void {
+    const formValue = this.bulkUpdateForm.value;
+    
+    // Calculate affected products based on form values
+    const eligibleProducts = this.rawProducts().filter(product => {
+      const category = this.categories().find(c => c.id === product.categoryId);
+      const requiresExpiry = category ? (category as any).requiresExpiryDate : false;
+      
+      // Check if product is eligible for update
+      if (!requiresExpiry || !product.isActive) return false;
+      
+      // Check category filter
+      if (formValue.categoryIds && formValue.categoryIds.length > 0) {
+        return formValue.categoryIds.includes(product.categoryId);
+      }
+      
+      return true;
+    });
+
+    const categoriesAffected = new Set(
+      eligibleProducts.map(p => p.categoryId)
+    ).size;
+
+    this.bulkUpdatePreview.set({
+      productsToUpdate: eligibleProducts.length,
+      categoriesAffected: categoriesAffected
+    });
+
+    this.showSuccess(`Preview: ${eligibleProducts.length} products in ${categoriesAffected} categories will be updated.`);
+  }
+
+  /**
+   * Execute bulk update
+   */
+  executeBulkUpdate(): void {
+    const formValue = this.bulkUpdateForm.value;
+    
+    // Show confirmation
+    const preview = this.bulkUpdatePreview();
+    const confirmMessage = preview 
+      ? `Confirm bulk update for ${preview.productsToUpdate} products in ${preview.categoriesAffected} categories?`
+      : 'Confirm bulk update? This will add expiry dates and batches to eligible products.';
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    this.bulkUpdateLoading.set(true);
+    this.bulkUpdateResult.set(null);
+
+    // Prepare request
+    const request: BulkUpdateExpiryBatchesRequest = {
+      categoryIds: formValue.categoryIds && formValue.categoryIds.length > 0 ? formValue.categoryIds : undefined,
+      forceUpdate: formValue.forceUpdate || false,
+      defaultExpiryDays: formValue.defaultExpiryDays || 365,
+      defaultSupplierName: formValue.defaultSupplierName || 'System Migration'
+    };
+
+    console.log('🔄 Executing bulk update with request:', request);
+
+    // Execute bulk update
+    this.subscriptions.add(
+      this.inventoryService.bulkUpdateProductsWithExpiryBatches(request).subscribe({
+        next: (response) => {
+          if (response.success && response.data) {
+            this.bulkUpdateResult.set(response.data);
+            this.showSuccess(response.message || 'Bulk update completed successfully!');
+            
+            // Refresh data to show updates
+            this.loadProducts();
+            this.loadExpiryAnalytics();
+            
+            console.log('✅ Bulk update completed:', response.data);
+          } else {
+            this.showError('Bulk update failed: ' + (response.message || 'Unknown error'));
+          }
+        },
+        error: (error) => {
+          console.error('❌ Bulk update error:', error);
+          this.showError('Bulk update failed: ' + error.message);
+        },
+        complete: () => {
+          this.bulkUpdateLoading.set(false);
+        }
+      })
+    );
   }
 
 }

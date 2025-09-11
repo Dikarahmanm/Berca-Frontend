@@ -1,89 +1,212 @@
-<div class="simple-test-container" style="padding: 20px; background: white; margin: 20px;">
-  <h1 style="color: #333; font-size: 24px; margin-bottom: 20px;">🚀 Coordination Dashboard Test</h1>
-  
-  <!-- Simple Stats Display -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
-    <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
-      <h3 style="margin: 0 0 8px 0; color: #495057;">Total Branches</h3>
-      <div style="font-size: 24px; font-weight: bold; color: #007bff;">{{ totalBranches() || 0 }}</div>
+<div class="coordination-container">
+  <!-- Modern Header Section -->
+  <div class="modern-header">
+    <div class="header-title-section">
+      <h1 class="modern-title">
+        <mat-icon class="title-icon">dashboard</mat-icon>
+        Multi-Branch Coordination
+      </h1>
+      <div class="subtitle-stats">
+        <span class="stat-chip branches">{{ totalBranches() || 0 }} Branches</span>
+        <span class="stat-chip active">{{ activeBranches() || 0 }} Active</span>
+        <span class="stat-chip status" [ngClass]="getStatusClass(systemStatus())">{{ systemStatus() || 'Unknown' }}</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button mat-raised-button color="accent" (click)="navigateToTransfers()" class="action-btn">
+        <mat-icon>swap_horiz</mat-icon>
+        View Transfers
+      </button>
+      
+      <button mat-raised-button color="primary" (click)="navigateToPerformance()" class="action-btn">
+        <mat-icon>analytics</mat-icon>
+        Performance
+      </button>
+
+      <button mat-icon-button (click)="refreshDashboard()" matTooltip="Refresh Data" class="refresh-btn">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Statistics Cards Grid -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-header">
+        <mat-icon>business</mat-icon>
+        <h3>Total Branches</h3>
+      </div>
+      <div class="stat-value primary">{{ totalBranches() || 0 }}</div>
     </div>
     
-    <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
-      <h3 style="margin: 0 0 8px 0; color: #495057;">Active Branches</h3>
-      <div style="font-size: 24px; font-weight: bold; color: #28a745;">{{ activeBranches() || 0 }}</div>
+    <div class="stat-card">
+      <div class="stat-header">
+        <mat-icon>check_circle</mat-icon>
+        <h3>Active Branches</h3>
+      </div>
+      <div class="stat-value success">{{ activeBranches() || 0 }}</div>
     </div>
     
-    <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
-      <h3 style="margin: 0 0 8px 0; color: #495057;">System Status</h3>
-      <div style="font-size: 18px; font-weight: bold; color: #fd7e14;">{{ systemStatus() || 'Unknown' }}</div>
+    <div class="stat-card">
+      <div class="stat-header">
+        <mat-icon>health_and_safety</mat-icon>
+        <h3>System Status</h3>
+      </div>
+      <div class="stat-value" [ngClass]="getStatusClass(systemStatus())">{{ systemStatus() || 'Unknown' }}</div>
     </div>
     
-    <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #dee2e6;">
-      <h3 style="margin: 0 0 8px 0; color: #495057;">Loading</h3>
-      <div [style.color]="isLoading() ? '#dc3545' : '#28a745'" style="font-size: 18px; font-weight: bold;">
-        {{ isLoading() ? 'Yes' : 'No' }}
+    <div class="stat-card">
+      <div class="stat-header">
+        <mat-icon>sync</mat-icon>
+        <h3>Loading Status</h3>
+      </div>
+      <div class="stat-value" [ngClass]="isLoading() ? 'error' : 'success'">
+        {{ isLoading() ? 'Loading...' : 'Ready' }}
       </div>
     </div>
   </div>
 
-  <!-- Coordination Health -->
-  <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-    <h2 style="margin: 0 0 16px 0; color: #333;">Coordination Health</h2>
-    <div *ngIf="coordinationHealth(); else noHealthData">
-      <p><strong>Overall Score:</strong> {{ coordinationHealth()?.overallScore || 0 }}%</p>
-      <p><strong>System Status:</strong> {{ coordinationHealth()?.systemStatus || 'Unknown' }}</p>
-      <p><strong>Pending Transfers:</strong> {{ coordinationHealth()?.pendingTransfers || 0 }}</p>
-      <p><strong>Critical Alerts:</strong> {{ coordinationHealth()?.criticalAlerts || 0 }}</p>
+  <!-- Coordination Health Section -->
+  <div class="content-section">
+    <div class="section-header">
+      <h2 class="section-title">
+        <mat-icon>monitor_heart</mat-icon>
+        Coordination Health
+      </h2>
     </div>
-    <ng-template #noHealthData>
-      <p style="color: #dc3545;">❌ No coordination health data available</p>
-    </ng-template>
-  </div>
-
-  <!-- Branch Performances -->
-  <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-    <h2 style="margin: 0 0 16px 0; color: #333;">Branch Performances</h2>
-    <div *ngIf="branchPerformances().length > 0; else noPerformanceData">
-      <div *ngFor="let branch of branchPerformances().slice(0, 3)" 
-           style="background: white; padding: 12px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #dee2e6;">
-        <h4 style="margin: 0 0 8px 0; color: #495057;">{{ branch.branchName }}</h4>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 14px;">
-          <div><strong>Score:</strong> {{ branch.score }}/100</div>
-          <div><strong>Revenue:</strong> {{ branch.revenue | currency:'IDR':'symbol':'1.0-0' }}</div>
-          <div><strong>Profit Margin:</strong> {{ branch.profitMargin }}%</div>
+    
+    <div class="health-content" *ngIf="coordinationHealth(); else noHealthData">
+      <div class="health-metrics">
+        <div class="health-metric">
+          <div class="metric-label">Overall Score</div>
+          <div class="metric-value health-score" [ngClass]="getHealthScoreClass(coordinationHealth()?.overallScore || 0)">
+            {{ coordinationHealth()?.overallScore || 0 }}%
+          </div>
+        </div>
+        
+        <div class="health-metric">
+          <div class="metric-label">System Status</div>
+          <div class="metric-value" [ngClass]="getStatusClass(coordinationHealth()?.systemStatus || 'unknown')">
+            {{ coordinationHealth()?.systemStatus || 'Unknown' }}
+          </div>
+        </div>
+        
+        <div class="health-metric">
+          <div class="metric-label">Pending Transfers</div>
+          <div class="metric-value warning">{{ coordinationHealth()?.pendingTransfers || 0 }}</div>
+        </div>
+        
+        <div class="health-metric">
+          <div class="metric-label">Critical Alerts</div>
+          <div class="metric-value error">{{ coordinationHealth()?.criticalAlerts || 0 }}</div>
         </div>
       </div>
     </div>
-    <ng-template #noPerformanceData>
-      <p style="color: #dc3545;">❌ No performance data available</p>
+    
+    <ng-template #noHealthData>
+      <div class="no-data-message">
+        <mat-icon>warning</mat-icon>
+        <p>No coordination health data available</p>
+      </div>
     </ng-template>
   </div>
 
-  <!-- Actions -->
-  <div style="margin-top: 20px;">
-    <button (click)="refreshDashboard()" 
-            style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-right: 10px;">
-      🔄 Refresh Data
-    </button>
+  <!-- Branch Performance Section -->
+  <div class="content-section">
+    <div class="section-header">
+      <h2 class="section-title">
+        <mat-icon>trending_up</mat-icon>
+        Top Branch Performances
+      </h2>
+      <button mat-button color="primary" (click)="navigateToPerformance()" class="view-all-btn">
+        View All
+        <mat-icon>arrow_forward</mat-icon>
+      </button>
+    </div>
     
-    <button (click)="navigateToTransfers()" 
-            style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
-      📦 View Transfers
-    </button>
+    <div class="performance-content" *ngIf="branchPerformances().length > 0; else noPerformanceData">
+      <div class="performance-grid">
+        <div *ngFor="let branch of topPerformingBranches().slice(0, 3); trackBy: trackByBranchId" 
+             class="performance-card" (click)="navigateToBranch(branch.branchId)">
+          <div class="card-header">
+            <h4 class="branch-name">{{ branch.branchName }}</h4>
+            <div class="branch-rank rank-{{ branch.rank }}">
+              <mat-icon>star</mat-icon>
+              #{{ branch.rank }}
+            </div>
+          </div>
+          
+          <div class="card-metrics">
+            <div class="metric-item">
+              <span class="metric-label">Score</span>
+              <span class="metric-value score" [ngClass]="getHealthScoreClass(branch.score)">{{ branch.score }}/100</span>
+            </div>
+            
+            <div class="metric-item">
+              <span class="metric-label">Revenue</span>
+              <span class="metric-value">{{ branch.revenue | currency:'IDR':'symbol':'1.0-0' }}</span>
+            </div>
+            
+            <div class="metric-item">
+              <span class="metric-label">Profit Margin</span>
+              <span class="metric-value">{{ branch.profitMargin }}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <ng-template #noPerformanceData>
+      <div class="no-data-message">
+        <mat-icon>analytics</mat-icon>
+        <p>No performance data available</p>
+      </div>
+    </ng-template>
   </div>
 
-  <!-- Debug Information -->
-  <details style="margin-top: 20px;">
-    <summary style="cursor: pointer; padding: 10px; background: #e9ecef; border-radius: 4px;">🔍 Debug Information</summary>
-    <div style="background: #f8f9fa; padding: 15px; margin-top: 5px; border-radius: 4px; font-family: monospace; font-size: 12px;">
-      <div><strong>Component State:</strong></div>
-      <div>- isLoading: {{ isLoading() }}</div>
-      <div>- totalBranches: {{ totalBranches() }}</div>
-      <div>- activeBranches: {{ activeBranches() }}</div>
-      <div>- coordinationHealth available: {{ coordinationHealth() ? 'Yes' : 'No' }}</div>
-      <div>- branchPerformances count: {{ branchPerformances().length }}</div>
-      <div>- optimizationOpportunities count: {{ optimizationOpportunities().length }}</div>
-      <div>- Last updated: {{ formatLastUpdated() }}</div>
+  <!-- Footer Actions -->
+  <div class="footer-actions">
+    <div class="last-updated">
+      <mat-icon>schedule</mat-icon>
+      <span>Last updated: {{ formatLastUpdated() }}</span>
+    </div>
+    
+    <div class="action-buttons">
+      <button mat-button (click)="refreshDashboard()" class="refresh-action">
+        <mat-icon>refresh</mat-icon>
+        Refresh Data
+      </button>
+    </div>
+  </div>
+
+  <!-- Debug Information (Development Only) -->
+  <details class="debug-section" *ngIf="true">
+    <summary class="debug-toggle">
+      <mat-icon>bug_report</mat-icon>
+      Debug Information
+    </summary>
+    <div class="debug-content">
+      <div class="debug-grid">
+        <div class="debug-item">
+          <strong>Loading State:</strong> {{ isLoading() }}
+        </div>
+        <div class="debug-item">
+          <strong>Total Branches:</strong> {{ totalBranches() }}
+        </div>
+        <div class="debug-item">
+          <strong>Active Branches:</strong> {{ activeBranches() }}
+        </div>
+        <div class="debug-item">
+          <strong>Health Data:</strong> {{ coordinationHealth() ? 'Available' : 'Not Available' }}
+        </div>
+        <div class="debug-item">
+          <strong>Performance Data:</strong> {{ branchPerformances().length }} records
+        </div>
+        <div class="debug-item">
+          <strong>Optimization Opportunities:</strong> {{ optimizationOpportunities().length }}
+        </div>
+      </div>
     </div>
   </details>
 </div>

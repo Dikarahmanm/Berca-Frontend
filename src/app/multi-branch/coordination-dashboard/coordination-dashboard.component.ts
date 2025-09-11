@@ -2,6 +2,8 @@ import { Component, OnInit, OnDestroy, computed, effect, signal } from '@angular
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MultiBranchCoordinationService } from '../../core/services/multi-branch-coordination.service';
 import { StateService } from '../../core/services/state.service';
 import { Branch } from '../../core/models/branch.models';
@@ -10,7 +12,7 @@ import { Subscription, interval } from 'rxjs';
 @Component({
   selector: 'app-coordination-dashboard',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, MatIconModule, MatButtonModule, MatTooltipModule],
   templateUrl: './coordination-dashboard.component.html',
   styleUrls: ['./coordination-dashboard.component.scss']
 })
@@ -205,5 +207,9 @@ export class CoordinationDashboardComponent implements OnInit, OnDestroy {
       offline: 'icon-wifi-off'
     };
     return statusIconMap[branch.coordinationStatus || 'offline'] || 'icon-help-circle';
+  }
+
+  trackByBranchId(index: number, branch: any): number {
+    return branch.branchId;
   }
 }

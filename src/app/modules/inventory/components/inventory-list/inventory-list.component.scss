@@ -3396,3 +3396,187 @@
     }
   }
 }
+
+/* ===== ENHANCED BATCH & EXPIRY DISPLAY STYLES ===== */
+.expiry-cell {
+  .expiry-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    padding: var(--s2);
+    min-height: 60px;
+
+    .no-expiry-indicator {
+      display: flex;
+      align-items: center;
+      gap: var(--s2);
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+
+      .no-expiry-icon {
+        color: var(--text-disabled);
+        font-size: 18px;
+      }
+
+      .no-expiry-text {
+        font-style: italic;
+      }
+    }
+
+    .expiry-tracking {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s2);
+
+      .nearest-expiry-batch {
+        .batch-expiry-info {
+          display: flex;
+          align-items: center;
+          gap: var(--s2);
+          padding: var(--s2);
+          border-radius: 8px;
+          border-left: 4px solid;
+          font-weight: 500;
+          font-size: 0.875rem;
+
+          .batch-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+          }
+
+          .expiry-text {
+            line-height: 1.4;
+          }
+
+          // Status-based styling
+          &.expiry-good {
+            background: rgba(76, 191, 123, 0.1);
+            border-left-color: #4BBF7B;
+            color: #2D5A3D;
+
+            .batch-icon {
+              color: #4BBF7B;
+            }
+          }
+
+          &.expiry-warning {
+            background: rgba(255, 184, 77, 0.1);
+            border-left-color: #FFB84D;
+            color: #8B5A00;
+
+            .batch-icon {
+              color: #FFB84D;
+            }
+          }
+
+          &.expiry-critical {
+            background: rgba(239, 68, 68, 0.1);
+            border-left-color: #EF4444;
+            color: #991B1B;
+
+            .batch-icon {
+              color: #EF4444;
+            }
+          }
+
+          &.expiry-expired {
+            background: rgba(156, 163, 175, 0.1);
+            border-left-color: #9CA3AF;
+            color: #4B5563;
+
+            .batch-icon {
+              color: #9CA3AF;
+            }
+          }
+        }
+
+        .batch-counter {
+          margin-left: var(--s6);
+          
+          .batch-count-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+          }
+        }
+      }
+
+      .basic-expiry-info {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        padding: var(--s2);
+        background: rgba(59, 130, 246, 0.1);
+        border-radius: 6px;
+        font-size: 0.875rem;
+
+        .expiry-icon {
+          color: #3B82F6;
+          font-size: 18px;
+        }
+
+        .expiry-text {
+          color: #1E40AF;
+        }
+      }
+
+      .missing-expiry-data {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        color: var(--text-disabled);
+        font-size: 0.75rem;
+        font-style: italic;
+
+        .missing-icon {
+          font-size: 16px;
+        }
+      }
+    }
+  }
+}
+
+/* ===== RESPONSIVE BATCH DISPLAY ===== */
+@media (max-width: 1024px) {
+  .expiry-cell .expiry-content {
+    .nearest-expiry-batch .batch-expiry-info {
+      padding: var(--s1);
+      font-size: 0.8rem;
+
+      .expiry-text {
+        line-height: 1.3;
+      }
+    }
+
+    .batch-counter {
+      margin-left: var(--s4);
+      
+      .batch-count-text {
+        font-size: 0.7rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .expiry-cell .expiry-content {
+    padding: var(--s1);
+    min-height: 40px;
+
+    .nearest-expiry-batch .batch-expiry-info {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--s1);
+      padding: var(--s1);
+
+      .batch-icon {
+        font-size: 16px;
+      }
+
+      .expiry-text {
+        font-size: 0.75rem;
+      }
+    }
+  }
+}

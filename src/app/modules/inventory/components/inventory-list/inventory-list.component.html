@@ -765,50 +765,43 @@
           <div class="expiry-content">
             
             <!-- No Expiry Required -->
-            <div *ngIf="!product.categoryRequiresExpiry" class="no-expiry-indicator">
+            <div *ngIf="!requiresExpiryTracking(product)" class="no-expiry-indicator">
               <mat-icon class="no-expiry-icon">block</mat-icon>
               <span class="no-expiry-text">No expiry tracking</span>
             </div>
 
             <!-- Has Expiry Tracking -->
-            <div *ngIf="product.categoryRequiresExpiry" class="expiry-tracking">
+            <div *ngIf="requiresExpiryTracking(product)" class="expiry-tracking">
               
-              <!-- Expiry Status Indicator -->
-              <div class="expiry-status-indicator" [class]="'status-' + product.expiryStatus">
-                <div class="status-icon-wrapper">
-                  <mat-icon class="expiry-icon">{{ getExpiryStatusIcon(product) }}</mat-icon>
+              <!-- Nearest Expiry Batch Display -->
+              <div *ngIf="getNearestExpiryBatch(product) as nearestBatch" class="nearest-expiry-batch">
+                <div class="batch-expiry-info" [class]="getExpiryStatusClass(nearestBatch.status)">
+                  <mat-icon class="batch-icon">layers</mat-icon>
+                  <div class="expiry-text">
+                    {{ formatExpiryText(nearestBatch) }}
+                  </div>
                 </div>
-                <div class="expiry-info">
-                  <div class="expiry-status-text">{{ getExpiryStatusText(product) }}</div>
-                  <div class="expiry-date" *ngIf="product.expiryDate">
-                    {{ product.expiryDate | date:'mediumDate' }}
-                  </div>
-                  <div class="days-remaining" [class]="'days-' + product.expiryStatus">
-                    {{ product.daysUntilExpiry }} days left
-                  </div>
+                
+                <!-- Total Batches Counter -->
+                <div *ngIf="product.totalBatches" class="batch-counter">
+                  <span class="batch-count-text">
+                    {{ product.totalBatches }} batch{{ product.totalBatches > 1 ? 'es' : '' }} total
+                  </span>
                 </div>
               </div>
 
-              <!-- Batch Information -->
-              <div class="batch-info" *ngIf="product.totalBatches">
-                <div class="batch-summary">
-                  <mat-icon class="batch-icon">layers</mat-icon>
-                  <span class="batch-count">{{ product.totalBatches }} batch{{ product.totalBatches > 1 ? 'es' : '' }}</span>
+              <!-- Fallback: Show basic expiry info if no batch data -->
+              <div *ngIf="!getNearestExpiryBatch(product) && product.expiryDate" class="basic-expiry-info">
+                <mat-icon class="expiry-icon">schedule</mat-icon>
+                <div class="expiry-text">
+                  Expires {{ product.expiryDate | date:'mediumDate' }}
                 </div>
-                
-                <!-- Quick Batch Preview -->
-                <div class="batch-preview" *ngIf="product.batches?.length">
-                  <div 
-                    *ngFor="let batch of (product.batches || []).slice(0, 3); let isLast = last"
-                    class="batch-preview-item"
-                    [class]="'preview-' + batch.expiryStatus">
-                    <span class="batch-number">{{ batch.batchNumber || 'No#' }}</span>
-                    <span class="batch-stock">{{ batch.currentStock }}</span>
-                  </div>
-                  <span *ngIf="(product.batches?.length || 0) > 3" class="more-batches">
-                    +{{ (product.batches?.length || 0) - 3 }} more
-                  </span>
-                </div>
+              </div>
+
+              <!-- No Expiry Data Available -->
+              <div *ngIf="!getNearestExpiryBatch(product) && !product.expiryDate" class="missing-expiry-data">
+                <mat-icon class="missing-icon">help_outline</mat-icon>
+                <span class="missing-text">Expiry data not available</span>
               </div>
             </div>
           </div>

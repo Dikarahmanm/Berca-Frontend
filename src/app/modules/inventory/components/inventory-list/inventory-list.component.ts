@@ -22,7 +22,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { Subscription, debounceTime, distinctUntilChanged, firstValueFrom } from 'rxjs';
+import { Subscription, debounceTime, distinctUntilChanged, firstValueFrom, map } from 'rxjs';
 
 import { InventoryService, BulkUpdateExpiryBatchesRequest, BulkUpdateResult } from '../../services/inventory.service';
 // NEW: Branch-aware services
@@ -443,7 +443,7 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
 
   // ===== DATA LOADING =====
 
-  // ✅ ENHANCED: LoadProducts with better sort handling
+  // ✅ ENHANCED: LoadProducts with better sort handling and batch support
    loadProducts(): void {
     this.loading.set(true);
     const filterValues = this.filterForm.value;
@@ -466,80 +466,109 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
 
     console.log('📡 API Request with enhanced sort:', filter);
 
+    // ✅ NEW: Use batch summary endpoint for better expiry and batch data
+    const useProductsWithBatchSummary = true; // Enable batch data by default
+
+    if (useProductsWithBatchSummary) {
+      // Use batch summary endpoint
+      this.subscriptions.add(
+        this.inventoryService.getProductsWithBatchSummary(filter).subscribe({
+          next: (batchProducts: any[]) => {
+            const response = {
+              products: batchProducts,
+              totalItems: batchProducts.length,
+              totalPages: 1,
+              currentPage: 1,
+              pageSize: batchProducts.length
+            };
+            this.handleProductsResponse(response);
+          },
+          error: (error: any) => {
+            console.error('❌ Failed to load products with batch summary:', error);
+            // Fallback to regular products endpoint
+            this.loadProductsRegular(filter);
+          }
+        })
+      );
+    } else {
+      this.loadProductsRegular(filter);
+    }
+  }
+
+  private loadProductsRegular(filter: ProductFilter): void {
     this.subscriptions.add(
       this.inventoryService.getProducts(filter).subscribe({
-        next: (response) => {
-          const rawProductsData = response.products || [];
-          
-          // Update raw products signal
-          this.rawProducts.set(rawProductsData);
-          
-          // Create enhanced products with both legacy and expiry enhancements
-          const enhancedProducts = rawProductsData.map(product => {
-            const legacyEnhanced = {
-              ...product,
-              minimumStock: typeof product.minimumStock === 'number' ? product.minimumStock : 5,
-              profitMargin: this.getMarginPercentage(product),
-              isLowStock: product.stock <= (typeof product.minimumStock === 'number' ? product.minimumStock : 5),
-              isOutOfStock: product.stock === 0,
-              // ✅ Add categoryName for sorting
-              categoryName: this.getCategoryName(product.categoryId)
-            };
-            
-            // Apply expiry enhancement
-            return this.enhanceProductWithExpiry(legacyEnhanced);
-          });
-          
-          // Update MatTableDataSource with enhanced products
-          this.products.data = enhancedProducts;
-          
-          // Set total items - use actual data length if API response is invalid
-          const totalItemsFromResponse = response.totalItems || 0;
-          const actualDataLength = enhancedProducts.length;
-          const totalItems = totalItemsFromResponse > 0 ? totalItemsFromResponse : actualDataLength;
-          
-          this.totalItems.set(totalItems);
-          
-          console.log('📦 Products Data Summary:', {
-            apiTotalItems: response.totalItems,
-            actualDataLength,
-            finalTotalItems: totalItems,
-            enhancedProductsCount: enhancedProducts.length,
-            sampleProduct: enhancedProducts[0],
-            lowStockInData: enhancedProducts.filter(p => p.stock <= (p.minimumStock || 5)).length
-          });
-          
-          // Update expiry filter counts
-          this.updateExpiryFilterCounts();
-          
-          this.loading.set(false);
-          
-          // ✅ Update MatSort state to match current sort
-          if (this.sort) {
-            // Map backend field back to frontend column
-            const frontendColumn = this.mapBackendToFrontend(filter.sortBy || 'name');
-            this.sort.active = frontendColumn;
-            this.sort.direction = filter.sortOrder as 'asc' | 'desc';
-          }
-          
-          console.log('📦 Products Loaded & Sorted:', {
-            total: response.totalItems,
-            products: enhancedProducts.length,
-            sortBy: filter.sortBy,
-            sortOrder: filter.sortOrder,
-            frontendSort: this.sort ? { active: this.sort.active, direction: this.sort.direction } : 'not initialized'
-          });
+        next: (response: any) => {
+          this.handleProductsResponse(response);
         },
-        error: (error) => {
-          console.error('❌ Failed to load products:', error);
-          this.showError('Failed to load products: ' + error.message);
-          this.loading.set(false);
-          
-          // ✅ FALLBACK: Create sample data for development/demo
-          this.createFallbackData();
+        error: (error: any) => {
+          this.handleProductsError(error);
         }
       })
     );
+  }
+
+  private handleProductsResponse(response: any): void {
+    const rawProductsData = response.products || [];
+    
+    // Update raw products signal
+    this.rawProducts.set(rawProductsData);
+    
+    // Create enhanced products with both legacy and expiry enhancements
+    const enhancedProducts = rawProductsData.map((product: any) => {
+      const legacyEnhanced = {
+        ...product,
+        minimumStock: typeof product.minimumStock === 'number' ? product.minimumStock : 5,
+        profitMargin: this.getMarginPercentage(product),
+        isLowStock: product.stock <= (typeof product.minimumStock === 'number' ? product.minimumStock : 5),
+        isOutOfStock: product.stock === 0,
+        // ✅ Add categoryName for sorting
+        categoryName: this.getCategoryName(product.categoryId)
+      };
+      
+      // Apply expiry enhancement
+      return this.enhanceProductWithExpiry(legacyEnhanced);
+    });
+    
+    // Update MatTableDataSource with enhanced products
+    this.products.data = enhancedProducts;
+    
+    // Set total items - use actual data length if API response is invalid
+    const totalItemsFromResponse = response.totalItems || 0;
+    const actualDataLength = enhancedProducts.length;
+    const totalItems = totalItemsFromResponse > 0 ? totalItemsFromResponse : actualDataLength;
+    
+    this.totalItems.set(totalItems);
+    
+    console.log('📦 Products Data Summary:', {
+      apiTotalItems: response.totalItems,
+      actualDataLength,
+      finalTotalItems: totalItems,
+      enhancedProductsCount: enhancedProducts.length,
+      sampleProduct: enhancedProducts[0],
+      lowStockInData: enhancedProducts.filter((p: any) => p.stock <= (p.minimumStock || 5)).length
+    });
+    
+    // Update expiry filter counts
+    this.updateExpiryFilterCounts();
+    
+    this.loading.set(false);
+    
+    console.log('📦 Products Loaded & Enhanced with Batch Data:', {
+      total: response.totalItems,
+      products: enhancedProducts.length,
+      sampleBatchInfo: enhancedProducts[0]?.nearestExpiryBatch || 'No batch data',
+      productsWithBatches: enhancedProducts.filter((p: any) => p.totalBatches > 0).length
+    });
+  }
+
+  private handleProductsError(error: any): void {
+    console.error('❌ Failed to load products:', error);
+    this.showError('Failed to load products: ' + error.message);
+    this.loading.set(false);
+    
+    // ✅ FALLBACK: Create sample data for development/demo
+    this.createFallbackData();
   }
   // ✅ HELPER: Map backend field names back to frontend column names
   private mapBackendToFrontend(backendField: string): string {
@@ -673,6 +702,104 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
         })
       );
     }
+  }
+
+  // ===== BATCH & EXPIRY UTILITY METHODS =====
+
+  /**
+   * Get nearest expiry batch information for a product
+   */
+  getNearestExpiryBatch(product: any): { batchNumber: string; daysUntilExpiry: number; status: string } | null {
+    // First, check if product has batch data from with-batch-summary endpoint
+    if (product.nearestExpiryBatch) {
+      const batch = product.nearestExpiryBatch;
+      const expiryDate = new Date(batch.expiryDate);
+      const today = new Date();
+      const timeDiff = expiryDate.getTime() - today.getTime();
+      const daysUntilExpiry = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      
+      let status = 'good';
+      if (daysUntilExpiry <= 0) {
+        status = 'expired';
+      } else if (daysUntilExpiry <= 7) {
+        status = 'critical';
+      } else if (daysUntilExpiry <= 30) {
+        status = 'warning';
+      }
+      
+      return {
+        batchNumber: batch.batchNumber || 'Unknown',
+        daysUntilExpiry,
+        status
+      };
+    }
+    
+    // Fallback: check if product has batches array
+    if (product.batches && product.batches.length > 0) {
+      // Sort batches by expiry date to find nearest
+      const sortedBatches = product.batches
+        .filter((batch: any) => batch.expiryDate)
+        .sort((a: any, b: any) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+      
+      if (sortedBatches.length > 0) {
+        const nearestBatch = sortedBatches[0];
+        const expiryDate = new Date(nearestBatch.expiryDate);
+        const today = new Date();
+        const timeDiff = expiryDate.getTime() - today.getTime();
+        const daysUntilExpiry = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        
+        let status = 'good';
+        if (daysUntilExpiry <= 0) {
+          status = 'expired';
+        } else if (daysUntilExpiry <= 7) {
+          status = 'critical';
+        } else if (daysUntilExpiry <= 30) {
+          status = 'warning';
+        }
+        
+        return {
+          batchNumber: nearestBatch.batchNumber || 'Unknown',
+          daysUntilExpiry,
+          status
+        };
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Format expiry text for display
+   */
+  formatExpiryText(batch: { batchNumber: string; daysUntilExpiry: number; status: string }): string {
+    const { batchNumber, daysUntilExpiry, status } = batch;
+    
+    if (status === 'expired') {
+      return `Expired ${Math.abs(daysUntilExpiry)} days ago for batch ${batchNumber}`;
+    } else {
+      return `${daysUntilExpiry} days until expired for batch ${batchNumber}`;
+    }
+  }
+
+  /**
+   * Get CSS class for expiry status
+   */
+  getExpiryStatusClass(status: string): string {
+    return `expiry-${status}`;
+  }
+
+  /**
+   * Check if product requires expiry tracking
+   */
+  requiresExpiryTracking(product: any): boolean {
+    // Check if category requires expiry (from category data)
+    const category = this.categories().find(c => c.id === product.categoryId);
+    if (category && 'requiresExpiryDate' in category) {
+      return (category as any).requiresExpiryDate;
+    }
+    
+    // Fallback: check if product has any batch or expiry information
+    return !!(product.nearestExpiryBatch || (product.batches && product.batches.length > 0) || product.expiryDate);
   }
 
   // ===== UTILITY METHODS =====

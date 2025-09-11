@@ -449,44 +449,6 @@ export class InventoryService {
   }
 
   /**
-   * ✅ REAL API: Get products with batch summary for enhanced inventory view
-   * Backend: GET /api/Product/with-batch-summary
-   */
-  getProductsWithBatchSummary(filters?: {
-    categoryId?: number;
-    page?: number;
-    pageSize?: number;
-    sortBy?: string;
-    sortOrder?: string;
-  }): Observable<ProductWithBatchSummaryDto[]> {
-    let params = new HttpParams();
-    
-    if (filters?.categoryId) params = params.set('categoryId', filters.categoryId.toString());
-    if (filters?.page) params = params.set('page', filters.page.toString());
-    if (filters?.pageSize) params = params.set('pageSize', filters.pageSize.toString());
-    if (filters?.sortBy) params = params.set('sortBy', filters.sortBy);
-    if (filters?.sortOrder) params = params.set('sortOrder', filters.sortOrder);
-
-    console.log('🚀 Calling REAL API: /Product/with-batch-summary', params.toString());
-
-    return this.http.get<ApiResponse<ProductWithBatchSummaryDto[]>>(`${this.baseUrl}/with-batch-summary`, { params })
-      .pipe(
-        tap(response => console.log('✅ Real API Response:', response)),
-        map(response => {
-          if (response.success) {
-            return response.data || [];
-          }
-          throw new Error(response.message || 'Failed to fetch products with batches');
-        }),
-        catchError(error => {
-          console.error('❌ API Error - with-batch-summary:', error);
-          // Fallback to empty array instead of throwing
-          return [];
-        })
-      );
-  }
-
-  /**
    * ✅ REAL API: Get batches for a specific product
    * Backend: GET /api/Product/{productId}/batches
    */

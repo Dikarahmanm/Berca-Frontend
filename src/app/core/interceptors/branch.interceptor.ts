@@ -8,7 +8,7 @@ import { Injector } from '@angular/core';
  * Following POS Toko Eniwan patterns dengan modern interceptor
  */
 export const branchInterceptor: HttpInterceptorFn = (req: HttpRequest<any>, next: HttpHandlerFn) => {
-  // Skip branch injection for authentication and system endpoints
+  // Skip branch injection for authentication, system, and ML training endpoints
   const skipBranchInjection = [
     '/auth/',
     '/login',
@@ -20,8 +20,21 @@ export const branchInterceptor: HttpInterceptorFn = (req: HttpRequest<any>, next
     '/api/auth'
   ].some(path => req.url.includes(path));
 
-  if (skipBranchInjection) {
+  // Skip branch injection for ML training endpoints (these are branch-agnostic)
+  const skipMLTrainingEndpoints = [
+    '/api/ml/inventory/training-status',
+    '/api/ml/inventory/train-model',
+    '/api/ml/inventory/model-health',
+    '/api/ml/inventory/train-models',
+    '/api/ml/inventory/model-explanation'
+  ].some(path => req.url.includes(path));
+
+  if (skipBranchInjection || skipMLTrainingEndpoints) {
     console.log('🔄 Branch interceptor: Skipping branch injection for:', req.url);
+    // Log specifically for ML endpoints to confirm they're being skipped
+    if (skipMLTrainingEndpoints) {
+      console.log('✅ ML Training endpoint bypassed branch injection:', req.url);
+    }
     return next(req);
   }
 

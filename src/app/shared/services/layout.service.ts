@@ -135,7 +135,7 @@ export class LayoutService {
           id: 'optimization',
           label: 'Analytics',
           icon: 'auto_fix_high',
-          route: '/admin/multi-branch/analytics',
+          route: '/dashboard/multi-branch-analytics',
           roles: ['Admin', 'HeadManager']
         }
       ]
@@ -428,7 +428,7 @@ export class LayoutService {
       '/dashboard/branch-performance': 'Branch Performance',
       // DISABLED: '/dashboard/transfers': 'Transfer Management',
       '/dashboard/select-branch': 'Select Branch',
-      '/admin/multi-branch/analytics': 'Multi-Branch Analytics',
+      '/dashboard/multi-branch-analytics': 'Multi-Branch Analytics',
       '/admin/multi-branch/dashboard': 'Multi-Branch Administration'
     };
 

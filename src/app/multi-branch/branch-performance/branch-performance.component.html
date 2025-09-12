@@ -1,98 +1,131 @@
-<div class="branch-performance">
-  <!-- Header Section -->
-  <div class="page-header">
-    <div class="header-content">
-      <h1>Branch Performance Analytics</h1>
-      <p class="header-subtitle">Comprehensive performance analysis and comparison across all branches</p>
+<div class="branch-performance-container">
+  <!-- Modern Header Section -->
+  <div class="modern-header">
+    <div class="header-title-section">
+      <h1 class="modern-title">
+        <mat-icon class="title-icon">analytics</mat-icon>
+        Branch Performance Analytics
+      </h1>
+      <div class="subtitle-stats">
+        <span class="stat-chip">{{ filteredComparisons().length }} Branches</span>
+        <span class="stat-chip period">{{ selectedPeriod() === '7d' ? '7 Days' : selectedPeriod() === '30d' ? '30 Days' : selectedPeriod() === '90d' ? '90 Days' : '1 Year' }}</span>
+      </div>
     </div>
     
     <div class="header-actions">
       <button 
-        class="btn btn-secondary"
+        mat-raised-button 
+        color="accent"
         (click)="exportData()"
         [disabled]="isLoading()"
+        class="action-btn"
       >
-        <i class="icon-download"></i>
+        <mat-icon>file_download</mat-icon>
         Export Data
       </button>
       
       <button 
-        class="btn btn-primary"
+        mat-raised-button 
+        color="primary"
         (click)="refreshData()"
         [disabled]="isLoading()"
+        class="action-btn"
       >
-        <i class="icon-refresh-cw" [class.spinning]="isLoading()"></i>
+        <mat-icon [class.spinning]="isLoading()">refresh</mat-icon>
         Refresh
       </button>
     </div>
   </div>
 
-  <!-- Period and Filter Controls -->
+  <!-- Controls Section -->
   <div class="controls-section">
-    <div class="period-selector">
-      <label>Time Period:</label>
-      <div class="period-buttons">
-        <button 
-          *ngFor="let period of ['7d', '30d', '90d', '1y']"
-          class="period-btn"
-          [class.active]="selectedPeriod() === period"
-          (click)="setPeriod($any(period))"
-        >
-          {{ period === '7d' ? '7 Days' : period === '30d' ? '30 Days' : period === '90d' ? '90 Days' : '1 Year' }}
-        </button>
-      </div>
-    </div>
+    <mat-card class="controls-card">
+      <mat-card-content>
+        <div class="controls-grid">
+          <div class="period-selector">
+            <mat-label>Time Period</mat-label>
+            <div class="period-buttons">
+              <mat-button-toggle-group 
+                [value]="selectedPeriod()" 
+                (change)="setPeriod($event.value)"
+                class="period-toggle-group"
+              >
+                <mat-button-toggle value="7d">7 Days</mat-button-toggle>
+                <mat-button-toggle value="30d">30 Days</mat-button-toggle>
+                <mat-button-toggle value="90d">90 Days</mat-button-toggle>
+                <mat-button-toggle value="1y">1 Year</mat-button-toggle>
+              </mat-button-toggle-group>
+            </div>
+          </div>
 
-    <div class="comparison-selector">
-      <label>Show:</label>
-      <select (change)="onComparisonModeChange($event)" [value]="comparisonMode()">
-        <option value="all">All Branches</option>
-        <option value="top5">Top 5 Performers</option>
-        <option value="bottom5">Bottom 5 Performers</option>
-      </select>
-    </div>
+          <div class="comparison-selector">
+            <mat-form-field appearance="outline" class="comparison-field">
+              <mat-label>Show</mat-label>
+              <mat-select [value]="comparisonMode()" (selectionChange)="setComparisonMode($event.value)">
+                <mat-option value="all">All Branches</mat-option>
+                <mat-option value="top5">Top 5 Performers</mat-option>
+                <mat-option value="bottom5">Bottom 5 Performers</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
   </div>
 
-  <!-- Performance Overview Cards -->
+  <!-- Performance Overview Section -->
   <div class="overview-section" *ngIf="performanceMetrics()">
-    <h2>Performance Overview</h2>
+    <div class="section-header">
+      <h2 class="section-title">
+        <mat-icon>assessment</mat-icon>
+        Performance Overview
+      </h2>
+    </div>
     
     <div class="overview-cards">
-      <div class="overview-card revenue">
-        <div class="card-header">
-          <h3>Total Revenue</h3>
-          <i class="icon-dollar-sign"></i>
-        </div>
-        <div class="card-value">{{ formatCurrency(performanceMetrics()!.totalRevenue) }}</div>
-        <div class="card-subtitle">Across all branches</div>
-      </div>
+      <mat-card class="overview-card revenue">
+        <mat-card-content>
+          <div class="card-header">
+            <h3>Total Revenue</h3>
+            <mat-icon>attach_money</mat-icon>
+          </div>
+          <div class="card-value">{{ formatCurrency(performanceMetrics()!.totalRevenue) }}</div>
+          <div class="card-subtitle">Across all branches</div>
+        </mat-card-content>
+      </mat-card>
 
-      <div class="overview-card profit">
-        <div class="card-header">
-          <h3>Avg Profit Margin</h3>
-          <i class="icon-trending-up"></i>
-        </div>
-        <div class="card-value">{{ formatPercentage(performanceMetrics()!.avgProfitMargin) }}</div>
-        <div class="card-subtitle">Network average</div>
-      </div>
+      <mat-card class="overview-card profit">
+        <mat-card-content>
+          <div class="card-header">
+            <h3>Avg Profit Margin</h3>
+            <mat-icon>trending_up</mat-icon>
+          </div>
+          <div class="card-value">{{ formatPercentage(performanceMetrics()!.avgProfitMargin) }}</div>
+          <div class="card-subtitle">Network average</div>
+        </mat-card-content>
+      </mat-card>
 
-      <div class="overview-card efficiency">
-        <div class="card-header">
-          <h3>Inventory Turnover</h3>
-          <i class="icon-repeat"></i>
-        </div>
-        <div class="card-value">{{ performanceMetrics()!.avgInventoryTurnover.toFixed(1) }}x</div>
-        <div class="card-subtitle">Average turnover rate</div>
-      </div>
+      <mat-card class="overview-card efficiency">
+        <mat-card-content>
+          <div class="card-header">
+            <h3>Inventory Turnover</h3>
+            <mat-icon>sync_alt</mat-icon>
+          </div>
+          <div class="card-value">{{ performanceMetrics()!.avgInventoryTurnover.toFixed(1) }}x</div>
+          <div class="card-subtitle">Average turnover rate</div>
+        </mat-card-content>
+      </mat-card>
 
-      <div class="overview-card satisfaction">
-        <div class="card-header">
-          <h3>Customer Satisfaction</h3>
-          <i class="icon-heart"></i>
-        </div>
-        <div class="card-value">{{ formatPercentage(performanceMetrics()!.avgSatisfaction) }}</div>
-        <div class="card-subtitle">Network average</div>
-      </div>
+      <mat-card class="overview-card satisfaction">
+        <mat-card-content>
+          <div class="card-header">
+            <h3>Customer Satisfaction</h3>
+            <mat-icon>favorite</mat-icon>
+          </div>
+          <div class="card-value">{{ formatPercentage(performanceMetrics()!.avgSatisfaction) }}</div>
+          <div class="card-subtitle">Network average</div>
+        </mat-card-content>
+      </mat-card>
     </div>
 
     <!-- Top and Bottom Performers -->

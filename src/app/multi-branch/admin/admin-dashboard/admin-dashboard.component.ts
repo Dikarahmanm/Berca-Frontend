@@ -322,7 +322,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   navigateToBranchManagement() {
-    this.router.navigate(['/branches']);
+    this.router.navigate(['/dashboard/branches']);
   }
 
   navigateToSystemLogs() {
@@ -330,15 +330,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   navigateToAnalytics() {
-    this.router.navigate(['/admin/multi-branch/analytics']);
+    this.router.navigate(['/dashboard/multi-branch-analytics']);
   }
 
   navigateToCoordination() {
-    this.router.navigate(['/coordination']);
+    this.router.navigate(['/dashboard/coordination']);
   }
 
   viewBranchDetails(branchId: number) {
-    this.router.navigate(['/branches/view', branchId]);
+    this.router.navigate(['/dashboard/branches'], { queryParams: { id: branchId } });
   }
 
   // System management actions

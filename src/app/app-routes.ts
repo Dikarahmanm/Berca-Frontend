@@ -285,6 +285,16 @@ export const routes: Routes = [
         }
       },
       {
+        path: 'multi-branch-analytics',
+        loadComponent: () => import('./multi-branch/admin/multi-branch-analytics/multi-branch-analytics.component').then(c => c.MultiBranchAnalyticsComponent),
+        canActivate: [roleGuard, multiBranchAnalyticsGuard],
+        data: {
+          title: 'Multi-Branch Analytics',
+          breadcrumb: 'Analytics',
+          requiredRoles: ['Admin', 'HeadManager', 'Manager']
+        }
+      },
+      {
         path: 'select-branch',
         loadComponent: () => import('./multi-branch/branch-selector/branch-selector.component').then(c => c.BranchSelectorComponent),
         canActivate: [roleGuard],

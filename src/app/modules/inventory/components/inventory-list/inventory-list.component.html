@@ -67,7 +67,7 @@
         </div>
         <div class="stat-info">
           <div class="stat-value" *ngIf="!loading(); else loadingValue">
-            {{ formatNumber(comprehensiveStats?.totalProducts || 0) }}
+            {{ formatNumber(comprehensiveStats.totalProducts || 0) }}
           </div>
           <ng-template #loadingValue>
             <div class="stat-value loading">--</div>

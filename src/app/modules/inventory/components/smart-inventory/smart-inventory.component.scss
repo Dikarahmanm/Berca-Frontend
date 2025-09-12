@@ -982,6 +982,7 @@
       &.health-good .score-value { color: var(--info-color); }
       &.health-fair .score-value { color: var(--warning-color); }
       &.health-poor .score-value { color: var(--danger-color); }
+      &.health-unknown .score-value { color: var(--text-muted); opacity: 0.7; }
     }
 
     .health-details {
@@ -1097,6 +1098,7 @@
 .health-good { color: var(--info-color); }
 .health-fair { color: var(--warning-color); }
 .health-poor { color: var(--danger-color); }
+.health-unknown { color: var(--text-muted); opacity: 0.7; }
 
 .text-green-600 { color: var(--success-color); }
 .text-blue-600 { color: var(--info-color); }
@@ -1202,5 +1204,635 @@
   .health-overview {
     flex-direction: column;
     text-align: center;
+  }
+}
+
+// ===== ML MODEL TRAINING MANAGEMENT STYLES =====
+.training-tab {
+  .tab-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--gray-200);
+
+    h3 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--gray-800);
+      margin: 0 0 1rem 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+
+      &::before {
+        content: 'precision_manufacturing';
+        font-family: 'Material Icons';
+        font-size: 2.5rem;
+        color: var(--primary-color);
+      }
+    }
+
+    .tab-description {
+      font-size: 1.125rem;
+      color: var(--gray-600);
+      margin: 0;
+      font-weight: 400;
+    }
+  }
+
+  // Service Offline Warning
+  .service-offline-warning {
+    background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
+    border: 1px solid #FCA5A5;
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+
+    .warning-content {
+      .material-icons {
+        font-size: 4rem;
+        color: var(--danger-color);
+        margin-bottom: 1rem;
+      }
+
+      h4 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--danger-color);
+        margin: 0 0 1rem 0;
+      }
+
+      p {
+        color: var(--gray-700);
+        font-size: 1rem;
+        margin: 0 0 1.5rem 0;
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .retry-btn {
+        background: var(--danger-color);
+        color: var(--white);
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0 auto;
+        transition: all 0.2s ease;
+
+        &:hover:not(:disabled) {
+          background: #DC2626;
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-lg);
+        }
+
+        .material-icons {
+          font-size: 1.25rem;
+        }
+      }
+    }
+  }
+
+  // Training Content
+  .training-content {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  // Training Overview Cards
+  .training-overview {
+    margin-bottom: 3rem;
+
+    .overview-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .training-card {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--gray-200);
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--gray-200);
+
+        .material-icons {
+          font-size: 1.75rem;
+          color: var(--primary-color);
+        }
+
+        h4 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: var(--gray-800);
+          margin: 0;
+        }
+      }
+
+      .card-content {
+        .status-indicator, .background-status, .freshness-indicator {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1rem;
+          border-radius: 8px;
+          margin-bottom: 1rem;
+          font-weight: 600;
+
+          .material-icons {
+            font-size: 1.25rem;
+          }
+
+          &.up-to-date, &.enabled, &.fresh {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+          }
+
+          &.needs-training, &.disabled, &.stale {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+          }
+        }
+
+        .status-reason {
+          font-size: 0.875rem;
+          color: var(--gray-600);
+          margin-top: 0.5rem;
+          padding: 0.5rem;
+          background: var(--gray-100);
+          border-radius: 6px;
+        }
+
+        .timing-info, .data-details {
+          .timing-item, .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--gray-100);
+
+            &:last-child {
+              border-bottom: none;
+            }
+
+            .label {
+              font-size: 0.875rem;
+              color: var(--gray-600);
+              font-weight: 500;
+            }
+
+            .value {
+              font-size: 0.875rem;
+              color: var(--gray-800);
+              font-weight: 600;
+            }
+          }
+        }
+
+        .status-badge {
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .schedule-info {
+          .schedule {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            margin-top: 0.5rem;
+          }
+        }
+      }
+    }
+  }
+
+  // Manual Training Section
+  .manual-training {
+    margin-bottom: 3rem;
+
+    h4 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin: 0 0 1.5rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      &::before {
+        content: 'engineering';
+        font-family: 'Material Icons';
+        font-size: 1.75rem;
+        color: var(--primary-color);
+      }
+    }
+
+    .training-controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 2rem;
+    }
+
+    .training-control-card {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--gray-200);
+      transition: all 0.3s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .control-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+
+        .material-icons {
+          font-size: 2rem;
+          color: var(--primary-color);
+          padding: 0.5rem;
+          background: rgba(255, 145, 77, 0.1);
+          border-radius: 8px;
+        }
+
+        h5 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: var(--gray-800);
+          margin: 0;
+        }
+      }
+
+      .control-description {
+        margin-bottom: 2rem;
+
+        p {
+          color: var(--gray-600);
+          font-size: 0.95rem;
+          line-height: 1.5;
+          margin: 0;
+        }
+      }
+
+      .control-actions {
+        .train-btn-large {
+          width: 100%;
+          background: var(--primary-color);
+          color: var(--white);
+          border: none;
+          padding: 1rem 1.5rem;
+          border-radius: 12px;
+          font-size: 1rem;
+          font-weight: 600;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.2s ease;
+          position: relative;
+          overflow: hidden;
+
+          &::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+              90deg,
+              transparent,
+              rgba(255, 255, 255, 0.2),
+              transparent
+            );
+            transition: left 0.5s ease;
+          }
+
+          &:hover:not(:disabled) {
+            background: #E67E22;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+
+            &::before {
+              left: 100%;
+            }
+          }
+
+          &.recommended {
+            background: linear-gradient(135deg, var(--warning-color) 0%, #F97316 100%);
+            animation: pulse-glow 2s infinite;
+          }
+
+          &:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+          }
+
+          .material-icons {
+            font-size: 1.5rem;
+          }
+
+          .training-time {
+            font-size: 0.75rem;
+            opacity: 0.9;
+            font-weight: 400;
+          }
+        }
+
+        &.individual-actions {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 0.75rem;
+
+          .train-btn-individual {
+            background: var(--white);
+            color: var(--gray-700);
+            border: 2px solid var(--gray-300);
+            padding: 0.875rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.2s ease;
+
+            &:hover:not(:disabled) {
+              border-color: var(--primary-color);
+              color: var(--primary-color);
+              background: rgba(255, 145, 77, 0.05);
+              transform: translateX(4px);
+            }
+
+            &:disabled {
+              opacity: 0.6;
+              cursor: not-allowed;
+            }
+
+            .material-icons {
+              font-size: 1.25rem;
+            }
+
+            span {
+              flex: 1;
+              text-align: left;
+            }
+
+            small {
+              color: var(--gray-500);
+              font-size: 0.75rem;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Training Capabilities
+  .training-capabilities {
+    margin-bottom: 3rem;
+
+    h4 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin: 0 0 1.5rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      &::before {
+        content: 'settings';
+        font-family: 'Material Icons';
+        font-size: 1.75rem;
+        color: var(--primary-color);
+      }
+    }
+
+    .capabilities-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+
+      .capability-item {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all 0.2s ease;
+
+        &:hover {
+          border-color: var(--primary-color);
+          transform: translateY(-2px);
+        }
+
+        .material-icons {
+          color: var(--primary-color);
+          font-size: 1.5rem;
+        }
+
+        .capability-name {
+          flex: 1;
+          font-weight: 600;
+          color: var(--gray-700);
+        }
+
+        .capability-status {
+          font-size: 0.875rem;
+          font-weight: 500;
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+
+          &.enabled {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+          }
+
+          &.disabled {
+            background: rgba(107, 114, 128, 0.1);
+            color: var(--gray-600);
+          }
+        }
+      }
+    }
+  }
+
+  // Training Logs
+  .training-logs {
+    h4 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin: 0 0 1.5rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      &::before {
+        content: 'history';
+        font-family: 'Material Icons';
+        font-size: 1.75rem;
+        color: var(--primary-color);
+      }
+    }
+
+    .logs-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+
+      .log-item {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 1.25rem;
+        transition: all 0.2s ease;
+
+        &:hover {
+          border-color: var(--primary-color);
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-md);
+        }
+
+        .log-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+
+          .material-icons {
+            color: var(--primary-color);
+            font-size: 1.25rem;
+          }
+
+          .log-title {
+            font-weight: 600;
+            color: var(--gray-800);
+            flex: 1;
+          }
+
+          .log-date {
+            font-size: 0.875rem;
+            color: var(--gray-500);
+          }
+        }
+
+        .log-details {
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--gray-100);
+
+            &:last-child {
+              border-bottom: none;
+            }
+
+            .detail-label {
+              font-size: 0.875rem;
+              color: var(--gray-600);
+            }
+
+            .detail-value {
+              font-size: 0.875rem;
+              font-weight: 600;
+              color: var(--gray-800);
+
+              &.health-score {
+                padding: 0.25rem 0.5rem;
+                border-radius: 4px;
+
+                &.excellent {
+                  background: rgba(16, 185, 129, 0.1);
+                  color: var(--success-color);
+                }
+
+                &.good {
+                  background: rgba(59, 130, 246, 0.1);
+                  color: var(--info-color);
+                }
+
+                &.fair {
+                  background: rgba(245, 158, 11, 0.1);
+                  color: var(--warning-color);
+                }
+
+                &.poor {
+                  background: rgba(239, 68, 68, 0.1);
+                  color: var(--danger-color);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Animations
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+  }
+}
+
+// Responsive Design for Training Tab
+@media (max-width: 768px) {
+  .training-tab {
+    .manual-training .training-controls-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .training-overview .overview-cards {
+      grid-template-columns: 1fr;
+    }
+
+    .training-capabilities .capabilities-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .training-logs .logs-container {
+      grid-template-columns: 1fr;
+    }
   }
 }

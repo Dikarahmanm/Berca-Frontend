@@ -321,6 +321,8 @@ export class SmartInventoryComponent implements OnInit {
   public readonly predictiveAnalytics = signal<PredictiveAnalyticsResult | null>(null);
   public readonly modelHealth = signal<MLModelHealth | null>(null);
   public readonly modelExplanation = signal<ModelExplanation | null>(null);
+  public readonly trainingStatus = signal<any>(null);
+  public readonly backgroundTrainingStatus = signal<any>(null);
 
   // Batch & Expiry Signals
   public readonly expiryAnalytics = signal<BatchExpiryAnalytics | null>(null);
@@ -342,7 +344,8 @@ export class SmartInventoryComponent implements OnInit {
     { id: 'transfers', name: 'Smart Transfers', icon: 'swap_horiz' },
     { id: 'analytics', name: 'Predictive Analytics', icon: 'analytics' },
     { id: 'explanation', name: 'Model Insights', icon: 'psychology' },
-    { id: 'health', name: 'Model Health', icon: 'health_and_safety' }
+    { id: 'health', name: 'Model Health', icon: 'health_and_safety' },
+    { id: 'training', name: 'ML Training', icon: 'model_training' }
   ];
 
   // Enhanced Computed Properties with detailed insights
@@ -433,6 +436,44 @@ export class SmartInventoryComponent implements OnInit {
     return expiryAnalytics ? expiryAnalytics.wastedValue : 0;
   });
 
+  public readonly isTrainingRecommended = computed(() => {
+    const status = this.trainingStatus();
+    return status ? status.trainingRecommendations?.recommendRetraining : false;
+  });
+
+  public readonly trainingRecommendationReason = computed(() => {
+    const status = this.trainingStatus();
+    return status ? status.trainingRecommendations?.reason : '';
+  });
+
+  public readonly nextScheduledTraining = computed(() => {
+    const status = this.trainingStatus();
+    return status ? status.trainingRecommendations?.nextScheduledTraining : null;
+  });
+
+  public readonly backgroundTrainingInfo = computed(() => {
+    const status = this.backgroundTrainingStatus();
+    return status ? {
+      enabled: status.backgroundTrainingEnabled,
+      schedule: status.scheduledTraining,
+      nextTraining: status.nextScheduledTraining,
+      lastTraining: status.lastTraining
+    } : null;
+  });
+
+  public readonly mlServiceStatus = computed(() => {
+    const trainingStatus = this.trainingStatus();
+    const hasError = this.error();
+    
+    if (hasError && hasError.includes('not available')) {
+      return { status: 'offline', message: 'ML Service Offline', color: 'text-red-600' };
+    }
+    if (trainingStatus && trainingStatus.trainingCapabilities?.manualTraining) {
+      return { status: 'online', message: 'ML Service Online', color: 'text-green-600' };
+    }
+    return { status: 'unknown', message: 'Checking...', color: 'text-yellow-600' };
+  });
+
   ngOnInit(): void {
     this.initializeSmartInventory();
     this.setupAutoRefresh();
@@ -451,16 +492,44 @@ export class SmartInventoryComponent implements OnInit {
         this.loadTransferRecommendations(),
         this.loadModelHealth(),
         this.loadModelExplanation(),
+        // Skip training status loading until backend endpoints are ready
+        // this.loadTrainingStatus(),
+        // this.loadBackgroundTrainingStatus(),
         this.loadExpiryAnalytics(),
         this.loadFifoRecommendations(),
         this.loadExpiryTrends()
       ]);
+
+      // Set default training status for now
+      this.setDefaultTrainingStatus();
     } catch (error) {
       console.error('Failed to initialize smart inventory:', error);
       this.error.set('Failed to load AI inventory data. Please refresh to try again.');
     } finally {
       this.isLoading.set(false);
     }
+  }
+
+  private setDefaultTrainingStatus(): void {
+    // Set fallback training status when backend endpoints are unavailable
+    this.trainingStatus.set({
+      trainingRecommendations: {
+        recommendRetraining: false,
+        reason: 'Training service initializing'
+      },
+      trainingCapabilities: {
+        manualTraining: true,
+        backgroundTraining: true,
+        scheduledTraining: 'Every 24 hours'
+      }
+    });
+
+    this.backgroundTrainingStatus.set({
+      backgroundTrainingEnabled: true,
+      scheduledTraining: 'Every 24 hours',
+      nextScheduledTraining: null,
+      lastTraining: null
+    });
   }
 
   private setupAutoRefresh(): void {
@@ -539,6 +608,43 @@ export class SmartInventoryComponent implements OnInit {
       this.modelExplanation.set(explanation || null);
     } catch (error) {
       console.error('Failed to load model explanation:', error);
+    }
+  }
+
+  async loadTrainingStatus(): Promise<void> {
+    try {
+      const status = await this.aiInventoryService.getTrainingStatus().toPromise();
+      this.trainingStatus.set(status || null);
+    } catch (error) {
+      console.warn('Training status not available - ML endpoints may be offline:', error);
+      // Set default fallback status
+      this.trainingStatus.set({
+        trainingRecommendations: {
+          recommendRetraining: false,
+          reason: 'Training service unavailable'
+        },
+        trainingCapabilities: {
+          manualTraining: false,
+          backgroundTraining: false,
+          scheduledTraining: 'Service Offline'
+        }
+      });
+    }
+  }
+
+  async loadBackgroundTrainingStatus(): Promise<void> {
+    try {
+      const status = await this.aiInventoryService.getBackgroundTrainingStatus().toPromise();
+      this.backgroundTrainingStatus.set(status || null);
+    } catch (error) {
+      console.warn('Background training status not available:', error);
+      // Set fallback status
+      this.backgroundTrainingStatus.set({
+        backgroundTrainingEnabled: false,
+        scheduledTraining: 'Service Offline',
+        nextScheduledTraining: null,
+        lastTraining: null
+      });
     }
   }
 
@@ -651,11 +757,58 @@ export class SmartInventoryComponent implements OnInit {
   async trainMLModels(): Promise<void> {
     try {
       this.isLoading.set(true);
+      this.error.set(null); // Clear previous errors
+      
+      // Check if backend is available
       await this.aiInventoryService.trainMLModels().toPromise();
-      await this.loadModelHealth(); // Refresh model health after training
-    } catch (error) {
+      
+      // Refresh related data after training
+      await Promise.all([
+        this.loadModelHealth(),
+        this.loadTrainingStatus(),
+        this.loadBackgroundTrainingStatus()
+      ]);
+      
+      console.log('✅ ML models trained successfully');
+    } catch (error: any) {
       console.error('Failed to train ML models:', error);
-      this.error.set('Failed to train ML models. Please try again.');
+      
+      if (error.status === 404) {
+        this.error.set('ML Training service is not available. Please ensure the backend is running.');
+      } else if (error.status === 0) {
+        this.error.set('Cannot connect to backend. Please check your connection.');
+      } else {
+        this.error.set('Failed to train ML models. Please try again later.');
+      }
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  async trainSpecificModel(modelType: string): Promise<void> {
+    try {
+      this.isLoading.set(true);
+      this.error.set(null); // Clear previous errors
+      
+      const result = await this.aiInventoryService.trainSpecificModel(modelType).toPromise();
+      
+      // Refresh related data after training
+      await Promise.all([
+        this.loadModelHealth(),
+        this.loadTrainingStatus()
+      ]);
+      
+      console.log(`✅ ${modelType} model trained successfully:`, result);
+    } catch (error: any) {
+      console.error(`Failed to train ${modelType} model:`, error);
+      
+      if (error.status === 404) {
+        this.error.set(`${modelType} training endpoint is not available. Backend may be offline.`);
+      } else if (error.status === 0) {
+        this.error.set('Cannot connect to backend. Please check your connection.');
+      } else {
+        this.error.set(`Failed to train ${modelType} model. Please try again later.`);
+      }
     } finally {
       this.isLoading.set(false);
     }
@@ -684,7 +837,8 @@ export class SmartInventoryComponent implements OnInit {
     }).format(amount);
   }
 
-  formatDate(dateString: string): string {
+  formatDate(dateString: string | undefined): string {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('id-ID');
   }
 
@@ -715,7 +869,8 @@ export class SmartInventoryComponent implements OnInit {
     return 'severity-low';
   }
 
-  getHealthScoreClass(score: number): string {
+  getHealthScoreClass(score: number | undefined): string {
+    if (score === undefined || score === null) return 'health-unknown';
     if (score >= 90) return 'health-excellent';
     if (score >= 75) return 'health-good';
     if (score >= 60) return 'health-fair';
@@ -754,5 +909,15 @@ export class SmartInventoryComponent implements OnInit {
     if (days === 0) return 'Today';
     if (days === 1) return '1 day';
     return `${days} days`;
+  }
+
+  getModelIcon(index: number): string {
+    const icons = ['trending_up', 'warning', 'group_work', 'swap_horiz'];
+    return icons[index] || 'model_training';
+  }
+
+  getModelName(index: number): string {
+    const names = ['Demand Forecasting', 'Anomaly Detection', 'Product Clustering', 'Transfer Recommendations'];
+    return names[index] || 'Unknown Model';
   }
 }

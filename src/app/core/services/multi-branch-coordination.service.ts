@@ -316,7 +316,7 @@ export interface OptimizationConstraint {
 export class MultiBranchCoordinationService {
   private readonly http = inject(HttpClient);
   // ✅ Design Guide endpoints
-  private readonly baseUrl = `${environment.apiUrl}/api/multibranch`;
+  private readonly baseUrl = `${environment.apiUrl}/MultiBranchCoordination`;
 
   // === DESIGN GUIDE PHASE 1 SIGNALS ===
   private readonly _coordinationHealth = signal<CoordinationHealth | null>(null);

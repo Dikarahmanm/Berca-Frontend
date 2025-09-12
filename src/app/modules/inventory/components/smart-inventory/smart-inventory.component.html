@@ -12,10 +12,14 @@
     </div>
     
     <div class="header-actions">
-      <div class="ai-status">
-        <div class="status-indicator" [ngClass]="systemHealthStatus().color">
+      <div class="service-status">
+        <div class="status-item ml-service" [ngClass]="mlServiceStatus().color">
+          <i class="material-icons">{{ mlServiceStatus().status === 'online' ? 'cloud_done' : 'cloud_off' }}</i>
+          <span>{{ mlServiceStatus().message }}</span>
+        </div>
+        <div class="status-item ai-status" [ngClass]="systemHealthStatus().color" *ngIf="mlServiceStatus().status === 'online'">
           <i class="material-icons">{{ systemHealthStatus().score >= 75 ? 'check_circle' : 'warning' }}</i>
-          <span>{{ systemHealthStatus().status }}</span>
+          <span>Health: {{ systemHealthStatus().score }}/100</span>
         </div>
       </div>
       
@@ -24,10 +28,22 @@
         <span>Refresh</span>
       </button>
       
-      <button class="train-btn" (click)="trainMLModels()" [disabled]="isLoading()">
-        <i class="material-icons">model_training</i>
-        <span>Train Models</span>
-      </button>
+      <!-- Training Alert -->
+      <div class="training-alert" *ngIf="isTrainingRecommended()">
+        <div class="alert-content">
+          <i class="material-icons">warning</i>
+          <span class="alert-text">{{ trainingRecommendationReason() }}</span>
+        </div>
+      </div>
+      
+      <!-- Training Actions -->
+      <div class="header-training-actions">
+        <button class="train-btn-main" (click)="trainMLModels()" [disabled]="isLoading()" 
+                [class.urgent]="isTrainingRecommended()">
+          <i class="material-icons">{{ isLoading() ? 'hourglass_empty' : 'model_training' }}</i>
+          <span>{{ isLoading() ? 'Training...' : 'Train Models' }}</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -1008,6 +1024,233 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Training Tab -->
+    <div *ngIf="activeTab() === 'training'" class="training-tab">
+      <div class="tab-header">
+        <h3>ML Model Training Management</h3>
+        <p class="tab-description">Manage machine learning model training and monitor performance</p>
+      </div>
+      
+      <!-- ML Service Offline Warning -->
+      <div class="service-offline-warning" *ngIf="mlServiceStatus().status === 'offline'">
+        <div class="warning-content">
+          <i class="material-icons">cloud_off</i>
+          <h4>ML Training Service Offline</h4>
+          <p>The machine learning training service is currently unavailable. Please ensure the backend server is running and try again.</p>
+          <div class="offline-actions">
+            <button class="retry-btn" (click)="refreshData()">
+              <i class="material-icons">refresh</i>
+              Retry Connection
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="training-content" *ngIf="mlServiceStatus().status === 'online' && trainingStatus() && backgroundTrainingInfo()">
+        
+        <!-- Training Overview -->
+        <div class="training-overview">
+          <div class="overview-cards">
+            
+            <!-- Training Status Card -->
+            <div class="training-card status-card">
+              <div class="card-header">
+                <i class="material-icons">assignment</i>
+                <h4>Training Status</h4>
+              </div>
+              <div class="card-content">
+                <div class="status-indicator" [class]="isTrainingRecommended() ? 'needs-training' : 'up-to-date'">
+                  <i class="material-icons">{{ isTrainingRecommended() ? 'warning' : 'check_circle' }}</i>
+                  <span>{{ isTrainingRecommended() ? 'Training Recommended' : 'Models Up to Date' }}</span>
+                </div>
+                <div class="status-reason" *ngIf="trainingRecommendationReason()">
+                  {{ trainingRecommendationReason() }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Background Training Card -->
+            <div class="training-card background-card">
+              <div class="card-header">
+                <i class="material-icons">schedule</i>
+                <h4>Background Training</h4>
+              </div>
+              <div class="card-content">
+                <div class="background-status" [class]="backgroundTrainingInfo()!.enabled ? 'enabled' : 'disabled'">
+                  <span class="status-badge">{{ backgroundTrainingInfo()!.enabled ? 'Active' : 'Inactive' }}</span>
+                  <div class="schedule-info">
+                    <span class="schedule">{{ backgroundTrainingInfo()!.schedule }}</span>
+                  </div>
+                </div>
+                <div class="timing-info">
+                  <div class="timing-item" *ngIf="backgroundTrainingInfo()!.nextTraining">
+                    <span class="label">Next Training:</span>
+                    <span class="value">{{ formatDate(backgroundTrainingInfo()!.nextTraining) }}</span>
+                  </div>
+                  <div class="timing-item" *ngIf="backgroundTrainingInfo()!.lastTraining">
+                    <span class="label">Last Training:</span>
+                    <span class="value">{{ formatDate(backgroundTrainingInfo()!.lastTraining) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Data Freshness Card -->
+            <div class="training-card data-card" *ngIf="trainingStatus()?.dataFreshness">
+              <div class="card-header">
+                <i class="material-icons">dataset</i>
+                <h4>Data Freshness</h4>
+              </div>
+              <div class="card-content">
+                <div class="freshness-indicator" [class]="trainingStatus()!.dataFreshness.isDataFresh ? 'fresh' : 'stale'">
+                  <i class="material-icons">{{ trainingStatus()!.dataFreshness.isDataFresh ? 'check_circle' : 'warning' }}</i>
+                  <span>{{ trainingStatus()!.dataFreshness.isDataFresh ? 'Data is Fresh' : 'Data is Stale' }}</span>
+                </div>
+                <div class="data-details">
+                  <div class="detail-item">
+                    <span class="label">Last Data:</span>
+                    <span class="value">{{ formatDate(trainingStatus()!.dataFreshness.lastDataDate) }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="label">Days Since:</span>
+                    <span class="value">{{ trainingStatus()!.dataFreshness.daysSinceLastData }} days</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Manual Training Controls -->
+        <div class="manual-training">
+          <h4>Manual Training</h4>
+          <div class="training-controls-grid">
+            
+            <!-- Train All Models -->
+            <div class="training-control-card">
+              <div class="control-header">
+                <i class="material-icons">model_training</i>
+                <h5>Train All Models</h5>
+              </div>
+              <div class="control-description">
+                <p>Train all ML models (Demand Forecasting, Anomaly Detection, Product Clustering) with the latest data.</p>
+              </div>
+              <div class="control-actions">
+                <button class="train-btn-large primary" (click)="trainMLModels()" [disabled]="isLoading()"
+                        [class.recommended]="isTrainingRecommended()">
+                  <i class="material-icons">model_training</i>
+                  <span>Train All Models</span>
+                  <span class="training-time">~5-10 minutes</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Individual Model Training -->
+            <div class="training-control-card">
+              <div class="control-header">
+                <i class="material-icons">tune</i>
+                <h5>Individual Model Training</h5>
+              </div>
+              <div class="control-description">
+                <p>Train specific models independently for targeted improvements.</p>
+              </div>
+              <div class="control-actions individual-actions">
+                <button class="train-btn-individual" (click)="trainSpecificModel('demand')" [disabled]="isLoading()">
+                  <i class="material-icons">trending_up</i>
+                  <span>Demand Forecasting</span>
+                  <small>~2-3 min</small>
+                </button>
+                <button class="train-btn-individual" (click)="trainSpecificModel('anomaly')" [disabled]="isLoading()">
+                  <i class="material-icons">warning</i>
+                  <span>Anomaly Detection</span>
+                  <small>~1-2 min</small>
+                </button>
+                <button class="train-btn-individual" (click)="trainSpecificModel('cluster')" [disabled]="isLoading()">
+                  <i class="material-icons">group_work</i>
+                  <span>Product Clustering</span>
+                  <small>~2-4 min</small>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Training Capabilities -->
+        <div class="training-capabilities" *ngIf="trainingStatus()?.trainingCapabilities">
+          <h4>Training Capabilities</h4>
+          <div class="capabilities-grid">
+            <div class="capability-item">
+              <i class="material-icons">check_circle</i>
+              <span class="capability-name">Manual Training</span>
+              <span class="capability-status enabled">Available</span>
+            </div>
+            <div class="capability-item">
+              <i class="material-icons">schedule</i>
+              <span class="capability-name">Background Training</span>
+              <span class="capability-status" [class]="backgroundTrainingInfo()!.enabled ? 'enabled' : 'disabled'">
+                {{ backgroundTrainingInfo()!.enabled ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+            <div class="capability-item">
+              <i class="material-icons">repeat</i>
+              <span class="capability-name">Scheduled Training</span>
+              <span class="capability-status enabled">{{ backgroundTrainingInfo()!.schedule }}</span>
+            </div>
+            <div class="capability-item">
+              <i class="material-icons">speed</i>
+              <span class="capability-name">Available Models</span>
+              <span class="capability-status enabled">
+                {{ trainingStatus()!.trainingCapabilities.availableModelTypes?.join(', ') }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Training History / Logs -->
+        <div class="training-logs">
+          <h4>Recent Training Activity</h4>
+          <div class="logs-container">
+            <div class="log-item" *ngFor="let model of [
+              modelHealth()?.demandForecastModel,
+              modelHealth()?.anomalyDetectionModel, 
+              modelHealth()?.clusteringModel,
+              modelHealth()?.transferRecommendationModel
+            ]; let i = index">
+              <div class="log-header">
+                <i class="material-icons">{{ getModelIcon(i) }}</i>
+                <span class="model-name">{{ getModelName(i) }}</span>
+                <span class="training-date">{{ formatDate(model?.lastTrained) }}</span>
+              </div>
+              <div class="log-details">
+                <div class="detail">
+                  <span class="label">Health Score:</span>
+                  <span class="value" [class]="getHealthScoreClass(model?.healthScore)">{{ model?.healthScore ?? 'N/A' }}<span *ngIf="model?.healthScore !== undefined">/100</span></span>
+                </div>
+                <div class="detail">
+                  <span class="label">Data Points:</span>
+                  <span class="value">{{ model?.dataPoints }}</span>
+                </div>
+                <div class="detail">
+                  <span class="label">Status:</span>
+                  <span class="value" [class]="model?.isHealthy ? 'healthy' : 'needs-attention'">{{ model?.status }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      
+      <!-- Loading State -->
+      <div *ngIf="!trainingStatus() || !backgroundTrainingInfo()" class="training-loading">
+        <div class="loading-spinner"></div>
+        <p>Loading training information...</p>
+      </div>
+      
     </div>
 
   </div>

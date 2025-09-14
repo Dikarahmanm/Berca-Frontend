@@ -492,9 +492,11 @@ export class MultiBranchCoordinationService {
             // Transform backend DTO to frontend interface
             const performances: BranchPerformance[] = this.transformBranchPerformanceData(response.data);
             console.log('✅ Branch performances transformed:', performances);
+            this._branchPerformances.set(performances); // Update signal
             return { data: performances };
           }
           
+          console.log('⚠️ No valid response data, using fallback');
           return { data: [] };
         }),
         catchError((error) => {
@@ -579,9 +581,11 @@ export class MultiBranchCoordinationService {
           if (response && response.success && response.data) {
             const recommendations: TransferRecommendation[] = this.transformTransferRecommendations(response.data);
             console.log('✅ Transfer recommendations transformed:', recommendations);
+            this._newTransferRecommendations.set(recommendations); // Update signal
             return { data: recommendations };
           }
           
+          console.log('⚠️ No valid transfer recommendations, returning empty');
           return { data: [] };
         }),
         catchError((error) => {
@@ -637,9 +641,11 @@ export class MultiBranchCoordinationService {
           if (response && response.success && response.data) {
             const opportunities: OptimizationOpportunity[] = this.transformOptimizationOpportunities(response.data);
             console.log('✅ Optimization opportunities transformed:', opportunities);
+            this._optimizationOpportunities.set(opportunities); // Update signal
             return { data: opportunities };
           }
           
+          console.log('⚠️ No valid optimization opportunities, returning empty');
           return { data: [] };
         }),
         catchError((error) => {
@@ -705,25 +711,70 @@ export class MultiBranchCoordinationService {
   getCoordinationHealth(): Observable<{ data: CoordinationHealth }> {
     this._isLoading.set(true);
     
-    // For now, generate coordination health based on branch performance data
-    return this.getBranchPerformances().pipe(
-      map(performanceResponse => {
-        const performances = performanceResponse.data;
-        const health = this.generateCoordinationHealthFromPerformances(performances);
-        console.log('✅ Coordination health generated:', health);
-        return { data: health };
-      }),
-      catchError((error) => {
-        console.error('❌ Failed to generate coordination health:', error);
-        this._error.set('Failed to load coordination health');
-        const basicHealth = this.generateInitialCoordinationHealth();
-        this._isLoading.set(false);
-        return of({ data: basicHealth });
-      }),
-      finalize(() => {
-        this._isLoading.set(false);
-      })
-    );
+    return this.http.get<any>(`/api/MultiBranchCoordination/coordination-health`)
+      .pipe(
+        map(response => {
+          console.log('🔄 Raw Coordination Health API Response:', response);
+          
+          if (response && response.success && response.data) {
+            // Transform BE response to CoordinationHealth
+            const health: CoordinationHealth = {
+              overallScore: response.data.systemEfficiencyScore || 85,
+              systemStatus: this.mapSystemStatus(response.data.systemEfficiencyScore || 85),
+              activeBranches: response.data.totalBranches || 0,
+              pendingTransfers: response.data.totalTransferRecommendations || 0,
+              criticalAlerts: response.data.highPriorityTransfers || 0,
+              lastOptimization: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+              nextOptimization: new Date(Date.now() + 22 * 60 * 60 * 1000).toISOString(),
+              metrics: {
+                coordinationEfficiency: Math.min(100, response.data.systemEfficiencyScore + 5),
+                communicationHealth: 95,
+                dataConsistency: 92,
+                responseTime: 150
+              }
+            };
+            
+            console.log('✅ Coordination health transformed:', health);
+            this._coordinationHealth.set(health);
+            return { data: health };
+          }
+          
+          // Fallback to generating from performance data
+          console.log('⚠️ No coordination health API data, generating from performances');
+          return this.generateHealthFromPerformanceData();
+        }),
+        catchError((error) => {
+          console.error('❌ Failed to get coordination health from API:', error);
+          this._error.set('Failed to load coordination health');
+          const basicHealth = this.generateInitialCoordinationHealth();
+          this._isLoading.set(false);
+          return of({ data: basicHealth });
+        }),
+        finalize(() => {
+          this._isLoading.set(false);
+        })
+      );
+  }
+
+  private mapSystemStatus(score: number): 'optimal' | 'good' | 'warning' | 'critical' {
+    if (score >= 90) return 'optimal';
+    if (score >= 75) return 'good';
+    if (score >= 60) return 'warning';
+    return 'critical';
+  }
+
+  private generateHealthFromPerformanceData(): { data: CoordinationHealth } {
+    // Generate basic health from current performance data
+    const performances = this._branchPerformances();
+    if (performances && performances.length > 0) {
+      const health = this.generateCoordinationHealthFromPerformances(performances);
+      console.log('✅ Coordination health generated from current performance data:', health);
+      return { data: health };
+    }
+    
+    // Fallback to basic health
+    const basicHealth = this.generateInitialCoordinationHealth();
+    return { data: basicHealth };
   }
 
   private generateCoordinationHealthFromPerformances(performances: BranchPerformance[]): CoordinationHealth {
@@ -798,6 +849,78 @@ export class MultiBranchCoordinationService {
           this._isLoading.set(false);
           // Refresh data after optimization
           this.refreshAllData();
+        })
+      );
+  }
+
+  /**
+   * Get performance trends from BE API
+   */
+  getPerformanceTrends(period: '1M' | '3M' | '6M' | '1Y' = '3M'): Observable<any> {
+    console.log('🔄 Getting performance trends from API for period:', period);
+    this._isLoading.set(true);
+    
+    return this.http.get<any>(`/api/MultiBranchCoordination/performance-trends?period=${period}`)
+      .pipe(
+        map(response => {
+          console.log('✅ Performance trends API response:', response);
+          return response.success ? response.data : null;
+        }),
+        catchError(error => {
+          console.error('❌ Failed to load performance trends:', error);
+          this._error.set('Failed to load performance trends');
+          return of(null);
+        }),
+        finalize(() => {
+          this._isLoading.set(false);
+        })
+      );
+  }
+
+  /**
+   * Get forecast data from BE API
+   */
+  getForecastData(forecastDays: number = 90): Observable<any[]> {
+    console.log('🔄 Getting forecast data from API for', forecastDays, 'days');
+    this._isLoading.set(true);
+    
+    return this.http.get<any>(`/api/MultiBranchCoordination/forecast?forecastDays=${forecastDays}`)
+      .pipe(
+        map(response => {
+          console.log('✅ Forecast data API response:', response);
+          return response.success ? response.data : [];
+        }),
+        catchError(error => {
+          console.error('❌ Failed to load forecast data:', error);
+          this._error.set('Failed to load forecast data');
+          return of([]);
+        }),
+        finalize(() => {
+          this._isLoading.set(false);
+        })
+      );
+  }
+
+  /**
+   * Get executive summary from BE API
+   */
+  getExecutiveSummary(period: '1M' | '3M' | '6M' | '1Y' = '3M'): Observable<any> {
+    console.log('🔄 Getting executive summary from API for period:', period);
+    this._isLoading.set(true);
+    
+    return this.http.get<any>(`/api/MultiBranchCoordination/executive-summary?period=${period}`)
+      .pipe(
+        map(response => {
+          console.log('✅ Executive summary API response:', response);
+          return response.success ? response.data : null;
+        }),
+        catchError(error => {
+          console.error('❌ Failed to load executive summary:', error);
+          this._error.set('Failed to load executive summary');
+          return of(null);
+        }),
+        finalize(() => {
+          this._isLoading.set(false);
         })
       );
   }
@@ -1825,13 +1948,17 @@ export class MultiBranchCoordinationService {
   
   async getCrossBranchAnalytics(): Promise<CrossBranchAnalyticsDto> {
     try {
+      console.log('🔄 Getting cross-branch analytics from real API...');
+      
       const response = await this.http.get<ApiResponse<CrossBranchAnalyticsDto>>(
-        `${this.baseUrl}/cross-branch-analytics`
+        `/api/MultiBranchCoordination/cross-branch-analytics`
       ).toPromise();
 
       if (response?.success && response.data) {
+        console.log('✅ Cross-branch analytics loaded from API:', response.data);
         return response.data;
       } else {
+        console.log('⚠️ API response not successful, using fallback data');
         // Mock data fallback
         return {
           totalBranches: this._branches().length,
@@ -1843,14 +1970,17 @@ export class MultiBranchCoordinationService {
         };
       }
     } catch (error) {
-      console.error('❌ Error loading cross branch analytics:', error);
+      console.error('❌ Error loading cross branch analytics from API:', error);
+      console.log('🔄 Using fallback data due to API error');
+      
+      // Enhanced fallback with real branch data
       return {
-        totalBranches: 0,
-        activeBranches: 0,
+        totalBranches: this._branches().length || 0,
+        activeBranches: this.activeBranches().length || 0,
         totalTransfers: 0,
         transfersSavings: 0,
-        branchPerformance: [],
-        transferRecommendations: []
+        branchPerformance: this._branchStatuses(),
+        transferRecommendations: this._transferRecommendations()
       };
     }
   }

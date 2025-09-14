@@ -115,6 +115,46 @@
     </mat-card>
   </div>
 
+  <!-- DEBUG SECTION - TEMPORARY -->
+  <div class="debug-section" *ngIf="!isLoading()" style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #ff9800;">
+    <h3 style="color: #ff9800; margin: 0 0 16px 0;">🔧 DEBUG INFO</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-family: monospace; font-size: 12px;">
+      
+      <div style="background: white; padding: 12px; border-radius: 4px;">
+        <h4 style="margin: 0 0 8px 0; color: #333;">📊 Network Analytics:</h4>
+        <pre style="margin: 0; color: #666;">{{ networkAnalytics() | json }}</pre>
+      </div>
+      
+      <div style="background: white; padding: 12px; border-radius: 4px;">
+        <h4 style="margin: 0 0 8px 0; color: #333;">🏢 Total Branches:</h4>
+        <pre style="margin: 0; color: #666;">{{ totalBranches() }}</pre>
+      </div>
+      
+      <div style="background: white; padding: 12px; border-radius: 4px;">
+        <h4 style="margin: 0 0 8px 0; color: #333;">⏰ Loading State:</h4>
+        <pre style="margin: 0; color: #666;">isLoading: {{ isLoading() }}
+selectedView: {{ selectedView() }}
+selectedPeriod: {{ selectedPeriod() }}</pre>
+      </div>
+      
+      <div style="background: white; padding: 12px; border-radius: 4px;">
+        <h4 style="margin: 0 0 8px 0; color: #333;">🎯 Selected View:</h4>
+        <pre style="margin: 0; color: #666;">Current: {{ selectedView() }}
+Available: overview, regional, executive, trends, forecast</pre>
+      </div>
+      
+    </div>
+    
+    <div style="margin-top: 16px;">
+      <button mat-stroked-button color="primary" (click)="debugLoadData()" style="margin-right: 8px;">
+        🔄 Force Reload Data
+      </button>
+      <button mat-stroked-button color="accent" (click)="debugConsoleLog()">
+        📝 Console Log All Data
+      </button>
+    </div>
+  </div>
+
   <!-- Overview View -->
   <div class="analytics-content" *ngIf="selectedView() === 'overview' && !isLoading()">
     <!-- Network KPIs -->
@@ -535,17 +575,466 @@
     </div>
   </div>
 
-  <!-- Other views placeholder -->
-  <div class="analytics-content" *ngIf="(selectedView() === 'trends' || selectedView() === 'forecast') && !isLoading()">
-    <mat-card class="placeholder-card">
-      <mat-card-content>
-        <div class="placeholder-content">
-          <mat-icon>construction</mat-icon>
-          <h3>{{ selectedView() | titlecase }} View</h3>
-          <p>This view is currently under development and will be available in the next update.</p>
-          <p>Real-time data integration is complete. Chart visualization components will be added soon.</p>
+  <!-- Forecast View -->
+  <div class="analytics-content" *ngIf="selectedView() === 'forecast' && !isLoading()">
+    <div class="forecast-grid" *ngIf="forecastData() && forecastData()!.length > 0">
+      <!-- Forecast Cards -->
+      <div class="forecast-cards">
+        <div class="forecast-card" *ngFor="let forecast of forecastData()">
+          <div class="forecast-header">
+            <h3>{{ forecast.metric }}</h3>
+            <div class="trend-indicator" [class]="'trend-' + forecast.trend">
+              <mat-icon>{{ forecast.trend === 'increasing' ? 'trending_up' : forecast.trend === 'decreasing' ? 'trending_down' : 'trending_flat' }}</mat-icon>
+              <span>{{ forecast.trend | titlecase }}</span>
+            </div>
+          </div>
+          
+          <div class="current-value">
+            <span class="value">{{ forecast.currentValue | number:'1.0-2' }}</span>
+            <span class="label">Current</span>
+          </div>
+          
+          <div class="forecast-predictions">
+            <div class="prediction">
+              <span class="period">Next Month</span>
+              <span class="value">{{ forecast.forecast.nextMonth | number:'1.0-2' }}</span>
+            </div>
+            <div class="prediction">
+              <span class="period">Next Quarter</span>
+              <span class="value">{{ forecast.forecast.nextQuarter | number:'1.0-2' }}</span>
+            </div>
+            <div class="prediction">
+              <span class="period">Next Year</span>
+              <span class="value">{{ forecast.forecast.nextYear | number:'1.0-2' }}</span>
+            </div>
+          </div>
+          
+          <div class="confidence-bar">
+            <div class="confidence-label">
+              Confidence: {{ forecast.confidence }}%
+            </div>
+            <div class="confidence-progress">
+              <div class="confidence-fill" [style.width.%]="forecast.confidence"></div>
+            </div>
+          </div>
+          
+          <div class="forecast-factors">
+            <h4>Key Factors</h4>
+            <ul>
+              <li *ngFor="let factor of forecast.factors">{{ factor }}</li>
+            </ul>
+          </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
+
+    <!-- Loading/No Data States -->
+    <div *ngIf="!forecastData() || forecastData()!.length === 0" class="no-data-state">
+      <mat-card>
+        <mat-card-content>
+          <div class="no-data-content">
+            <mat-icon>insights</mat-icon>
+            <h3>No Forecast Data Available</h3>
+            <p>Forecast data is being generated. Please try again in a moment.</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- Trends View -->
+  <div class="analytics-content" *ngIf="selectedView() === 'trends' && !isLoading()">
+    <!-- Trends Header -->
+    <div class="trends-header">
+      <div class="section-header">
+        <h2 class="section-title">
+          <mat-icon>trending_up</mat-icon>
+          Performance Trends Analysis
+        </h2>
+        <mat-chip class="period-chip">{{ trendAnalysis()?.period || selectedPeriod() === '1M' ? 'Last Month' : selectedPeriod() === '3M' ? 'Last Quarter' : selectedPeriod() === '6M' ? 'Last 6 Months' : 'Last Year' }}</mat-chip>
+      </div>
+
+      <!-- Trend KPIs -->
+      <div class="trend-kpis" *ngIf="networkAnalytics()">
+        <div class="trend-kpi-grid">
+          <mat-card class="trend-kpi-card">
+            <mat-card-content>
+              <div class="kpi-header">
+                <mat-icon>attach_money</mat-icon>
+                <span class="kpi-title">Revenue Trend</span>
+              </div>
+              <div class="kpi-value">{{ formatCurrency(networkAnalytics()!.totalRevenue) }}</div>
+              <div class="kpi-trend" [class]="getGrowthClass(networkAnalytics()!.revenueGrowth)">
+                <mat-icon>{{ networkAnalytics()!.revenueGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+                {{ formatPercentage(networkAnalytics()!.revenueGrowth) }}
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="trend-kpi-card">
+            <mat-card-content>
+              <div class="kpi-header">
+                <mat-icon>receipt</mat-icon>
+                <span class="kpi-title">Transaction Trend</span>
+              </div>
+              <div class="kpi-value">{{ formatNumber(networkAnalytics()!.totalTransactions) }}</div>
+              <div class="kpi-trend" [class]="getGrowthClass(networkAnalytics()!.transactionGrowth)">
+                <mat-icon>{{ networkAnalytics()!.transactionGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+                {{ formatPercentage(networkAnalytics()!.transactionGrowth) }}
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="trend-kpi-card">
+            <mat-card-content>
+              <div class="kpi-header">
+                <mat-icon>speed</mat-icon>
+                <span class="kpi-title">Efficiency Trend</span>
+              </div>
+              <div class="kpi-value">{{ formatPercentage(networkAnalytics()!.operationalEfficiency) }}</div>
+              <div class="kpi-trend" [class]="getGrowthClass(networkAnalytics()!.efficiencyGrowth)">
+                <mat-icon>{{ networkAnalytics()!.efficiencyGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+                {{ formatPercentage(networkAnalytics()!.efficiencyGrowth) }}
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="trend-kpi-card">
+            <mat-card-content>
+              <div class="kpi-header">
+                <mat-icon>sentiment_satisfied</mat-icon>
+                <span class="kpi-title">Satisfaction Trend</span>
+              </div>
+              <div class="kpi-value">{{ formatPercentage(networkAnalytics()!.customerSatisfaction) }}</div>
+              <div class="kpi-trend" [class]="getGrowthClass(networkAnalytics()!.satisfactionGrowth)">
+                <mat-icon>{{ networkAnalytics()!.satisfactionGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+                {{ formatPercentage(networkAnalytics()!.satisfactionGrowth) }}
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="trends-charts" *ngIf="trendAnalysis()">
+      <!-- Revenue Chart -->
+      <div class="chart-section">
+        <mat-card class="chart-card">
+          <mat-card-header>
+            <mat-card-title>Revenue Trends</mat-card-title>
+            <mat-card-subtitle>Revenue performance over {{ trendAnalysis()?.period || selectedPeriod() }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="chart-container">
+              <div class="chart-wrapper">
+                <div class="chart-area">
+                  <div class="chart-grid">
+                    <div *ngFor="let line of [1,2,3,4,5]; let i = index"
+                         class="grid-line horizontal"
+                         [style.top.%]="i * 20">
+                    </div>
+                  </div>
+                  <svg class="trend-chart" viewBox="0 0 800 300">
+                    <!-- Revenue Line -->
+                    <path
+                      [attr.d]="generateTrendPath(trendAnalysis()!.revenue, 800, 300)"
+                      class="trend-line revenue-line"
+                      fill="none"
+                      stroke="#2196F3"
+                      stroke-width="3">
+                    </path>
+                    <!-- Data Points -->
+                    <circle
+                      *ngFor="let value of trendAnalysis()!.revenue; let i = index"
+                      [attr.cx]="(i / (trendAnalysis()!.revenue.length - 1)) * 780 + 10"
+                      [attr.cy]="300 - ((value - getMinValue(trendAnalysis()!.revenue)) / (getMaxValue(trendAnalysis()!.revenue) - getMinValue(trendAnalysis()!.revenue))) * 280 - 10"
+                      r="4"
+                      class="trend-point revenue-point"
+                      fill="#2196F3">
+                    </circle>
+                  </svg>
+                  <div class="chart-labels">
+                    <div class="y-axis-labels">
+                      <div class="y-label" *ngFor="let value of getYAxisLabels(trendAnalysis()!.revenue); let i = index"
+                           [style.bottom.%]="i * 20">
+                        {{ formatCurrency(value) }}
+                      </div>
+                    </div>
+                    <div class="x-axis-labels">
+                      <div class="x-label"
+                           *ngFor="let label of trendAnalysis()!.labels; let i = index"
+                           [style.left.%]="(i / (trendAnalysis()!.labels.length - 1)) * 100">
+                        {{ label }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <!-- Transactions Chart -->
+      <div class="chart-section">
+        <mat-card class="chart-card">
+          <mat-card-header>
+            <mat-card-title>Transaction Volume Trends</mat-card-title>
+            <mat-card-subtitle>Transaction count over {{ trendAnalysis()?.period || selectedPeriod() }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="chart-container">
+              <div class="chart-wrapper">
+                <div class="chart-area">
+                  <div class="chart-grid">
+                    <div *ngFor="let line of [1,2,3,4,5]; let i = index"
+                         class="grid-line horizontal"
+                         [style.top.%]="i * 20">
+                    </div>
+                  </div>
+                  <svg class="trend-chart" viewBox="0 0 800 300">
+                    <!-- Transaction Line -->
+                    <path
+                      [attr.d]="generateTrendPath(trendAnalysis()!.transactions, 800, 300)"
+                      class="trend-line transaction-line"
+                      fill="none"
+                      stroke="#4CAF50"
+                      stroke-width="3">
+                    </path>
+                    <!-- Data Points -->
+                    <circle
+                      *ngFor="let value of trendAnalysis()!.transactions; let i = index"
+                      [attr.cx]="(i / (trendAnalysis()!.transactions.length - 1)) * 780 + 10"
+                      [attr.cy]="300 - ((value - getMinValue(trendAnalysis()!.transactions)) / (getMaxValue(trendAnalysis()!.transactions) - getMinValue(trendAnalysis()!.transactions))) * 280 - 10"
+                      r="4"
+                      class="trend-point transaction-point"
+                      fill="#4CAF50">
+                    </circle>
+                  </svg>
+                  <div class="chart-labels">
+                    <div class="y-axis-labels">
+                      <div class="y-label" *ngFor="let value of getYAxisLabels(trendAnalysis()!.transactions); let i = index"
+                           [style.bottom.%]="i * 20">
+                        {{ formatNumber(value) }}
+                      </div>
+                    </div>
+                    <div class="x-axis-labels">
+                      <div class="x-label"
+                           *ngFor="let label of trendAnalysis()!.labels; let i = index"
+                           [style.left.%]="(i / (trendAnalysis()!.labels.length - 1)) * 100">
+                        {{ label }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <!-- Combined Performance Chart -->
+      <div class="chart-section">
+        <mat-card class="chart-card">
+          <mat-card-header>
+            <mat-card-title>Combined Performance Metrics</mat-card-title>
+            <mat-card-subtitle>Efficiency and satisfaction trends over {{ trendAnalysis()?.period || selectedPeriod() }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="chart-container">
+              <div class="chart-wrapper">
+                <div class="chart-area">
+                  <div class="chart-grid">
+                    <div *ngFor="let line of [1,2,3,4,5]; let i = index"
+                         class="grid-line horizontal"
+                         [style.top.%]="i * 20">
+                    </div>
+                  </div>
+                  <svg class="trend-chart" viewBox="0 0 800 300">
+                    <!-- Efficiency Line -->
+                    <path
+                      [attr.d]="generateTrendPath(trendAnalysis()!.efficiency, 800, 300)"
+                      class="trend-line efficiency-line"
+                      fill="none"
+                      stroke="#FF9800"
+                      stroke-width="3">
+                    </path>
+                    <!-- Satisfaction Line -->
+                    <path
+                      [attr.d]="generateTrendPath(trendAnalysis()!.satisfaction, 800, 300)"
+                      class="trend-line satisfaction-line"
+                      fill="none"
+                      stroke="#9C27B0"
+                      stroke-width="3">
+                    </path>
+                    <!-- Efficiency Points -->
+                    <circle
+                      *ngFor="let value of trendAnalysis()!.efficiency; let i = index"
+                      [attr.cx]="(i / (trendAnalysis()!.efficiency.length - 1)) * 780 + 10"
+                      [attr.cy]="300 - ((value - getMinCombinedValue()) / (getMaxCombinedValue() - getMinCombinedValue())) * 280 - 10"
+                      r="4"
+                      class="trend-point efficiency-point"
+                      fill="#FF9800">
+                    </circle>
+                    <!-- Satisfaction Points -->
+                    <circle
+                      *ngFor="let value of trendAnalysis()!.satisfaction; let i = index"
+                      [attr.cx]="(i / (trendAnalysis()!.satisfaction.length - 1)) * 780 + 10"
+                      [attr.cy]="300 - ((value - getMinCombinedValue()) / (getMaxCombinedValue() - getMinCombinedValue())) * 280 - 10"
+                      r="4"
+                      class="trend-point satisfaction-point"
+                      fill="#9C27B0">
+                    </circle>
+                  </svg>
+                  <div class="chart-labels">
+                    <div class="y-axis-labels">
+                      <div class="y-label" *ngFor="let value of getCombinedYAxisLabels(); let i = index"
+                           [style.bottom.%]="i * 20">
+                        {{ formatPercentage(value) }}
+                      </div>
+                    </div>
+                    <div class="x-axis-labels">
+                      <div class="x-label"
+                           *ngFor="let label of trendAnalysis()!.labels; let i = index"
+                           [style.left.%]="(i / (trendAnalysis()!.labels.length - 1)) * 100">
+                        {{ label }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Legend -->
+              <div class="chart-legend">
+                <div class="legend-item">
+                  <div class="legend-color efficiency-color"></div>
+                  <span>Operational Efficiency</span>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-color satisfaction-color"></div>
+                  <span>Customer Satisfaction</span>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+
+    <!-- Trend Insights -->
+    <div class="trend-insights" *ngIf="trendAnalysis() && networkAnalytics()">
+      <div class="section-header">
+        <h2 class="section-title">
+          <mat-icon>insights</mat-icon>
+          Trend Analysis Insights
+        </h2>
+      </div>
+
+      <div class="insights-grid">
+        <!-- Performance Summary -->
+        <mat-card class="insight-card performance-summary">
+          <mat-card-header>
+            <mat-card-title>Performance Summary</mat-card-title>
+            <mat-card-subtitle>Key metrics over selected period</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="summary-metrics">
+              <div class="metric-row">
+                <span class="metric-label">Best Revenue Month:</span>
+                <span class="metric-value">{{ formatCurrency(getMaxValue(trendAnalysis()!.revenue)) }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Peak Transactions:</span>
+                <span class="metric-value">{{ formatNumber(getMaxValue(trendAnalysis()!.transactions)) }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Highest Efficiency:</span>
+                <span class="metric-value">{{ formatPercentage(getMaxValue(trendAnalysis()!.efficiency)) }}</span>
+              </div>
+              <div class="metric-row">
+                <span class="metric-label">Best Satisfaction:</span>
+                <span class="metric-value">{{ formatPercentage(getMaxValue(trendAnalysis()!.satisfaction)) }}</span>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Growth Patterns -->
+        <mat-card class="insight-card growth-patterns">
+          <mat-card-header>
+            <mat-card-title>Growth Patterns</mat-card-title>
+            <mat-card-subtitle>Trend directions and momentum</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="pattern-indicators">
+              <div class="pattern-item">
+                <div class="pattern-icon" [class]="getGrowthClass(networkAnalytics()!.revenueGrowth)">
+                  <mat-icon>{{ networkAnalytics()!.revenueGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+                </div>
+                <div class="pattern-content">
+                  <div class="pattern-title">Revenue</div>
+                  <div class="pattern-description">{{ getTrendDescription(networkAnalytics()!.revenueGrowth) }}</div>
+                </div>
+              </div>
+              <div class="pattern-item">
+                <div class="pattern-icon" [class]="getGrowthClass(networkAnalytics()!.transactionGrowth)">
+                  <mat-icon>{{ networkAnalytics()!.transactionGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+                </div>
+                <div class="pattern-content">
+                  <div class="pattern-title">Transactions</div>
+                  <div class="pattern-description">{{ getTrendDescription(networkAnalytics()!.transactionGrowth) }}</div>
+                </div>
+              </div>
+              <div class="pattern-item">
+                <div class="pattern-icon" [class]="getGrowthClass(networkAnalytics()!.efficiencyGrowth)">
+                  <mat-icon>{{ networkAnalytics()!.efficiencyGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+                </div>
+                <div class="pattern-content">
+                  <div class="pattern-title">Efficiency</div>
+                  <div class="pattern-description">{{ getTrendDescription(networkAnalytics()!.efficiencyGrowth) }}</div>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Key Recommendations -->
+        <mat-card class="insight-card recommendations">
+          <mat-card-header>
+            <mat-card-title>Trend-Based Recommendations</mat-card-title>
+            <mat-card-subtitle>Actions based on trend analysis</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="recommendations-list">
+              <div class="recommendation-item" *ngFor="let recommendation of getTrendRecommendations()">
+                <mat-icon class="recommendation-icon" [color]="recommendation.priority">{{ recommendation.icon }}</mat-icon>
+                <div class="recommendation-content">
+                  <div class="recommendation-title">{{ recommendation.title }}</div>
+                  <div class="recommendation-description">{{ recommendation.description }}</div>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+
+    <!-- No Data Fallback -->
+    <div *ngIf="!trendAnalysis()" class="no-trends-data">
+      <mat-card>
+        <mat-card-content>
+          <div class="no-data-content">
+            <mat-icon>timeline</mat-icon>
+            <h3>Loading Trend Data</h3>
+            <p>Gathering performance trends data for analysis...</p>
+            <button mat-raised-button color="primary" (click)="refreshData()">
+              <mat-icon>refresh</mat-icon>
+              Refresh Data
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
   </div>
 </div>

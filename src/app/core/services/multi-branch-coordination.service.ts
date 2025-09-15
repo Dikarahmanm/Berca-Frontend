@@ -907,7 +907,7 @@ export class MultiBranchCoordinationService {
   getExecutiveSummary(period: '1M' | '3M' | '6M' | '1Y' = '3M'): Observable<any> {
     console.log('🔄 Getting executive summary from API for period:', period);
     this._isLoading.set(true);
-    
+
     return this.http.get<any>(`/api/MultiBranchCoordination/executive-summary?period=${period}`)
       .pipe(
         map(response => {
@@ -917,6 +917,88 @@ export class MultiBranchCoordinationService {
         catchError(error => {
           console.error('❌ Failed to load executive summary:', error);
           this._error.set('Failed to load executive summary');
+          return of(null);
+        }),
+        finalize(() => {
+          this._isLoading.set(false);
+        })
+      );
+  }
+
+  /**
+   * Get regional analytics from BE API (NEW ENDPOINT)
+   */
+  getRegionalAnalytics(region?: string, period: '1M' | '3M' | '6M' | '1Y' = '3M'): Observable<any> {
+    console.log('🔄 Getting regional analytics from API for region:', region, 'period:', period);
+    this._isLoading.set(true);
+
+    let params = `period=${period}`;
+    if (region && region !== 'all') {
+      params += `&region=${region}`;
+    }
+
+    return this.http.get<any>(`/api/MultiBranchCoordination/regional-analytics?${params}`)
+      .pipe(
+        map(response => {
+          console.log('✅ Regional analytics API response:', response);
+          return response.success ? response.data : null;
+        }),
+        catchError(error => {
+          console.error('❌ Failed to load regional analytics:', error);
+          this._error.set('Failed to load regional analytics');
+          return of(null);
+        }),
+        finalize(() => {
+          this._isLoading.set(false);
+        })
+      );
+  }
+
+  /**
+   * Get network analytics from BE API (NEW ENDPOINT)
+   */
+  getNetworkAnalytics(period: '1M' | '3M' | '6M' | '1Y' = '3M', includeRiskAnalysis: boolean = true): Observable<any> {
+    console.log('🔄 Getting network analytics from API for period:', period);
+    this._isLoading.set(true);
+
+    return this.http.get<any>(`/api/MultiBranchCoordination/network-analytics?period=${period}&includeRiskAnalysis=${includeRiskAnalysis}`)
+      .pipe(
+        map(response => {
+          console.log('✅ Network analytics API response:', response);
+          return response.success ? response.data : null;
+        }),
+        catchError(error => {
+          console.error('❌ Failed to load network analytics:', error);
+          this._error.set('Failed to load network analytics');
+          return of(null);
+        }),
+        finalize(() => {
+          this._isLoading.set(false);
+        })
+      );
+  }
+
+  /**
+   * Get enhanced forecast from BE API (NEW ENDPOINT)
+   */
+  getEnhancedForecast(forecastDays: number = 90, metrics?: string, includeSeasonality: boolean = true, includeRiskAnalysis: boolean = true): Observable<any> {
+    console.log('🔄 Getting enhanced forecast from API for', forecastDays, 'days');
+    this._isLoading.set(true);
+
+    let params = `forecastDays=${forecastDays}&includeSeasonality=${includeSeasonality}&includeRiskAnalysis=${includeRiskAnalysis}`;
+    if (metrics) {
+      params += `&metrics=${metrics}`;
+    }
+
+    return this.http.get<any>(`/api/MultiBranchCoordination/enhanced-forecast?${params}`)
+      .pipe(
+        map(response => {
+          console.log('✅ Enhanced forecast API response:', response);
+          return response.success ? response.data : null;
+        }),
+        catchError(error => {
+          console.error('❌ Failed to load enhanced forecast:', error);
+          this._error.set('Failed to load enhanced forecast');
           return of(null);
         }),
         finalize(() => {

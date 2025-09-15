@@ -382,6 +382,20 @@
                     </button>
                   }
 
+                  @if (canPerformAction(transfer, 'ship')) {
+                    <button mat-menu-item (click)="onShipTransfer(transfer)">
+                      <mat-icon>local_shipping</mat-icon>
+                      <span>Kirim</span>
+                    </button>
+                  }
+
+                  @if (canPerformAction(transfer, 'receive')) {
+                    <button mat-menu-item (click)="onReceiveTransfer(transfer)">
+                      <mat-icon>inventory</mat-icon>
+                      <span>Terima</span>
+                    </button>
+                  }
+
                   @if (canPerformAction(transfer, 'cancel')) {
                     <button mat-menu-item (click)="onCancelTransfer(transfer)" class="warn-action">
                       <mat-icon>cancel</mat-icon>
@@ -389,7 +403,7 @@
                     </button>
                   }
 
-                  <button mat-menu-item>
+                  <button mat-menu-item (click)="onPrintTransfer(transfer)">
                     <mat-icon>print</mat-icon>
                     <span>Print</span>
                   </button>
@@ -403,6 +417,26 @@
                           matTooltip="Setujui Transfer"
                           class="quick-action">
                     <mat-icon>check</mat-icon>
+                  </button>
+                }
+
+                @if (canPerformAction(transfer, 'ship')) {
+                  <button mat-mini-fab
+                          color="accent"
+                          (click)="onShipTransfer(transfer)"
+                          matTooltip="Kirim Transfer"
+                          class="quick-action">
+                    <mat-icon>local_shipping</mat-icon>
+                  </button>
+                }
+
+                @if (canPerformAction(transfer, 'receive')) {
+                  <button mat-mini-fab
+                          color="primary"
+                          (click)="onReceiveTransfer(transfer)"
+                          matTooltip="Terima Transfer"
+                          class="quick-action">
+                    <mat-icon>inventory</mat-icon>
                   </button>
                 }
               </div>

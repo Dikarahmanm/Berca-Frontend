@@ -27,6 +27,7 @@ import {
   CreateInventoryTransferRequestDto,
   CreateTransferItemDto,
   TransferPriority,
+  TransferType,
   AvailableSourceDto
 } from '../../../core/models/inventory-transfer.models';
 import { Branch } from '../../../core/models/branch.models';
@@ -203,8 +204,8 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     // Calculate cost
     const transferItems: CreateTransferItemDto[] = items.map((item: any) => ({
       productId: item.productId,
-      requestedQuantity: item.quantity,
-      notes: item.notes || ''
+      quantity: item.quantity,
+      qualityNotes: item.notes || ''
     }));
 
     this.transferService.calculateTransferCost(sourceBranchId, destinationBranchId, transferItems)
@@ -316,7 +317,8 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   onSubmit(): void {
     if (this.transferForm.invalid) {
       this.markFormGroupTouched(this.transferForm);
-      this.showMessage('Please fill in all required fields', 'error');
+      const errors = this.getFormValidationErrors();
+      this.showMessage(`Please fix the following errors: ${errors.join(', ')}`, 'error');
       return;
     }
 
@@ -325,17 +327,39 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Additional business logic validation
     const formValue = this.transferForm.value;
+    if (formValue.sourceBranchId === formValue.destinationBranchId) {
+      this.showMessage('Source and destination branches cannot be the same', 'error');
+      return;
+    }
+
+    // Validate transfer items
+    const invalidItems = this.transferItemsArray.controls.filter(control => {
+      const item = control.value;
+      return !item.productId || !item.quantity || item.quantity <= 0;
+    });
+
+    if (invalidItems.length > 0) {
+      this.showMessage('All transfer items must have valid products and quantities greater than 0', 'error');
+      return;
+    }
+
     const transferRequest: CreateInventoryTransferRequestDto = {
       sourceBranchId: formValue.sourceBranchId,
       destinationBranchId: formValue.destinationBranchId,
+      type: this.data?.mode === 'emergency' ? TransferType.Emergency : TransferType.Regular,
       priority: formValue.priority,
+      requestReason: `Transfer request from ${this.getBranchName(formValue.sourceBranchId)} to ${this.getBranchName(formValue.destinationBranchId)}`,
+      notes: formValue.notes || '',
+      estimatedCost: this.estimatedCost(),
       estimatedDeliveryDate: formValue.estimatedDeliveryDate,
-      notes: formValue.notes,
-      items: formValue.items.map((item: any) => ({
+      transferItems: formValue.items.map((item: any) => ({
         productId: item.productId,
-        requestedQuantity: item.quantity,
-        notes: item.notes || ''
+        quantity: item.quantity,
+        expiryDate: item.expiryDate,
+        batchNumber: item.batchNumber || '',
+        qualityNotes: item.notes || ''
       }))
     };
 
@@ -372,6 +396,36 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     });
   }
 
+  private getFormValidationErrors(): string[] {
+    const errors: string[] = [];
+    Object.keys(this.transferForm.controls).forEach(key => {
+      const control = this.transferForm.get(key);
+      if (control && control.invalid && control.touched) {
+        if (control.errors?.['required']) {
+          errors.push(`${this.getFieldLabel(key)} is required`);
+        }
+        if (control.errors?.['min']) {
+          errors.push(`${this.getFieldLabel(key)} must be greater than ${control.errors['min'].min}`);
+        }
+        if (control.errors?.['max']) {
+          errors.push(`${this.getFieldLabel(key)} must be less than ${control.errors['max'].max}`);
+        }
+      }
+    });
+    return errors;
+  }
+
+  private getFieldLabel(fieldName: string): string {
+    const labels: { [key: string]: string } = {
+      sourceBranchId: 'Source Branch',
+      destinationBranchId: 'Destination Branch',
+      priority: 'Priority',
+      expectedDeliveryDate: 'Expected Delivery Date',
+      notes: 'Notes'
+    };
+    return labels[fieldName] || fieldName;
+  }
+
   formatCurrency(amount: number): string {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -390,7 +444,35 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
 
   private handleError(message: string, error: any): void {
     console.error(message, error);
-    this.showMessage(message, 'error');
+
+    // Extract more specific error message if available
+    let errorMessage = message;
+    if (error?.error?.message) {
+      errorMessage = error.error.message;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    } else if (error?.error?.errors && Array.isArray(error.error.errors)) {
+      errorMessage = error.error.errors.join(', ');
+    } else if (error?.status === 401) {
+      errorMessage = 'You are not authorized to perform this action';
+    } else if (error?.status === 403) {
+      errorMessage = 'Access denied. Check your permissions';
+    } else if (error?.status === 404) {
+      errorMessage = 'Resource not found';
+    } else if (error?.status === 422) {
+      errorMessage = 'Validation failed. Please check your input';
+    } else if (error?.status === 500) {
+      errorMessage = 'Server error. Please try again later';
+    } else if (error?.status === 0 || error?.status === undefined) {
+      errorMessage = 'Network error. Please check your connection';
+    }
+
+    this.showMessage(errorMessage, 'error');
+  }
+
+  private getBranchName(branchId: number): string {
+    const branch = this.branches().find(b => b.id === branchId);
+    return branch ? branch.branchName : 'Unknown Branch';
   }
 
   private showMessage(message: string, type: 'success' | 'error' | 'info' = 'info'): void {

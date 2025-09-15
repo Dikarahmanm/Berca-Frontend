@@ -1,5 +1,4 @@
 <div class="multi-branch-analytics-container">
-  <!-- Modern Header Section -->
   <div class="modern-header">
     <div class="header-title-section">
       <h1 class="modern-title">
@@ -7,29 +6,30 @@
         Multi-Branch Network Analytics
       </h1>
       <div class="subtitle-stats">
-        <span class="stat-chip">{{ totalBranches() }} Branches</span>
-        <span class="stat-chip period">{{ selectedPeriod() === '1M' ? '1 Month' : selectedPeriod() === '3M' ? '3 Months' : selectedPeriod() === '6M' ? '6 Months' : '1 Year' }}</span>
+        <span class="stat-chip">{{ summary().activeBranches }}/{{ summary().totalBranches }} Active Branches</span>
+        <span class="stat-chip period">{{ selectedPeriod() }}</span>
+        <span class="stat-chip" [class]="performanceStatus().class">{{ performanceStatus().status }}</span>
       </div>
     </div>
-    
+
     <div class="header-actions">
-      <button 
-        mat-raised-button 
+      <button
+        mat-raised-button
         color="accent"
-        (click)="exportExecutiveSummary()"
-        [disabled]="isLoading()"
         class="action-btn"
+        (click)="onExportSummary()"
+        [disabled]="loading()"
       >
         <mat-icon>file_download</mat-icon>
         Export Summary
       </button>
-      
-      <button 
-        mat-raised-button 
+
+      <button
+        mat-raised-button
         color="primary"
-        (click)="exportReport()"
-        [disabled]="isLoading()"
         class="action-btn"
+        (click)="onDownloadReport()"
+        [disabled]="loading()"
       >
         <mat-icon>download</mat-icon>
         Full Report
@@ -37,7 +37,6 @@
     </div>
   </div>
 
-  <!-- Controls Section -->
   <div class="controls-section">
     <mat-card class="controls-card">
       <mat-card-content>
@@ -45,11 +44,7 @@
           <div class="period-selector">
             <mat-label>Analysis Period</mat-label>
             <div class="period-buttons">
-              <mat-button-toggle-group 
-                [value]="selectedPeriod()" 
-                (change)="setPeriod($event.value)"
-                class="period-toggle-group"
-              >
+              <mat-button-toggle-group [value]="selectedPeriod()" (change)="onPeriodChange($event.value)">
                 <mat-button-toggle value="1M">1 Month</mat-button-toggle>
                 <mat-button-toggle value="3M">3 Months</mat-button-toggle>
                 <mat-button-toggle value="6M">6 Months</mat-button-toggle>
@@ -59,43 +54,27 @@
           </div>
 
           <div class="view-selector">
-            <mat-form-field appearance="outline" class="view-field">
-              <mat-label>Analytics View</mat-label>
-              <mat-select [value]="selectedView()" (selectionChange)="setView($event.value)">
-                <mat-option value="overview">
-                  <mat-icon>dashboard</mat-icon>
-                  Network Overview
-                </mat-option>
-                <mat-option value="trends">
-                  <mat-icon>trending_up</mat-icon>
-                  Performance Trends
-                </mat-option>
-                <mat-option value="regional">
-                  <mat-icon>location_on</mat-icon>
-                  Regional Analysis
-                </mat-option>
-                <mat-option value="forecast">
-                  <mat-icon>forecast</mat-icon>
-                  Forecasting
-                </mat-option>
-                <mat-option value="executive">
-                  <mat-icon>business</mat-icon>
-                  Executive Summary
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
+            <mat-label>View Type</mat-label>
+            <div class="view-buttons">
+              <mat-button-toggle-group [value]="selectedView()" (change)="onViewChange($event.value)">
+                <mat-button-toggle value="overview">Overview</mat-button-toggle>
+                <mat-button-toggle value="trends">Trends</mat-button-toggle>
+                <mat-button-toggle value="regional">Regional</mat-button-toggle>
+                <mat-button-toggle value="forecast">Forecast</mat-button-toggle>
+                <mat-button-toggle value="executive">Executive</mat-button-toggle>
+              </mat-button-toggle-group>
+            </div>
           </div>
 
-          <div class="refresh-section">
-            <button 
-              mat-fab 
+          <div class="action-controls">
+            <button
+              mat-raised-button
               color="primary"
-              (click)="refreshData()"
-              [disabled]="isLoading()"
-              class="refresh-btn"
-              matTooltip="Refresh Data"
+              (click)="onRefreshData()"
+              [disabled]="loading()"
             >
-              <mat-icon [class.spinning]="isLoading()">refresh</mat-icon>
+              <mat-icon [class.spin]="loading()">refresh</mat-icon>
+              Refresh Data
             </button>
           </div>
         </div>
@@ -103,900 +82,311 @@
     </mat-card>
   </div>
 
-  <!-- Loading State -->
-  <div class="loading-section" *ngIf="isLoading()">
-    <mat-card class="loading-card">
-      <mat-card-content>
-        <div class="loading-content">
-          <mat-spinner diameter="40"></mat-spinner>
-          <p>Loading multi-branch analytics data...</p>
-        </div>
-      </mat-card-content>
-    </mat-card>
-  </div>
-
-  
-
-  <!-- Overview View -->
-  <div class="analytics-content" *ngIf="selectedView() === 'overview' && !isLoading()">
-    <!-- Network KPIs -->
-    <div class="kpi-section" *ngIf="networkAnalytics()">
-      <div class="section-header">
-        <h2 class="section-title">
-          <mat-icon>assessment</mat-icon>
-          Network Performance Overview
-        </h2>
-      </div>
-      
-      <div class="kpi-grid">
-        <mat-card class="kpi-card revenue">
-          <mat-card-content>
-            <div class="kpi-header">
-              <h3>Total Network Revenue</h3>
-              <mat-icon>attach_money</mat-icon>
-            </div>
-            <div class="kpi-value">{{ formatCurrency(networkAnalytics()!.totalRevenue) }}</div>
-            <div class="kpi-growth" [class]="getGrowthClass(networkAnalytics()!.revenueGrowth)">
-              <mat-icon>{{ networkAnalytics()!.revenueGrowth > 0 ? 'trending_up' : networkAnalytics()!.revenueGrowth < 0 ? 'trending_down' : 'trending_flat' }}</mat-icon>
-              {{ formatPercentage(networkAnalytics()!.revenueGrowth) }}
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card class="kpi-card transactions">
-          <mat-card-content>
-            <div class="kpi-header">
-              <h3>Total Transactions</h3>
-              <mat-icon>receipt</mat-icon>
-            </div>
-            <div class="kpi-value">{{ formatNumber(networkAnalytics()!.totalTransactions) }}</div>
-            <div class="kpi-growth" [class]="getGrowthClass(networkAnalytics()!.transactionGrowth)">
-              <mat-icon>{{ networkAnalytics()!.transactionGrowth > 0 ? 'trending_up' : networkAnalytics()!.transactionGrowth < 0 ? 'trending_down' : 'trending_flat' }}</mat-icon>
-              {{ formatPercentage(networkAnalytics()!.transactionGrowth) }}
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card class="kpi-card satisfaction">
-          <mat-card-content>
-            <div class="kpi-header">
-              <h3>Customer Satisfaction</h3>
-              <mat-icon>sentiment_satisfied</mat-icon>
-            </div>
-            <div class="kpi-value">{{ formatPercentage(networkAnalytics()!.customerSatisfaction) }}</div>
-            <div class="kpi-growth" [class]="getGrowthClass(networkAnalytics()!.satisfactionGrowth)">
-              <mat-icon>{{ networkAnalytics()!.satisfactionGrowth > 0 ? 'trending_up' : networkAnalytics()!.satisfactionGrowth < 0 ? 'trending_down' : 'trending_flat' }}</mat-icon>
-              {{ formatPercentage(networkAnalytics()!.satisfactionGrowth) }}
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <mat-card class="kpi-card efficiency">
-          <mat-card-content>
-            <div class="kpi-header">
-              <h3>Network Efficiency</h3>
-              <mat-icon>speed</mat-icon>
-            </div>
-            <div class="kpi-value">{{ formatPercentage(networkAnalytics()!.operationalEfficiency) }}</div>
-            <div class="kpi-growth" [class]="getGrowthClass(networkAnalytics()!.efficiencyGrowth)">
-              <mat-icon>{{ networkAnalytics()!.efficiencyGrowth > 0 ? 'trending_up' : networkAnalytics()!.efficiencyGrowth < 0 ? 'trending_down' : 'trending_flat' }}</mat-icon>
-              {{ formatPercentage(networkAnalytics()!.efficiencyGrowth) }}
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
-    </div>
-
-    <!-- Average Metrics -->
-    <div class="metrics-section" *ngIf="averageMetrics()">
-      <mat-card class="metrics-card">
-        <mat-card-header>
-          <mat-card-title>Network Averages</mat-card-title>
-          <mat-card-subtitle>Per-branch performance metrics</mat-card-subtitle>
-        </mat-card-header>
+  <!-- Analytics Summary Cards -->
+  <div class="analytics-summary">
+    <div class="summary-cards">
+      <mat-card class="summary-card branches-card">
         <mat-card-content>
-          <div class="metrics-grid">
-            <div class="metric-item">
-              <mat-icon>store</mat-icon>
-              <div class="metric-content">
-                <span class="metric-label">Revenue per Branch</span>
-                <span class="metric-value">{{ formatCurrency(averageMetrics()!.revenuePerBranch) }}</span>
-              </div>
-            </div>
-            <div class="metric-item">
-              <mat-icon>receipt_long</mat-icon>
-              <div class="metric-content">
-                <span class="metric-label">Transactions per Branch</span>
-                <span class="metric-value">{{ formatNumber(averageMetrics()!.transactionsPerBranch) }}</span>
-              </div>
-            </div>
-            <div class="metric-item">
-              <mat-icon>speed</mat-icon>
-              <div class="metric-content">
-                <span class="metric-label">Average Efficiency</span>
-                <span class="metric-value">{{ formatPercentage(averageMetrics()!.avgEfficiency) }}</span>
-              </div>
-            </div>
-            <div class="metric-item">
-              <mat-icon>sentiment_satisfied</mat-icon>
-              <div class="metric-content">
-                <span class="metric-label">Average Satisfaction</span>
-                <span class="metric-value">{{ formatPercentage(averageMetrics()!.avgSatisfaction) }}</span>
-              </div>
-            </div>
+          <div class="card-header">
+            <mat-icon class="card-icon">business</mat-icon>
+            <span class="card-title">Branches</span>
           </div>
+          <div class="card-value">{{ summary().activeBranches }}/{{ summary().totalBranches }}</div>
+          <div class="card-subtitle">Active Locations</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card transfers-card">
+        <mat-card-content>
+          <div class="card-header">
+            <mat-icon class="card-icon">swap_horiz</mat-icon>
+            <span class="card-title">Transfers</span>
+          </div>
+          <div class="card-value">{{ summary().totalTransfers }}</div>
+          <div class="card-subtitle">{{ summary().pendingTransfers }} Pending</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card sales-card">
+        <mat-card-content>
+          <div class="card-header">
+            <mat-icon class="card-icon">attach_money</mat-icon>
+            <span class="card-title">Total Sales</span>
+          </div>
+          <div class="card-value">{{ formatCurrency(summary().totalSales) }}</div>
+          <div class="card-subtitle">Network Revenue</div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="summary-card performance-card">
+        <mat-card-content>
+          <div class="card-header">
+            <mat-icon class="card-icon">trending_up</mat-icon>
+            <span class="card-title">Performance</span>
+          </div>
+          <div class="card-value">{{ summary().averagePerformance }}%</div>
+          <div class="card-subtitle" [class]="performanceStatus().class">{{ performanceStatus().status }}</div>
         </mat-card-content>
       </mat-card>
     </div>
-
-    <!-- Key Insights -->
-    <div class="insights-section" *ngIf="keyInsights().length > 0">
-      <div class="section-header">
-        <h2 class="section-title">
-          <mat-icon>lightbulb</mat-icon>
-          Key Network Insights
-        </h2>
-      </div>
-      
-      <div class="insights-grid">
-        <mat-card 
-          *ngFor="let insight of keyInsights()"
-          class="insight-card"
-          [class]="getInsightClass(insight.type)"
-        >
-          <mat-card-header>
-            <mat-card-title>{{ insight.title }}</mat-card-title>
-            <mat-card-subtitle>
-              <mat-chip [class]="'impact-' + insight.impact">
-                {{ insight.impact | titlecase }} Impact
-              </mat-chip>
-            </mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <p>{{ insight.description }}</p>
-          </mat-card-content>
-        </mat-card>
-      </div>
-    </div>
   </div>
 
-  <!-- Regional View -->
-  <div class="analytics-content" *ngIf="selectedView() === 'regional' && !isLoading()">
-    <div class="regional-header">
-      <h2 class="section-title">
-        <mat-icon>location_on</mat-icon>
-        Regional Performance Analysis
-      </h2>
-      <mat-form-field appearance="outline" class="region-selector">
-        <mat-label>Filter by Region</mat-label>
-        <mat-select [value]="selectedRegion()" (selectionChange)="setRegion($event.value)">
-          <mat-option value="all">All Regions</mat-option>
-          <mat-option *ngFor="let region of regionalData()" [value]="region.region">
-            {{ region.region }}
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
-
-    <!-- Top Performing Regions -->
-    <div class="top-regions-section" *ngIf="topPerformingRegions().length > 0">
-      <mat-card>
-        <mat-card-header>
-          <mat-card-title>Top Performing Regions</mat-card-title>
-          <mat-card-subtitle>Ranked by overall performance</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="regions-podium">
-            <mat-card 
-              *ngFor="let region of topPerformingRegions(); let i = index"
-              class="podium-item"
-              [class]="'rank-' + (i + 1)"
-            >
+  <!-- Dynamic Content Based on Selected View -->
+  <div class="analytics-content">
+    @if (loading()) {
+      <div class="loading-container">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Loading analytics data...</p>
+      </div>
+    } @else {
+      @switch (selectedView()) {
+        @case ('overview') {
+          <div class="overview-view">
+            <mat-card class="performance-table-card">
               <mat-card-header>
-                <div class="rank-badge">#{{ i + 1 }}</div>
-                <mat-card-title>{{ region.region }}</mat-card-title>
+                <mat-card-title>Branch Performance Overview</mat-card-title>
+                <mat-card-subtitle>Current performance metrics across all branches</mat-card-subtitle>
               </mat-card-header>
               <mat-card-content>
-                <div class="region-stats">
-                  <div class="stat">
-                    <mat-icon>speed</mat-icon>
-                    <span class="stat-label">Performance</span>
-                    <span class="stat-value">{{ formatPercentage(region.performance) }}</span>
+                @if (branchPerformance().length > 0) {
+                  <table mat-table [dataSource]="branchPerformance()" class="performance-table">
+                    <!-- Branch Name Column -->
+                    <ng-container matColumnDef="branchName">
+                      <th mat-header-cell *matHeaderCellDef>Branch Name</th>
+                      <td mat-cell *matCellDef="let branch">
+                        <div class="branch-cell">
+                          <mat-icon class="branch-icon">store</mat-icon>
+                          <span>{{ branch.branchName }}</span>
+                        </div>
+                      </td>
+                    </ng-container>
+
+                    <!-- Sales Total Column -->
+                    <ng-container matColumnDef="salesTotal">
+                      <th mat-header-cell *matHeaderCellDef>Sales Total</th>
+                      <td mat-cell *matCellDef="let branch">{{ formatCurrency(branch.salesTotal) }}</td>
+                    </ng-container>
+
+                    <!-- Transfers Count Column -->
+                    <ng-container matColumnDef="transfersCount">
+                      <th mat-header-cell *matHeaderCellDef>Transfers</th>
+                      <td mat-cell *matCellDef="let branch">
+                        <span class="transfer-count">{{ branch.transfersCount }}</span>
+                      </td>
+                    </ng-container>
+
+                    <!-- Performance Column -->
+                    <ng-container matColumnDef="performance">
+                      <th mat-header-cell *matHeaderCellDef>Performance</th>
+                      <td mat-cell *matCellDef="let branch">
+                        <div class="performance-cell">
+                          <div class="performance-bar">
+                            <div class="performance-fill" [style.width.%]="branch.performance"></div>
+                          </div>
+                          <span class="performance-value">{{ branch.performance }}%</span>
+                        </div>
+                      </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="['branchName', 'salesTotal', 'transfersCount', 'performance']"></tr>
+                    <tr mat-row *matRowDef="let row; columns: ['branchName', 'salesTotal', 'transfersCount', 'performance'];"></tr>
+                  </table>
+                } @else {
+                  <div class="no-data-container">
+                    <mat-icon class="no-data-icon">analytics</mat-icon>
+                    <h3>No Performance Data</h3>
+                    <p>Performance analytics will be displayed here when data is available.</p>
                   </div>
-                  <div class="stat">
-                    <mat-icon>attach_money</mat-icon>
-                    <span class="stat-label">Revenue</span>
-                    <span class="stat-value">{{ formatCurrency(region.revenue) }}</span>
+                }
+              </mat-card-content>
+            </mat-card>
+          </div>
+        }
+
+        @case ('trends') {
+          <div class="trends-view">
+            <mat-card class="trends-card">
+              <mat-card-header>
+                <mat-card-title>Performance Trends Analysis</mat-card-title>
+                <mat-card-subtitle>{{ selectedPeriod() }} trend analysis across branches</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="trends-content">
+                  <div class="trend-metrics">
+                    @for (metric of getTrendMetrics(); track metric.title) {
+                      <div class="metric-card">
+                        <mat-icon [color]="metric.trend === 'positive' ? 'primary' : 'warn'">trending_up</mat-icon>
+                        <div class="metric-info">
+                          <h4>{{ metric.title }}</h4>
+                          <span class="trend-value" [class]="metric.trend">{{ metric.value }}</span>
+                          <div class="metric-change" [class]="metric.trend">{{ metric.description }}</div>
+                        </div>
+                      </div>
+                    }
                   </div>
-                  <div class="stat">
-                    <mat-icon>trending_up</mat-icon>
-                    <span class="stat-label">Growth</span>
-                    <span class="stat-value" [class]="getGrowthClass(region.growth)">
-                      {{ formatPercentage(region.growth) }}
-                    </span>
+
+                  <div class="chart-placeholder">
+                    <mat-icon style="font-size: 48px; color: #ccc;">show_chart</mat-icon>
+                    <h3>Trend Chart</h3>
+                    <p>Interactive trend visualization will be implemented with Chart.js integration</p>
                   </div>
                 </div>
               </mat-card-content>
             </mat-card>
           </div>
-        </mat-card-content>
-      </mat-card>
-    </div>
+        }
 
-    <!-- Regional Comparison Table -->
-    <div class="regional-table-section">
-      <mat-card>
-        <mat-card-header>
-          <mat-card-title>Detailed Regional Comparison</mat-card-title>
-          <mat-card-subtitle>Comprehensive metrics across all regions</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="table-container">
-            <table mat-table [dataSource]="filteredRegionalData()" class="regional-table">
-              <ng-container matColumnDef="region">
-                <th mat-header-cell *matHeaderCellDef>Region</th>
-                <td mat-cell *matCellDef="let region">
-                  <div class="region-name">
-                    <mat-icon>location_city</mat-icon>
-                    {{ region.region }}
+        @case ('regional') {
+          <div class="regional-view">
+            <mat-card class="regional-card">
+              <mat-card-header>
+                <mat-card-title>Regional Performance Analysis</mat-card-title>
+                <mat-card-subtitle>Geographic distribution and performance comparison</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="regional-content">
+                  <div class="regional-map">
+                    <mat-icon style="font-size: 64px; color: #4BBF7B;">map</mat-icon>
+                    <h3>Jakarta Region Overview</h3>
+                    <p>Geographic visualization showing branch locations and performance heatmap</p>
                   </div>
-                </td>
-              </ng-container>
 
-              <ng-container matColumnDef="branches">
-                <th mat-header-cell *matHeaderCellDef>Branches</th>
-                <td mat-cell *matCellDef="let region">{{ region.branches }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="revenue">
-                <th mat-header-cell *matHeaderCellDef>Revenue</th>
-                <td mat-cell *matCellDef="let region">{{ formatCurrency(region.revenue) }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="revenuePerBranch">
-                <th mat-header-cell *matHeaderCellDef>Revenue/Branch</th>
-                <td mat-cell *matCellDef="let region">{{ formatCurrency(region.revenuePerBranch) }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="growth">
-                <th mat-header-cell *matHeaderCellDef>Growth</th>
-                <td mat-cell *matCellDef="let region">
-                  <div class="growth-indicator" [class]="getGrowthClass(region.growth)">
-                    <mat-icon>{{ region.growth > 0 ? 'trending_up' : region.growth < 0 ? 'trending_down' : 'trending_flat' }}</mat-icon>
-                    {{ formatPercentage(region.growth) }}
+                  <div class="regional-stats">
+                    @for (region of getRegionalStats(); track region.name) {
+                      <div class="region-item">
+                        <mat-icon color="primary">location_city</mat-icon>
+                        <div class="region-info">
+                          <h4>{{ region.name }}</h4>
+                          <span class="region-performance" [class]="region.status">{{ region.performance }}% Performance</span>
+                          <p>{{ region.description }}</p>
+                        </div>
+                      </div>
+                    }
                   </div>
-                </td>
-              </ng-container>
-
-              <ng-container matColumnDef="marketShare">
-                <th mat-header-cell *matHeaderCellDef>Market Share</th>
-                <td mat-cell *matCellDef="let region">{{ formatPercentage(region.marketShare) }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="performance">
-                <th mat-header-cell *matHeaderCellDef>Performance</th>
-                <td mat-cell *matCellDef="let region">
-                  <div class="performance-indicator">
-                    <div class="performance-bar">
-                      <div class="performance-fill" [style.width.%]="region.performance"></div>
-                    </div>
-                    <span class="performance-text">{{ formatPercentage(region.performance) }}</span>
-                  </div>
-                </td>
-              </ng-container>
-
-              <ng-container matColumnDef="topBranch">
-                <th mat-header-cell *matHeaderCellDef>Top Branch</th>
-                <td mat-cell *matCellDef="let region">
-                  <button 
-                    mat-button 
-                    color="primary"
-                    (click)="navigateToBranchDetails(region.topBranch)"
-                  >
-                    {{ region.topBranch }}
-                  </button>
-                </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="['region', 'branches', 'revenue', 'revenuePerBranch', 'growth', 'marketShare', 'performance', 'topBranch']"></tr>
-              <tr mat-row *matRowDef="let row; columns: ['region', 'branches', 'revenue', 'revenuePerBranch', 'growth', 'marketShare', 'performance', 'topBranch'];"></tr>
-            </table>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-  </div>
-
-  <!-- Executive Summary View -->
-  <div class="analytics-content" *ngIf="selectedView() === 'executive' && !isLoading()">
-    <div class="executive-summary" *ngIf="executiveSummary()">
-      <div class="summary-header">
-        <h2 class="section-title">
-          <mat-icon>business</mat-icon>
-          Executive Summary
-        </h2>
-        <mat-chip class="period-chip">{{ executiveSummary()!.period }}</mat-chip>
-      </div>
-
-      <!-- Key Metrics Overview -->
-      <mat-card class="executive-metrics-card">
-        <mat-card-header>
-          <mat-card-title>Key Performance Indicators</mat-card-title>
-          <mat-card-subtitle>Network-wide performance overview</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="exec-metrics-grid">
-            <div class="exec-metric">
-              <div class="metric-icon">
-                <mat-icon>attach_money</mat-icon>
-              </div>
-              <div class="metric-data">
-                <div class="metric-value">{{ formatCurrency(executiveSummary()!.keyMetrics.totalRevenue) }}</div>
-                <div class="metric-label">Total Revenue</div>
-                <div class="metric-growth" [class]="getGrowthClass(executiveSummary()!.keyMetrics.revenueGrowth)">
-                  {{ formatPercentage(executiveSummary()!.keyMetrics.revenueGrowth) }} growth
                 </div>
-              </div>
-            </div>
-
-            <div class="exec-metric">
-              <div class="metric-icon">
-                <mat-icon>speed</mat-icon>
-              </div>
-              <div class="metric-data">
-                <div class="metric-value">{{ formatPercentage(executiveSummary()!.keyMetrics.networkEfficiency) }}</div>
-                <div class="metric-label">Network Efficiency</div>
-              </div>
-            </div>
-
-            <div class="exec-metric">
-              <div class="metric-icon">
-                <mat-icon>sentiment_satisfied</mat-icon>
-              </div>
-              <div class="metric-data">
-                <div class="metric-value">{{ formatPercentage(executiveSummary()!.keyMetrics.customerSatisfaction) }}</div>
-                <div class="metric-label">Customer Satisfaction</div>
-              </div>
-            </div>
+              </mat-card-content>
+            </mat-card>
           </div>
-        </mat-card-content>
-      </mat-card>
+        }
 
-      <!-- Executive Sections -->
-      <div class="executive-sections">
-        <div class="exec-sections-grid">
-          <mat-card class="exec-section achievements">
-            <mat-card-header>
-              <mat-card-title>
-                <mat-icon>star</mat-icon>
-                Key Achievements
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <mat-list>
-                <mat-list-item *ngFor="let achievement of executiveSummary()!.achievements">
-                  <mat-icon matListItemIcon color="primary">check_circle</mat-icon>
-                  <div matListItemTitle>{{ achievement }}</div>
-                </mat-list-item>
-              </mat-list>
-            </mat-card-content>
-          </mat-card>
+        @case ('forecast') {
+          <div class="forecast-view">
+            <mat-card class="forecast-card">
+              <mat-card-header>
+                <mat-card-title>Performance Forecast</mat-card-title>
+                <mat-card-subtitle>Predictive analytics for next {{ selectedPeriod() }}</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="forecast-content">
+                  <div class="forecast-summary">
+                    @for (forecast of getForecastMetrics(); track forecast.title) {
+                      <div class="forecast-metric">
+                        <mat-icon [color]="forecast.trend === 'positive' ? 'primary' : 'warn'">insights</mat-icon>
+                        <div class="forecast-info">
+                          <h4>{{ forecast.title }}</h4>
+                          <span class="forecast-value" [class]="forecast.trend">{{ forecast.value }}</span>
+                          <div class="confidence">{{ forecast.confidence }} Confidence</div>
+                        </div>
+                      </div>
+                    }
+                  </div>
 
-          <mat-card class="exec-section challenges">
-            <mat-card-header>
-              <mat-card-title>
-                <mat-icon>warning</mat-icon>
-                Current Challenges
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <mat-list>
-                <mat-list-item *ngFor="let challenge of executiveSummary()!.challenges">
-                  <mat-icon matListItemIcon color="warn">error_outline</mat-icon>
-                  <div matListItemTitle>{{ challenge }}</div>
-                </mat-list-item>
-              </mat-list>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="exec-section recommendations">
-            <mat-card-header>
-              <mat-card-title>
-                <mat-icon>lightbulb</mat-icon>
-                Strategic Recommendations
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <mat-list>
-                <mat-list-item *ngFor="let recommendation of executiveSummary()!.recommendations">
-                  <mat-icon matListItemIcon color="accent">arrow_forward</mat-icon>
-                  <div matListItemTitle>{{ recommendation }}</div>
-                </mat-list-item>
-              </mat-list>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="exec-section next-actions">
-            <mat-card-header>
-              <mat-card-title>
-                <mat-icon>task_alt</mat-icon>
-                Next Actions
-              </mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <mat-list>
-                <mat-list-item *ngFor="let action of executiveSummary()!.nextActions">
-                  <mat-icon matListItemIcon>play_arrow</mat-icon>
-                  <div matListItemTitle>{{ action }}</div>
-                </mat-list-item>
-              </mat-list>
-            </mat-card-content>
-          </mat-card>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Forecast View -->
-  <div class="analytics-content" *ngIf="selectedView() === 'forecast' && !isLoading()">
-    <div class="forecast-grid" *ngIf="forecastData() && forecastData()!.length > 0">
-      <!-- Forecast Cards -->
-      <div class="forecast-cards">
-        <div class="forecast-card" *ngFor="let forecast of forecastData()">
-          <div class="forecast-header">
-            <h3>{{ forecast.metric }}</h3>
-            <div class="trend-indicator" [class]="'trend-' + forecast.trend">
-              <mat-icon>{{ forecast.trend === 'increasing' ? 'trending_up' : forecast.trend === 'decreasing' ? 'trending_down' : 'trending_flat' }}</mat-icon>
-              <span>{{ forecast.trend | titlecase }}</span>
-            </div>
+                  <div class="forecast-chart">
+                    <mat-icon style="font-size: 48px; color: #FF914D;">analytics</mat-icon>
+                    <h3>Predictive Model</h3>
+                    <p>AI-powered forecasting based on historical data and seasonal patterns</p>
+                    <div class="forecast-factors">
+                      <h4>Key Factors:</h4>
+                      <ul>
+                        <li>Historical performance trends</li>
+                        <li>Seasonal variations</li>
+                        <li>Market conditions</li>
+                        <li>Transfer efficiency patterns</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
           </div>
-          
-          <div class="current-value">
-            <span class="value">{{ forecast.currentValue | number:'1.0-2' }}</span>
-            <span class="label">Current</span>
+        }
+
+        @case ('executive') {
+          <div class="executive-view">
+            <mat-card class="executive-card">
+              <mat-card-header>
+                <mat-card-title>Executive Summary</mat-card-title>
+                <mat-card-subtitle>High-level insights for {{ selectedPeriod() }} period</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="executive-content">
+                  <div class="executive-metrics">
+                    <div class="exec-metric primary">
+                      <mat-icon>assessment</mat-icon>
+                      <div class="metric-data">
+                        <span class="metric-value">{{ formatCurrency(summary().totalSales) }}</span>
+                        <span class="metric-label">Total Network Revenue</span>
+                        <span class="metric-change positive">+12.5% vs previous period</span>
+                      </div>
+                    </div>
+                    <div class="exec-metric secondary">
+                      <mat-icon>business</mat-icon>
+                      <div class="metric-data">
+                        <span class="metric-value">{{ summary().averagePerformance }}%</span>
+                        <span class="metric-label">Average Performance Score</span>
+                        <span class="metric-change neutral">Stable performance</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="executive-insights">
+                    <div class="insight-section">
+                      <h4><mat-icon color="primary">lightbulb</mat-icon> Key Insights</h4>
+                      <ul>
+                        @for (insight of getExecutiveInsights(); track insight) {
+                          <li>{{ insight }}</li>
+                        }
+                      </ul>
+                    </div>
+
+                    <div class="insight-section">
+                      <h4><mat-icon color="accent">flag</mat-icon> Recommendations</h4>
+                      <ul>
+                        @for (recommendation of getExecutiveRecommendations(); track recommendation) {
+                          <li>{{ recommendation }}</li>
+                        }
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
           </div>
-          
-          <div class="forecast-predictions">
-            <div class="prediction">
-              <span class="period">Next Month</span>
-              <span class="value">{{ forecast.forecast.nextMonth | number:'1.0-2' }}</span>
-            </div>
-            <div class="prediction">
-              <span class="period">Next Quarter</span>
-              <span class="value">{{ forecast.forecast.nextQuarter | number:'1.0-2' }}</span>
-            </div>
-            <div class="prediction">
-              <span class="period">Next Year</span>
-              <span class="value">{{ forecast.forecast.nextYear | number:'1.0-2' }}</span>
-            </div>
-          </div>
-          
-          <div class="confidence-bar">
-            <div class="confidence-label">
-              Confidence: {{ forecast.confidence }}%
-            </div>
-            <div class="confidence-progress">
-              <div class="confidence-fill" [style.width.%]="forecast.confidence"></div>
-            </div>
-          </div>
-          
-          <div class="forecast-factors">
-            <h4>Key Factors</h4>
-            <ul>
-              <li *ngFor="let factor of forecast.factors">{{ factor }}</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
+        }
+      }
 
-    <!-- Loading/No Data States -->
-    <div *ngIf="!forecastData() || forecastData()!.length === 0" class="no-data-state">
-      <mat-card>
-        <mat-card-content>
-          <div class="no-data-content">
-            <mat-icon>insights</mat-icon>
-            <h3>No Forecast Data Available</h3>
-            <p>Forecast data is being generated. Please try again in a moment.</p>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-  </div>
-
-  <!-- Trends View -->
-  <div class="analytics-content" *ngIf="selectedView() === 'trends' && !isLoading()">
-    <!-- Trends Header -->
-    <div class="trends-header">
-      <div class="section-header">
-        <h2 class="section-title">
-          <mat-icon>trending_up</mat-icon>
-          Performance Trends Analysis
-        </h2>
-        <mat-chip class="period-chip">{{ trendAnalysis()?.period || selectedPeriod() === '1M' ? 'Last Month' : selectedPeriod() === '3M' ? 'Last Quarter' : selectedPeriod() === '6M' ? 'Last 6 Months' : 'Last Year' }}</mat-chip>
-      </div>
-
-      <!-- Trend KPIs -->
-      <div class="trend-kpis" *ngIf="networkAnalytics()">
-        <div class="trend-kpi-grid">
-          <mat-card class="trend-kpi-card">
-            <mat-card-content>
-              <div class="kpi-header">
-                <mat-icon>attach_money</mat-icon>
-                <span class="kpi-title">Revenue Trend</span>
-              </div>
-              <div class="kpi-value">{{ formatCurrency(networkAnalytics()!.totalRevenue) }}</div>
-              <div class="kpi-trend" [class]="getGrowthClass(networkAnalytics()!.revenueGrowth)">
-                <mat-icon>{{ networkAnalytics()!.revenueGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
-                {{ formatPercentage(networkAnalytics()!.revenueGrowth) }}
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="trend-kpi-card">
-            <mat-card-content>
-              <div class="kpi-header">
-                <mat-icon>receipt</mat-icon>
-                <span class="kpi-title">Transaction Trend</span>
-              </div>
-              <div class="kpi-value">{{ formatNumber(networkAnalytics()!.totalTransactions) }}</div>
-              <div class="kpi-trend" [class]="getGrowthClass(networkAnalytics()!.transactionGrowth)">
-                <mat-icon>{{ networkAnalytics()!.transactionGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
-                {{ formatPercentage(networkAnalytics()!.transactionGrowth) }}
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="trend-kpi-card">
-            <mat-card-content>
-              <div class="kpi-header">
-                <mat-icon>speed</mat-icon>
-                <span class="kpi-title">Efficiency Trend</span>
-              </div>
-              <div class="kpi-value">{{ formatPercentage(networkAnalytics()!.operationalEfficiency) }}</div>
-              <div class="kpi-trend" [class]="getGrowthClass(networkAnalytics()!.efficiencyGrowth)">
-                <mat-icon>{{ networkAnalytics()!.efficiencyGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
-                {{ formatPercentage(networkAnalytics()!.efficiencyGrowth) }}
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="trend-kpi-card">
-            <mat-card-content>
-              <div class="kpi-header">
-                <mat-icon>sentiment_satisfied</mat-icon>
-                <span class="kpi-title">Satisfaction Trend</span>
-              </div>
-              <div class="kpi-value">{{ formatPercentage(networkAnalytics()!.customerSatisfaction) }}</div>
-              <div class="kpi-trend" [class]="getGrowthClass(networkAnalytics()!.satisfactionGrowth)">
-                <mat-icon>{{ networkAnalytics()!.satisfactionGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
-                {{ formatPercentage(networkAnalytics()!.satisfactionGrowth) }}
-              </div>
-            </mat-card-content>
-          </mat-card>
-        </div>
-      </div>
-    </div>
-
-    <!-- Performance Charts -->
-    <div class="trends-charts" *ngIf="trendAnalysis()">
-      <!-- Revenue Chart -->
-      <div class="chart-section">
-        <mat-card class="chart-card">
-          <mat-card-header>
-            <mat-card-title>Revenue Trends</mat-card-title>
-            <mat-card-subtitle>Revenue performance over {{ trendAnalysis()?.period || selectedPeriod() }}</mat-card-subtitle>
-          </mat-card-header>
+      <!-- Quick Navigation -->
+      <div class="quick-navigation">
+        <mat-card class="navigation-card">
           <mat-card-content>
-            <div class="chart-container">
-              <div class="chart-wrapper">
-                <div class="chart-area">
-                  <div class="chart-grid">
-                    <div *ngFor="let line of [1,2,3,4,5]; let i = index"
-                         class="grid-line horizontal"
-                         [style.top.%]="i * 20">
-                    </div>
-                  </div>
-                  <svg class="trend-chart" viewBox="0 0 800 300">
-                    <!-- Revenue Line -->
-                    <path
-                      [attr.d]="generateTrendPath(trendAnalysis()!.revenue, 800, 300)"
-                      class="trend-line revenue-line"
-                      fill="none"
-                      stroke="#2196F3"
-                      stroke-width="3">
-                    </path>
-                    <!-- Data Points -->
-                    <circle
-                      *ngFor="let value of trendAnalysis()!.revenue; let i = index"
-                      [attr.cx]="(i / (trendAnalysis()!.revenue.length - 1)) * 780 + 10"
-                      [attr.cy]="300 - ((value - getMinValue(trendAnalysis()!.revenue)) / (getMaxValue(trendAnalysis()!.revenue) - getMinValue(trendAnalysis()!.revenue))) * 280 - 10"
-                      r="4"
-                      class="trend-point revenue-point"
-                      fill="#2196F3">
-                    </circle>
-                  </svg>
-                  <div class="chart-labels">
-                    <div class="y-axis-labels">
-                      <div class="y-label" *ngFor="let value of getYAxisLabels(trendAnalysis()!.revenue); let i = index"
-                           [style.bottom.%]="i * 20">
-                        {{ formatCurrency(value) }}
-                      </div>
-                    </div>
-                    <div class="x-axis-labels">
-                      <div class="x-label"
-                           *ngFor="let label of trendAnalysis()!.labels; let i = index"
-                           [style.left.%]="(i / (trendAnalysis()!.labels.length - 1)) * 100">
-                        {{ label }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <h3>Quick Access</h3>
+            <div class="navigation-buttons">
+              <button mat-stroked-button routerLink="/dashboard/transfers" color="primary">
+                <mat-icon>swap_horiz</mat-icon>
+                Transfer Management
+              </button>
+              <button mat-stroked-button routerLink="/dashboard/branches" color="accent">
+                <mat-icon>business</mat-icon>
+                Branch Management
+              </button>
+              <button mat-stroked-button routerLink="/dashboard/branch-performance" color="warn">
+                <mat-icon>trending_up</mat-icon>
+                Performance Details
+              </button>
             </div>
           </mat-card-content>
         </mat-card>
       </div>
-
-      <!-- Transactions Chart -->
-      <div class="chart-section">
-        <mat-card class="chart-card">
-          <mat-card-header>
-            <mat-card-title>Transaction Volume Trends</mat-card-title>
-            <mat-card-subtitle>Transaction count over {{ trendAnalysis()?.period || selectedPeriod() }}</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="chart-container">
-              <div class="chart-wrapper">
-                <div class="chart-area">
-                  <div class="chart-grid">
-                    <div *ngFor="let line of [1,2,3,4,5]; let i = index"
-                         class="grid-line horizontal"
-                         [style.top.%]="i * 20">
-                    </div>
-                  </div>
-                  <svg class="trend-chart" viewBox="0 0 800 300">
-                    <!-- Transaction Line -->
-                    <path
-                      [attr.d]="generateTrendPath(trendAnalysis()!.transactions, 800, 300)"
-                      class="trend-line transaction-line"
-                      fill="none"
-                      stroke="#4CAF50"
-                      stroke-width="3">
-                    </path>
-                    <!-- Data Points -->
-                    <circle
-                      *ngFor="let value of trendAnalysis()!.transactions; let i = index"
-                      [attr.cx]="(i / (trendAnalysis()!.transactions.length - 1)) * 780 + 10"
-                      [attr.cy]="300 - ((value - getMinValue(trendAnalysis()!.transactions)) / (getMaxValue(trendAnalysis()!.transactions) - getMinValue(trendAnalysis()!.transactions))) * 280 - 10"
-                      r="4"
-                      class="trend-point transaction-point"
-                      fill="#4CAF50">
-                    </circle>
-                  </svg>
-                  <div class="chart-labels">
-                    <div class="y-axis-labels">
-                      <div class="y-label" *ngFor="let value of getYAxisLabels(trendAnalysis()!.transactions); let i = index"
-                           [style.bottom.%]="i * 20">
-                        {{ formatNumber(value) }}
-                      </div>
-                    </div>
-                    <div class="x-axis-labels">
-                      <div class="x-label"
-                           *ngFor="let label of trendAnalysis()!.labels; let i = index"
-                           [style.left.%]="(i / (trendAnalysis()!.labels.length - 1)) * 100">
-                        {{ label }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
-
-      <!-- Combined Performance Chart -->
-      <div class="chart-section">
-        <mat-card class="chart-card">
-          <mat-card-header>
-            <mat-card-title>Combined Performance Metrics</mat-card-title>
-            <mat-card-subtitle>Efficiency and satisfaction trends over {{ trendAnalysis()?.period || selectedPeriod() }}</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="chart-container">
-              <div class="chart-wrapper">
-                <div class="chart-area">
-                  <div class="chart-grid">
-                    <div *ngFor="let line of [1,2,3,4,5]; let i = index"
-                         class="grid-line horizontal"
-                         [style.top.%]="i * 20">
-                    </div>
-                  </div>
-                  <svg class="trend-chart" viewBox="0 0 800 300">
-                    <!-- Efficiency Line -->
-                    <path
-                      [attr.d]="generateTrendPath(trendAnalysis()!.efficiency, 800, 300)"
-                      class="trend-line efficiency-line"
-                      fill="none"
-                      stroke="#FF9800"
-                      stroke-width="3">
-                    </path>
-                    <!-- Satisfaction Line -->
-                    <path
-                      [attr.d]="generateTrendPath(trendAnalysis()!.satisfaction, 800, 300)"
-                      class="trend-line satisfaction-line"
-                      fill="none"
-                      stroke="#9C27B0"
-                      stroke-width="3">
-                    </path>
-                    <!-- Efficiency Points -->
-                    <circle
-                      *ngFor="let value of trendAnalysis()!.efficiency; let i = index"
-                      [attr.cx]="(i / (trendAnalysis()!.efficiency.length - 1)) * 780 + 10"
-                      [attr.cy]="300 - ((value - getMinCombinedValue()) / (getMaxCombinedValue() - getMinCombinedValue())) * 280 - 10"
-                      r="4"
-                      class="trend-point efficiency-point"
-                      fill="#FF9800">
-                    </circle>
-                    <!-- Satisfaction Points -->
-                    <circle
-                      *ngFor="let value of trendAnalysis()!.satisfaction; let i = index"
-                      [attr.cx]="(i / (trendAnalysis()!.satisfaction.length - 1)) * 780 + 10"
-                      [attr.cy]="300 - ((value - getMinCombinedValue()) / (getMaxCombinedValue() - getMinCombinedValue())) * 280 - 10"
-                      r="4"
-                      class="trend-point satisfaction-point"
-                      fill="#9C27B0">
-                    </circle>
-                  </svg>
-                  <div class="chart-labels">
-                    <div class="y-axis-labels">
-                      <div class="y-label" *ngFor="let value of getCombinedYAxisLabels(); let i = index"
-                           [style.bottom.%]="i * 20">
-                        {{ formatPercentage(value) }}
-                      </div>
-                    </div>
-                    <div class="x-axis-labels">
-                      <div class="x-label"
-                           *ngFor="let label of trendAnalysis()!.labels; let i = index"
-                           [style.left.%]="(i / (trendAnalysis()!.labels.length - 1)) * 100">
-                        {{ label }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Legend -->
-              <div class="chart-legend">
-                <div class="legend-item">
-                  <div class="legend-color efficiency-color"></div>
-                  <span>Operational Efficiency</span>
-                </div>
-                <div class="legend-item">
-                  <div class="legend-color satisfaction-color"></div>
-                  <span>Customer Satisfaction</span>
-                </div>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
-    </div>
-
-    <!-- Trend Insights -->
-    <div class="trend-insights" *ngIf="trendAnalysis() && networkAnalytics()">
-      <div class="section-header">
-        <h2 class="section-title">
-          <mat-icon>insights</mat-icon>
-          Trend Analysis Insights
-        </h2>
-      </div>
-
-      <div class="insights-grid">
-        <!-- Performance Summary -->
-        <mat-card class="insight-card performance-summary">
-          <mat-card-header>
-            <mat-card-title>Performance Summary</mat-card-title>
-            <mat-card-subtitle>Key metrics over selected period</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="summary-metrics">
-              <div class="metric-row">
-                <span class="metric-label">Best Revenue Month:</span>
-                <span class="metric-value">{{ formatCurrency(getMaxValue(trendAnalysis()!.revenue)) }}</span>
-              </div>
-              <div class="metric-row">
-                <span class="metric-label">Peak Transactions:</span>
-                <span class="metric-value">{{ formatNumber(getMaxValue(trendAnalysis()!.transactions)) }}</span>
-              </div>
-              <div class="metric-row">
-                <span class="metric-label">Highest Efficiency:</span>
-                <span class="metric-value">{{ formatPercentage(getMaxValue(trendAnalysis()!.efficiency)) }}</span>
-              </div>
-              <div class="metric-row">
-                <span class="metric-label">Best Satisfaction:</span>
-                <span class="metric-value">{{ formatPercentage(getMaxValue(trendAnalysis()!.satisfaction)) }}</span>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <!-- Growth Patterns -->
-        <mat-card class="insight-card growth-patterns">
-          <mat-card-header>
-            <mat-card-title>Growth Patterns</mat-card-title>
-            <mat-card-subtitle>Trend directions and momentum</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="pattern-indicators">
-              <div class="pattern-item">
-                <div class="pattern-icon" [class]="getGrowthClass(networkAnalytics()!.revenueGrowth)">
-                  <mat-icon>{{ networkAnalytics()!.revenueGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
-                </div>
-                <div class="pattern-content">
-                  <div class="pattern-title">Revenue</div>
-                  <div class="pattern-description">{{ getTrendDescription(networkAnalytics()!.revenueGrowth) }}</div>
-                </div>
-              </div>
-              <div class="pattern-item">
-                <div class="pattern-icon" [class]="getGrowthClass(networkAnalytics()!.transactionGrowth)">
-                  <mat-icon>{{ networkAnalytics()!.transactionGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
-                </div>
-                <div class="pattern-content">
-                  <div class="pattern-title">Transactions</div>
-                  <div class="pattern-description">{{ getTrendDescription(networkAnalytics()!.transactionGrowth) }}</div>
-                </div>
-              </div>
-              <div class="pattern-item">
-                <div class="pattern-icon" [class]="getGrowthClass(networkAnalytics()!.efficiencyGrowth)">
-                  <mat-icon>{{ networkAnalytics()!.efficiencyGrowth > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
-                </div>
-                <div class="pattern-content">
-                  <div class="pattern-title">Efficiency</div>
-                  <div class="pattern-description">{{ getTrendDescription(networkAnalytics()!.efficiencyGrowth) }}</div>
-                </div>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-
-        <!-- Key Recommendations -->
-        <mat-card class="insight-card recommendations">
-          <mat-card-header>
-            <mat-card-title>Trend-Based Recommendations</mat-card-title>
-            <mat-card-subtitle>Actions based on trend analysis</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="recommendations-list">
-              <div class="recommendation-item" *ngFor="let recommendation of getTrendRecommendations()">
-                <mat-icon class="recommendation-icon" [color]="recommendation.priority">{{ recommendation.icon }}</mat-icon>
-                <div class="recommendation-content">
-                  <div class="recommendation-title">{{ recommendation.title }}</div>
-                  <div class="recommendation-description">{{ recommendation.description }}</div>
-                </div>
-              </div>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
-    </div>
-
-    <!-- No Data Fallback -->
-    <div *ngIf="!trendAnalysis()" class="no-trends-data">
-      <mat-card>
-        <mat-card-content>
-          <div class="no-data-content">
-            <mat-icon>timeline</mat-icon>
-            <h3>Loading Trend Data</h3>
-            <p>Gathering performance trends data for analysis...</p>
-            <button mat-raised-button color="primary" (click)="refreshData()">
-              <mat-icon>refresh</mat-icon>
-              Refresh Data
-            </button>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </div>
+    }
   </div>
 </div>

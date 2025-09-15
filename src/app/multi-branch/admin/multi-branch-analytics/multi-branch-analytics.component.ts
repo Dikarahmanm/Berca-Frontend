@@ -1,7 +1,8 @@
-import { Component, OnInit, OnDestroy, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
+import { HttpClientModule } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,96 +15,48 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTableModule } from '@angular/material/table';
 import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MultiBranchCoordinationService, BranchPerformance, CrossBranchAnalyticsDto } from '../../../core/services/multi-branch-coordination.service';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { MultiBranchCoordinationService } from '../../../core/services/multi-branch-coordination.service';
 import { BranchAnalyticsService } from '../../../core/services/branch-analytics.service';
+import { BranchService } from '../../../core/services/branch.service';
 import { StateService } from '../../../core/services/state.service';
-import { Branch } from '../../../core/models/branch.models';
-import { Subscription, interval } from 'rxjs';
+import { InventoryTransferService } from '../../../core/services/inventory-transfer.service';
+import { HttpClient } from '@angular/common/http';
+import { Subscription, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
-// Analytics Interfaces
-export interface NetworkAnalytics {
-  totalRevenue: number;
-  revenueGrowth: number;
-  totalTransactions: number;
-  transactionGrowth: number;
-  avgOrderValue: number;
-  orderValueGrowth: number;
-  customerSatisfaction: number;
-  satisfactionGrowth: number;
-  operationalEfficiency: number;
-  efficiencyGrowth: number;
-  inventoryTurnover: number;
-  turnoverGrowth: number;
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message: string;
+  error?: string;
 }
 
-export interface TrendAnalysis {
-  period: string;
-  revenue: number[];
-  transactions: number[];
-  customers: number[];
-  efficiency: number[];
-  satisfaction: number[];
-  labels: string[];
+interface AnalyticsSummary {
+  totalBranches: number;
+  activeBranches: number;
+  totalTransfers: number;
+  pendingTransfers: number;
+  totalSales: number;
+  averagePerformance: number;
 }
 
-export interface RegionalComparison {
-  region: string;
-  branches: number;
-  revenue: number;
-  revenuePerBranch: number;
-  growth: number;
-  marketShare: number;
+interface BranchPerformanceData {
+  branchId: number;
+  branchName: string;
+  salesTotal: number;
+  transfersCount: number;
   performance: number;
-  topBranch: string;
-  challenges: string[];
-}
-
-export interface ForecastData {
-  metric: string;
-  currentValue: number;
-  forecast: {
-    nextMonth: number;
-    nextQuarter: number;
-    nextYear: number;
-  };
-  confidence: number;
-  trend: 'increasing' | 'stable' | 'decreasing';
-  factors: string[];
-}
-
-export interface ExecutiveSummary {
-  period: string;
-  keyMetrics: {
-    totalRevenue: number;
-    revenueGrowth: number;
-    networkEfficiency: number;
-    customerSatisfaction: number;
-  };
-  achievements: string[];
-  challenges: string[];
-  recommendations: string[];
-  nextActions: string[];
-}
-
-export interface CompetitiveAnalysis {
-  marketPosition: number;
-  marketShare: number;
-  competitorComparison: {
-    name: string;
-    marketShare: number;
-    strength: string;
-    weakness: string;
-  }[];
-  opportunities: string[];
-  threats: string[];
 }
 
 @Component({
   selector: 'app-multi-branch-analytics',
   standalone: true,
   imports: [
-    CommonModule, 
+    CommonModule,
     FormsModule,
+    RouterModule,
+    HttpClientModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -115,1234 +68,701 @@ export interface CompetitiveAnalysis {
     MatButtonToggleModule,
     MatTableModule,
     MatListModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatSnackBarModule
   ],
   templateUrl: './multi-branch-analytics.component.html',
   styleUrls: ['./multi-branch-analytics.component.scss']
 })
 export class MultiBranchAnalyticsComponent implements OnInit, OnDestroy {
-  // Service dependencies
-  branchPerformances = computed(() => this.coordinationService.branchPerformances());
-  availableBranches = computed(() => this.stateService.availableBranches());
-  currentUser = computed(() => this.stateService.user());
+  private subscriptions = new Subscription();
 
-  // Component state signals
-  private readonly _isLoading = signal<boolean>(false);
-  private readonly _selectedPeriod = signal<'1M' | '3M' | '6M' | '1Y'>('3M');
-  private readonly _selectedView = signal<'overview' | 'trends' | 'regional' | 'forecast' | 'executive'>('overview');
-  private readonly _selectedRegion = signal<string>('all');
-  private readonly _networkAnalytics = signal<NetworkAnalytics | null>(null);
-  private readonly _trendAnalysis = signal<TrendAnalysis | null>(null);
-  private readonly _regionalData = signal<RegionalComparison[]>([]);
-  private readonly _forecastData = signal<ForecastData[]>([]);
-  private readonly _executiveSummary = signal<ExecutiveSummary | null>(null);
-  private readonly _competitiveAnalysis = signal<CompetitiveAnalysis | null>(null);
+  // Signals for reactive state management
+  loading = signal<boolean>(false);
+  error = signal<string | null>(null);
+  selectedPeriod = signal<string>('3M');
+  selectedView = signal<string>('overview');
 
-  // Component state getters (public for template access) - Updated for TypeScript visibility
-  public readonly isLoading = this._isLoading.asReadonly();
-  public readonly selectedPeriod = this._selectedPeriod.asReadonly();
-  public readonly selectedView = this._selectedView.asReadonly();
-  public readonly selectedRegion = this._selectedRegion.asReadonly();
-  public readonly networkAnalytics = this._networkAnalytics.asReadonly();
-  public readonly trendAnalysis = this._trendAnalysis.asReadonly();
-  public readonly regionalData = this._regionalData.asReadonly();
-  public readonly forecastData = this._forecastData.asReadonly();
-  public readonly executiveSummary = this._executiveSummary.asReadonly();
-  public readonly competitiveAnalysis = this._competitiveAnalysis.asReadonly();
-
-  // Computed analytics (public for template access)
-  public readonly filteredRegionalData = computed(() => {
-    const data = this._regionalData();
-    const region = this._selectedRegion();
-
-    if (region === 'all') return data;
-    return data.filter(d => d.region === region);
+  // Analytics data signals
+  summary = signal<AnalyticsSummary>({
+    totalBranches: 0,
+    activeBranches: 0,
+    totalTransfers: 0,
+    pendingTransfers: 0,
+    totalSales: 0,
+    averagePerformance: 0
   });
 
-  public readonly totalBranches = computed(() => {
-    // Use BranchAnalyticsService data if available, fallback to stateService
-    const analyticsOverview = this.branchAnalyticsService.analyticsOverview();
-    const branchPerformances = this.branchAnalyticsService.branchPerformances();
+  branchPerformance = signal<BranchPerformanceData[]>([]);
 
-    if (analyticsOverview?.totalBranches) {
-      return analyticsOverview.totalBranches;
-    } else if (branchPerformances.length > 0) {
-      return branchPerformances.length;
+  // View-specific data storage
+  viewSpecificData: any = null;
+  trendData: any = null;
+  regionalData: any = null;
+  executiveData: any = null;
+  forecastData: any = null;
+
+  // Computed values
+  performanceStatus = computed(() => {
+    const avg = this.summary().averagePerformance;
+    if (avg >= 90) return { status: 'Excellent', class: 'excellent' };
+    if (avg >= 75) return { status: 'Good', class: 'good' };
+    if (avg >= 60) return { status: 'Fair', class: 'fair' };
+    return { status: 'Poor', class: 'poor' };
+  });
+
+  // Real-time data getters
+  getTrendMetrics() {
+    // Use real trend data from API if available
+    if (this.trendData?.metrics) {
+      return this.trendData.metrics;
+    }
+
+    // Calculate trend metrics from real summary data
+    const summary = this.summary();
+    const branchPerformance = this.branchPerformance();
+
+    if (branchPerformance.length > 0) {
+      // Calculate average growth from branch performance
+      const avgGrowth = branchPerformance.reduce((sum, branch) => sum + (branch.performance - 50), 0) / branchPerformance.length;
+      const revenueGrowthValue = avgGrowth > 0 ? `+${avgGrowth.toFixed(1)}%` : `${avgGrowth.toFixed(1)}%`;
+      const revenueGrowthTrend = avgGrowth > 0 ? 'positive' : avgGrowth < 0 ? 'negative' : 'neutral';
+
+      // Calculate transfer efficiency (higher transfer count = better efficiency)
+      const avgTransfers = branchPerformance.reduce((sum, branch) => sum + branch.transfersCount, 0) / branchPerformance.length;
+      const transferEfficiency = Math.min(20, avgTransfers / 10); // Scale to percentage
+      const transferValue = transferEfficiency > 0 ? `+${transferEfficiency.toFixed(1)}%` : '0%';
+
+      return [
+        {
+          title: 'Revenue Growth',
+          value: revenueGrowthValue,
+          trend: revenueGrowthTrend,
+          description: `Compared to previous ${this.selectedPeriod()}`
+        },
+        {
+          title: 'Transfer Efficiency',
+          value: transferValue,
+          trend: 'positive',
+          description: 'Based on transaction volume'
+        },
+        {
+          title: 'Performance Index',
+          value: `${summary.averagePerformance.toFixed(1)}%`,
+          trend: summary.averagePerformance >= 60 ? 'positive' : 'negative',
+          description: 'Overall network performance'
+        }
+      ];
+    }
+
+    // Fallback data when no real data is available
+    return [
+      { title: 'Revenue Growth', value: 'N/A', trend: 'neutral', description: 'No data available' },
+      { title: 'Transfer Efficiency', value: 'N/A', trend: 'neutral', description: 'No data available' },
+      { title: 'Performance Index', value: 'N/A', trend: 'neutral', description: 'No data available' }
+    ];
+  }
+
+  getRegionalStats() {
+    // Use real regional data from API if available
+    if (this.regionalData?.regions) {
+      return this.regionalData.regions;
+    }
+
+    // Generate regional data from real branch performance
+    const branchPerformance = this.branchPerformance();
+
+    if (branchPerformance.length > 0) {
+      return branchPerformance.map(branch => {
+        const performance = branch.performance;
+        let status = 'poor';
+        let description = 'Needs attention';
+
+        if (performance >= 90) {
+          status = 'excellent';
+          description = 'Top performing region';
+        } else if (performance >= 75) {
+          status = 'good';
+          description = performance >= 85 ? 'Steady growth' : 'Improving metrics';
+        } else if (performance >= 60) {
+          status = 'fair';
+          description = 'Moderate performance';
+        }
+
+        return {
+          name: branch.branchName,
+          performance: Math.round(performance),
+          status: status,
+          description: description
+        };
+      }).sort((a, b) => b.performance - a.performance); // Sort by performance descending
+    }
+
+    // Fallback when no real data
+    return [
+      { name: 'No Data', performance: 0, status: 'poor', description: 'No branch data available' }
+    ];
+  }
+
+  getForecastMetrics() {
+    // Use real forecast data from API if available
+    if (this.forecastData?.predictions) {
+      return this.forecastData.predictions;
+    }
+
+    // Generate forecast based on current performance trends
+    const summary = this.summary();
+    const branchPerformance = this.branchPerformance();
+
+    if (branchPerformance.length > 0 && summary.averagePerformance > 0) {
+      // Calculate predicted revenue growth based on current performance
+      const avgGrowth = branchPerformance.reduce((sum, branch) => sum + (branch.performance - 50), 0) / branchPerformance.length;
+      const predictedRevenue = Math.max(-20, Math.min(30, avgGrowth * 1.2)); // Scale and cap forecast
+      const revenueConfidence = Math.max(60, Math.min(95, 70 + Math.abs(avgGrowth) * 2)); // Higher confidence for more stable trends
+
+      // Calculate performance outlook
+      const performanceOutlook = Math.max(-10, Math.min(15, (summary.averagePerformance - 60) / 4));
+      const performanceConfidence = Math.max(60, Math.min(90, 65 + summary.averagePerformance / 5));
+
+      return [
+        {
+          title: 'Predicted Revenue Growth',
+          value: predictedRevenue > 0 ? `+${predictedRevenue.toFixed(1)}%` : `${predictedRevenue.toFixed(1)}%`,
+          confidence: `${Math.round(revenueConfidence)}%`,
+          trend: predictedRevenue > 0 ? 'positive' : predictedRevenue < 0 ? 'negative' : 'neutral'
+        },
+        {
+          title: 'Performance Outlook',
+          value: performanceOutlook > 0 ? `+${performanceOutlook.toFixed(1)}%` : `${performanceOutlook.toFixed(1)}%`,
+          confidence: `${Math.round(performanceConfidence)}%`,
+          trend: performanceOutlook > 0 ? 'positive' : performanceOutlook < 0 ? 'negative' : 'neutral'
+        }
+      ];
+    }
+
+    // Fallback when no real data
+    return [
+      { title: 'Predicted Revenue Growth', value: 'N/A', confidence: '0%', trend: 'neutral' },
+      { title: 'Performance Outlook', value: 'N/A', confidence: '0%', trend: 'neutral' }
+    ];
+  }
+
+  getExecutiveInsights() {
+    // Use real executive insights from API if available
+    if (this.executiveData?.insights) {
+      return this.executiveData.insights;
+    }
+
+    // Generate insights from real data
+    const summary = this.summary();
+    const branchPerformance = this.branchPerformance();
+    const insights: string[] = [];
+
+    if (branchPerformance.length > 0) {
+      // Find top performing branch
+      const topBranch = branchPerformance.reduce((prev, current) =>
+        (prev.performance > current.performance) ? prev : current
+      );
+      insights.push(`${topBranch.branchName} leads with ${topBranch.performance.toFixed(1)}% performance score`);
+
+      // Revenue insight
+      if (summary.totalSales > 0) {
+        const avgSalesPerBranch = summary.totalSales / branchPerformance.length;
+        insights.push(`Average revenue per branch: ${this.formatCurrency(avgSalesPerBranch)}`);
+      }
+
+      // Performance trend insight
+      if (summary.averagePerformance >= 75) {
+        insights.push('Network performance showing strong results across regions');
+      } else if (summary.averagePerformance >= 60) {
+        insights.push('Network performance showing moderate growth potential');
+      } else {
+        insights.push('Network performance requires strategic attention');
+      }
+
+      // Find lowest performing branch
+      const worstBranch = branchPerformance.reduce((prev, current) =>
+        (prev.performance < current.performance) ? prev : current
+      );
+      if (worstBranch.performance < 60) {
+        insights.push(`${worstBranch.branchName} requires strategic attention`);
+      }
+
+      // Transfer activity insight
+      if (summary.totalTransfers > 0) {
+        insights.push(`${summary.totalTransfers} active transfers with ${summary.pendingTransfers} pending approvals`);
+      }
     } else {
-      return this.availableBranches().length;
-    }
-  });
-
-  public readonly averageMetrics = computed(() => {
-    const analytics = this._networkAnalytics();
-    const branches = this.totalBranches();
-
-    if (!analytics || branches === 0) return null;
-
-    return {
-      revenuePerBranch: analytics.totalRevenue / branches,
-      transactionsPerBranch: analytics.totalTransactions / branches,
-      avgEfficiency: analytics.operationalEfficiency,
-      avgSatisfaction: analytics.customerSatisfaction
-    };
-  });
-
-  public readonly topPerformingRegions = computed(() => {
-    return this._regionalData()
-      .sort((a, b) => b.performance - a.performance)
-      .slice(0, 3);
-  });
-
-  public readonly keyInsights = computed(() => {
-    const analytics = this._networkAnalytics();
-    const trends = this._trendAnalysis();
-
-    if (!analytics || !trends) return [];
-
-    const insights = [];
-
-    if (analytics.revenueGrowth > 10) {
-      insights.push({
-        type: 'positive',
-        title: 'Strong Revenue Growth',
-        description: `Revenue has grown by ${analytics.revenueGrowth.toFixed(1)}% this period`,
-        impact: 'high'
-      });
-    }
-
-    if (analytics.operationalEfficiency > 85) {
-      insights.push({
-        type: 'positive',
-        title: 'Excellent Operational Efficiency',
-        description: `Network efficiency is at ${analytics.operationalEfficiency.toFixed(1)}%`,
-        impact: 'medium'
-      });
-    }
-
-    if (analytics.customerSatisfaction < 80) {
-      insights.push({
-        type: 'warning',
-        title: 'Customer Satisfaction Needs Attention',
-        description: `Satisfaction score is ${analytics.customerSatisfaction.toFixed(1)}%, below target`,
-        impact: 'high'
-      });
-    }
-
-    if (analytics.inventoryTurnover < 6) {
-      insights.push({
-        type: 'warning',
-        title: 'Low Inventory Turnover',
-        description: `Turnover rate is ${analytics.inventoryTurnover.toFixed(1)}x, consider optimization`,
-        impact: 'medium'
-      });
+      insights.push('No performance data available for analysis');
     }
 
     return insights;
-  });
+  }
 
-  // Auto-refresh and subscriptions
-  private refreshInterval?: Subscription;
-  private subscriptions = new Subscription();
+  getExecutiveRecommendations() {
+    // Use real executive recommendations from API if available
+    if (this.executiveData?.recommendations) {
+      return this.executiveData.recommendations;
+    }
+
+    // Generate recommendations from real data
+    const summary = this.summary();
+    const branchPerformance = this.branchPerformance();
+    const recommendations: string[] = [];
+
+    if (branchPerformance.length > 0) {
+      const topBranch = branchPerformance.reduce((prev, current) =>
+        (prev.performance > current.performance) ? prev : current
+      );
+      const worstBranch = branchPerformance.reduce((prev, current) =>
+        (prev.performance < current.performance) ? prev : current
+      );
+
+      // Best practice sharing
+      if (topBranch.performance > 75) {
+        recommendations.push(`Implement best practices from ${topBranch.branchName} to other branches`);
+      }
+
+      // Underperforming branch attention
+      if (worstBranch.performance < 60) {
+        recommendations.push(`Focus improvement efforts on ${worstBranch.branchName} performance`);
+      }
+
+      // Transfer optimization
+      if (summary.pendingTransfers > summary.totalTransfers * 0.3) {
+        recommendations.push('Optimize transfer approval process to reduce pending requests');
+      } else {
+        recommendations.push('Expand successful transfer optimization strategies');
+      }
+
+      // Growth opportunities
+      if (summary.averagePerformance > 70) {
+        recommendations.push('Consider capacity expansion in top-performing regions');
+      } else {
+        recommendations.push('Focus on operational efficiency improvements before expansion');
+      }
+
+      // Revenue optimization
+      const salesGap = branchPerformance.some(b => b.salesTotal < topBranch.salesTotal * 0.5);
+      if (salesGap) {
+        recommendations.push('Address revenue gaps between high and low performing branches');
+      }
+    } else {
+      recommendations.push('Establish performance monitoring and data collection systems');
+    }
+
+    return recommendations;
+  }
 
   constructor(
     private coordinationService: MultiBranchCoordinationService,
     private branchAnalyticsService: BranchAnalyticsService,
+    private branchService: BranchService,
+    private transferService: InventoryTransferService,
     private stateService: StateService,
-    private router: Router
-  ) {
-    // DISABLED: Auto-refresh effect when period or view changes
-    // effect(() => {
-    //   const period = this._selectedPeriod();
-    //   const view = this._selectedView();
-    //   this.loadAnalyticsData();
-    // });
-  }
-
-  async ngOnInit() {
-    // Then load analytics data
-    await this.loadAnalyticsData();
-    // DISABLED: this.startAutoRefresh();  // Disabled to prevent continuous API calls
-  }
-
-  ngOnDestroy() {
-    this.stopAutoRefresh();
-    this.subscriptions.unsubscribe();
-  }
-
-  // Data loading methods
-  private async loadAnalyticsData() {
-    console.log('🔧 DEBUG: loadAnalyticsData() started - integrating with real backend APIs');
-    this._isLoading.set(true);
-
-    try {
-      console.log('🔧 DEBUG: Loading analytics data from real backend APIs...');
-
-      // Load from real backend API endpoints
-      const period = this._selectedPeriod();
-
-      // Load coordination service data (real API)
-      await this.coordinationService.getCrossBranchAnalytics();
-      await this.branchAnalyticsService.loadAnalyticsOverview();
-
-      // Try to load real API data with fallbacks
-      await this.loadRealApiDataWithFallbacks(period);
-
-      // Load remaining analytics that use processed backend data
-      const results = await Promise.allSettled([
-        this.loadNetworkAnalytics(),  // Uses real data from services
-        this.loadRegionalData(),      // Fallback to mock
-        this.loadCompetitiveAnalysis() // Generated from real data
-      ]);
-
-      results.forEach((result, index) => {
-        const methods = ['loadNetworkAnalytics', 'loadRegionalData', 'loadCompetitiveAnalysis'];
-        if (result.status === 'rejected') {
-          console.error(`🔧 DEBUG: ${methods[index]} failed:`, result.reason);
-        } else {
-          console.log(`🔧 DEBUG: ${methods[index]} succeeded`);
-        }
-      });
-
-      console.log('✅ DEBUG: Real API integration complete');
-
-    } catch (error) {
-      console.error('❌ DEBUG: Error loading multi-branch analytics:', error);
-    } finally {
-      console.log('🔧 DEBUG: loadAnalyticsData() finished, setting loading to false');
-      this._isLoading.set(false);
-    }
-  }
-
-  private async loadRealApiDataWithFallbacks(period: '1M' | '3M' | '6M' | '1Y') {
-    console.log('🔄 Loading real API data from NEW backend endpoints...');
-
-    // Network Analytics API (NEW ENDPOINT)
-    this.coordinationService.getNetworkAnalytics(period, true).subscribe({
-      next: (networkData) => {
-        if (networkData) {
-          console.log('🌐 Real network analytics loaded from NEW backend endpoint:', networkData);
-          this._networkAnalytics.set(this.processNetworkDataFromApi(networkData));
-        } else {
-          console.log('🌐 No network data from NEW API, loading from existing sources');
-          this.loadNetworkAnalytics();
-        }
-      },
-      error: (error) => {
-        console.error('❌ Error loading network analytics from NEW API:', error);
-        console.log('🌐 Falling back to existing network analytics');
-        this.loadNetworkAnalytics();
-      }
-    });
-
-    // Regional Analytics API (NEW ENDPOINT)
-    this.coordinationService.getRegionalAnalytics(this._selectedRegion(), period).subscribe({
-      next: (regionalData) => {
-        if (regionalData && Array.isArray(regionalData) && regionalData.length > 0) {
-          console.log('🗺️ Real regional analytics loaded from NEW backend endpoint:', regionalData);
-          this._regionalData.set(this.processRegionalDataFromApi(regionalData));
-        } else {
-          console.log('🗺️ No regional data from NEW API, generating mock data');
-          this.loadRegionalData();
-        }
-      },
-      error: (error) => {
-        console.error('❌ Error loading regional analytics from NEW API:', error);
-        console.log('🗺️ Falling back to mock regional data');
-        this.loadRegionalData();
-      }
-    });
-
-    // Performance Trends API (EXISTING)
-    this.coordinationService.getPerformanceTrends(period).subscribe({
-      next: (trendsData) => {
-        if (trendsData) {
-          console.log('📈 Real trends data loaded from backend:', trendsData);
-          this._trendAnalysis.set(this.processTrendDataFromApi(trendsData));
-        } else {
-          console.log('📈 No trends data from API, generating mock data');
-          this.loadTrendAnalysis();
-        }
-      },
-      error: (error) => {
-        console.error('❌ Error loading trends from API:', error);
-        console.log('📈 Falling back to mock trend data');
-        this.loadTrendAnalysis();
-      }
-    });
-
-    // Enhanced Forecast Data API (NEW ENDPOINT)
-    this.coordinationService.getEnhancedForecast(90, undefined, true, true).subscribe({
-      next: (enhancedForecastData) => {
-        if (enhancedForecastData && Array.isArray(enhancedForecastData) && enhancedForecastData.length > 0) {
-          console.log('🔮 Real enhanced forecast data loaded from NEW backend endpoint:', enhancedForecastData);
-          this._forecastData.set(enhancedForecastData);
-        } else {
-          // Fallback to regular forecast API
-          this.coordinationService.getForecastData(90).subscribe({
-            next: (forecastData) => {
-              if (forecastData && Array.isArray(forecastData) && forecastData.length > 0) {
-                console.log('🔮 Real forecast data loaded from existing backend:', forecastData);
-                this._forecastData.set(forecastData);
-              } else {
-                console.log('🔮 No forecast data from API, generating mock data');
-                this.loadForecastData();
-              }
-            },
-            error: () => this.loadForecastData()
-          });
-        }
-      },
-      error: (error) => {
-        console.error('❌ Error loading enhanced forecast from NEW API:', error);
-        console.log('🔮 Falling back to regular forecast API');
-        // Fallback to existing forecast API
-        this.coordinationService.getForecastData(90).subscribe({
-          next: (forecastData) => {
-            if (forecastData && Array.isArray(forecastData) && forecastData.length > 0) {
-              this._forecastData.set(forecastData);
-            } else {
-              this.loadForecastData();
-            }
-          },
-          error: () => this.loadForecastData()
-        });
-      }
-    });
-
-    // Executive Summary API (EXISTING)
-    this.coordinationService.getExecutiveSummary(period).subscribe({
-      next: (executiveData) => {
-        if (executiveData) {
-          console.log('📊 Real executive summary loaded from backend:', executiveData);
-          this._executiveSummary.set(executiveData);
-        } else {
-          console.log('📊 No executive summary from API, generating from real branch data');
-          this.loadExecutiveSummary();
-        }
-      },
-      error: (error) => {
-        console.error('❌ Error loading executive summary from API:', error);
-        console.log('📊 Falling back to generated executive summary');
-        this.loadExecutiveSummary();
-      }
-    });
-  }
-
-  private processTrendDataFromApi(apiData: any): TrendAnalysis {
-    console.log('🔧 Processing trend data from API:', apiData);
-
-    try {
-      // Map API response to TrendAnalysis interface
-      return {
-        period: apiData.period || this._selectedPeriod(),
-        labels: apiData.labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-        revenue: apiData.revenue || [100000, 110000, 120000, 115000, 125000, 130000],
-        transactions: apiData.transactions || [1200, 1300, 1400, 1350, 1450, 1500],
-        customers: apiData.customers || [850, 920, 980, 945, 1020, 1080],
-        efficiency: apiData.efficiency || [75, 78, 80, 82, 85, 87],
-        satisfaction: apiData.satisfaction || [80, 82, 85, 83, 87, 90]
-      };
-    } catch (error) {
-      console.error('❌ Error processing trend data from API:', error);
-      // Return fallback mock data
-      return {
-        period: this._selectedPeriod(),
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-        revenue: [100000, 110000, 120000, 115000, 125000, 130000],
-        transactions: [1200, 1300, 1400, 1350, 1450, 1500],
-        customers: [850, 920, 980, 945, 1020, 1080],
-        efficiency: [75, 78, 80, 82, 85, 87],
-        satisfaction: [80, 82, 85, 83, 87, 90]
-      };
-    }
-  }
-
-  private processNetworkDataFromApi(apiData: any): NetworkAnalytics {
-    console.log('🔧 Processing network analytics data from NEW API:', apiData);
-
-    try {
-      // Map enhanced network analytics API response to NetworkAnalytics interface
-      const networkOverview = apiData.networkOverview || {};
-      const systemMetrics = apiData.systemWideMetrics || {};
-      const healthStatus = apiData.networkHealthStatus || {};
-
-      return {
-        totalRevenue: systemMetrics.totalRevenue || 0,
-        totalTransactions: systemMetrics.totalTransactions || 0,
-        operationalEfficiency: systemMetrics.operationalEfficiency || 75,
-        customerSatisfaction: systemMetrics.customerSatisfaction || 80,
-        inventoryTurnover: systemMetrics.inventoryTurnover || 5.5,
-        revenueGrowth: systemMetrics.revenueGrowth || 5.2,
-        transactionGrowth: systemMetrics.transactionGrowth || 3.8,
-        efficiencyGrowth: systemMetrics.efficiencyGrowth || 2.1,
-        satisfactionGrowth: systemMetrics.satisfactionGrowth || 1.5,
-        turnoverGrowth: systemMetrics.turnoverGrowth || 1.2,
-        avgOrderValue: (systemMetrics.totalRevenue || 0) / Math.max(1, systemMetrics.totalTransactions || 1),
-        orderValueGrowth: systemMetrics.orderValueGrowth || 1.8
-      };
-    } catch (error) {
-      console.error('❌ Error processing network data from NEW API:', error);
-      // Return fallback - will trigger existing loadNetworkAnalytics
-      throw error;
-    }
-  }
-
-  private processRegionalDataFromApi(apiData: any[]): RegionalComparison[] {
-    console.log('🔧 Processing regional analytics data from NEW API:', apiData);
-
-    try {
-      return apiData.map((regionData, index) => {
-        const performanceMetrics = regionData.performanceMetrics || {};
-        const geographicAnalysis = regionData.geographicAnalysis || {};
-        const marketShare = regionData.marketShareAnalysis || {};
-
-        return {
-          region: regionData.regionName || `Region ${index + 1}`,
-          branches: performanceMetrics.branchCount || 0,
-          revenue: performanceMetrics.totalRevenue || 0,
-          revenuePerBranch: (performanceMetrics.totalRevenue || 0) / Math.max(1, performanceMetrics.branchCount || 1),
-          growth: performanceMetrics.revenueGrowth || 0,
-          marketShare: marketShare.currentMarketShare || 20,
-          performance: performanceMetrics.overallScore || 75,
-          topBranch: geographicAnalysis.cityBreakdown?.[0]?.cityName || 'Unknown Branch',
-          challenges: geographicAnalysis.expansionOpportunities?.slice(0, 3) || ['Market penetration', 'Competition analysis', 'Operational efficiency']
-        };
-      });
-    } catch (error) {
-      console.error('❌ Error processing regional data from NEW API:', error);
-      // Return empty array - will trigger existing loadRegionalData
-      return [];
-    }
-  }
-
-  private async loadNetworkAnalytics() {
-    console.log('🔧 DEBUG: loadNetworkAnalytics() started');
-    try {
-      // First, ensure BranchAnalyticsService has loaded its data
-      console.log('🔧 DEBUG: Ensuring BranchAnalyticsService data is loaded...');
-      await this.branchAnalyticsService.loadAnalyticsOverview();
-      await this.branchAnalyticsService.loadBranchPerformances();
-
-      // Get cross-branch analytics data
-      console.log('🔧 DEBUG: Calling coordinationService.getCrossBranchAnalytics()...');
-      let crossBranchAnalytics: any = null;
-      try {
-        crossBranchAnalytics = await this.coordinationService.getCrossBranchAnalytics();
-        console.log('🔧 DEBUG: crossBranchAnalytics result:', crossBranchAnalytics);
-      } catch (error) {
-        console.log('🔧 DEBUG: getCrossBranchAnalytics failed, continuing without it:', error);
-      }
-
-      console.log('🔧 DEBUG: Getting branchPerformances from BranchAnalyticsService...');
-      // @ts-ignore - Suppress TypeScript errors for this component temporarily
-      const branchPerformances: any[] = this.branchAnalyticsService.branchPerformances();
-      console.log('🔧 DEBUG: branchPerformances result:', branchPerformances);
-
-      console.log('🔧 DEBUG: Also checking coordinationService for comparison...');
-      const coordBranchPerformances = this.coordinationService.branchPerformances();
-      console.log('🔧 DEBUG: coordinationService branchPerformances (for comparison):', coordBranchPerformances);
-
-      // If no branch performances from analytics service, try coordination service
-      let finalBranchPerformances = branchPerformances;
-      if (branchPerformances.length === 0 && coordBranchPerformances.length > 0) {
-        console.log('🔧 DEBUG: Using coordination service branch performances');
-        finalBranchPerformances = coordBranchPerformances;
-      }
-
-      // If still no data, generate mock data to ensure UI works
-      if (finalBranchPerformances.length === 0) {
-        console.log('🔧 DEBUG: No branch data available, generating mock data');
-        finalBranchPerformances = this.generateMockBranchData();
-      }
-
-      if (finalBranchPerformances.length > 0) {
-        console.log('🔧 DEBUG: Processing branch data:', finalBranchPerformances);
-
-        // Calculate network-wide metrics from real branch data
-        // Handle both BranchAnalyticsService format and coordination service format
-        const totalRevenue = finalBranchPerformances.reduce((sum, branch) => {
-          const revenue = branch.revenue || branch.totalRevenue || 0;
-          return sum + revenue;
-        }, 0);
-
-        const totalTransactions = finalBranchPerformances.reduce((sum, branch) => {
-          const transactions = branch.transactions || branch.totalTransactions || 1000;
-          return sum + transactions;
-        }, 0);
-
-        const avgInventoryTurnover = finalBranchPerformances.reduce((sum, branch) => {
-          const turnover = branch.stockTurnover || branch.inventoryTurnoverRate || 6.5;
-          return sum + turnover;
-        }, 0) / finalBranchPerformances.length;
-
-        // Calculate efficiency based on performance scores
-        const avgEfficiency = finalBranchPerformances.reduce((sum, branch) => {
-          // Handle multiple possible score fields from different APIs
-          const baseEfficiency = (branch as any)['performanceScore'] ||
-                               (branch as any)['score'] ||
-                               (branch as any)['overallScore'] ||
-                               (branch as any)['efficiencyScore'] || 75;
-          const wasteImpact = Math.max(0, (10 - (branch.wastePercentage || branch.wastagePercentage || 1.5)) * 2);
-          const turnoverBonus = Math.min(15, (branch.stockTurnover || branch.inventoryTurnoverRate || 6.5) * 2);
-          return sum + Math.min(100, baseEfficiency + wasteImpact + turnoverBonus);
-        }, 0) / finalBranchPerformances.length;
-
-        // Calculate average customer satisfaction from performance metrics
-        const avgSatisfaction = finalBranchPerformances.reduce((sum, branch) => {
-          // Handle different satisfaction metrics
-          let baseSatisfaction = branch.customerSatisfaction || (branch as any)['complianceScore'] || 75;
-
-          // Convert 0-100 scale to 0-5 if necessary
-          if (baseSatisfaction > 5) {
-            baseSatisfaction = baseSatisfaction / 20; // Convert 0-100 to 0-5
-          }
-
-          // Convert back to percentage for calculations
-          const baseScore = baseSatisfaction * 20;
-          const revenueBonus = Math.min(10, ((branch.revenue || branch.totalRevenue || 0) / 50000000) * 5);
-          const wasteImpact = (branch.wastePercentage || branch.wastagePercentage || 1.5) * 2;
-          return sum + Math.max(0, Math.min(100, baseScore + revenueBonus - wasteImpact));
-        }, 0) / finalBranchPerformances.length;
-
-        // Calculate growth rates from historical data if available
-        const avgPerformanceScore = finalBranchPerformances.reduce((sum, b) => {
-          const score = (b as any)['performanceScore'] ||
-                       (b as any)['score'] ||
-                       (b as any)['overallScore'] ||
-                       (b as any)['efficiencyScore'] || 75;
-          return sum + score;
-        }, 0) / finalBranchPerformances.length;
-        const revenueGrowth = Math.max(-10, Math.min(20, (avgPerformanceScore - 75) * 0.4)); // Growth correlates with performance
-        const transactionGrowth = revenueGrowth * 0.6; // Transaction growth typically lower than revenue
-        const orderValueGrowth = revenueGrowth - transactionGrowth; // Order value fills the gap
-        const satisfactionGrowth = Math.max(-5, Math.min(10, (avgSatisfaction - 80) * 0.2)); // Satisfaction growth based on current level
-        const efficiencyGrowth = Math.max(-5, Math.min(8, (avgEfficiency - 85) * 0.15)); // Efficiency growth
-        const turnoverGrowth = Math.max(-5, Math.min(5, (avgInventoryTurnover - 8) * 0.3)); // Turnover growth
-
-        console.log('🔧 DEBUG: Calculating network metrics...', {
-          totalRevenue,
-          totalTransactions,
-          avgInventoryTurnover,
-          avgEfficiency,
-          avgSatisfaction,
-          revenueGrowth,
-          transactionGrowth
-        });
-
-        const networkAnalytics: NetworkAnalytics = {
-          totalRevenue: totalRevenue,
-          revenueGrowth: parseFloat(revenueGrowth.toFixed(1)),
-          totalTransactions: totalTransactions,
-          transactionGrowth: parseFloat(transactionGrowth.toFixed(1)),
-          avgOrderValue: totalRevenue / Math.max(1, totalTransactions),
-          orderValueGrowth: parseFloat(orderValueGrowth.toFixed(1)),
-          customerSatisfaction: parseFloat(avgSatisfaction.toFixed(1)),
-          satisfactionGrowth: parseFloat(satisfactionGrowth.toFixed(1)),
-          operationalEfficiency: parseFloat(avgEfficiency.toFixed(1)),
-          efficiencyGrowth: parseFloat(efficiencyGrowth.toFixed(1)),
-          inventoryTurnover: parseFloat(avgInventoryTurnover.toFixed(1)),
-          turnoverGrowth: parseFloat(turnoverGrowth.toFixed(1))
-        };
-        
-        console.log('🔧 DEBUG: Final networkAnalytics object:', networkAnalytics);
-        
-        this._networkAnalytics.set(networkAnalytics);
-        console.log('🔧 DEBUG: networkAnalytics signal set successfully');
-      } else {
-        console.log('🔧 DEBUG: No branch performances data, skipping networkAnalytics calculation');
-      }
-    } catch (error) {
-      console.error('🔧 DEBUG: Error loading network analytics:', error);
-      // Fallback to empty analytics
-      this._networkAnalytics.set({
-        totalRevenue: 0, revenueGrowth: 0, totalTransactions: 0, transactionGrowth: 0,
-        avgOrderValue: 0, orderValueGrowth: 0, customerSatisfaction: 0, satisfactionGrowth: 0,
-        operationalEfficiency: 0, efficiencyGrowth: 0, inventoryTurnover: 0, turnoverGrowth: 0
-      });
-      console.log('🔧 DEBUG: Fallback empty analytics set');
-    }
-    console.log('🔧 DEBUG: loadNetworkAnalytics() finished');
-  }
-
-  private async loadTrendAnalysis() {
-    try {
-      console.log('🔧 DEBUG: loadTrendAnalysis() started');
-      const period = this._selectedPeriod();
-      
-      // Use coordinationService to get real trends data
-      this.coordinationService.getPerformanceTrends(period).subscribe({
-        next: (trendsData) => {
-          console.log('🔧 DEBUG: Real trends data received:', trendsData);
-          
-          if (trendsData) {
-            const trendAnalysis: TrendAnalysis = {
-              period: trendsData.period || period,
-              revenue: trendsData.revenue || [],
-              transactions: trendsData.transactions || [],
-              customers: trendsData.customers || [],
-              efficiency: trendsData.efficiency || [],
-              satisfaction: trendsData.satisfaction || [],
-              labels: trendsData.labels || []
-            };
-            
-            this._trendAnalysis.set(trendAnalysis);
-            console.log('✅ DEBUG: Trend analysis set from real API');
-          } else {
-            console.log('⚠️ DEBUG: No trends data, using fallback');
-            this.setFallbackTrendAnalysis(period);
-          }
-        },
-        error: (error) => {
-          console.error('❌ DEBUG: Error loading trends from API:', error);
-          this.setFallbackTrendAnalysis(period);
-        }
-      });
-    } catch (error) {
-      console.error('❌ DEBUG: Exception in loadTrendAnalysis:', error);
-      this.setFallbackTrendAnalysis(this._selectedPeriod());
-    }
-  }
-
-  private setFallbackTrendAnalysis(period: '1M' | '3M' | '6M' | '1Y') {
-    console.log('🔧 DEBUG: Setting fallback trend analysis for period:', period);
-    const dataPoints = period === '1M' ? 30 : period === '3M' ? 12 : period === '6M' ? 24 : 12;
-    
-    const fallbackTrends: TrendAnalysis = {
-      period: period,
-      revenue: Array.from({ length: dataPoints }, (_, i) => 800000000 + (Math.sin(i * 0.5) + 1) * 200000000 + i * 50000000),
-      transactions: Array.from({ length: dataPoints }, (_, i) => 3000 + Math.floor(Math.random() * 1000) + i * 50),
-      customers: Array.from({ length: dataPoints }, (_, i) => 15000 + Math.floor(Math.random() * 2000) + i * 100),
-      efficiency: Array.from({ length: dataPoints }, (_, i) => 75 + Math.random() * 15 + Math.sin(i * 0.3) * 5),
-      satisfaction: Array.from({ length: dataPoints }, (_, i) => 80 + Math.random() * 10 + Math.sin(i * 0.4) * 3),
-      labels: Array.from({ length: dataPoints }, (_, i) => {
-        const date = new Date();
-        date.setMonth(date.getMonth() - (dataPoints - i));
-        return date.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
-      })
-    };
-    
-    this._trendAnalysis.set(fallbackTrends);
-  }
-
-  private async loadRegionalData() {
-    try {
-      // Get branch performances from coordination service or generate mock
-      let branchPerformances = this.coordinationService.branchPerformances();
-      if (branchPerformances.length === 0) {
-        branchPerformances = this.generateMockBranchData();
-      }
-
-      const branches = this.availableBranches();
-
-      if (branchPerformances.length > 0) {
-        // Group branches by region (city or province)
-        const regionGroups = new Map<string, { 
-          branches: BranchPerformance[], 
-          branchDetails: Branch[] 
-        }>();
-        
-        branchPerformances.forEach(perf => {
-          // If branches data is available, use it; otherwise use branch name
-          const branch = branches.length > 0 ? branches.find(b => b.id === perf.branchId) : null;
-          const region = branch?.city || (branch ? branch.branchName.split(' ')[0] : perf.branchName.split(' ')[0]);
-
-          if (!regionGroups.has(region)) {
-            regionGroups.set(region, { branches: [], branchDetails: [] });
-          }
-
-          regionGroups.get(region)!.branches.push(perf);
-          if (branch) {
-            regionGroups.get(region)!.branchDetails.push(branch);
-          }
-        });
-        
-        // Convert to RegionalComparison format
-        const regionalData: RegionalComparison[] = Array.from(regionGroups.entries()).map(([region, data]) => {
-          const totalRevenue = data.branches.reduce((sum, b) => sum + (b.revenue || 0), 0);
-          const avgPerformance = data.branches.reduce((sum, b) => sum + ((b as any).score || (b as any).performanceScore || 75), 0) / data.branches.length;
-          const topBranch = data.branches.reduce((top, current) =>
-            (current.revenue || 0) > (top.revenue || 0) ? current : top
-          );
-          const topBranchName = data.branchDetails.find(b => b.id === topBranch.branchId)?.branchName || topBranch.branchName || 'Unknown';
-          
-          return {
-            region: region,
-            branches: data.branches.length,
-            revenue: totalRevenue,
-            revenuePerBranch: totalRevenue / data.branches.length,
-            growth: data.branches.reduce((sum, b) => sum + (b.trends?.revenueGrowth || 5.0), 0) / data.branches.length,
-            marketShare: (totalRevenue / branchPerformances.reduce((sum, b) => sum + (b.revenue || 0), 0)) * 100,
-            performance: avgPerformance,
-            topBranch: topBranchName,
-            challenges: this.getRegionalChallenges(region, data.branches)
-          };
-        }).sort((a, b) => b.revenue - a.revenue);
-
-        this._regionalData.set(regionalData);
-      } else {
-        // Generate fallback regional data if no branch data
-        this._regionalData.set(this.generateFallbackRegionalData());
-      }
-    } catch (error) {
-      console.error('Error loading regional data:', error);
-      this._regionalData.set(this.generateFallbackRegionalData());
-    }
-  }
-
-  private generateFallbackRegionalData(): RegionalComparison[] {
-    return [
-      {
-        region: 'Jakarta',
-        branches: 1,
-        revenue: 1450000000,
-        revenuePerBranch: 1450000000,
-        growth: 8.7,
-        marketShare: 34.1,
-        performance: 88,
-        topBranch: 'Cabang Utama Jakarta',
-        challenges: ['High operational costs', 'Traffic congestion']
-      },
-      {
-        region: 'Tangerang',
-        branches: 1,
-        revenue: 1250000000,
-        revenuePerBranch: 1250000000,
-        growth: 12.3,
-        marketShare: 29.4,
-        performance: 92,
-        topBranch: 'Cabang Tangerang Selatan',
-        challenges: ['Market competition', 'Expansion opportunities']
-      },
-      {
-        region: 'Bekasi',
-        branches: 1,
-        revenue: 1100000000,
-        revenuePerBranch: 1100000000,
-        growth: 5.4,
-        marketShare: 25.9,
-        performance: 79,
-        topBranch: 'Cabang Bekasi Timur',
-        challenges: ['Improve efficiency', 'Reduce waste']
-      },
-      {
-        region: 'Depok',
-        branches: 1,
-        revenue: 850000000,
-        revenuePerBranch: 850000000,
-        growth: -2.1,
-        marketShare: 20.0,
-        performance: 68,
-        topBranch: 'Cabang Depok Margonda',
-        challenges: ['Low performance', 'Staff training needed']
-      }
-    ];
-  }
-
-  private getRegionalChallenges(region: string, branches: any[]): string[] {
-    const challenges: string[] = [];
-
-    // Analyze branch performance to identify challenges
-    const avgWaste = branches.reduce((sum, b) => sum + (b.wastePercentage || 1.5), 0) / branches.length;
-    const avgStockouts = 0; // stockoutEvents not available in interface, using 0
-    const avgEfficiency = branches.reduce((sum, b) => sum + ((b as any).score || (b as any).performanceScore || 75), 0) / branches.length;
-    
-    if (avgWaste > 5) challenges.push('High waste percentage');
-    if (avgStockouts > 10) challenges.push('Frequent stockouts');
-    if (avgEfficiency < 80) challenges.push('Operational efficiency concerns');
-    
-    // Add region-specific challenges
-    if (region.toLowerCase().includes('jakarta')) {
-      challenges.push('High operational costs', 'Market saturation');
-    } else if (region.toLowerCase().includes('bandung')) {
-      challenges.push('Supply chain logistics', 'Competition');
-    }
-    
-    return challenges;
-  }
-
-  private async loadForecastData() {
-    try {
-      console.log('🔧 DEBUG: loadForecastData() started');
-      
-      // Use coordinationService to get real forecast data
-      this.coordinationService.getForecastData(90).subscribe({
-        next: (forecastData) => {
-          console.log('🔧 DEBUG: Real forecast data received:', forecastData);
-          
-          if (forecastData && Array.isArray(forecastData) && forecastData.length > 0) {
-            // Transform API response to component interface
-            const transformedForecast: ForecastData[] = forecastData.map((item: any) => ({
-              metric: item.metric || 'Unknown',
-              currentValue: item.currentValue || 0,
-              forecast: {
-                nextMonth: item.forecast?.nextMonth || 0,
-                nextQuarter: item.forecast?.nextQuarter || 0,
-                nextYear: item.forecast?.nextYear || 0
-              },
-              confidence: item.confidence || 80,
-              trend: item.trend || 'stable',
-              factors: item.factors || []
-            }));
-            
-            this._forecastData.set(transformedForecast);
-            console.log('✅ DEBUG: Forecast data set from real API');
-          } else {
-            console.log('⚠️ DEBUG: No forecast data, using fallback');
-            this.setFallbackForecastData();
-          }
-        },
-        error: (error) => {
-          console.error('❌ DEBUG: Error loading forecast from API:', error);
-          this.setFallbackForecastData();
-        }
-      });
-    } catch (error) {
-      console.error('❌ DEBUG: Exception in loadForecastData:', error);
-      this.setFallbackForecastData();
-    }
-  }
-
-  private setFallbackForecastData() {
-    console.log('🔧 DEBUG: Setting fallback forecast data based on current network analytics');
-
-    // Get current network analytics to base forecasts on real data
-    const networkAnalytics = this._networkAnalytics();
-    let branchPerformances = this.coordinationService.branchPerformances();
-
-    // If no branch performances, use mock data
-    if (branchPerformances.length === 0) {
-      branchPerformances = this.generateMockBranchData();
-    }
-
-    if (!networkAnalytics) {
-      console.log('⚠️ DEBUG: No network analytics available, using basic forecast');
-      this._forecastData.set(this.getBasicForecastData());
-      return;
-    }
-
-    // Calculate forecast based on current performance and trends
-    // branchPerformances from coordinationService has score property
-    const avgPerformance = branchPerformances.reduce((sum, b) => sum + ((b as any).score || 75), 0) / branchPerformances.length;
-    const revenueGrowthFactor = 1 + (networkAnalytics.revenueGrowth / 100);
-    const efficiencyGrowthFactor = 1 + (networkAnalytics.efficiencyGrowth / 100);
-    
-    const fallbackForecast: ForecastData[] = [
-      {
-        metric: 'Revenue',
-        currentValue: networkAnalytics.totalRevenue,
-        forecast: {
-          nextMonth: Math.round(networkAnalytics.totalRevenue * revenueGrowthFactor * 1.05),
-          nextQuarter: Math.round(networkAnalytics.totalRevenue * revenueGrowthFactor * 1.15),
-          nextYear: Math.round(networkAnalytics.totalRevenue * revenueGrowthFactor * 1.35)
-        },
-        confidence: Math.min(95, Math.max(60, 70 + (avgPerformance - 75) * 0.5)),
-        trend: networkAnalytics.revenueGrowth > 0 ? 'increasing' : networkAnalytics.revenueGrowth < 0 ? 'decreasing' : 'stable',
-        factors: ['Market expansion', 'Performance optimization', 'Branch coordination improvements']
-      },
-      {
-        metric: 'Customer Satisfaction',
-        currentValue: networkAnalytics.customerSatisfaction,
-        forecast: {
-          nextMonth: Math.min(100, networkAnalytics.customerSatisfaction * 1.01),
-          nextQuarter: Math.min(100, networkAnalytics.customerSatisfaction * 1.03),
-          nextYear: Math.min(100, networkAnalytics.customerSatisfaction * 1.06)
-        },
-        confidence: Math.min(90, Math.max(65, 75 + (networkAnalytics.customerSatisfaction - 80) * 0.3)),
-        trend: networkAnalytics.satisfactionGrowth > 0 ? 'increasing' : networkAnalytics.satisfactionGrowth < 0 ? 'decreasing' : 'stable',
-        factors: ['Service improvements', 'Staff training', 'Customer experience optimization']
-      },
-      {
-        metric: 'Operational Efficiency',
-        currentValue: networkAnalytics.operationalEfficiency,
-        forecast: {
-          nextMonth: Math.min(100, networkAnalytics.operationalEfficiency * efficiencyGrowthFactor * 1.01),
-          nextQuarter: Math.min(100, networkAnalytics.operationalEfficiency * efficiencyGrowthFactor * 1.02),
-          nextYear: Math.min(100, networkAnalytics.operationalEfficiency * efficiencyGrowthFactor * 1.05)
-        },
-        confidence: Math.min(85, Math.max(70, 75 + (networkAnalytics.operationalEfficiency - 80) * 0.25)),
-        trend: networkAnalytics.efficiencyGrowth > 0 ? 'increasing' : networkAnalytics.efficiencyGrowth < 0 ? 'decreasing' : 'stable',
-        factors: ['Process optimization', 'Technology improvements', 'Cross-branch coordination']
-      }
-    ];
-    
-    this._forecastData.set(fallbackForecast);
-  }
-
-  private async loadExecutiveSummary() {
-    try {
-      console.log('🔧 DEBUG: loadExecutiveSummary() started');
-      const period = this._selectedPeriod();
-      
-      // Use coordinationService to get real executive summary data
-      this.coordinationService.getExecutiveSummary(period).subscribe({
-        next: (summaryData) => {
-          console.log('🔧 DEBUG: Real executive summary data received:', summaryData);
-          
-          if (summaryData) {
-            const executiveSummary: ExecutiveSummary = {
-              period: summaryData.period || `Last ${this.getPeriodText(period)}`,
-              keyMetrics: {
-                totalRevenue: summaryData.keyMetrics?.totalRevenue || 0,
-                revenueGrowth: summaryData.keyMetrics?.revenueGrowth || 0,
-                networkEfficiency: summaryData.keyMetrics?.networkEfficiency || 0,
-                customerSatisfaction: summaryData.keyMetrics?.customerSatisfaction || 0
-              },
-              achievements: summaryData.achievements || [],
-              challenges: summaryData.challenges || [],
-              recommendations: summaryData.recommendations || [],
-              nextActions: summaryData.nextActions || []
-            };
-            
-            this._executiveSummary.set(executiveSummary);
-            console.log('✅ DEBUG: Executive summary set from real API');
-          } else {
-            console.log('⚠️ DEBUG: No executive summary data, generating from current data');
-            this.generateFallbackExecutiveSummary();
-          }
-        },
-        error: (error) => {
-          console.error('❌ DEBUG: Error loading executive summary from API:', error);
-          this.generateFallbackExecutiveSummary();
-        }
-      });
-    } catch (error) {
-      console.error('❌ DEBUG: Exception in loadExecutiveSummary:', error);
-      this.generateFallbackExecutiveSummary();
-    }
-  }
-
-  private generateFallbackExecutiveSummary() {
-    try {
-      const period = this._selectedPeriod();
-      const periodText = this.getPeriodText(period);
-      const networkAnalytics = this._networkAnalytics();
-      let branchPerformances = this.coordinationService.branchPerformances();
-      if (branchPerformances.length === 0) {
-        branchPerformances = this.generateMockBranchData();
-      }
-      const regionalData = this._regionalData();
-      
-      if (networkAnalytics && branchPerformances.length > 0) {
-        // Generate achievements based on real data
-        const achievements: string[] = [];
-        if (networkAnalytics.revenueGrowth > 10) {
-          achievements.push(`Achieved ${networkAnalytics.revenueGrowth.toFixed(1)}% revenue growth`);
-        }
-        if (networkAnalytics.operationalEfficiency > 80) {
-          achievements.push(`Maintained high operational efficiency at ${networkAnalytics.operationalEfficiency.toFixed(1)}%`);
-        }
-        if (networkAnalytics.customerSatisfaction > 85) {
-          achievements.push(`Customer satisfaction reached ${networkAnalytics.customerSatisfaction.toFixed(1)}%`);
-        }
-        achievements.push(`Operating ${branchPerformances.length} branches across ${regionalData.length} regions`);
-
-        // Generate challenges based on real data
-        const challenges: string[] = [];
-        const highWasteBranches = branchPerformances.filter(b => (b.wastePercentage || 1.5) > 5).length;
-        // branchPerformances may have score or performanceScore property
-        const lowEfficiencyBranches = branchPerformances.filter(b => ((b as any).score || (b as any).performanceScore || 75) < 80).length;
-        const highStockoutBranches = 0; // stockoutEvents not available, using 0
-        
-        if (highWasteBranches > 0) {
-          challenges.push(`${highWasteBranches} branches have high waste percentages (>5%)`);
-        }
-        if (lowEfficiencyBranches > 0) {
-          challenges.push(`${lowEfficiencyBranches} branches below efficiency targets (<80%)`);
-        }
-        if (highStockoutBranches > 0) {
-          challenges.push(`${highStockoutBranches} branches experiencing frequent stockouts`);
-        }
-
-        // Generate recommendations
-        const recommendations: string[] = [];
-        if (highWasteBranches > 0) {
-          recommendations.push('Implement waste reduction programs in underperforming branches');
-        }
-        if (lowEfficiencyBranches > 0) {
-          recommendations.push('Focus on operational efficiency improvements and staff training');
-        }
-        if (networkAnalytics.inventoryTurnover < 6) {
-          recommendations.push('Optimize inventory management and turnover rates');
-        }
-        recommendations.push('Continue digital transformation initiatives across all branches');
-
-        const executiveSummary: ExecutiveSummary = {
-          period: `Last ${periodText}`,
-          keyMetrics: {
-            totalRevenue: networkAnalytics.totalRevenue,
-            revenueGrowth: networkAnalytics.revenueGrowth,
-            networkEfficiency: networkAnalytics.operationalEfficiency,
-            customerSatisfaction: networkAnalytics.customerSatisfaction
-          },
-          achievements: achievements,
-          challenges: challenges,
-          recommendations: recommendations,
-          nextActions: [
-            'Review and optimize underperforming branches',
-            'Implement cross-branch best practices sharing',
-            'Enhance supply chain coordination',
-            'Focus on customer experience improvements'
-          ]
-        };
-        
-        this._executiveSummary.set(executiveSummary);
-        console.log('✅ DEBUG: Fallback executive summary generated');
-      } else {
-        console.log('⚠️ DEBUG: Not enough data for executive summary');
-        this._executiveSummary.set(null);
-      }
-    } catch (error) {
-      console.error('❌ DEBUG: Error generating fallback executive summary:', error);
-      this._executiveSummary.set(null);
-    }
-  }
-
-  private getPeriodText(period: '1M' | '3M' | '6M' | '1Y'): string {
-    switch (period) {
-      case '1M': return 'Month';
-      case '3M': return 'Quarter';
-      case '6M': return 'Half-Year';
-      case '1Y': return 'Year';
-      default: return 'Quarter';
-    }
-  }
-
-  private async loadCompetitiveAnalysis() {
-    try {
-      console.log('🔧 DEBUG: loadCompetitiveAnalysis() started - generating from real branch data');
-
-      let branchPerformances = this.coordinationService.branchPerformances();
-      if (branchPerformances.length === 0) {
-        branchPerformances = this.generateMockBranchData();
-      }
-      const networkAnalytics = this._networkAnalytics();
-      
-      if (branchPerformances.length > 0 && networkAnalytics) {
-        // Generate competitive analysis based on real branch performance
-        // branchPerformances may have score or performanceScore property
-        const avgPerformance = branchPerformances.reduce((sum, b) => sum + ((b as any).score || (b as any).performanceScore || 75), 0) / branchPerformances.length;
-        
-        // Calculate market position based on performance (1-5, lower is better)
-        const marketPosition = avgPerformance >= 90 ? 1 : avgPerformance >= 80 ? 2 : avgPerformance >= 70 ? 3 : avgPerformance >= 60 ? 4 : 5;
-        
-        // Calculate market share based on network performance
-        const marketShare = Math.max(15, Math.min(40, 20 + (avgPerformance - 70) * 0.5));
-        
-        const competitiveAnalysis: CompetitiveAnalysis = {
-          marketPosition,
-          marketShare: parseFloat(marketShare.toFixed(1)),
-          competitorComparison: [
-            {
-              name: 'Market Leader',
-              marketShare: parseFloat(Math.max(marketShare + 5, marketShare * 1.2).toFixed(1)),
-              strength: 'Strong digital presence and brand recognition',
-              weakness: 'Higher operational costs'
-            },
-            {
-              name: 'Our Network',
-              marketShare: parseFloat(marketShare.toFixed(1)),
-              strength: 'Superior branch coordination and efficiency',
-              weakness: 'Expanding market presence'
-            },
-            {
-              name: 'Competitor B',
-              marketShare: parseFloat(Math.max(15, marketShare * 0.8).toFixed(1)),
-              strength: 'Wide geographical coverage',
-              weakness: 'Lower service quality scores'
-            }
-          ],
-          opportunities: this.generateOpportunities(branchPerformances, avgPerformance),
-          threats: this.generateThreats(avgPerformance)
-        };
-        
-        console.log('✅ DEBUG: Competitive analysis generated from real data:', competitiveAnalysis);
-        this._competitiveAnalysis.set(competitiveAnalysis);
-      } else {
-        console.log('⚠️ DEBUG: No branch data available, using basic competitive analysis');
-        this.setFallbackCompetitiveAnalysis();
-      }
-    } catch (error) {
-      console.error('❌ DEBUG: Error generating competitive analysis:', error);
-      this.setFallbackCompetitiveAnalysis();
-    }
-  }
-
-  private generateOpportunities(branches: any[], avgPerformance: number): string[] {
-    const opportunities = [];
-    
-    if (avgPerformance > 85) {
-      opportunities.push('Leverage high performance to expand market reach');
-      opportunities.push('Premium positioning based on superior service quality');
-    } else if (avgPerformance > 75) {
-      opportunities.push('Improve operational efficiency to compete better');
-      opportunities.push('Focus on customer experience differentiation');
-    } else {
-      opportunities.push('Significant improvement potential in underperforming areas');
-      opportunities.push('Cost optimization opportunities identified');
-    }
-    
-    opportunities.push('Digital transformation to enhance competitiveness');
-    opportunities.push('Cross-branch best practices sharing');
-    
-    return opportunities;
-  }
-
-  private generateThreats(avgPerformance: number): string[] {
-    const threats = [];
-    
-    if (avgPerformance < 75) {
-      threats.push('Performance gaps may lead to market share loss');
-      threats.push('Competitors with better efficiency gaining advantage');
-    }
-    
-    threats.push('Increasing digital competition in the market');
-    threats.push('Economic pressures affecting customer spending');
-    threats.push('Rising operational costs across the industry');
-    
-    return threats;
-  }
-
-  private setFallbackCompetitiveAnalysis() {
-    // Generate competitive analysis based on available data
-    const networkAnalytics = this._networkAnalytics();
-    const branchCount = this.coordinationService.branchPerformances().length;
-    
-    // Calculate market share based on network size and performance
-    const estimatedMarketShare = Math.min(40, Math.max(15, 20 + branchCount * 0.5));
-    
-    const fallbackCompetitive: CompetitiveAnalysis = {
-      marketPosition: branchCount > 20 ? 1 : branchCount > 10 ? 2 : branchCount > 5 ? 3 : 4,
-      marketShare: parseFloat(estimatedMarketShare.toFixed(1)),
-      competitorComparison: [
-        {
-          name: 'Market Leader',
-          marketShare: parseFloat(Math.max(estimatedMarketShare + 5, estimatedMarketShare * 1.3).toFixed(1)),
-          strength: 'Strong market presence',
-          weakness: 'Higher operational costs'
-        },
-        {
-          name: 'Our Network',
-          marketShare: parseFloat(estimatedMarketShare.toFixed(1)),
-          strength: 'Multi-branch coordination',
-          weakness: 'Expanding market presence'
-        },
-        {
-          name: 'Competitor B',
-          marketShare: parseFloat(Math.max(10, estimatedMarketShare * 0.8).toFixed(1)),
-          strength: 'Wide distribution network',
-          weakness: 'Lower service quality'
-        }
-      ],
-      opportunities: [
-        'Expand digital presence',
-        'Leverage branch network advantages',
-        'Focus on customer service excellence'
-      ],
-      threats: [
-        'Increasing competition',
-        'Market price pressures',
-        'Economic uncertainties'
-      ]
-    };
-    
-    this._competitiveAnalysis.set(fallbackCompetitive);
-  }
-
-  private startAutoRefresh() {
-    // Refresh every 12 minutes for analytics (aligned with 10-minute cache + buffer)
-    this.refreshInterval = interval(720000).subscribe(() => {
-      this.loadAnalyticsData();
-    });
-  }
-
-  private stopAutoRefresh() {
-    if (this.refreshInterval) {
-      this.refreshInterval.unsubscribe();
-    }
-  }
-
-  // Action methods
-  public setPeriod(period: '1M' | '3M' | '6M' | '1Y') {
-    this._selectedPeriod.set(period);
-  }
-
-  public setView(view: 'overview' | 'trends' | 'regional' | 'forecast' | 'executive') {
-    this._selectedView.set(view);
-  }
-
-  public setRegion(region: string) {
-    this._selectedRegion.set(region);
-  }
-
-  public refreshData() {
+    private router: Router,
+    private snackBar: MatSnackBar,
+    private http: HttpClient
+  ) {}
+
+  ngOnInit() {
     this.loadAnalyticsData();
   }
 
-  // Export methods
-  public exportReport() {
-    const reportData = {
-      period: this._selectedPeriod(),
-      analytics: this._networkAnalytics(),
-      trends: this._trendAnalysis(),
-      regional: this._regionalData(),
-      forecast: this._forecastData(),
-      executive: this._executiveSummary(),
-      competitive: this._competitiveAnalysis(),
-      generatedAt: new Date().toISOString()
+  ngOnDestroy() {
+    this.subscriptions.unsubscribe();
+  }
+
+  onPeriodChange(period: string) {
+    if (this.selectedPeriod() === period) {
+      return; // Avoid unnecessary API calls if period hasn't changed
+    }
+
+    this.selectedPeriod.set(period);
+    this.clearCachedData(); // Clear cached view-specific data
+    this.loadAnalyticsData();
+    this.showMessage(`Analytics updated for ${this.getPeriodLabel(period)}`, 'info');
+  }
+
+  onViewChange(view: string) {
+    if (this.selectedView() === view) {
+      return; // Avoid unnecessary processing if view hasn't changed
+    }
+
+    const previousView = this.selectedView();
+    this.selectedView.set(view);
+
+    // Only reload data if switching to views that require fresh data
+    // or if we don't have cached data for this view
+    const requiresRefresh = ['trends', 'forecast', 'executive'].includes(view) || !this.hasViewSpecificData(view);
+
+    if (requiresRefresh) {
+      this.loadAnalyticsData();
+    }
+
+    this.showMessage(`Switched to ${this.getViewLabel(view)} view`, 'info');
+  }
+
+  private clearCachedData(): void {
+    // Clear view-specific cached data when period changes
+    this.viewSpecificData = null;
+    this.trendData = null;
+    this.regionalData = null;
+    this.executiveData = null;
+    this.forecastData = null;
+  }
+
+  private hasViewSpecificData(view: string): boolean {
+    switch (view) {
+      case 'trends':
+        return !!this.trendData;
+      case 'regional':
+        return !!this.regionalData;
+      case 'executive':
+        return !!this.executiveData;
+      case 'forecast':
+        return !!this.forecastData;
+      default:
+        return true; // Overview doesn't need specific data
+    }
+  }
+
+  private getPeriodLabel(period: string): string {
+    const labels = {
+      '1M': '1 Month',
+      '3M': '3 Months',
+      '6M': '6 Months',
+      '1Y': '1 Year'
     };
-
-    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `multi-branch-analytics-${this._selectedPeriod()}-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    return labels[period as keyof typeof labels] || period;
   }
 
-  public exportExecutiveSummary() {
-    const summary = this._executiveSummary();
-    if (!summary) return;
-
-    const csvContent = this.convertExecutiveSummaryToCSV(summary);
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `executive-summary-${this._selectedPeriod()}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+  private getViewLabel(view: string): string {
+    const labels = {
+      'overview': 'Overview',
+      'trends': 'Trends Analysis',
+      'regional': 'Regional Performance',
+      'executive': 'Executive Summary',
+      'forecast': 'Performance Forecast'
+    };
+    return labels[view as keyof typeof labels] || view;
   }
 
-  // Utility methods
-  private convertExecutiveSummaryToCSV(summary: ExecutiveSummary): string {
-    const lines = [
-      'Multi-Branch Network - Executive Summary',
-      `Period: ${summary.period}`,
-      '',
-      'Key Metrics',
-      `Total Revenue,${summary.keyMetrics.totalRevenue}`,
-      `Revenue Growth,${summary.keyMetrics.revenueGrowth}%`,
-      `Network Efficiency,${summary.keyMetrics.networkEfficiency}%`,
-      `Customer Satisfaction,${summary.keyMetrics.customerSatisfaction}%`,
-      '',
-      'Achievements',
-      ...summary.achievements.map(achievement => `"${achievement}"`),
-      '',
-      'Challenges',
-      ...summary.challenges.map(challenge => `"${challenge}"`),
-      '',
-      'Recommendations',
-      ...summary.recommendations.map(recommendation => `"${recommendation}"`),
-      '',
-      'Next Actions',
-      ...summary.nextActions.map(action => `"${action}"`)
-    ];
-
-    return lines.join('\n');
+  onRefreshData() {
+    this.loadAnalyticsData();
   }
 
-  public formatCurrency(amount: number): string {
+  onExportSummary() {
+    this.showMessage('Export functionality will be implemented soon', 'info');
+  }
+
+  onDownloadReport() {
+    this.showMessage('Download functionality will be implemented soon', 'info');
+  }
+
+  private loadAnalyticsData() {
+    this.loading.set(true);
+    this.error.set(null);
+
+    // Get period parameters with proper filtering
+    const { startDate, endDate } = this.getPeriodDates(this.selectedPeriod());
+    const periodParams = new URLSearchParams({
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+      period: this.selectedPeriod(), // Add explicit period parameter
+      filter: 'true' // Ensure backend filters data by period
+    });
+
+    // Enhanced view-specific parameter handling
+    const currentView = this.selectedView();
+    const viewParams = new URLSearchParams(periodParams);
+
+    // Add view-specific parameters for better filtering
+    switch (currentView) {
+      case 'trends':
+        viewParams.append('includeMetrics', 'growth,efficiency,performance');
+        viewParams.append('granularity', 'monthly');
+        break;
+      case 'regional':
+        viewParams.append('includeRegions', 'jakarta');
+        viewParams.append('performanceThreshold', '0');
+        break;
+      case 'forecast':
+        viewParams.append('forecastDays', this.getForecastDaysFromPeriod(this.selectedPeriod()));
+        viewParams.append('includeConfidence', 'true');
+        break;
+      case 'executive':
+        viewParams.append('includeSummary', 'true');
+        viewParams.append('includeRecommendations', 'true');
+        break;
+    }
+
+    // Load real data from backend APIs with enhanced period filtering
+    const dashboardCall = this.http.get<ApiResponse<any>>(`/api/Analytics/dashboard?${periodParams}`).pipe(
+      catchError(error => {
+        console.warn('Dashboard analytics API not ready:', error);
+        return of(null);
+      })
+    );
+
+    const branchPerformanceCall = this.http.get<ApiResponse<any>>(`/api/Branch/performance?${periodParams}`).pipe(
+      catchError(error => {
+        console.warn('Branch performance API not ready:', error);
+        return of(null);
+      })
+    );
+
+    const transferAnalyticsCall = this.http.get<ApiResponse<any>>(`/api/InventoryTransfer/analytics?${periodParams}`).pipe(
+      catchError(error => {
+        console.warn('Transfer analytics API not ready:', error);
+        return of(null);
+      })
+    );
+
+    // Enhanced view-specific API calls with better parameter handling
+    let viewSpecificCall: any = of(null);
+    switch (currentView) {
+      case 'trends':
+        viewSpecificCall = this.http.get<ApiResponse<any>>(`/api/ConsolidatedReport/trend-analysis?${viewParams}`).pipe(
+          catchError(() => of(null))
+        );
+        break;
+      case 'regional':
+        viewSpecificCall = this.http.get<ApiResponse<any>>(`/api/Branch/analytics/regional?${viewParams}`).pipe(
+          catchError(() => of(null))
+        );
+        break;
+      case 'executive':
+        viewSpecificCall = this.http.get<ApiResponse<any>>(`/api/ConsolidatedReport/executive-summary?${viewParams}`).pipe(
+          catchError(() => of(null))
+        );
+        break;
+      case 'forecast':
+        viewSpecificCall = this.http.get<ApiResponse<any>>(`/api/Dashboard/analytics/predict-sales?${viewParams}`).pipe(
+          catchError(() => of(null))
+        );
+        break;
+    }
+
+    forkJoin({
+      dashboard: dashboardCall,
+      branchPerformance: branchPerformanceCall,
+      transferAnalytics: transferAnalyticsCall,
+      viewSpecific: viewSpecificCall
+    }).subscribe({
+      next: (data) => {
+        if (data.dashboard?.success && data.dashboard.data) {
+          this.processRealDashboardData(data.dashboard.data);
+        } else {
+          this.loadMockData();
+        }
+
+        if (data.branchPerformance?.success && data.branchPerformance.data) {
+          this.processRealBranchPerformance(data.branchPerformance.data);
+        }
+
+        if (data.transferAnalytics?.success && data.transferAnalytics.data) {
+          this.processTransferData(data.transferAnalytics.data);
+        }
+
+        if (data.viewSpecific && (data.viewSpecific as any)?.success && (data.viewSpecific as any)?.data) {
+          this.processViewSpecificData((data.viewSpecific as any).data);
+        }
+
+        this.loading.set(false);
+      },
+      error: (error) => {
+        console.error('Error loading analytics data:', error);
+        this.error.set('Failed to load analytics data');
+        this.loadMockData();
+        this.loading.set(false);
+      }
+    });
+  }
+
+  private loadMockData() {
+    // Fallback data when real API is not available - will be replaced by real data when API is ready
+    console.warn('Using fallback data - real API endpoints not responding');
+
+    // Get total branches from branch performance data if available
+    const branchPerformanceData = this.branchPerformance();
+    const branchCount = branchPerformanceData.length || 0;
+    const activeBranchCount = branchCount; // Assume all branches in performance data are active
+
+    this.summary.set({
+      totalBranches: branchCount,
+      activeBranches: activeBranchCount,
+      totalTransfers: 0, // Will be updated by real transfer data
+      pendingTransfers: 0, // Will be updated by real transfer data
+      totalSales: 0, // Will be updated by real sales data
+      averagePerformance: 0 // Will be calculated from real branch performance
+    });
+
+    // Set empty performance data - will be populated by real API
+    this.branchPerformance.set([]);
+  }
+
+  private processBranchData(branches: any[]) {
+    // Process real branch data when available
+    const summary = this.summary();
+    summary.totalBranches = branches.length;
+    summary.activeBranches = branches.filter(b => b.isActive).length;
+    this.summary.set(summary);
+  }
+
+  private processTransferData(transferData: any) {
+    // Process real transfer data when available
+    if (transferData) {
+      const summary = this.summary();
+      summary.totalTransfers = transferData.totalTransfers || 0;
+      summary.pendingTransfers = transferData.pendingTransfers || 0;
+      this.summary.set(summary);
+    }
+  }
+
+  private processRealDashboardData(dashboardData: any) {
+    // Process real dashboard analytics data from AnalyticsController
+    const branchPerformance = dashboardData.branchPerformance || [];
+    const totalBranches = branchPerformance.length;
+    const activeBranches = branchPerformance.filter((b: any) => b.statusText !== 'Declining').length;
+
+    // Calculate average performance from real branch data
+    let averagePerformance = 0;
+    if (branchPerformance.length > 0) {
+      // Use growth rate as performance indicator, convert to percentage scale
+      const totalGrowth = branchPerformance.reduce((sum: number, branch: any) => sum + (branch.growth || 0), 0);
+      averagePerformance = Math.max(0, Math.min(100, 50 + (totalGrowth / branchPerformance.length))); // Normalize to 0-100 scale
+    }
+
+    this.summary.set({
+      totalBranches: totalBranches,
+      activeBranches: activeBranches,
+      totalTransfers: dashboardData.activeTransfers || 0,
+      pendingTransfers: dashboardData.pendingApprovals || 0,
+      totalSales: dashboardData.totalSales || 0,
+      averagePerformance: Math.round(averagePerformance * 10) / 10 // Round to 1 decimal
+    });
+
+    // Process branch performance data with real sales and transfer data
+    if (branchPerformance && Array.isArray(branchPerformance)) {
+      this.branchPerformance.set(branchPerformance.map((branch: any) => ({
+        branchId: branch.branchId,
+        branchName: branch.branchName,
+        salesTotal: branch.totalSales || 0,
+        transfersCount: branch.transactionCount || 0, // Use transaction count as proxy for transfers
+        performance: Math.max(0, Math.min(100, 50 + (branch.growth || 0))) // Convert growth to performance scale
+      })));
+    }
+  }
+
+  private processCoordinationData(coordinationData: any) {
+    // Process multi-branch coordination data when available
+    if (coordinationData?.data && Array.isArray(coordinationData.data)) {
+      // Update performance metrics from coordination service
+      const performanceData = coordinationData.data.map((branch: any) => ({
+        branchId: branch.branchId,
+        branchName: branch.branchName,
+        salesTotal: branch.revenue || 0,
+        transfersCount: branch.transferCount || 0,
+        performance: Math.round(branch.score || 0)
+      }));
+      this.branchPerformance.set(performanceData);
+
+      // Update summary metrics
+      const summary = this.summary();
+      summary.totalBranches = coordinationData.data.length;
+      summary.activeBranches = coordinationData.data.filter((b: any) => b.score > 0).length;
+      summary.averagePerformance = coordinationData.data.reduce((acc: number, branch: any) => acc + (branch.score || 0), 0) / coordinationData.data.length;
+      summary.totalSales = coordinationData.data.reduce((acc: number, branch: any) => acc + (branch.revenue || 0), 0);
+      this.summary.set(summary);
+    }
+  }
+
+  private getPeriodDates(period: string): { startDate: Date; endDate: Date } {
+    const endDate = new Date();
+    const startDate = new Date();
+
+    // Reset time to start of day for consistent filtering
+    endDate.setHours(23, 59, 59, 999);
+    startDate.setHours(0, 0, 0, 0);
+
+    switch (period) {
+      case '1M':
+        startDate.setMonth(endDate.getMonth() - 1);
+        break;
+      case '3M':
+        startDate.setMonth(endDate.getMonth() - 3);
+        break;
+      case '6M':
+        startDate.setMonth(endDate.getMonth() - 6);
+        break;
+      case '1Y':
+        startDate.setFullYear(endDate.getFullYear() - 1);
+        break;
+      default:
+        startDate.setMonth(endDate.getMonth() - 3); // Default to 3 months
+    }
+
+    return { startDate, endDate };
+  }
+
+  private getForecastDaysFromPeriod(period: string): string {
+    // Calculate forecast horizon based on selected period
+    switch (period) {
+      case '1M':
+        return '30';   // 1 month forecast
+      case '3M':
+        return '90';   // 3 months forecast
+      case '6M':
+        return '180';  // 6 months forecast
+      case '1Y':
+        return '365';  // 1 year forecast
+      default:
+        return '90';   // Default 3 months
+    }
+  }
+
+  private processRealBranchPerformance(data: any) {
+    if (Array.isArray(data)) {
+      const performanceData = data.map((branch: any) => ({
+        branchId: branch.branchId || branch.id,
+        branchName: branch.branchName || branch.name,
+        salesTotal: branch.totalRevenue || branch.salesTotal || 0,
+        transfersCount: branch.transferCount || 0,
+        performance: Math.round(branch.performanceScore || branch.performance || 0)
+      }));
+      this.branchPerformance.set(performanceData);
+    }
+  }
+
+  private processViewSpecificData(data: any) {
+    // Store view-specific data for template rendering
+    this.viewSpecificData = data;
+
+    // Update computed values based on view type
+    if (this.selectedView() === 'trends' && data.trends) {
+      // Process trend data for trends view
+      this.trendData = data.trends;
+    } else if (this.selectedView() === 'regional' && data.regions) {
+      // Process regional data for regional view
+      this.regionalData = data.regions;
+    } else if (this.selectedView() === 'executive' && data.summary) {
+      // Process executive summary data
+      this.executiveData = data.summary;
+    } else if (this.selectedView() === 'forecast' && data.predictions) {
+      // Process forecast data
+      this.forecastData = data.predictions;
+    }
+  }
+
+  private processRealTransferData(data: any) {
+    const summary = this.summary();
+    summary.totalTransfers = data.totalTransfers || 0;
+    summary.pendingTransfers = data.pendingTransfers || 0;
+    this.summary.set(summary);
+  }
+
+  formatCurrency(amount: number): string {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
@@ -1350,381 +770,10 @@ export class MultiBranchAnalyticsComponent implements OnInit, OnDestroy {
     }).format(amount);
   }
 
-  public formatPercentage(value: number): string {
-    return `${value.toFixed(1)}%`;
-  }
-
-  public formatNumber(value: number): string {
-    return new Intl.NumberFormat('id-ID').format(value);
-  }
-
-  public getGrowthClass(growth: number): string {
-    if (growth > 10) return 'growth-excellent';
-    if (growth > 5) return 'growth-good';
-    if (growth > 0) return 'growth-positive';
-    if (growth > -5) return 'growth-neutral';
-    return 'growth-negative';
-  }
-
-  public getGrowthIcon(growth: number): string {
-    if (growth > 0) return 'icon-trending-up';
-    if (growth < 0) return 'icon-trending-down';
-    return 'icon-minus';
-  }
-
-  public getTrendIcon(trend: string): string {
-    const trendMap: Record<string, string> = {
-      increasing: 'icon-trending-up',
-      stable: 'icon-minus',
-      decreasing: 'icon-trending-down'
-    };
-    return trendMap[trend] || 'icon-help-circle';
-  }
-
-  public getTrendClass(trend: string): string {
-    const trendMap: Record<string, string> = {
-      increasing: 'trend-positive',
-      stable: 'trend-neutral',
-      decreasing: 'trend-negative'
-    };
-    return trendMap[trend] || 'trend-unknown';
-  }
-
-  public getInsightClass(type: string): string {
-    const typeMap: Record<string, string> = {
-      positive: 'insight-positive',
-      warning: 'insight-warning',
-      negative: 'insight-negative'
-    };
-    return typeMap[type] || 'insight-neutral';
-  }
-
-  public getConfidenceClass(confidence: number): string {
-    if (confidence >= 90) return 'confidence-high';
-    if (confidence >= 75) return 'confidence-medium';
-    if (confidence >= 60) return 'confidence-low';
-    return 'confidence-very-low';
-  }
-
-  // Navigation methods
-  navigateToBranchDetails(branchName: string) {
-    // Navigate to specific branch details
-    this.router.navigate(['/branches'], { queryParams: { search: branchName } });
-  }
-
-  navigateToCoordination() {
-    this.router.navigate(['/coordination']);
-  }
-
-  // ===== MOCK DATA GENERATION =====
-
-  private generateMockBranchData(): any[] {
-    // Based on actual API response structure from MultiBranchCoordination
-    return [
-      {
-        branchId: 1,
-        branchName: 'Head Office',
-        totalRevenue: 0,
-        overallScore: 45,
-        efficiencyScore: 0,
-        profitabilityScore: 0,
-        complianceScore: 0,
-        wastageValue: 0,
-        wastagePercentage: 0,
-        inventoryTurnoverRate: 0,
-        totalTransactions: 0,
-        overallRank: 5
-      },
-      {
-        branchId: 2,
-        branchName: 'Toko Eniwan Purwakarta',
-        totalRevenue: 9852600,
-        overallScore: 98,
-        efficiencyScore: 0,
-        profitabilityScore: 0,
-        complianceScore: 0,
-        wastageValue: 0,
-        wastagePercentage: 0,
-        inventoryTurnoverRate: 0,
-        totalTransactions: 0,
-        overallRank: 1
-      },
-      {
-        branchId: 3,
-        branchName: 'Toko Eniwan Bandung',
-        totalRevenue: 0,
-        overallScore: 65,
-        efficiencyScore: 0,
-        profitabilityScore: 0,
-        complianceScore: 0,
-        wastageValue: 0,
-        wastagePercentage: 0,
-        inventoryTurnoverRate: 0,
-        totalTransactions: 0,
-        overallRank: 2
-      },
-      {
-        branchId: 4,
-        branchName: 'Toko Eniwan Surabaya',
-        totalRevenue: 0,
-        overallScore: 65,
-        efficiencyScore: 0,
-        profitabilityScore: 0,
-        complianceScore: 0,
-        wastageValue: 0,
-        wastagePercentage: 0,
-        inventoryTurnoverRate: 0,
-        totalTransactions: 0,
-        overallRank: 3
-      },
-      {
-        branchId: 6,
-        branchName: 'Test Branch',
-        totalRevenue: 0,
-        overallScore: 65,
-        efficiencyScore: 0,
-        profitabilityScore: 0,
-        complianceScore: 0,
-        wastageValue: 0,
-        wastagePercentage: 0,
-        inventoryTurnoverRate: 0,
-        totalTransactions: 0,
-        overallRank: 4
-      }
-    ];
-  }
-
-  private getBasicForecastData(): ForecastData[] {
-    // Use real API response structure as fallback
-    return [
-      {
-        metric: 'Revenue',
-        currentValue: 9852600,
-        forecast: {
-          nextMonth: 9893090.1369863,
-          nextQuarter: 9974070.410958905,
-          nextYear: 10345230
-        },
-        confidence: 87.5,
-        trend: 'increasing',
-        factors: ['Market expansion', 'Seasonal trends', 'Historical growth']
-      },
-      {
-        metric: 'Customer Satisfaction',
-        currentValue: 87.2,
-        forecast: {
-          nextMonth: 88.1,
-          nextQuarter: 89.5,
-          nextYear: 91.2
-        },
-        confidence: 82.3,
-        trend: 'increasing',
-        factors: ['Service improvements', 'Staff training', 'Technology upgrades']
-      },
-      {
-        metric: 'Operational Efficiency',
-        currentValue: 50,
-        forecast: {
-          nextMonth: 50.7,
-          nextQuarter: 52.6,
-          nextYear: 56.2
-        },
-        confidence: 79.8,
-        trend: 'increasing',
-        factors: ['Process optimization', 'Automation', 'Supply chain efficiency']
-      }
-    ];
-  }
-
-  // ===== TRENDS CHART METHODS =====
-
-  public generateTrendPath(data: number[], width: number, height: number): string {
-    if (!data || data.length === 0) return '';
-
-    const minValue = Math.min(...data);
-    const maxValue = Math.max(...data);
-    const range = maxValue - minValue || 1; // Prevent division by zero
-
-    const points = data.map((value, index) => {
-      const x = (index / (data.length - 1)) * (width - 20) + 10;
-      const y = height - 10 - ((value - minValue) / range) * (height - 20);
-      return `${x},${y}`;
+  private showMessage(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
+    this.snackBar.open(message, 'Tutup', {
+      duration: 5000,
+      panelClass: [`snackbar-${type}`]
     });
-
-    return `M ${points.join(' L ')}`;
-  }
-
-  public getMinValue(data: number[]): number {
-    return Math.min(...data);
-  }
-
-  public getMaxValue(data: number[]): number {
-    return Math.max(...data);
-  }
-
-  public getMinCombinedValue(): number {
-    const trends = this._trendAnalysis();
-    if (!trends) return 0;
-
-    const allValues = [
-      ...trends.efficiency,
-      ...trends.satisfaction
-    ];
-    return Math.min(...allValues);
-  }
-
-  public getMaxCombinedValue(): number {
-    const trends = this._trendAnalysis();
-    if (!trends) return 100;
-
-    const allValues = [
-      ...trends.efficiency,
-      ...trends.satisfaction
-    ];
-    return Math.max(...allValues);
-  }
-
-  public getYAxisLabels(data: number[]): number[] {
-    const min = this.getMinValue(data);
-    const max = this.getMaxValue(data);
-    const range = max - min;
-
-    return [
-      min,
-      min + range * 0.25,
-      min + range * 0.5,
-      min + range * 0.75,
-      max
-    ];
-  }
-
-  public getCombinedYAxisLabels(): number[] {
-    const min = this.getMinCombinedValue();
-    const max = this.getMaxCombinedValue();
-    const range = max - min;
-
-    return [
-      min,
-      min + range * 0.25,
-      min + range * 0.5,
-      min + range * 0.75,
-      max
-    ];
-  }
-
-  public getTrendDescription(growthRate: number): string {
-    if (growthRate > 15) return 'Excellent growth momentum';
-    if (growthRate > 10) return 'Strong positive trend';
-    if (growthRate > 5) return 'Steady improvement';
-    if (growthRate > 0) return 'Modest growth';
-    if (growthRate > -5) return 'Minor decline';
-    if (growthRate > -10) return 'Concerning downward trend';
-    return 'Significant decline needs attention';
-  }
-
-  public getTrendRecommendations(): any[] {
-    const analytics = this._networkAnalytics();
-    if (!analytics) return [];
-
-    const recommendations = [];
-
-    // Revenue recommendations
-    if (analytics.revenueGrowth < 5) {
-      recommendations.push({
-        icon: 'trending_up',
-        title: 'Boost Revenue Growth',
-        description: 'Focus on high-performing branches and replicate successful strategies across the network.',
-        priority: 'warn'
-      });
-    }
-
-    // Efficiency recommendations
-    if (analytics.operationalEfficiency < 85) {
-      recommendations.push({
-        icon: 'speed',
-        title: 'Improve Operational Efficiency',
-        description: 'Identify bottlenecks and implement process optimization across underperforming branches.',
-        priority: 'accent'
-      });
-    }
-
-    // Customer satisfaction recommendations
-    if (analytics.customerSatisfaction < 80) {
-      recommendations.push({
-        icon: 'sentiment_satisfied',
-        title: 'Enhance Customer Experience',
-        description: 'Invest in customer service training and satisfaction improvement programs.',
-        priority: 'primary'
-      });
-    }
-
-    // Transaction growth recommendations
-    if (analytics.transactionGrowth < 3) {
-      recommendations.push({
-        icon: 'receipt',
-        title: 'Increase Transaction Volume',
-        description: 'Focus on customer acquisition and retention strategies to boost transaction frequency.',
-        priority: 'accent'
-      });
-    }
-
-    // Inventory turnover recommendations
-    if (analytics.inventoryTurnover < 6) {
-      recommendations.push({
-        icon: 'inventory',
-        title: 'Optimize Inventory Management',
-        description: 'Improve stock planning and reduce excess inventory to increase turnover rates.',
-        priority: 'warn'
-      });
-    }
-
-    // Add positive reinforcement for strong performance
-    if (analytics.revenueGrowth > 10) {
-      recommendations.push({
-        icon: 'star',
-        title: 'Maintain Growth Momentum',
-        description: 'Continue current strategies and consider scaling successful initiatives.',
-        priority: 'primary'
-      });
-    }
-
-    return recommendations;
-  }
-
-  // ===== DEBUG METHODS =====
-
-  public debugLoadData(): void {
-    console.log('🔧 DEBUG: Force reload data triggered');
-    console.log('🔧 DEBUG: Current state before reload:', {
-      isLoading: this.isLoading(),
-      selectedView: this.selectedView(),
-      selectedPeriod: this.selectedPeriod(),
-      totalBranches: this.totalBranches(),
-      networkAnalytics: this.networkAnalytics()
-    });
-
-    this.loadAnalyticsData();
-  }
-
-  public debugConsoleLog(): void {
-    console.log('🔧 ===== MULTI-BRANCH ANALYTICS DEBUG LOG =====');
-    console.log('🔧 Component State:', {
-      isLoading: this.isLoading(),
-      selectedView: this.selectedView(),
-      selectedPeriod: this.selectedPeriod(),
-      totalBranches: this.totalBranches()
-    });
-
-    console.log('🔧 Network Analytics:', this.networkAnalytics());
-    console.log('🔧 Trend Analysis:', this.trendAnalysis());
-    console.log('🔧 Regional Comparisons:', this.regionalData());
-    console.log('🔧 Executive Summary:', this.executiveSummary());
-
-    console.log('🔧 Service States:');
-    console.log('  - MultiBranchCoordinationService.branchPerformances():', this.coordinationService.branchPerformances());
-    console.log('  - BranchAnalyticsService.analyticsOverview():', this.branchAnalyticsService.analyticsOverview());
-    console.log('  - BranchAnalyticsService.branchPerformances():', this.branchAnalyticsService.branchPerformances());
-
-    console.log('🔧 ===== END DEBUG LOG =====');
   }
 }

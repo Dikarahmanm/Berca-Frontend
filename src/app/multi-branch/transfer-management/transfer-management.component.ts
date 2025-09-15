@@ -47,6 +47,7 @@ import { Product } from '../../core/services/product.service';
 import { Subject, takeUntil, interval, combineLatest, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { TransferCreationDialogComponent } from './transfer-creation-dialog/transfer-creation-dialog.component';
+import { TransferDetailDialogComponent } from './transfer-detail-dialog/transfer-detail-dialog.component';
 
 @Component({
   selector: 'app-transfer-management',
@@ -394,20 +395,98 @@ export class TransferManagementComponent implements OnInit, OnDestroy {
   }
 
   onViewTransfer(transfer: InventoryTransferSummaryDto): void {
-    this.router.navigate(['/multi-branch/transfers', transfer.id]);
+    const dialogRef = this.dialog.open(TransferDetailDialogComponent, {
+      width: '1200px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+      data: {
+        transferId: transfer.id
+      }
+    });
+  }
+
+  onPrintTransfer(transfer: InventoryTransferSummaryDto): void {
+    this.transferService.printTransfer(transfer.id);
   }
 
   onApproveTransfer(transfer: InventoryTransferSummaryDto): void {
     if (transfer.canApprove) {
-      // TODO: Implement approval dialog
-      this.showMessage('Transfer approval - To be implemented');
+      const approval = {
+        approved: true,
+        approvalNotes: 'Transfer disetujui melalui dashboard',
+        itemApprovals: [],
+        managerOverride: false
+      };
+
+      this.transferService.approveTransfer(transfer.id, approval)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (result) => {
+            this.showMessage(`Transfer ${transfer.transferNumber} berhasil disetujui`, 'success');
+            this.loadTransfers();
+          },
+          error: (error) => this.handleError('Gagal menyetujui transfer', error)
+        });
     }
   }
 
   onCancelTransfer(transfer: InventoryTransferSummaryDto): void {
     if (transfer.canCancel) {
-      // TODO: Implement cancellation dialog
-      this.showMessage('Transfer cancellation - To be implemented');
+      const confirmed = confirm(`Apakah Anda yakin ingin membatalkan transfer ${transfer.transferNumber}?`);
+      if (confirmed) {
+        this.transferService.cancelTransfer(transfer.id, 'Dibatalkan melalui dashboard')
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (result) => {
+              this.showMessage(`Transfer ${transfer.transferNumber} berhasil dibatalkan`, 'success');
+              this.loadTransfers();
+            },
+            error: (error) => this.handleError('Gagal membatalkan transfer', error)
+          });
+      }
+    }
+  }
+
+  onShipTransfer(transfer: InventoryTransferSummaryDto): void {
+    if (transfer.canShip) {
+      const shipment = {
+        shipmentNotes: 'Transfer dikirim melalui dashboard',
+        estimatedDeliveryDate: transfer.estimatedDeliveryDate,
+        trackingNumber: `TRK-${transfer.transferNumber}`,
+        courierName: 'Internal Courier',
+        itemShipments: []
+      };
+
+      this.transferService.shipTransfer(transfer.id, shipment)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (result) => {
+            this.showMessage(`Transfer ${transfer.transferNumber} berhasil dikirim`, 'success');
+            this.loadTransfers();
+          },
+          error: (error) => this.handleError('Gagal mengirim transfer', error)
+        });
+    }
+  }
+
+  onReceiveTransfer(transfer: InventoryTransferSummaryDto): void {
+    if (transfer.canReceive) {
+      const receipt = {
+        receiptNotes: 'Transfer diterima melalui dashboard',
+        actualDeliveryDate: new Date(),
+        qualityCheckPassed: true,
+        itemReceipts: []
+      };
+
+      this.transferService.receiveTransfer(transfer.id, receipt)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (result) => {
+            this.showMessage(`Transfer ${transfer.transferNumber} berhasil diterima dan selesai`, 'success');
+            this.loadTransfers();
+          },
+          error: (error) => this.handleError('Gagal menerima transfer', error)
+        });
     }
   }
 

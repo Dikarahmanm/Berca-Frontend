@@ -11,10 +11,17 @@ export enum TransferStatus {
 }
 
 export enum TransferPriority {
-  Low = 'Low',
-  Normal = 'Normal',
-  High = 'High',
-  Emergency = 'Emergency'
+  Low = 0,
+  Normal = 1,
+  High = 2,
+  Emergency = 3
+}
+
+export enum TransferType {
+  Regular = 0,
+  Emergency = 1,
+  Rebalancing = 2,
+  Bulk = 3
 }
 
 export enum MutationType {
@@ -135,18 +142,21 @@ export interface InventoryTransferSummaryDto {
 export interface CreateInventoryTransferRequestDto {
   sourceBranchId: number;
   destinationBranchId: number;
+  type: TransferType;
   priority: TransferPriority;
-  estimatedDeliveryDate?: Date;
+  requestReason: string;
   notes?: string;
-  items: CreateTransferItemDto[];
+  estimatedCost: number;
+  estimatedDeliveryDate?: Date;
+  transferItems: CreateTransferItemDto[];
 }
 
 export interface CreateTransferItemDto {
   productId: number;
-  requestedQuantity: number;
-  notes?: string;
-  batchNumber?: string;
+  quantity: number;
   expiryDate?: Date;
+  batchNumber?: string;
+  qualityNotes?: string;
 }
 
 export interface BulkTransferRequestDto {

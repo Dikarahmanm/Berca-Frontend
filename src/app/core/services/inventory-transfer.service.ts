@@ -27,6 +27,7 @@ import {
   TransferEfficiencyDto,
   TransferStatus,
   TransferPriority,
+  TransferType,
   MutationType,
   ApiResponse
 } from '../models/inventory-transfer.models';
@@ -37,7 +38,7 @@ import {
   providedIn: 'root'
 })
 export class InventoryTransferService {
-  private readonly apiUrl = `${environment.apiUrl}/api/InventoryTransfer`;
+  private readonly apiUrl = `${environment.apiUrl}/InventoryTransfer`;
 
   // State management
   private transfersSubject = new BehaviorSubject<InventoryTransferSummaryDto[]>([]);
@@ -79,19 +80,6 @@ export class InventoryTransferService {
   }
 
   /**
-   * Get transfer by ID with full details
-   */
-  getTransferById(transferId: number): Observable<InventoryTransferDto> {
-    this.setLoading(true);
-    return this.http.get<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/${transferId}`)
-      .pipe(
-        map(response => response.data),
-        tap(() => this.setLoading(false)),
-        catchError(error => this.handleError('Failed to get transfer details', error))
-      );
-  }
-
-  /**
    * Get transfers with filtering and pagination
    */
   getTransfers(queryParams?: InventoryTransferQueryParams): Observable<{transfers: InventoryTransferSummaryDto[], totalCount: number}> {
@@ -111,9 +99,16 @@ export class InventoryTransferService {
       });
     }
 
-    return this.http.get<ApiResponse<{transfers: InventoryTransferSummaryDto[], totalCount: number}>>(`${this.apiUrl}`, { params })
+    return this.http.get<ApiResponse<{transfers: any[], totalCount: number, page: number, pageSize: number, totalPages: number}>>(`${this.apiUrl}`, { params })
       .pipe(
-        map(response => response.data),
+        map(response => {
+          // Map the API response to match our TypeScript interface
+          const mappedTransfers = (response.data.transfers || []).map(transfer => this.mapApiTransferToSummaryDto(transfer));
+          return {
+            transfers: mappedTransfers,
+            totalCount: response.data.totalCount || 0
+          };
+        }),
         tap(result => {
           this.transfersSubject.next(result.transfers);
           this.setLoading(false);
@@ -356,10 +351,15 @@ export class InventoryTransferService {
    */
   calculateTransferCost(sourceBranchId: number, destinationBranchId: number, items: CreateTransferItemDto[]): Observable<number> {
     this.setLoading(true);
-    const body = { sourceBranchId, destinationBranchId, items };
-    return this.http.post<ApiResponse<number>>(`${this.apiUrl}/calculate-cost`, body)
+    const body = {
+      sourceBranchId,
+      destinationBranchId,
+      transferItems: items,
+      priority: TransferPriority.Normal
+    };
+    return this.http.post<ApiResponse<{estimatedCost: number, distance: number, estimatedDeliveryDate: string}>>(`${this.apiUrl}/calculate-cost`, body)
       .pipe(
-        map(response => response.data),
+        map(response => response.data.estimatedCost),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to calculate transfer cost', error))
       );
@@ -369,21 +369,195 @@ export class InventoryTransferService {
    * Estimate delivery date
    */
   estimateDeliveryDate(sourceBranchId: number, destinationBranchId: number, priority: TransferPriority = TransferPriority.Normal): Observable<Date> {
-    this.setLoading(true);
-    const params = new HttpParams()
-      .set('sourceBranchId', sourceBranchId.toString())
-      .set('destinationBranchId', destinationBranchId.toString())
-      .set('priority', priority);
+    // Since the calculate-cost endpoint returns delivery date, use that
+    const items: CreateTransferItemDto[] = [{
+      productId: 1, // dummy product
+      quantity: 1,
+      qualityNotes: ''
+    }];
 
-    return this.http.get<ApiResponse<string>>(`${this.apiUrl}/estimate-delivery`, { params })
+    this.setLoading(true);
+    const body = {
+      sourceBranchId,
+      destinationBranchId,
+      transferItems: items,
+      priority
+    };
+
+    return this.http.post<ApiResponse<{estimatedCost: number, distance: number, estimatedDeliveryDate: string}>>(`${this.apiUrl}/calculate-cost`, body)
       .pipe(
-        map(response => new Date(response.data)),
+        map(response => new Date(response.data.estimatedDeliveryDate)),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to estimate delivery date', error))
       );
   }
 
   // ==================== HELPER METHODS ==================== //
+
+  /**
+   * Get transfer by ID with full details
+   */
+  getTransferById(id: number): Observable<InventoryTransferDto> {
+    this.setLoading(true);
+    return this.http.get<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/${id}`)
+      .pipe(
+        map(response => response.data),
+        tap(() => this.setLoading(false)),
+        catchError(error => this.handleError('Failed to get transfer details', error))
+      );
+  }
+
+  /**
+   * Print transfer document
+   */
+  printTransfer(transferId: number): void {
+    // Generate print content directly
+    this.generatePrintableTransfer(transferId);
+  }
+
+  /**
+   * Generate printable transfer document
+   */
+  private generatePrintableTransfer(transferId: number): void {
+    this.getTransferById(transferId).subscribe({
+      next: (transfer) => {
+        const printContent = this.generateTransferPrintHTML(transfer);
+        const printWindow = window.open('', '_blank');
+
+        if (printWindow) {
+          printWindow.document.write(printContent);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+          printWindow.close();
+        }
+      },
+      error: (error) => {
+        console.error('Failed to generate printable transfer:', error);
+        alert('Gagal menggenerate dokumen print transfer');
+      }
+    });
+  }
+
+  /**
+   * Generate HTML content for transfer print
+   */
+  private generateTransferPrintHTML(transfer: InventoryTransferDto): string {
+    const currentDate = new Date().toLocaleDateString('id-ID');
+    const transferDate = new Date(transfer.requestedAt).toLocaleDateString('id-ID');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Transfer Document - ${transfer.transferNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .header h1 { color: #1976d2; margin: 0; }
+          .header h2 { margin: 5px 0; color: #666; }
+          .info-section { margin-bottom: 20px; }
+          .info-row { display: flex; margin-bottom: 8px; }
+          .info-label { font-weight: bold; width: 150px; }
+          .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+          .status-pending { background: #fff3e0; color: #e65100; }
+          .status-approved { background: #e8f5e8; color: #2e7d32; }
+          .status-in-transit { background: #e3f2fd; color: #1565c0; }
+          .status-completed { background: #e8f5e8; color: #2e7d32; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f5f5f5; }
+          .total { font-weight: bold; background-color: #f9f9f9; }
+          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+          @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>DOKUMEN TRANSFER INVENTORY</h1>
+          <h2>${transfer.transferNumber}</h2>
+        </div>
+
+        <div class="info-section">
+          <div class="info-row">
+            <span class="info-label">Status:</span>
+            <span class="status status-${transfer.status.toLowerCase()}">${this.getStatusDisplayText(transfer.status)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Tanggal Permintaan:</span>
+            <span>${transferDate}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Cabang Asal:</span>
+            <span>${transfer.sourceBranchName}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Cabang Tujuan:</span>
+            <span>${transfer.destinationBranchName}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Diminta oleh:</span>
+            <span>${transfer.requestedByName}</span>
+          </div>
+          ${transfer.approvedByName ? `
+          <div class="info-row">
+            <span class="info-label">Disetujui oleh:</span>
+            <span>${transfer.approvedByName}</span>
+          </div>
+          ` : ''}
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Kode Produk</th>
+              <th>Nama Produk</th>
+              <th>Qty Diminta</th>
+              <th>Qty Disetujui</th>
+              <th>Harga Satuan</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${transfer.items.map((item, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${item.productCode}</td>
+                <td>${item.productName}</td>
+                <td>${item.requestedQuantity}</td>
+                <td>${item.approvedQuantity || '-'}</td>
+                <td>Rp ${item.unitCost.toLocaleString('id-ID')}</td>
+                <td>Rp ${item.totalCost.toLocaleString('id-ID')}</td>
+              </tr>
+            `).join('')}
+            <tr class="total">
+              <td colspan="6"><strong>TOTAL</strong></td>
+              <td><strong>Rp ${transfer.totalCost.toLocaleString('id-ID')}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+
+        ${transfer.notes ? `
+          <div class="info-section">
+            <div class="info-row">
+              <span class="info-label">Catatan:</span>
+              <span>${transfer.notes}</span>
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="footer">
+          <p>Dokumen ini digenerate secara otomatis pada ${currentDate}</p>
+          <p>Sistem Manajemen Inventory Multi-Branch</p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
 
   /**
    * Refresh transfers list
@@ -414,7 +588,7 @@ export class InventoryTransferService {
       [TransferStatus.Completed]: 'Selesai',
       [TransferStatus.Cancelled]: 'Dibatalkan'
     };
-    return statusTexts[status] || status;
+    return statusTexts[status] || 'Menunggu Persetujuan';
   }
 
   /**
@@ -427,7 +601,7 @@ export class InventoryTransferService {
       [TransferPriority.High]: 'Tinggi',
       [TransferPriority.Emergency]: 'Darurat'
     };
-    return priorityTexts[priority] || priority;
+    return priorityTexts[priority] || 'Normal';
   }
 
   /**
@@ -435,15 +609,15 @@ export class InventoryTransferService {
    */
   getStatusBadgeClass(status: TransferStatus): string {
     const statusClasses = {
-      [TransferStatus.Pending]: 'badge-warning',
-      [TransferStatus.Approved]: 'badge-info',
-      [TransferStatus.Rejected]: 'badge-danger',
-      [TransferStatus.InTransit]: 'badge-primary',
-      [TransferStatus.Delivered]: 'badge-success',
-      [TransferStatus.Completed]: 'badge-success',
-      [TransferStatus.Cancelled]: 'badge-secondary'
+      [TransferStatus.Pending]: 'status-pending',
+      [TransferStatus.Approved]: 'status-approved',
+      [TransferStatus.Rejected]: 'status-rejected',
+      [TransferStatus.InTransit]: 'status-in-transit',
+      [TransferStatus.Delivered]: 'status-delivered',
+      [TransferStatus.Completed]: 'status-completed',
+      [TransferStatus.Cancelled]: 'status-cancelled'
     };
-    return statusClasses[status] || 'badge-secondary';
+    return statusClasses[status] || 'status-pending';
   }
 
   /**
@@ -451,12 +625,12 @@ export class InventoryTransferService {
    */
   getPriorityBadgeClass(priority: TransferPriority): string {
     const priorityClasses = {
-      [TransferPriority.Low]: 'badge-light',
-      [TransferPriority.Normal]: 'badge-primary',
-      [TransferPriority.High]: 'badge-warning',
-      [TransferPriority.Emergency]: 'badge-danger'
+      [TransferPriority.Low]: 'priority-low',
+      [TransferPriority.Normal]: 'priority-normal',
+      [TransferPriority.High]: 'priority-high',
+      [TransferPriority.Emergency]: 'priority-emergency'
     };
-    return priorityClasses[priority] || 'badge-secondary';
+    return priorityClasses[priority] || 'priority-normal';
   }
 
   // ==================== PRIVATE HELPER METHODS ==================== //
@@ -470,5 +644,77 @@ export class InventoryTransferService {
     this.setLoading(false);
     this.errorSubject.next(message);
     return throwError(() => new Error(message));
+  }
+
+  /**
+   * Map API transfer response to InventoryTransferSummaryDto interface
+   */
+  public mapApiTransferToSummaryDto(apiTransfer: any): InventoryTransferSummaryDto {
+    const status = this.mapApiStatusToEnum(apiTransfer.status);
+
+    return {
+      id: apiTransfer.id,
+      transferNumber: apiTransfer.transferNumber,
+      sourceBranchName: apiTransfer.sourceBranchName,
+      destinationBranchName: apiTransfer.destinationBranchName,
+      status: status,
+      priority: apiTransfer.priority as TransferPriority,
+      requestedAt: new Date(apiTransfer.createdAt || apiTransfer.requestedAt),
+      estimatedDeliveryDate: apiTransfer.estimatedDeliveryDate ? new Date(apiTransfer.estimatedDeliveryDate) : undefined,
+      actualDeliveryDate: apiTransfer.actualDeliveryDate ? new Date(apiTransfer.actualDeliveryDate) : undefined,
+      totalItems: apiTransfer.totalItems,
+      totalCost: apiTransfer.totalValue || apiTransfer.totalCost,
+      requestedByName: apiTransfer.requestedByName,
+      daysInTransit: apiTransfer.daysInTransit,
+      isOverdue: apiTransfer.isOverdue,
+      canCancel: this.canCancelTransfer(status),
+      canApprove: this.canApproveTransfer(status),
+      canShip: this.canShipTransfer(status),
+      canReceive: this.canReceiveTransfer(status)
+    };
+  }
+
+  /**
+   * Map API status number to TransferStatus enum
+   */
+  private mapApiStatusToEnum(statusNumber: number): TransferStatus {
+    const statusMap: { [key: number]: TransferStatus } = {
+      0: TransferStatus.Pending,
+      1: TransferStatus.Approved,
+      2: TransferStatus.Rejected,
+      3: TransferStatus.InTransit,
+      4: TransferStatus.Delivered,
+      5: TransferStatus.Completed,
+      6: TransferStatus.Cancelled
+    };
+    return statusMap[statusNumber] || TransferStatus.Pending;
+  }
+
+  /**
+   * Check if transfer can be approved
+   */
+  public canApproveTransfer(status: TransferStatus): boolean {
+    return status === TransferStatus.Pending;
+  }
+
+  /**
+   * Check if transfer can be cancelled
+   */
+  public canCancelTransfer(status: TransferStatus): boolean {
+    return status === TransferStatus.Pending || status === TransferStatus.Approved;
+  }
+
+  /**
+   * Check if transfer can be shipped
+   */
+  public canShipTransfer(status: TransferStatus): boolean {
+    return status === TransferStatus.Approved;
+  }
+
+  /**
+   * Check if transfer can be received
+   */
+  public canReceiveTransfer(status: TransferStatus): boolean {
+    return status === TransferStatus.InTransit || status === TransferStatus.Delivered;
   }
 }

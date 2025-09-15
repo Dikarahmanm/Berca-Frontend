@@ -123,14 +123,13 @@ export class LayoutService {
           route: '/dashboard/branch-performance',
           roles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
         },
-        // DISABLED: Transfer Management temporarily disabled
-        // {
-        //   id: 'transfer-management',
-        //   label: 'Transfer Management',
-        //   icon: 'swap_horiz',
-        //   route: '/dashboard/transfers',
-        //   roles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
-        // },
+        {
+          id: 'transfer-management',
+          label: 'Transfer Management',
+          icon: 'swap_horiz',
+          route: '/dashboard/transfers',
+          roles: ['Admin', 'HeadManager', 'BranchManager', 'Manager']
+        },
         {
           id: 'optimization',
           label: 'Analytics',
@@ -310,7 +309,7 @@ export class LayoutService {
       '/dashboard/coordination': { title: 'Multi-Branch Coordination', breadcrumb: ['Dashboard', 'Multi-Branch', 'Coordination'] },
       '/dashboard/branches': { title: 'Branch Management', breadcrumb: ['Dashboard', 'Multi-Branch', 'Branches'] },
       '/dashboard/branch-performance': { title: 'Branch Performance', breadcrumb: ['Dashboard', 'Multi-Branch', 'Performance'] },
-      // DISABLED: '/dashboard/transfers': { title: 'Transfer Management', breadcrumb: ['Dashboard', 'Multi-Branch', 'Transfers'] },
+      '/dashboard/transfers': { title: 'Transfer Management', breadcrumb: ['Dashboard', 'Multi-Branch', 'Transfers'] },
       '/dashboard/select-branch': { title: 'Select Branch', breadcrumb: ['Dashboard', 'Multi-Branch', 'Select Branch'] }
     };
 
@@ -426,7 +425,7 @@ export class LayoutService {
       '/dashboard/coordination': 'Multi-Branch Coordination',
       '/dashboard/branches': 'Branch Management',
       '/dashboard/branch-performance': 'Branch Performance',
-      // DISABLED: '/dashboard/transfers': 'Transfer Management',
+      '/dashboard/transfers': 'Transfer Management',
       '/dashboard/select-branch': 'Select Branch',
       '/dashboard/multi-branch-analytics': 'Multi-Branch Analytics',
       '/admin/multi-branch/dashboard': 'Multi-Branch Administration'

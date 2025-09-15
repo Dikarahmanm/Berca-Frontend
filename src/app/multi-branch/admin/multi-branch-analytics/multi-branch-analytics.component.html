@@ -115,45 +115,7 @@
     </mat-card>
   </div>
 
-  <!-- DEBUG SECTION - TEMPORARY -->
-  <div class="debug-section" *ngIf="!isLoading()" style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #ff9800;">
-    <h3 style="color: #ff9800; margin: 0 0 16px 0;">🔧 DEBUG INFO</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-family: monospace; font-size: 12px;">
-      
-      <div style="background: white; padding: 12px; border-radius: 4px;">
-        <h4 style="margin: 0 0 8px 0; color: #333;">📊 Network Analytics:</h4>
-        <pre style="margin: 0; color: #666;">{{ networkAnalytics() | json }}</pre>
-      </div>
-      
-      <div style="background: white; padding: 12px; border-radius: 4px;">
-        <h4 style="margin: 0 0 8px 0; color: #333;">🏢 Total Branches:</h4>
-        <pre style="margin: 0; color: #666;">{{ totalBranches() }}</pre>
-      </div>
-      
-      <div style="background: white; padding: 12px; border-radius: 4px;">
-        <h4 style="margin: 0 0 8px 0; color: #333;">⏰ Loading State:</h4>
-        <pre style="margin: 0; color: #666;">isLoading: {{ isLoading() }}
-selectedView: {{ selectedView() }}
-selectedPeriod: {{ selectedPeriod() }}</pre>
-      </div>
-      
-      <div style="background: white; padding: 12px; border-radius: 4px;">
-        <h4 style="margin: 0 0 8px 0; color: #333;">🎯 Selected View:</h4>
-        <pre style="margin: 0; color: #666;">Current: {{ selectedView() }}
-Available: overview, regional, executive, trends, forecast</pre>
-      </div>
-      
-    </div>
-    
-    <div style="margin-top: 16px;">
-      <button mat-stroked-button color="primary" (click)="debugLoadData()" style="margin-right: 8px;">
-        🔄 Force Reload Data
-      </button>
-      <button mat-stroked-button color="accent" (click)="debugConsoleLog()">
-        📝 Console Log All Data
-      </button>
-    </div>
-  </div>
+  
 
   <!-- Overview View -->
   <div class="analytics-content" *ngIf="selectedView() === 'overview' && !isLoading()">

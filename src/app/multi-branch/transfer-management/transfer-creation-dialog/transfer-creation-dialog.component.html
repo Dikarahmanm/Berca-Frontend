@@ -1,0 +1,290 @@
+<!-- Transfer Creation Dialog -->
+<div class="transfer-creation-dialog">
+  <!-- Dialog Header -->
+  <div mat-dialog-title class="dialog-header">
+    <div class="header-content">
+      <mat-icon class="header-icon">swap_horiz</mat-icon>
+      <div class="header-text">
+        <h2>{{ data.mode === 'emergency' ? 'Emergency Transfer' : 'Create Transfer' }}</h2>
+        <p>Create a new inventory transfer between branches</p>
+      </div>
+    </div>
+    <button mat-icon-button (click)="onCancel()" class="close-button">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Dialog Content -->
+  <div mat-dialog-content class="dialog-content">
+    <form [formGroup]="transferForm" class="transfer-form">
+
+      <!-- Basic Information Section -->
+      <mat-card class="form-section">
+        <mat-card-header>
+          <mat-card-title>Transfer Information</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Source Branch</mat-label>
+              <mat-select formControlName="sourceBranchId" required>
+                @for (branch of branches(); track branch.id) {
+                  <mat-option [value]="branch.id">
+                    {{ branch.branchName }}
+                  </mat-option>
+                }
+              </mat-select>
+              <mat-error>Source branch is required</mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Destination Branch</mat-label>
+              <mat-select formControlName="destinationBranchId" required>
+                @for (branch of branches(); track branch.id) {
+                  <mat-option [value]="branch.id">
+                    {{ branch.branchName }}
+                  </mat-option>
+                }
+              </mat-select>
+              <mat-error>Destination branch is required</mat-error>
+            </mat-form-field>
+          </div>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Priority</mat-label>
+              <mat-select formControlName="priority" required>
+                <mat-option [value]="TransferPriority.Low">
+                  <div class="priority-option">
+                    <mat-icon class="priority-icon low">low_priority</mat-icon>
+                    Low Priority
+                  </div>
+                </mat-option>
+                <mat-option [value]="TransferPriority.Normal">
+                  <div class="priority-option">
+                    <mat-icon class="priority-icon normal">remove</mat-icon>
+                    Normal Priority
+                  </div>
+                </mat-option>
+                <mat-option [value]="TransferPriority.High">
+                  <div class="priority-option">
+                    <mat-icon class="priority-icon high">priority_high</mat-icon>
+                    High Priority
+                  </div>
+                </mat-option>
+                <mat-option [value]="TransferPriority.Emergency">
+                  <div class="priority-option">
+                    <mat-icon class="priority-icon emergency">warning</mat-icon>
+                    Emergency
+                  </div>
+                </mat-option>
+              </mat-select>
+              <mat-error>Priority is required</mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Expected Delivery Date</mat-label>
+              <input matInput [matDatepicker]="picker" formControlName="estimatedDeliveryDate">
+              <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+              <mat-datepicker #picker></mat-datepicker>
+              <mat-hint>Leave empty for auto-calculation</mat-hint>
+            </mat-form-field>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Notes</mat-label>
+            <textarea matInput formControlName="notes" rows="3"
+                      placeholder="Additional notes or special instructions..."></textarea>
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Transfer Items Section -->
+      <mat-card class="form-section">
+        <mat-card-header>
+          <mat-card-title>Transfer Items</mat-card-title>
+          <mat-card-subtitle>
+            Total Items: {{ totalItems() }} | Total Quantity: {{ totalQuantity() }}
+          </mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+
+          <!-- Add Item Button -->
+          <div class="add-item-section">
+            <button type="button" mat-raised-button color="primary"
+                    (click)="addTransferItem()" class="add-item-btn">
+              <mat-icon>add</mat-icon>
+              Add Item
+            </button>
+          </div>
+
+          <!-- Items Table -->
+          @if (transferItemsArray.length > 0) {
+            <div class="items-table-container">
+              <table mat-table [dataSource]="transferItemsArray.controls" class="items-table">
+
+                <!-- Product Column -->
+                <ng-container matColumnDef="product">
+                  <th mat-header-cell *matHeaderCellDef>Product</th>
+                  <td mat-cell *matCellDef="let item; let i = index">
+                    <mat-form-field appearance="outline" class="product-field">
+                      <mat-label>Select Product</mat-label>
+                      <input type="text" matInput [formControl]="item.get('productName')"
+                             [matAutocomplete]="auto" (input)="filterProducts($event.target.value || '')"
+                             placeholder="Search product...">
+                      <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayProductFn">
+                        @for (product of filteredProducts(); track product.id) {
+                          <mat-option [value]="getProductDisplayName(product)" (click)="onProductSelected(product, i)">
+                            <div class="product-option">
+                              <span class="product-name">{{ product.name }}</span>
+                              <span class="product-code">{{ product.barcode }}</span>
+                              <span class="product-stock">Stock: {{ product.stock }}</span>
+                            </div>
+                          </mat-option>
+                        }
+                      </mat-autocomplete>
+                      <mat-error>Product is required</mat-error>
+                    </mat-form-field>
+                  </td>
+                </ng-container>
+
+                <!-- Quantity Column -->
+                <ng-container matColumnDef="quantity">
+                  <th mat-header-cell *matHeaderCellDef>Quantity</th>
+                  <td mat-cell *matCellDef="let item; let i = index">
+                    <mat-form-field appearance="outline" class="quantity-field">
+                      <mat-label>Qty</mat-label>
+                      <input matInput type="number" [formControl]="item.get('quantity')"
+                             min="1" placeholder="0">
+                      <mat-error>Quantity must be at least 1</mat-error>
+                    </mat-form-field>
+                  </td>
+                </ng-container>
+
+                <!-- Available Stock Column -->
+                <ng-container matColumnDef="availableStock">
+                  <th mat-header-cell *matHeaderCellDef>Available</th>
+                  <td mat-cell *matCellDef="let item">
+                    <div class="stock-info">
+                      <span class="stock-value">{{ item.get('availableStock')?.value || 0 }}</span>
+                      <button type="button" mat-icon-button color="accent"
+                              [disabled]="!item.get('productId')?.value"
+                              (click)="checkAvailableSources(item.get('productId')?.value, item.get('quantity')?.value)"
+                              matTooltip="Check available sources">
+                        <mat-icon>search</mat-icon>
+                      </button>
+                    </div>
+                  </td>
+                </ng-container>
+
+                <!-- Actions Column -->
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef>Actions</th>
+                  <td mat-cell *matCellDef="let item; let i = index">
+                    <button type="button" mat-icon-button color="warn"
+                            (click)="removeTransferItem(i)"
+                            matTooltip="Remove item">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+              </table>
+            </div>
+          } @else {
+            <div class="no-items">
+              <mat-icon class="no-items-icon">inventory_2</mat-icon>
+              <p>No items added yet</p>
+              <p class="no-items-subtitle">Click "Add Item" to start building your transfer</p>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Available Sources Section -->
+      @if (availableSources().length > 0) {
+        <mat-card class="form-section">
+          <mat-card-header>
+            <mat-card-title>Available Source Branches</mat-card-title>
+            <mat-card-subtitle>Branches with sufficient stock for selected items</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="sources-grid">
+              @for (source of availableSources(); track source.branchId) {
+                <div class="source-card" [class.selected]="transferForm.get('sourceBranchId')?.value === source.branchId">
+                  <div class="source-header">
+                    <strong>{{ source.branchName }}</strong>
+                    <span class="source-distance">{{ source.distance }}km</span>
+                  </div>
+                  <div class="source-details">
+                    <div class="source-stock">Stock: {{ source.availableQuantity }}</div>
+                    <div class="source-cost">Est. Cost: {{ formatCurrency(source.estimatedCost) }}</div>
+                  </div>
+                  <button type="button" mat-button color="primary"
+                          (click)="transferForm.patchValue({sourceBranchId: source.branchId})"
+                          [disabled]="transferForm.get('sourceBranchId')?.value === source.branchId">
+                    {{ transferForm.get('sourceBranchId')?.value === source.branchId ? 'Selected' : 'Select' }}
+                  </button>
+                </div>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      <!-- Cost Estimation Section -->
+      @if (estimatedCost() > 0 || estimatedDelivery()) {
+        <mat-card class="form-section estimation-section">
+          <mat-card-header>
+            <mat-card-title>Transfer Estimation</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="estimation-grid">
+              @if (estimatedCost() > 0) {
+                <div class="estimation-item">
+                  <mat-icon class="estimation-icon">attach_money</mat-icon>
+                  <div class="estimation-content">
+                    <span class="estimation-label">Estimated Cost</span>
+                    <span class="estimation-value">{{ formatCurrency(estimatedCost()) }}</span>
+                  </div>
+                  @if (calculating()) {
+                    <mat-spinner diameter="20"></mat-spinner>
+                  }
+                </div>
+              }
+
+              @if (estimatedDelivery()) {
+                <div class="estimation-item">
+                  <mat-icon class="estimation-icon">schedule</mat-icon>
+                  <div class="estimation-content">
+                    <span class="estimation-label">Estimated Delivery</span>
+                    <span class="estimation-value">{{ formatDate(estimatedDelivery()!) }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+    </form>
+  </div>
+
+  <!-- Dialog Actions -->
+  <div mat-dialog-actions class="dialog-actions">
+    <button type="button" mat-button (click)="onCancel()" [disabled]="loading()">
+      Cancel
+    </button>
+
+    <button type="submit" mat-raised-button color="primary"
+            (click)="onSubmit()" [disabled]="loading() || transferForm.invalid || transferItemsArray.length === 0">
+      @if (loading()) {
+        <mat-spinner diameter="20" class="button-spinner"></mat-spinner>
+      } @else {
+        <mat-icon>send</mat-icon>
+      }
+      {{ data.mode === 'emergency' ? 'Create Emergency Transfer' : 'Create Transfer' }}
+    </button>
+  </div>
+</div>

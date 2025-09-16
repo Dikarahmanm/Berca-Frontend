@@ -82,8 +82,18 @@ export interface WorkflowConfirmationData {
 
             <form [formGroup]="shippingForm">
               <div class="form-group">
-                <label>Courier/Driver Name *</label>
-                <input type="text" formControlName="courierName" placeholder="Enter courier or driver name">
+                <label>Courier Service *</label>
+                <input type="text" formControlName="courierName" placeholder="e.g., JNE, TIKI, GoSend">
+              </div>
+
+              <div class="form-group">
+                <label>Driver Name *</label>
+                <input type="text" formControlName="driverName" placeholder="Enter driver full name">
+              </div>
+
+              <div class="form-group">
+                <label>Driver Phone *</label>
+                <input type="tel" formControlName="driverPhone" placeholder="e.g., 081234567890">
               </div>
 
               <div class="form-group">
@@ -132,21 +142,51 @@ export interface WorkflowConfirmationData {
                     </div>
 
                     <div class="verification-controls">
-                      <div class="qty-input">
-                        <label>Received Qty:</label>
-                        <input
-                          type="number"
-                          [formControlName]="'item_' + i + '_qty'"
-                          [value]="item.requestedQuantity"
-                          min="0"
-                          [max]="item.requestedQuantity">
+                      <div class="qty-breakdown">
+                        <div class="qty-input">
+                          <label>Actually Received (Good):</label>
+                          <input
+                            type="number"
+                            [formControlName]="'item_' + i + '_received'"
+                            [min]="0"
+                            [max]="item.requestedQuantity"
+                            (input)="updateTotalForItem(i)"
+                            placeholder="0">
+                        </div>
+
+                        <div class="qty-input">
+                          <label>Damaged (Unusable):</label>
+                          <input
+                            type="number"
+                            [formControlName]="'item_' + i + '_damaged'"
+                            [min]="0"
+                            [max]="item.requestedQuantity"
+                            (input)="updateTotalForItem(i)"
+                            placeholder="0">
+                        </div>
+
+                        <div class="qty-input">
+                          <label>Lost/Missing:</label>
+                          <input
+                            type="number"
+                            [formControlName]="'item_' + i + '_lost'"
+                            [min]="0"
+                            [max]="item.requestedQuantity"
+                            (input)="updateTotalForItem(i)"
+                            placeholder="0">
+                        </div>
                       </div>
 
-                      <div class="condition-check">
-                        <label>
-                          <input type="checkbox" [formControlName]="'item_' + i + '_condition'" checked>
-                          Good condition
-                        </label>
+                      <div class="qty-summary">
+                        <div class="summary-row">
+                          <span>Shipped: {{ item.requestedQuantity }}</span>
+                          <span class="total-accounted" [class.valid]="isItemTotalValid(i)" [class.invalid]="!isItemTotalValid(i)">
+                            Accounted: {{ getItemTotal(i) }}
+                          </span>
+                        </div>
+                        <div class="validation-message" *ngIf="!isItemTotalValid(i)">
+                          ⚠️ Total must equal shipped quantity ({{ item.requestedQuantity }})
+                        </div>
                       </div>
                     </div>
 
@@ -417,6 +457,56 @@ export interface WorkflowConfirmationData {
       padding: 12px 0;
     }
 
+    .qty-breakdown {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      flex: 1;
+      padding: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+
+    .qty-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 180px;
+      padding: 12px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .total-accounted.valid {
+      color: #16a34a;
+    }
+
+    .total-accounted.invalid {
+      color: #dc2626;
+      font-weight: 600;
+    }
+
+    .validation-message {
+      font-size: 12px;
+      color: #dc2626;
+      font-weight: 500;
+      text-align: center;
+      padding: 4px 8px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 4px;
+    }
+
     .qty-input {
       display: flex;
       flex-direction: column;
@@ -674,6 +764,8 @@ export class TransferWorkflowConfirmationComponent {
     // Shipping form
     this.shippingForm = this.fb.group({
       courierName: ['', Validators.required],
+      driverName: ['', Validators.required],
+      driverPhone: ['', [Validators.required, Validators.pattern(/^[0-9+\-\s()]+$/)]],
       vehicleInfo: [''],
       trackingNumber: [this.trackingNumber(), [Validators.required, this.trackingNumberValidator]],
       notes: [''],
@@ -687,10 +779,11 @@ export class TransferWorkflowConfirmationComponent {
       finalConfirm: [false, Validators.requiredTrue]
     };
 
-    // Add controls for each item
+    // Add controls for each item - received, damaged, lost quantities
     this.data.transfer.items.forEach((item, index) => {
-      receiveControls['item_' + index + '_qty'] = [item.requestedQuantity, [Validators.required, Validators.min(0)]];
-      receiveControls['item_' + index + '_condition'] = [true];
+      receiveControls['item_' + index + '_received'] = [item.requestedQuantity, [Validators.required, Validators.min(0)]];
+      receiveControls['item_' + index + '_damaged'] = [0, [Validators.min(0)]];
+      receiveControls['item_' + index + '_lost'] = [0, [Validators.min(0)]];
       receiveControls['item_' + index + '_notes'] = [''];
     });
 
@@ -834,6 +927,8 @@ export class TransferWorkflowConfirmationComponent {
         result = {
           ...result,
           courierName: this.shippingForm.value.courierName,
+          driverName: this.shippingForm.value.driverName,
+          driverPhone: this.shippingForm.value.driverPhone,
           vehicleInfo: this.shippingForm.value.vehicleInfo,
           trackingNumber: this.shippingForm.value.trackingNumber,
           shipmentNotes: this.shippingForm.value.notes,
@@ -844,8 +939,10 @@ export class TransferWorkflowConfirmationComponent {
       case 'receive':
         const itemReceipts = this.data.transfer.items.map((item, index) => ({
           transferItemId: item.id,
-          receivedQuantity: this.receiveForm.value['item_' + index + '_qty'],
-          condition: this.receiveForm.value['item_' + index + '_condition'] ? 'good' : 'damaged',
+          actualReceivedQuantity: this.receiveForm.value['item_' + index + '_received'] || 0,
+          damageQuantity: this.receiveForm.value['item_' + index + '_damaged'] || 0,
+          lostQuantity: this.receiveForm.value['item_' + index + '_lost'] || 0,
+          receivedQuantity: this.receiveForm.value['item_' + index + '_received'] || 0,
           notes: this.receiveForm.value['item_' + index + '_notes'] || ''
         }));
 
@@ -870,5 +967,29 @@ export class TransferWorkflowConfirmationComponent {
       confirmed: true,
       formData: result
     });
+  }
+
+  // Helper methods for damage/loss quantity management
+  updateTotalForItem(index: number): void {
+    // Trigger form validation to update the UI
+    this.receiveForm.updateValueAndValidity();
+  }
+
+  isItemTotalValid(index: number): boolean {
+    const item = this.data.transfer.items[index];
+    const received = this.receiveForm.get('item_' + index + '_received')?.value || 0;
+    const damaged = this.receiveForm.get('item_' + index + '_damaged')?.value || 0;
+    const lost = this.receiveForm.get('item_' + index + '_lost')?.value || 0;
+
+    const total = received + damaged + lost;
+    return total === item.requestedQuantity;
+  }
+
+  getItemTotal(index: number): number {
+    const received = this.receiveForm.get('item_' + index + '_received')?.value || 0;
+    const damaged = this.receiveForm.get('item_' + index + '_damaged')?.value || 0;
+    const lost = this.receiveForm.get('item_' + index + '_lost')?.value || 0;
+
+    return received + damaged + lost;
   }
 }

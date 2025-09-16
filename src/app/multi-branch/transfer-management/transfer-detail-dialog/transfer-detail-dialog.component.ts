@@ -177,6 +177,9 @@ import { TransferWorkflowConfirmationComponent } from '../transfer-workflow-conf
                 <div class="timeline-meta" *ngIf="!transfer()!.requestedAt">
                   Requested by {{ transfer()!.requestedByName }}
                 </div>
+                <div class="timeline-notes" *ngIf="transfer()!.notes">
+                  <strong>Request Notes:</strong> {{ transfer()!.notes }}
+                </div>
               </div>
             </div>
 
@@ -262,6 +265,18 @@ import { TransferWorkflowConfirmationComponent } from '../transfer-workflow-conf
                     <div class="value">{{ transfer()!.courierName }}</div>
                   </div>
                 }
+                @if (transfer()!.driverName) {
+                  <div class="delivery-item">
+                    <label>Driver Name</label>
+                    <div class="value">{{ transfer()!.driverName }}</div>
+                  </div>
+                }
+                @if (transfer()!.driverPhone) {
+                  <div class="delivery-item">
+                    <label>Driver Phone</label>
+                    <div class="value">{{ transfer()!.driverPhone }}</div>
+                  </div>
+                }
               </div>
               <div class="delivery-column">
                 @if (transfer()!.estimatedDeliveryDate) {
@@ -287,6 +302,47 @@ import { TransferWorkflowConfirmationComponent } from '../transfer-workflow-conf
           </div>
         }
 
+        <!-- Loss Summary Section (shown only if there are losses) -->
+        @if (getTotalDamageValue() > 0 || getTotalLossValue() > 0) {
+          <div class="info-section loss-summary">
+            <h3 class="section-title text-danger">⚠️ Loss Summary</h3>
+            <div class="financial-grid">
+              <div class="financial-column">
+                @if (getTotalDamageQuantity() > 0) {
+                  <div class="financial-item">
+                    <label class="text-danger">Total Damaged Items</label>
+                    <div class="value damage-value">{{ getTotalDamageQuantity() }} units</div>
+                  </div>
+                }
+                @if (getTotalLostQuantity() > 0) {
+                  <div class="financial-item">
+                    <label class="text-danger">Total Lost Items</label>
+                    <div class="value lost-value">{{ getTotalLostQuantity() }} units</div>
+                  </div>
+                }
+              </div>
+              <div class="financial-column">
+                @if (getTotalDamageValue() > 0) {
+                  <div class="financial-item">
+                    <label class="text-danger">Damage Cost</label>
+                    <div class="value text-danger font-bold">{{ formatCurrency(getTotalDamageValue()) }}</div>
+                  </div>
+                }
+                @if (getTotalLossValue() > 0) {
+                  <div class="financial-item">
+                    <label class="text-danger">Loss Cost</label>
+                    <div class="value text-danger font-bold">{{ formatCurrency(getTotalLossValue()) }}</div>
+                  </div>
+                }
+                <div class="financial-item total-loss">
+                  <label class="text-danger font-bold">Total Loss Value</label>
+                  <div class="value text-danger font-bold text-lg">{{ formatCurrency(getTotalDamageValue() + getTotalLossValue()) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
+
         <!-- Transfer Items -->
         <div class="info-section">
           <h3 class="section-title">Transfer Items ({{ transfer()!.items.length || 0 }})</h3>
@@ -302,8 +358,11 @@ import { TransferWorkflowConfirmationComponent } from '../transfer-workflow-conf
                     <th class="text-center">Approved</th>
                     <th class="text-center">Shipped</th>
                     <th class="text-center">Received</th>
+                    <th class="text-center">Damaged</th>
+                    <th class="text-center">Lost</th>
                     <th class="text-right">Unit Cost</th>
                     <th class="text-right">Total Cost</th>
+                    <th class="text-right">Loss Value</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -334,11 +393,38 @@ import { TransferWorkflowConfirmationComponent } from '../transfer-workflow-conf
                       <div class="quantity-value" [class.has-received]="item.receivedQuantity">
                         {{ item.receivedQuantity || '-' }}
                       </div>
+                      @if ((item.receivedQuantity || 0) !== (item.requestedQuantity || 0)) {
+                        <div class="quantity-difference" [class.text-success]="(item.receivedQuantity || 0) > (item.requestedQuantity || 0)" [class.text-danger]="(item.receivedQuantity || 0) < (item.requestedQuantity || 0)">
+                          ({{ (item.receivedQuantity || 0) > (item.requestedQuantity || 0) ? '+' : '' }}{{ (item.receivedQuantity || 0) - (item.requestedQuantity || 0) }})
+                        </div>
+                      }
+                    </td>
+
+                    <td class="text-center">
+                      <div class="quantity-value damage-value" *ngIf="item.damageQuantity && item.damageQuantity > 0">
+                        {{ item.damageQuantity }}
+                      </div>
+                      <div class="no-damage" *ngIf="!item.damageQuantity || item.damageQuantity === 0">-</div>
+                    </td>
+
+                    <td class="text-center">
+                      <div class="quantity-value lost-value" *ngIf="item.lostQuantity && item.lostQuantity > 0">
+                        {{ item.lostQuantity }}
+                      </div>
+                      <div class="no-loss" *ngIf="!item.lostQuantity || item.lostQuantity === 0">-</div>
                     </td>
 
                     <td class="text-right">{{ formatCurrency(item.unitCost) }}</td>
 
                     <td class="text-right font-semibold">{{ formatCurrency(item.totalCost) }}</td>
+
+                    <td class="text-right">
+                      @if ((item.damageValue || 0) + (item.lossValue || 0) > 0) {
+                        <span class="text-danger font-semibold">{{ formatCurrency((item.damageValue || 0) + (item.lossValue || 0)) }}</span>
+                      } @else {
+                        <span class="text-success">-</span>
+                      }
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -493,11 +579,17 @@ export class TransferDetailDialogComponent implements OnInit {
       productBarcode: item.product.barcode,
       unit: item.product.unit,
       requestedQuantity: item.quantity,
-      approvedQuantity: item.quantity, // Assuming approved same as requested for now
-      shippedQuantity: item.quantity,
-      receivedQuantity: item.quantity,
+      approvedQuantity: item.approvedQuantity || item.quantity,
+      shippedQuantity: item.shippedQuantity || item.quantity,
+      receivedQuantity: item.actualReceivedQuantity || item.receivedQuantity || item.quantity,
+      actualReceivedQuantity: item.actualReceivedQuantity || item.receivedQuantity || item.quantity,
+      damageQuantity: item.damageQuantity || 0,
+      lostQuantity: item.lostQuantity || 0,
+      damageValue: (item.damageQuantity || 0) * (item.unitCost || 0),
+      lossValue: (item.lostQuantity || 0) * (item.unitCost || 0),
       unitCost: item.unitCost,
       totalCost: (item.unitCost || 0) * (item.quantity || 0),
+      actualTotalCost: (item.unitCost || 0) * (item.actualReceivedQuantity || item.receivedQuantity || item.quantity),
       sourceStockBefore: item.sourceStockBefore,
       sourceStockAfter: item.sourceStockAfter,
       destinationStockBefore: item.destinationStockBefore,
@@ -533,7 +625,9 @@ export class TransferDetailDialogComponent implements OnInit {
       shipmentNotes: transfer.shipmentNotes,
       receiptNotes: transfer.receiptNotes,
       trackingNumber: transfer.trackingNumber,
-      courierName: transfer.courierName
+      courierName: transfer.courierName,
+      driverName: transfer.driverName,
+      driverPhone: transfer.driverPhone
     };
   }
 
@@ -1079,6 +1173,8 @@ export class TransferDetailDialogComponent implements OnInit {
       estimatedDeliveryDate: formData.estimatedDeliveryDate || formData.deliveryDate || transfer.estimatedDeliveryDate,
       trackingNumber: formData.trackingNumber || `TRK-${transfer.transferNumber}`,
       courierName: formData.courierName || 'Internal Courier',
+      driverName: formData.driverName || '',
+      driverPhone: formData.driverPhone || '',
       itemShipments: []
     };
 
@@ -1232,6 +1328,22 @@ export class TransferDetailDialogComponent implements OnInit {
 
   getTotalApprovedQuantity(): number {
     return this.transfer()?.items?.reduce((sum, item) => sum + (item.approvedQuantity || 0), 0) || 0;
+  }
+
+  getTotalDamageQuantity(): number {
+    return this.transfer()?.items?.reduce((sum, item) => sum + (item.damageQuantity || 0), 0) || 0;
+  }
+
+  getTotalLostQuantity(): number {
+    return this.transfer()?.items?.reduce((sum, item) => sum + (item.lostQuantity || 0), 0) || 0;
+  }
+
+  getTotalDamageValue(): number {
+    return this.transfer()?.items?.reduce((sum, item) => sum + (item.damageValue || 0), 0) || 0;
+  }
+
+  getTotalLossValue(): number {
+    return this.transfer()?.items?.reduce((sum, item) => sum + (item.lossValue || 0), 0) || 0;
   }
 
   getStatusClass(status: TransferStatus): string {

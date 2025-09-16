@@ -325,24 +325,27 @@
               </div>
             </div>
             
-            <!-- ✅ NEW: Layout Toggle Buttons -->
-            <div class="layout-toggle-section">
-              <span class="toggle-label">View:</span>
-              <div class="layout-toggle-group">
-                <button 
-                  mat-icon-button 
+            <!-- ✅ REDESIGNED: Enhanced Layout Toggle with Visual Feedback -->
+            <div class="enhanced-layout-toggle">
+              <span class="toggle-label">View Mode:</span>
+              <div class="toggle-wrapper">
+                <button
+                  class="toggle-option"
                   [class.active]="batchLayoutMode() === 'grid'"
-                  (click)="toggleBatchLayout()"
-                  matTooltip="Grid View">
+                  (click)="setBatchLayoutMode('grid')"
+                  matRipple>
                   <mat-icon>grid_view</mat-icon>
+                  <span class="toggle-text">Grid</span>
                 </button>
-                <button 
-                  mat-icon-button 
-                  [class.active]="batchLayoutMode() === 'column'"
-                  (click)="toggleBatchLayout()"
-                  matTooltip="List View">
-                  <mat-icon>view_list</mat-icon>
+                <button
+                  class="toggle-option"
+                  [class.active]="batchLayoutMode() === 'list'"
+                  (click)="setBatchLayoutMode('list')"
+                  matRipple>
+                  <mat-icon>view_agenda</mat-icon>
+                  <span class="toggle-text">List</span>
                 </button>
+                <div class="toggle-indicator" [class.grid-active]="batchLayoutMode() === 'grid'" [class.list-active]="batchLayoutMode() === 'list'"></div>
               </div>
             </div>
             
@@ -382,191 +385,270 @@
       </mat-card>
     </div>
 
-    <!-- ✅ NEW: Dynamic Batch Layout Container -->
-    <div class="batch-layout-container" 
-         [class.grid-layout]="batchLayoutMode() === 'grid'"
-         [class.column-layout]="batchLayoutMode() === 'column'"
+    <!-- ✅ REDESIGNED: Enhanced Batch Layout Container -->
+    <div class="enhanced-batch-container"
+         [class.grid-mode]="batchLayoutMode() === 'grid'"
+         [class.list-mode]="batchLayoutMode() === 'list'"
          *ngIf="!loadingBatchDetails() && productsWithDetailedBatches().length > 0">
       
-      <!-- ✅ REDESIGNED: Product Batch Groups with Modern Layout -->
-      <div class="product-batch-group" 
-           [class.grid-mode]="batchLayoutMode() === 'grid'"
-           [class.column-mode]="batchLayoutMode() === 'column'"
+      <!-- ✅ REDESIGNED: Modern Product Batch Groups -->
+      <div class="modern-product-group"
            *ngFor="let productGroup of productsWithDetailedBatches(); trackBy: trackByProductGroup">
-        
-        <!-- ✅ COMPACT: Redesigned Product Header for Space Efficiency -->
-        <div class="product-header-compact">
-          <div class="product-main-info">
-            <h4 class="product-name">{{ productGroup.productName }}</h4>
-            <div class="product-meta">
-              <span class="product-barcode">{{ productGroup.barcode }}</span>
-              <span class="product-category" [style.background-color]="productGroup.categoryColor">
-                {{ productGroup.categoryName }}
-              </span>
+
+        <!-- ✅ ENHANCED: Sleek Product Header -->
+        <div class="sleek-product-header">
+          <div class="product-identity">
+            <div class="product-title-section">
+              <h4 class="product-name">{{ productGroup.productName }}</h4>
+              <div class="product-badges">
+                <span class="barcode-badge">
+                  <mat-icon>qr_code</mat-icon>
+                  {{ productGroup.barcode }}
+                </span>
+                <span class="category-badge" [style.background-color]="productGroup.categoryColor">
+                  {{ productGroup.categoryName }}
+                </span>
+              </div>
             </div>
           </div>
-          
-          <div class="product-summary-compact">
-            <div class="summary-item">
-              <span class="summary-label">Stock</span>
-              <span class="summary-value" 
-                    [class.stock-discrepancy]="productGroup.hasStockDiscrepancy">
-                {{ formatSafeStock(productGroup.totalStock, productGroup.unit) }}
-              </span>
+
+          <div class="product-metrics">
+            <div class="metric-item stock" [class.warning]="productGroup.isLowStock">
+              <mat-icon>inventory_2</mat-icon>
+              <span class="metric-value">{{ formatSafeStock(productGroup.totalStock, productGroup.unit) }}</span>
+              <span class="metric-label">Total Stock</span>
             </div>
-            <div class="summary-item">
-              <span class="summary-label">Batches</span>
-              <span class="summary-value">{{ productGroup.batches.length }}</span>
+            <div class="metric-item batches">
+              <mat-icon>layers</mat-icon>
+              <span class="metric-value">{{ productGroup.batches.length }}</span>
+              <span class="metric-label">Batches</span>
             </div>
-            
-            <!-- ✅ Warnings & Alerts in Compact Form -->
-            <div class="summary-item" *ngIf="productGroup.isLowStock || productGroup.hasStockDiscrepancy">
-              <div class="stock-warning"
-                   [matTooltip]="productGroup.hasStockDiscrepancy ? 'Stock discrepancy detected. Database: ' + productGroup.databaseStock + ', Batches: ' + productGroup.totalStock : 'Low stock warning'">
-                <mat-icon>{{ productGroup.hasStockDiscrepancy ? 'warning' : 'inventory_2' }}</mat-icon>
-              </div>
+
+            <!-- Status Indicators -->
+            <div class="status-indicators" *ngIf="productGroup.isLowStock || productGroup.hasStockDiscrepancy">
+              <mat-icon class="warning-icon"
+                        [matTooltip]="productGroup.hasStockDiscrepancy ? 'Stock discrepancy detected' : 'Low stock warning'">
+                {{ productGroup.hasStockDiscrepancy ? 'warning' : 'inventory_2' }}
+              </mat-icon>
             </div>
           </div>
         </div>
 
-          <!-- ✅ DYNAMIC: Batch Cards Layout (Grid or Column) -->
-          <div class="batch-cards-layout" 
-               [class.cards-grid]="batchLayoutMode() === 'grid'"
-               [class.cards-column]="batchLayoutMode() === 'column'">
-              
-              <!-- ✅ MODERN: Redesigned Batch Card -->
-              <div class="modern-batch-card" 
-                   *ngFor="let batch of productGroup.batches; trackBy: trackByBatch"
-                   [ngClass]="getBatchCardClasses(batch)"
-                   [class.grid-card]="batchLayoutMode() === 'grid'"
-                   [class.column-card]="batchLayoutMode() === 'column'">
-                
-                <!-- Batch Header -->
-                <div class="batch-header">
-                  <div class="batch-identity">
-                    <h5 class="batch-number">{{ batch.batchNumber }}</h5>
-                    <span class="batch-id">#{{ batch.id }}</span>
-                  </div>
-                  <div class="batch-priority">
-                    <span class="fifo-order" [ngClass]="getFifoOrderClass(batch)">
-                      {{ getFifoOrderText(batch) }}
-                    </span>
-                  </div>
-                </div>
+        <!-- ✅ REDESIGNED: Smart Batch Layout -->
+        <div class="smart-batch-layout"
+             [class.grid-display]="batchLayoutMode() === 'grid'"
+             [class.list-display]="batchLayoutMode() === 'list'">
 
-                <!-- Batch Stock Info -->
-                <div class="batch-stock-grid">
-                  <div class="stock-item">
-                    <span class="stock-label">Current</span>
-                    <span class="stock-value current">{{ formatSafeStock(batch.currentStock, productGroup.unit) }}</span>
-                  </div>
-                  <div class="stock-item">
-                    <span class="stock-label">Initial</span>
-                    <span class="stock-value initial">{{ formatSafeStock(batch.initialStock, productGroup.unit) }}</span>
-                  </div>
-                  <div class="stock-item">
-                    <span class="stock-label">Cost/Unit</span>
-                    <span class="stock-value cost">{{ formatSafeCurrency(batch.costPerUnit) }}</span>
-                  </div>
-                  <div class="stock-item">
-                    <span class="stock-label">Total Value</span>
-                    <span class="stock-value total">{{ formatSafeCurrency(batch.currentStock * batch.costPerUnit) }}</span>
-                  </div>
-                </div>
+          <!-- ✅ MODERN: Redesigned Batch Cards -->
+          <div class="redesigned-batch-card"
+               *ngFor="let batch of productGroup.batches; trackBy: trackByBatch"
+               [ngClass]="getBatchCardClasses(batch)"
+               [class.grid-style]="batchLayoutMode() === 'grid'"
+               [class.list-style]="batchLayoutMode() === 'list'">
 
-                <!-- Batch Dates -->
-                <div class="batch-dates-section">
-                  <div class="date-item" *ngIf="batch.productionDate">
-                    <mat-icon class="date-icon">calendar_today</mat-icon>
-                    <div class="date-content">
-                      <span class="date-label">Production</span>
-                      <span class="date-value">{{ formatSafeDate(batch.productionDate) }}</span>
-                    </div>
-                  </div>
-                  
-                  <div class="date-item expiry-item" *ngIf="batch.expiryDate">
-                    <mat-icon [ngClass]="getExpiryIconClass(batch)">{{ getExpiryIcon(batch) }}</mat-icon>
-                    <div class="date-content">
-                      <span class="date-label">Expiry</span>
-                      <span class="date-value" [ngClass]="getExpiryDateClass(batch)">
-                        {{ formatSafeDate(batch.expiryDate) }}
-                      </span>
-                      <span class="days-left" [ngClass]="getDaysLeftClass(batch)">
-                        {{ getDaysLeftText(batch) }}
-                      </span>
-                    </div>
-                  </div>
+            <!-- ✅ GRID MODE: Card Layout -->
+            <ng-container *ngIf="batchLayoutMode() === 'grid'">
+              <!-- Compact Header for Grid -->
+              <div class="batch-card-header">
+                <div class="batch-number">
+                  <span class="batch-id">{{ batch.batchNumber }}</span>
+                  <span class="fifo-indicator" [ngClass]="getFifoOrderClass(batch)">
+                    {{ getFifoOrderText(batch) }}
+                  </span>
                 </div>
-
-                <!-- Batch Details -->
-                <div class="batch-details-section" *ngIf="batch.supplierName || batch.purchaseOrderNumber">
-                  <div class="detail-item" *ngIf="batch.supplierName">
-                    <mat-icon>business</mat-icon>
-                    <span>{{ batch.supplierName }}</span>
-                  </div>
-                  <div class="detail-item" *ngIf="batch.purchaseOrderNumber">
-                    <mat-icon>receipt</mat-icon>
-                    <span>PO: {{ batch.purchaseOrderNumber }}</span>
-                  </div>
-                </div>
-
-                <!-- Batch Status -->
-                <div class="batch-status-section">
-                  <div class="status-indicator">
-                    <mat-icon>{{ getBatchStatusIcon(batch) }}</mat-icon>
-                    <span>{{ getBatchStatusText(batch) }}</span>
-                  </div>
-                </div>
-
-                <!-- Batch Actions -->
-                <div class="batch-actions">
-                  <button mat-stroked-button size="small" 
-                          (click)="editBatch(batch)" 
-                          class="action-btn edit-batch-btn">
-                    <mat-icon>edit</mat-icon>
-                    Edit
-                  </button>
-                  <button mat-stroked-button size="small" 
-                          (click)="addStockToBatch(batch)" 
-                          [disabled]="batch.isExpired || batch.isDisposed"
-                          class="action-btn add-stock-btn">
-                    <mat-icon>add</mat-icon>
-                    Add Stock
-                  </button>
-                  <button mat-icon-button [matMenuTriggerFor]="batchMenu" class="action-menu batch-menu-btn">
-                    <mat-icon>more_vert</mat-icon>
-                  </button>
-                  
-                  <mat-menu #batchMenu="matMenu">
-                    <button mat-menu-item (click)="viewBatchHistory(batch)">
-                      <mat-icon>history</mat-icon>
-                      View History
-                    </button>
-                    <button mat-menu-item (click)="transferBatch(batch)" 
-                            [disabled]="batch.currentStock === 0">
-                      <mat-icon>swap_horiz</mat-icon>
-                      Transfer Stock
-                    </button>
-                    <button mat-menu-item (click)="disposeBatch(batch)" 
-                            *ngIf="batch.isExpired && !batch.isDisposed">
-                      <mat-icon>delete_sweep</mat-icon>
-                      Dispose Expired
-                    </button>
-                  </mat-menu>
+                <div class="status-badge" [ngClass]="getBatchStatusClass(batch)">
+                  <mat-icon>{{ getBatchStatusIcon(batch) }}</mat-icon>
                 </div>
               </div>
 
-              <!-- No Batches State for Product -->
-              <div class="no-batches-card" *ngIf="productGroup.batches.length === 0">
-                <mat-icon>info</mat-icon>
-                <h5>No Batches Found</h5>
-                <p>This product doesn't have any batch tracking enabled yet.</p>
-                <button mat-stroked-button (click)="createFirstBatch(productGroup)">
-                  <mat-icon>add</mat-icon>
-                  Create First Batch
+              <!-- Primary Info Grid -->
+              <div class="batch-info-grid">
+                <div class="info-item stock">
+                  <span class="value">{{ formatSafeStock(batch.currentStock, productGroup.unit) }}</span>
+                  <span class="label">Current Stock</span>
+                </div>
+                <div class="info-item cost">
+                  <span class="value">{{ formatSafeCurrency(batch.costPerUnit) }}</span>
+                  <span class="label">Cost/Unit</span>
+                </div>
+              </div>
+
+              <!-- Expiry Section -->
+              <div class="batch-expiry" *ngIf="batch.expiryDate">
+                <div class="expiry-info" [ngClass]="getExpiryStatusClass(batch)">
+                  <mat-icon>{{ getExpiryIcon(batch) }}</mat-icon>
+                  <div class="expiry-text">
+                    <span class="expiry-date">{{ formatSafeDate(batch.expiryDate) }}</span>
+                    <span class="days-remaining">{{ getDaysLeftText(batch) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Actions -->
+              <div class="batch-quick-actions">
+                <button mat-icon-button (click)="editBatch(batch)" matTooltip="Edit">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button [matMenuTriggerFor]="batchMenuGrid" matTooltip="More">
+                  <mat-icon>more_vert</mat-icon>
                 </button>
               </div>
+            </ng-container>
+
+            <!-- ✅ LIST MODE: Enhanced Comprehensive Layout -->
+            <ng-container *ngIf="batchLayoutMode() === 'list'">
+              <!-- Main Container for Full Info Display -->
+              <div class="batch-list-main">
+                <!-- Top Row: Header Info -->
+                <div class="batch-list-header">
+                  <div class="batch-identity-section">
+                    <div class="batch-number-primary">{{ batch.batchNumber }}</div>
+                    <div class="batch-meta">
+                      <span class="batch-id-tag">#{{ batch.id }}</span>
+                      <span class="fifo-status" [ngClass]="getFifoOrderClass(batch)">
+                        {{ getFifoOrderText(batch) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="batch-status-section">
+                    <span class="status-indicator" [ngClass]="getBatchStatusClass(batch)">
+                      <mat-icon>{{ getBatchStatusIcon(batch) }}</mat-icon>
+                      {{ getBatchStatusText(batch) }}
+                    </span>
+                  </div>
+
+                  <div class="batch-actions-section">
+                    <button mat-icon-button (click)="editBatch(batch)" matTooltip="Edit Batch">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button mat-icon-button [matMenuTriggerFor]="batchMenuList" matTooltip="More Options">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Bottom Row: Detailed Info Grid -->
+                <div class="batch-list-details">
+                  <div class="detail-group stock-info">
+                    <div class="detail-item">
+                      <span class="detail-label">Current Stock</span>
+                      <span class="detail-value primary">{{ formatSafeStock(batch.currentStock, productGroup.unit) }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Initial Stock</span>
+                      <span class="detail-value">{{ formatSafeStock(batch.initialStock, productGroup.unit) }}</span>
+                    </div>
+                  </div>
+
+                  <div class="detail-group cost-info">
+                    <div class="detail-item">
+                      <span class="detail-label">Cost per Unit</span>
+                      <span class="detail-value">{{ formatSafeCurrency(batch.costPerUnit) }}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Total Value</span>
+                      <span class="detail-value">{{ formatSafeCurrency(batch.currentStock * batch.costPerUnit) }}</span>
+                    </div>
+                  </div>
+
+                  <div class="detail-group expiry-info" *ngIf="batch.expiryDate">
+                    <div class="detail-item">
+                      <span class="detail-label">Production Date</span>
+                      <span class="detail-value" *ngIf="batch.productionDate">{{ formatSafeDate(batch.productionDate) }}</span>
+                      <span class="detail-value muted" *ngIf="!batch.productionDate">Not set</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="detail-label">Expiry Date</span>
+                      <span class="detail-value" [ngClass]="getExpiryDateClass(batch)">
+                        {{ formatSafeDate(batch.expiryDate) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="detail-group supplier-info" *ngIf="batch.supplierName || batch.purchaseOrderNumber">
+                    <div class="detail-item" *ngIf="batch.supplierName">
+                      <span class="detail-label">Supplier</span>
+                      <span class="detail-value">{{ batch.supplierName }}</span>
+                    </div>
+                    <div class="detail-item" *ngIf="batch.purchaseOrderNumber">
+                      <span class="detail-label">PO Number</span>
+                      <span class="detail-value">{{ batch.purchaseOrderNumber }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Expiry Warning Strip (if critical) -->
+                <div class="expiry-warning-strip" *ngIf="batch.daysUntilExpiry <= 30 && !batch.isExpired" [ngClass]="getExpiryStatusClass(batch)">
+                  <mat-icon>{{ getExpiryIcon(batch) }}</mat-icon>
+                  <span>{{ getDaysLeftText(batch) }}</span>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- Shared Menu Templates -->
+            <mat-menu #batchMenuGrid="matMenu">
+              <button mat-menu-item (click)="editBatch(batch)">
+                <mat-icon>edit</mat-icon>
+                Edit Batch
+              </button>
+              <button mat-menu-item (click)="addStockToBatch(batch)" [disabled]="batch.isExpired">
+                <mat-icon>add</mat-icon>
+                Add Stock
+              </button>
+              <button mat-menu-item (click)="viewBatchHistory(batch)">
+                <mat-icon>history</mat-icon>
+                View History
+              </button>
+              <mat-divider></mat-divider>
+              <button mat-menu-item (click)="transferBatch(batch)" [disabled]="batch.currentStock === 0">
+                <mat-icon>swap_horiz</mat-icon>
+                Transfer
+              </button>
+              <button mat-menu-item (click)="disposeBatch(batch)" *ngIf="batch.isExpired && !batch.isDisposed">
+                <mat-icon>delete_sweep</mat-icon>
+                Dispose
+              </button>
+            </mat-menu>
+
+            <mat-menu #batchMenuList="matMenu">
+              <button mat-menu-item (click)="editBatch(batch)">
+                <mat-icon>edit</mat-icon>
+                Edit Batch
+              </button>
+              <button mat-menu-item (click)="addStockToBatch(batch)" [disabled]="batch.isExpired">
+                <mat-icon>add</mat-icon>
+                Add Stock
+              </button>
+              <button mat-menu-item (click)="viewBatchHistory(batch)">
+                <mat-icon>history</mat-icon>
+                View History
+              </button>
+              <mat-divider></mat-divider>
+              <button mat-menu-item (click)="transferBatch(batch)" [disabled]="batch.currentStock === 0">
+                <mat-icon>swap_horiz</mat-icon>
+                Transfer
+              </button>
+              <button mat-menu-item (click)="disposeBatch(batch)" *ngIf="batch.isExpired && !batch.isDisposed">
+                <mat-icon>delete_sweep</mat-icon>
+                Dispose
+              </button>
+            </mat-menu>
           </div>
+
+          <!-- No Batches State -->
+          <div class="no-batches-state" *ngIf="productGroup.batches.length === 0">
+            <div class="empty-state-content">
+              <mat-icon class="empty-icon">layers_clear</mat-icon>
+              <h5>No Batches Available</h5>
+              <p>This product doesn't have any batch tracking data.</p>
+              <button mat-raised-button color="primary" (click)="createFirstBatch(productGroup)">
+                <mat-icon>add</mat-icon>
+                Create First Batch
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

@@ -125,56 +125,89 @@
         }
       }
 
-      // ✅ NEW: Layout Toggle Section
-      .layout-toggle-section {
+      // ✅ REDESIGNED: Enhanced Layout Toggle with Visual Feedback
+      .enhanced-layout-toggle {
         display: flex;
         align-items: center;
-        gap: var(--s3);
-        
+        gap: var(--s4);
+
         .toggle-label {
           font-size: var(--text-sm);
-          font-weight: 500;
-          color: var(--text-secondary);
+          font-weight: 600;
+          color: var(--text-primary);
+          letter-spacing: 0.02em;
         }
-        
-        .layout-toggle-group {
+
+        .toggle-wrapper {
+          position: relative;
           display: flex;
-          background: var(--bg-secondary);
-          border-radius: var(--radius-md);
-          border: 1px solid var(--border);
-          overflow: hidden;
-          
-          button {
-            background: transparent;
-            color: var(--text-secondary);
-            border: none;
-            padding: var(--s2) var(--s3);
-            transition: all 0.2s ease;
+          background: var(--bg-elevated);
+          border-radius: 12px;
+          border: 2px solid var(--border-light);
+          padding: 4px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+          .toggle-option {
             position: relative;
-            
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 12px 20px;
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            z-index: 2;
+
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
             mat-icon {
               font-size: 20px;
               width: 20px;
               height: 20px;
+              transition: transform 0.2s ease;
             }
-            
+
+            .toggle-text {
+              font-size: var(--text-sm);
+              font-weight: 500;
+              letter-spacing: 0.01em;
+            }
+
             &:hover {
-              background: var(--bg-hover);
-              color: var(--text-primary);
-            }
-            
-            &.active {
-              background: var(--primary);
-              color: white;
-              box-shadow: var(--shadow-sm);
-              
-              &:hover {
-                background: var(--primary-hover);
+              color: var(--primary);
+              transform: translateY(-1px);
+
+              mat-icon {
+                transform: scale(1.1);
               }
             }
-            
-            &:not(:last-child) {
-              border-right: 1px solid var(--border);
+
+            &.active {
+              color: white;
+              font-weight: 600;
+
+              mat-icon {
+                transform: scale(1.05);
+              }
+            }
+          }
+
+          .toggle-indicator {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: calc(50% - 4px);
+            height: calc(100% - 8px);
+            background: linear-gradient(135deg, #e47a3f, #d66b2a);
+            border-radius: 8px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(228, 122, 63, 0.3);
+            z-index: 1;
+
+            &.list-active {
+              transform: translateX(100%);
             }
           }
         }
@@ -244,32 +277,46 @@
     }
   }
 
-  /* ✅ NEW: Dynamic Batch Layout Container */
-  .batch-layout-container {
+  /* ✅ REDESIGNED: Enhanced Batch Container */
+  .enhanced-batch-container {
     padding: var(--s4);
     transition: all 0.3s ease;
-    
-    // Grid Layout Mode
-    &.grid-layout {
+
+    // Grid Mode
+    &.grid-mode {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
       gap: var(--s6);
       align-items: start;
-      
-      // Ultra Wide Screens: Allow more products side-by-side
+
       @media (min-width: 1600px) {
-        grid-template-columns: repeat(auto-fit, minmax(380px, 400px));
+        grid-template-columns: repeat(auto-fit, minmax(380px, 420px));
+        gap: var(--s5);
+      }
+
+      @media (max-width: 1200px) {
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
         gap: var(--s4);
       }
+
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+        gap: var(--s3);
+        padding: var(--s3);
+      }
     }
-    
-    // Column Layout Mode
-    &.column-layout {
+
+    // List Mode
+    &.list-mode {
       display: flex;
       flex-direction: column;
       gap: var(--s4);
       max-width: 100%;
-    }
+
+      @media (max-width: 768px) {
+        gap: var(--s3);
+        padding: var(--s3);
+      }
     }
   }
 
@@ -3579,4 +3626,5 @@
       }
     }
   }
-}
+    }
+  }

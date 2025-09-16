@@ -142,7 +142,7 @@ export interface ProductBatchWithDetails extends ProductBatch {
     MatCheckboxModule
   ],
   templateUrl: './inventory-list.component.html',
-  styleUrls: ['./inventory-list.component.scss']
+  styleUrls: ['./inventory-list.component.scss', './inventory-list-redesign.scss']
 })
 export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
@@ -262,7 +262,7 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   productsWithDetailedBatches = signal<ProductWithBatchesGroup[]>([]);
   batchViewMode = signal(false);
   // ✅ NEW: Batch view layout mode (grid or column)
-  batchLayoutMode = signal<'grid' | 'column'>('grid');
+  batchLayoutMode = signal<'grid' | 'list'>('grid');
   loadingBatchDetails = signal(false);
   
   // All possible table columns (enhanced with batch columns)
@@ -784,8 +784,23 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   /**
    * Get CSS class for expiry status
    */
-  getExpiryStatusClass(status: string): string {
-    return `expiry-${status}`;
+  getExpiryStatusClass(statusOrBatch: string | any): string {
+    // Handle both string status and batch object
+    if (typeof statusOrBatch === 'string') {
+      return `expiry-${statusOrBatch}`;
+    }
+
+    // Handle batch object
+    const batch = statusOrBatch;
+    if (batch.isExpired) {
+      return 'status-expired';
+    } else if (batch.daysUntilExpiry <= 7) {
+      return 'status-critical';
+    } else if (batch.daysUntilExpiry <= 30) {
+      return 'status-warning';
+    } else {
+      return 'status-good';
+    }
   }
 
   /**
@@ -1938,11 +1953,11 @@ onCategoryFilterChange(event: any): void {
   }
 
   /**
-   * Toggle batch view layout between grid and column view
+   * Toggle batch view layout between grid and list view
    */
   toggleBatchLayout(): void {
     const currentLayout = this.batchLayoutMode();
-    const newLayout = currentLayout === 'grid' ? 'column' : 'grid';
+    const newLayout = currentLayout === 'grid' ? 'list' : 'grid';
     this.batchLayoutMode.set(newLayout);
     console.log(`🎨 Batch layout changed to: ${newLayout}`);
   }
@@ -3183,6 +3198,29 @@ onCategoryFilterChange(event: any): void {
         }
       })
     );
+  }
+
+  // ✅ NEW: Enhanced Batch Layout Methods
+  setBatchLayoutMode(mode: 'grid' | 'list'): void {
+    this.batchLayoutMode.set(mode);
+    console.log('🔄 Batch layout mode changed to:', mode);
+  }
+
+  // ✅ NEW: Batch Status Class Method for Template
+  getBatchStatusClass(batch: any): string[] {
+    const classes: string[] = [];
+
+    if (batch.isExpired) {
+      classes.push('status-expired');
+    } else if (batch.daysUntilExpiry <= 7) {
+      classes.push('status-critical');
+    } else if (batch.daysUntilExpiry <= 30) {
+      classes.push('status-warning');
+    } else {
+      classes.push('status-active');
+    }
+
+    return classes;
   }
 
 }

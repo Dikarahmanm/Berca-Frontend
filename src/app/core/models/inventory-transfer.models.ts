@@ -78,6 +78,11 @@ export interface InventoryTransferDto {
   actualDeliveryDate?: Date;
   totalCost: number;
   notes?: string;
+  approvalNotes?: string;
+  shipmentNotes?: string;
+  receiptNotes?: string;
+  trackingNumber?: string;
+  courierName?: string;
   cancellationReason?: string;
   items: TransferItemDto[];
   statusHistory: TransferStatusHistory[];
@@ -97,6 +102,7 @@ export interface TransferItemDto {
   productCode: string;
   productImageUrl?: string;
   categoryName?: string;
+  unit?: string;
   requestedQuantity: number;
   approvedQuantity?: number;
   shippedQuantity?: number;

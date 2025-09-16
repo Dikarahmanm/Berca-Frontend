@@ -220,44 +220,31 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
       qualityNotes: item.notes || ''
     }));
 
-    // Only make API calls if data is valid
-    if (transferItems.length > 0) {
-      this.transferService.calculateTransferCost(sourceBranchId, destinationBranchId, transferItems)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: (cost) => {
-            this.estimatedCost.set(cost);
-            this.calculating.set(false);
-          },
-          error: (error) => {
-            console.error('Failed to calculate transfer cost:', error);
-            this.estimatedCost.set(0);
-            this.calculating.set(false);
-          }
-        });
+    // Calculate cost locally based on selected items
+    const localCost = this.calculateLocalCost(validItems);
+    this.estimatedCost.set(localCost);
 
-      // Skip delivery date estimation for now to avoid API errors
-      // this.transferService.estimateDeliveryDate(sourceBranchId, destinationBranchId, priority)
-      //   .pipe(takeUntil(this.destroy$))
-      //   .subscribe({
-      //     next: (date) => this.estimatedDelivery.set(date),
-      //     error: (error) => {
-      //       console.error('Failed to estimate delivery date:', error);
-      //       this.estimatedDelivery.set(null);
-      //     }
-      //   });
+    // Skip delivery date estimation for now to avoid API errors
+    // this.transferService.estimateDeliveryDate(sourceBranchId, destinationBranchId, priority)
+    //   .pipe(takeUntil(this.destroy$))
+    //   .subscribe({
+    //     next: (date) => this.estimatedDelivery.set(date),
+    //     error: (error) => {
+    //       console.error('Failed to estimate delivery date:', error);
+    //       this.estimatedDelivery.set(null);
+    //     }
+    //   });
 
-      // Set a default estimated delivery (3 days from now)
-      const defaultDeliveryDate = new Date();
-      defaultDeliveryDate.setDate(defaultDeliveryDate.getDate() + 3);
-      this.estimatedDelivery.set(defaultDeliveryDate);
-    } else {
-      this.calculating.set(false);
-    }
+    // Set a default estimated delivery (3 days from now)
+    const defaultDeliveryDate = new Date();
+    defaultDeliveryDate.setDate(defaultDeliveryDate.getDate() + 3);
+    this.estimatedDelivery.set(defaultDeliveryDate);
+
+    this.calculating.set(false);
   }
 
   // Product selection methods
-  filterProducts(searchTerm: string): void {
+  public filterProducts(searchTerm: string): void {
     if (!searchTerm) {
       this.filteredProducts.set(this.products());
       return;
@@ -282,7 +269,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   }
 
   // Transfer item management
-  addTransferItem(product?: Product, quantity: number = 1): void {
+  public addTransferItem(product?: Product, quantity: number = 1): void {
     const itemForm = this.fb.group({
       productId: [product?.id || null, Validators.required],
       productName: [product ? this.getProductDisplayName(product) : '', Validators.required],
@@ -306,7 +293,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     });
   }
 
-  removeTransferItem(index: number): void {
+  public removeTransferItem(index: number): void {
     this.transferItemsArray.removeAt(index);
     // Remove dropdown state for this item
     this.showProductDropdown.splice(index, 1);
@@ -315,7 +302,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     this.calculateEstimates();
   }
 
-  onProductSelected(product: Product, index: number): void {
+  public onProductSelected(product: Product, index: number): void {
     const itemControl = this.transferItemsArray.at(index);
     if (itemControl) {
       itemControl.patchValue({
@@ -329,7 +316,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   }
 
   // Available sources
-  checkAvailableSources(productId: number, requiredQuantity: number): void {
+  public checkAvailableSources(productId: number, requiredQuantity: number): void {
     const destinationBranchId = this.transferForm.get('destinationBranchId')?.value;
 
     if (!destinationBranchId) {
@@ -355,7 +342,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   }
 
   // Form submission
-  onSubmit(): void {
+  public onSubmit(): void {
     if (this.transferForm.invalid) {
       this.markFormGroupTouched(this.transferForm);
       const errors = this.getFormValidationErrors();
@@ -453,7 +440,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
       });
   }
 
-  onCancel(): void {
+  public onCancel(): void {
     this.dialogRef.close();
   }
 
@@ -499,7 +486,39 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     return labels[fieldName] || fieldName;
   }
 
-  formatCurrency(amount: number): string {
+  public calculateLocalCost(validItems: any[]): number {
+    const availableProducts = this.products();
+    let totalCost = 0;
+
+    for (const item of validItems) {
+      const product = availableProducts.find(p => p.id === item.productId);
+      if (product && item.quantity) {
+        // Use buyPrice as the unit cost for transfer estimation
+        const unitCost = product.buyPrice || 0;
+        const itemTotal = unitCost * item.quantity;
+        totalCost += itemTotal;
+      }
+    }
+
+    console.log('🧮 Local cost calculation:', {
+      validItemsCount: validItems.length,
+      totalCost: totalCost,
+      itemDetails: validItems.map(item => {
+        const product = availableProducts.find(p => p.id === item.productId);
+        return {
+          productId: item.productId,
+          productName: product?.name,
+          quantity: item.quantity,
+          unitCost: product?.buyPrice || 0,
+          itemTotal: (product?.buyPrice || 0) * item.quantity
+        };
+      })
+    });
+
+    return totalCost;
+  }
+
+  public formatCurrency(amount: number): string {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
@@ -507,7 +526,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     }).format(amount);
   }
 
-  formatDate(date: Date): string {
+  public formatDate(date: Date): string {
     return new Intl.DateTimeFormat('id-ID', {
       year: 'numeric',
       month: 'short',
@@ -515,7 +534,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     }).format(new Date(date));
   }
 
-  private handleError(message: string, error: any): void {
+  public handleError(message: string, error: any): void {
     console.error(message, error);
 
     // Extract more specific error message if available
@@ -621,24 +640,24 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   }
 
   // TrackBy functions for performance
-  trackByBranch(index: number, branch: Branch): number {
+  public trackByBranch(index: number, branch: Branch): number {
     return branch.id;
   }
 
-  trackByProduct(index: number, product: Product): number {
+  public trackByProduct(index: number, product: Product): number {
     return product.id;
   }
 
-  trackByItemIndex(index: number, item: any): number {
+  public trackByItemIndex(index: number, item: any): number {
     return index;
   }
 
-  trackBySource(index: number, source: AvailableSourceDto): number {
+  public trackBySource(index: number, source: AvailableSourceDto): number {
     return source.branchId;
   }
 
   // Product dropdown methods
-  toggleProductDropdown(index: number): void {
+  public toggleProductDropdown(index: number): void {
     this.showProductDropdown[index] = !this.showProductDropdown[index];
     // Close other dropdowns
     this.showProductDropdown.forEach((_, i) => {
@@ -653,7 +672,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     }
   }
 
-  showProductDropdownAt(index: number): void {
+  public showProductDropdownAt(index: number): void {
     // Close other dropdowns
     this.showProductDropdown.forEach((_, i) => {
       this.showProductDropdown[i] = (i === index);
@@ -676,13 +695,13 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     }
   }
 
-  hideProductDropdown(index: number): void {
+  public hideProductDropdown(index: number): void {
     setTimeout(() => {
       this.showProductDropdown[index] = false;
     }, 200); // Delay to allow click on option
   }
 
-  selectProduct(product: Product, index: number): void {
+  public selectProduct(product: Product, index: number): void {
     this.onProductSelected(product, index);
     this.showProductDropdown[index] = false;
   }

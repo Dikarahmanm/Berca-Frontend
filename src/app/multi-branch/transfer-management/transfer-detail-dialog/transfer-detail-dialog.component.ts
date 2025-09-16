@@ -1,6 +1,6 @@
 import { Component, Inject, OnInit, Optional, signal, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 
 import { InventoryTransferService } from '../../../core/services/inventory-transfer.service';
 import {
@@ -14,6 +14,7 @@ import {
   TransferShipmentRequestDto,
   TransferReceiptRequestDto
 } from '../../../core/models/inventory-transfer.models';
+import { TransferWorkflowConfirmationComponent } from '../transfer-workflow-confirmation/transfer-workflow-confirmation.component';
 
 @Component({
   selector: 'app-transfer-detail-dialog',
@@ -191,6 +192,9 @@ import {
                 <div class="timeline-meta" *ngIf="isApprovalCurrent() && !transfer()!.approvedAt">
                   Pending approval
                 </div>
+                <div class="timeline-notes" *ngIf="transfer()!.approvalNotes">
+                  <strong>Notes:</strong> {{ transfer()!.approvalNotes }}
+                </div>
               </div>
             </div>
 
@@ -205,6 +209,17 @@ import {
                 </div>
                 <div class="timeline-meta" *ngIf="isShippingCurrent() && !transfer()!.shippedAt">
                   Ready for shipping
+                </div>
+                <div class="timeline-notes" *ngIf="transfer()!.shipmentNotes">
+                  <strong>Shipping Notes:</strong> {{ transfer()!.shipmentNotes }}
+                </div>
+                <div class="timeline-shipping-info" *ngIf="transfer()!.trackingNumber || transfer()!.courierName">
+                  <div *ngIf="transfer()!.trackingNumber" class="shipping-detail">
+                    <strong>Tracking:</strong> {{ transfer()!.trackingNumber }}
+                  </div>
+                  <div *ngIf="transfer()!.courierName" class="shipping-detail">
+                    <strong>Courier:</strong> {{ transfer()!.courierName }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -221,10 +236,56 @@ import {
                 <div class="timeline-meta" *ngIf="isReceiptCurrent() && !transfer()!.receivedAt">
                   Awaiting delivery confirmation
                 </div>
+                <div class="timeline-notes" *ngIf="transfer()!.receiptNotes">
+                  <strong>Delivery Notes:</strong> {{ transfer()!.receiptNotes }}
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        <!-- Delivery Information Section (shown after shipping) -->
+        @if (isShippingCompleted() && (transfer()!.trackingNumber || transfer()!.courierName)) {
+          <div class="info-section">
+            <h3 class="section-title">🚚 Delivery Information</h3>
+            <div class="delivery-info-grid">
+              <div class="delivery-column">
+                @if (transfer()!.trackingNumber) {
+                  <div class="delivery-item">
+                    <label>Tracking Number</label>
+                    <div class="value tracking-number">{{ transfer()!.trackingNumber }}</div>
+                  </div>
+                }
+                @if (transfer()!.courierName) {
+                  <div class="delivery-item">
+                    <label>Courier Service</label>
+                    <div class="value">{{ transfer()!.courierName }}</div>
+                  </div>
+                }
+              </div>
+              <div class="delivery-column">
+                @if (transfer()!.estimatedDeliveryDate) {
+                  <div class="delivery-item">
+                    <label>Estimated Delivery</label>
+                    <div class="value">{{ formatDateTime(transfer()!.estimatedDeliveryDate!) }}</div>
+                  </div>
+                }
+                @if (transfer()!.actualDeliveryDate) {
+                  <div class="delivery-item">
+                    <label>Actual Delivery</label>
+                    <div class="value text-success">{{ formatDateTime(transfer()!.actualDeliveryDate!) }}</div>
+                  </div>
+                }
+              </div>
+            </div>
+            @if (transfer()!.shipmentNotes) {
+              <div class="delivery-notes">
+                <label>Shipping Notes</label>
+                <div class="notes-content-small">{{ transfer()!.shipmentNotes }}</div>
+              </div>
+            }
+          </div>
+        }
 
         <!-- Transfer Items -->
         <div class="info-section">
@@ -331,7 +392,7 @@ import {
         <div class="info-section">
           <h3 class="section-title">Notes</h3>
           <div class="notes-content">
-            {{ transfer()!.notes || transfer()!.requestReason || 'No additional notes' }}
+            {{ transfer()!.notes || 'No additional notes' }}
           </div>
         </div>
       </div>
@@ -360,7 +421,8 @@ export class TransferDetailDialogComponent implements OnInit {
   constructor(
     @Optional() private dialogRef: MatDialogRef<TransferDetailDialogComponent>,
     @Optional() @Inject(MAT_DIALOG_DATA) private data: { transferId: number } | null,
-    private transferService: InventoryTransferService
+    private transferService: InventoryTransferService,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -435,7 +497,7 @@ export class TransferDetailDialogComponent implements OnInit {
       shippedQuantity: item.quantity,
       receivedQuantity: item.quantity,
       unitCost: item.unitCost,
-      totalCost: item.totalCost,
+      totalCost: (item.unitCost || 0) * (item.quantity || 0),
       sourceStockBefore: item.sourceStockBefore,
       sourceStockAfter: item.sourceStockAfter,
       destinationStockBefore: item.destinationStockBefore,
@@ -464,9 +526,14 @@ export class TransferDetailDialogComponent implements OnInit {
       approvedByName: transfer.approvedBy?.username || null,
       shippedByName: transfer.shippedBy?.username || null,
       receivedByName: transfer.receivedBy?.username || null,
-      totalCost: transfer.totalValue || transfer.estimatedCost || 0,
+      totalCost: this.calculateTotalCost(items),
       requestedAt: transfer.createdAt,
-      notes: transfer.notes || transfer.requestReason || ''
+      notes: transfer.notes || transfer.requestReason || '',
+      approvalNotes: transfer.approvalNotes,
+      shipmentNotes: transfer.shipmentNotes,
+      receiptNotes: transfer.receiptNotes,
+      trackingNumber: transfer.trackingNumber,
+      courierName: transfer.courierName
     };
   }
 
@@ -478,6 +545,13 @@ export class TransferDetailDialogComponent implements OnInit {
       canReceive: status === TransferStatus.InTransit,  // ✅ Fixed: Only InTransit can be received
       canCancel: status !== TransferStatus.Completed && status !== TransferStatus.Cancelled && status !== TransferStatus.Rejected
     };
+  }
+
+  private calculateTotalCost(items: any[]): number {
+    return items.reduce((total, item) => {
+      const itemTotal = (item.unitCost || 0) * (item.quantity || item.requestedQuantity || 0);
+      return total + itemTotal;
+    }, 0);
   }
 
   onClose(): void {
@@ -493,8 +567,357 @@ export class TransferDetailDialogComponent implements OnInit {
 
   onPrint(): void {
     if (this.transfer()) {
-      this.transferService.printTransfer(this.transfer()!.id);
+      this.generatePrintDocument();
     }
+  }
+
+  private generatePrintDocument(): void {
+    const transfer = this.transfer()!;
+    const printContent = this.createPrintHTML(transfer);
+
+    // Create print window
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      alert('Please allow popups to print the transfer document');
+      return;
+    }
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+
+    // Wait for content to load then print
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+  }
+
+  private createPrintHTML(transfer: InventoryTransferDto): string {
+    const currentDate = new Date().toLocaleDateString('id-ID');
+    const totalItems = transfer.items.length;
+    const totalQuantity = transfer.items.reduce((sum, item) => sum + item.requestedQuantity, 0);
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Transfer Document - ${transfer.transferNumber}</title>
+        <style>
+          @media print {
+            @page {
+              margin: 15mm;
+              size: A4;
+            }
+            body {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              font-size: 12px;
+              line-height: 1.4;
+              color: #000;
+              margin: 0;
+              padding: 0;
+            }
+            .no-print { display: none !important; }
+          }
+
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+          }
+
+          .company-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+          }
+
+          .document-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2563eb;
+            margin: 10px 0;
+          }
+
+          .transfer-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+          }
+
+          .info-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+          }
+
+          .info-title {
+            font-weight: bold;
+            font-size: 14px;
+            color: #2563eb;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+          }
+
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 2px 0;
+          }
+
+          .info-label {
+            font-weight: 500;
+            color: #555;
+          }
+
+          .info-value {
+            font-weight: bold;
+            color: #000;
+          }
+
+          .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+          }
+
+          .status-pending { background: #fef3c7; color: #92400e; }
+          .status-approved { background: #d1fae5; color: #065f46; }
+          .status-in-transit { background: #dbeafe; color: #1e40af; }
+          .status-completed { background: #d1fae5; color: #065f46; }
+          .status-cancelled { background: #fee2e2; color: #991b1b; }
+          .status-rejected { background: #fee2e2; color: #991b1b; }
+
+          .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 11px;
+          }
+
+          .items-table th,
+          .items-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+          }
+
+          .items-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+          }
+
+          .items-table tr:nth-child(even) {
+            background: #f8f9fa;
+          }
+
+          .text-right {
+            text-align: right;
+          }
+
+          .text-center {
+            text-align: center;
+          }
+
+          .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 11px;
+            color: #666;
+          }
+
+          .signature-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+          }
+
+          .signature-box {
+            text-align: center;
+            border: 1px solid #ddd;
+            padding: 15px;
+            min-height: 80px;
+          }
+
+          .signature-title {
+            font-weight: bold;
+            margin-bottom: 50px;
+          }
+
+          .print-button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 20px 0;
+          }
+
+          @media print {
+            .print-button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <button class="print-button no-print" onclick="window.print()">🖨️ Print Document</button>
+
+        <div class="header">
+          <div class="company-name">TOKO ENIWAN</div>
+          <div class="document-title">INVENTORY TRANSFER DOCUMENT</div>
+          <div style="font-size: 14px; margin-top: 5px;">Transfer #${transfer.transferNumber}</div>
+        </div>
+
+        <div class="transfer-info">
+          <div class="info-section">
+            <div class="info-title">📤 FROM (SOURCE)</div>
+            <div class="info-row">
+              <span class="info-label">Branch:</span>
+              <span class="info-value">${transfer.sourceBranchName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Requested By:</span>
+              <span class="info-value">${transfer.requestedByName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Request Date:</span>
+              <span class="info-value">${this.formatDateTime(transfer.requestedAt)}</span>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <div class="info-title">📥 TO (DESTINATION)</div>
+            <div class="info-row">
+              <span class="info-label">Branch:</span>
+              <span class="info-value">${transfer.destinationBranchName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Status:</span>
+              <span class="info-value">
+                <span class="status-badge status-${transfer.status.toLowerCase()}">${transfer.status}</span>
+              </span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Print Date:</span>
+              <span class="info-value">${currentDate}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-section" style="margin: 20px 0;">
+          <div class="info-title">📊 TRANSFER SUMMARY</div>
+          <div class="info-row">
+            <span class="info-label">Total Items:</span>
+            <span class="info-value">${totalItems} products</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Total Quantity:</span>
+            <span class="info-value">${totalQuantity} units</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Total Cost:</span>
+            <span class="info-value">${this.formatCurrency(transfer.totalCost)}</span>
+          </div>
+          ${transfer.estimatedDeliveryDate ? `
+          <div class="info-row">
+            <span class="info-label">Est. Delivery:</span>
+            <span class="info-value">${this.formatDateTime(transfer.estimatedDeliveryDate)}</span>
+          </div>
+          ` : ''}
+        </div>
+
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th style="width: 5%;">No</th>
+              <th style="width: 35%;">Product Name</th>
+              <th style="width: 15%;">Code</th>
+              <th style="width: 10%;">Unit</th>
+              <th style="width: 10%;">Qty</th>
+              <th style="width: 12%;">Unit Cost</th>
+              <th style="width: 13%;">Total Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${transfer.items.map((item, index) => `
+              <tr>
+                <td class="text-center">${index + 1}</td>
+                <td>${item.productName}</td>
+                <td>${item.productCode}</td>
+                <td class="text-center">${item.unit || 'pcs'}</td>
+                <td class="text-center">${item.requestedQuantity}</td>
+                <td class="text-right">${this.formatCurrency(item.unitCost)}</td>
+                <td class="text-right">${this.formatCurrency(item.totalCost)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background: #e5e7eb; font-weight: bold;">
+              <td colspan="4" class="text-right">TOTAL:</td>
+              <td class="text-center">${totalQuantity}</td>
+              <td></td>
+              <td class="text-right">${this.formatCurrency(transfer.totalCost)}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        ${transfer.notes ? `
+        <div class="info-section">
+          <div class="info-title">📝 NOTES</div>
+          <p>${transfer.notes}</p>
+        </div>
+        ` : ''}
+
+        <div class="signature-section">
+          <div class="signature-box">
+            <div class="signature-title">Prepared By</div>
+            <div style="margin-top: 30px; border-top: 1px solid #333; padding-top: 5px;">
+              ${transfer.requestedByName}
+            </div>
+          </div>
+
+          <div class="signature-box">
+            <div class="signature-title">Approved By</div>
+            <div style="margin-top: 30px; border-top: 1px solid #333; padding-top: 5px;">
+              ${transfer.approvedByName || '________________'}
+            </div>
+          </div>
+
+          <div class="signature-box">
+            <div class="signature-title">Received By</div>
+            <div style="margin-top: 30px; border-top: 1px solid #333; padding-top: 5px;">
+              ${transfer.receivedByName || '________________'}
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p><strong>Note:</strong> This document is computer-generated and serves as an official record of inventory transfer.</p>
+          <p><strong>Generated:</strong> ${new Date().toLocaleString('id-ID')} | <strong>System:</strong> Toko Eniwan POS</p>
+        </div>
+      </body>
+      </html>
+    `;
   }
 
   // Workflow action methods (Dynamic like Facture Management)
@@ -508,26 +931,44 @@ export class TransferDetailDialogComponent implements OnInit {
       return;
     }
 
-    console.log('🔄 Approving transfer:', currentTransfer.transferNumber, 'Status:', currentTransfer.status);
+    // Open confirmation modal
+    const dialogRef = this.dialog.open(TransferWorkflowConfirmationComponent, {
+      width: '600px',
+      data: {
+        action: 'approve',
+        transfer: currentTransfer
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.confirmed) {
+        this.performApproval(currentTransfer, result.formData);
+      }
+    });
+  }
+
+  private performApproval(transfer: InventoryTransferDto, formData: any): void {
+    console.log('🔄 Approving transfer:', transfer.transferNumber, 'Status:', transfer.status);
+    console.log('📝 Form data received:', formData);
 
     // Include item approvals - approve all requested quantities by default
-    const itemApprovals: TransferItemApprovalDto[] = currentTransfer.items.map(item => ({
+    const itemApprovals: TransferItemApprovalDto[] = transfer.items.map(item => ({
       transferItemId: item.id,
       approvedQuantity: item.requestedQuantity, // Approve full requested quantity
       notes: 'Approved'
     }));
 
     const approvalRequest: TransferApprovalRequestDto = {
-      approved: true,
-      approvalNotes: 'Transfer approved',
+      approved: formData.approved || true,
+      approvalNotes: formData.approvalNotes || 'Transfer approved',
       itemApprovals: itemApprovals,
-      managerOverride: false
+      managerOverride: formData.managerOverride || false
     };
 
     console.log('📤 Sending approval request:', approvalRequest);
 
     this.loading.set(true);
-    this.transferService.approveTransfer(currentTransfer.id, approvalRequest)
+    this.transferService.approveTransfer(transfer.id, approvalRequest)
       .subscribe({
         next: (updatedTransfer: InventoryTransferDto) => {
           console.log('✅ Approval successful! Raw backend response:', updatedTransfer);
@@ -562,24 +1003,42 @@ export class TransferDetailDialogComponent implements OnInit {
   }
 
   onReject(): void {
-    if (!this.transfer()) return;
+    const currentTransfer = this.transfer();
+    if (!currentTransfer) return;
 
-    const rejectionReason = prompt('Please provide a reason for rejection:');
-    if (!rejectionReason) return;
+    // Open confirmation modal
+    const dialogRef = this.dialog.open(TransferWorkflowConfirmationComponent, {
+      width: '600px',
+      data: {
+        action: 'reject',
+        transfer: currentTransfer
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.confirmed) {
+        this.performRejection(currentTransfer, result.formData);
+      }
+    });
+  }
+
+  private performRejection(transfer: InventoryTransferDto, formData: any): void {
+    console.log('📝 Rejection form data received:', formData);
 
     const approvalRequest = {
-      approved: false,
-      approvalNotes: rejectionReason,
-      managerOverride: false
+      approved: formData.approved || false,
+      approvalNotes: formData.approvalNotes || 'Transfer rejected',
+      managerOverride: formData.managerOverride || false
     };
 
     this.loading.set(true);
-    this.transferService.approveTransfer(this.transfer()!.id, approvalRequest)
+    this.transferService.approveTransfer(transfer.id, approvalRequest)
       .subscribe({
         next: (updatedTransfer: InventoryTransferDto) => {
           // Map the updated transfer to include new permission flags
           const mappedTransfer = this.mapTransferStatus(updatedTransfer);
           this.transfer.set(mappedTransfer);
+          this.transferUpdated.emit(mappedTransfer);
           this.loading.set(false);
           this.showSuccessMessage('Transfer rejected');
           // ✅ NO AUTO-CLOSE: Stay in modal, workflow completed (no more buttons)
@@ -593,18 +1052,38 @@ export class TransferDetailDialogComponent implements OnInit {
   }
 
   onShip(): void {
-    if (!this.transfer()) return;
+    const currentTransfer = this.transfer();
+    if (!currentTransfer) return;
+
+    // Open confirmation modal
+    const dialogRef = this.dialog.open(TransferWorkflowConfirmationComponent, {
+      width: '700px',
+      data: {
+        action: 'ship',
+        transfer: currentTransfer
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.confirmed) {
+        this.performShipping(currentTransfer, result.formData);
+      }
+    });
+  }
+
+  private performShipping(transfer: InventoryTransferDto, formData: any): void {
+    console.log('📝 Shipping form data received:', formData);
 
     const shipmentRequest = {
-      shipmentNotes: 'Transfer shipped',
-      estimatedDeliveryDate: this.transfer()!.estimatedDeliveryDate,
-      trackingNumber: `TRK-${this.transfer()!.transferNumber}`,
-      courierName: 'Internal Courier',
+      shipmentNotes: formData.shipmentNotes || formData.notes || 'Transfer shipped',
+      estimatedDeliveryDate: formData.estimatedDeliveryDate || formData.deliveryDate || transfer.estimatedDeliveryDate,
+      trackingNumber: formData.trackingNumber || `TRK-${transfer.transferNumber}`,
+      courierName: formData.courierName || 'Internal Courier',
       itemShipments: []
     };
 
     this.loading.set(true);
-    this.transferService.shipTransfer(this.transfer()!.id, shipmentRequest)
+    this.transferService.shipTransfer(transfer.id, shipmentRequest)
       .subscribe({
         next: (updatedTransfer: InventoryTransferDto) => {
           console.log('🚚 Ship successful! Raw backend response:', updatedTransfer);
@@ -639,22 +1118,43 @@ export class TransferDetailDialogComponent implements OnInit {
   }
 
   onReceive(): void {
-    if (!this.transfer()) return;
+    const currentTransfer = this.transfer();
+    if (!currentTransfer) return;
+
+    // Open confirmation modal
+    const dialogRef = this.dialog.open(TransferWorkflowConfirmationComponent, {
+      width: '800px',
+      data: {
+        action: 'receive',
+        transfer: currentTransfer
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.confirmed) {
+        this.performReceiving(currentTransfer, result.formData);
+      }
+    });
+  }
+
+  private performReceiving(transfer: InventoryTransferDto, formData: any): void {
+    console.log('📝 Receiving form data received:', formData);
 
     const receiptRequest = {
-      receiptNotes: 'Transfer received and confirmed',
-      actualDeliveryDate: new Date(),
-      qualityCheckPassed: true,
-      itemReceipts: []
+      receiptNotes: formData.receiptNotes || formData.notes || 'Transfer received and confirmed',
+      actualDeliveryDate: formData.actualDeliveryDate || new Date(),
+      qualityCheckPassed: formData.qualityCheckPassed || formData.qualityConfirmed || true,
+      itemReceipts: formData.itemReceipts || formData.itemVerifications || []
     };
 
     this.loading.set(true);
-    this.transferService.receiveTransfer(this.transfer()!.id, receiptRequest)
+    this.transferService.receiveTransfer(transfer.id, receiptRequest)
       .subscribe({
         next: (updatedTransfer: InventoryTransferDto) => {
           // Map the updated transfer to include new permission flags
           const mappedTransfer = this.mapTransferStatus(updatedTransfer);
           this.transfer.set(mappedTransfer);
+          this.transferUpdated.emit(mappedTransfer);
           this.loading.set(false);
           this.showSuccessMessage('Transfer delivery confirmed - Workflow completed!');
           // ✅ NO AUTO-CLOSE: Stay in modal, workflow completed (no more buttons)
@@ -668,18 +1168,36 @@ export class TransferDetailDialogComponent implements OnInit {
   }
 
   onCancel(): void {
-    if (!this.transfer()) return;
+    const currentTransfer = this.transfer();
+    if (!currentTransfer) return;
 
-    const cancelReason = prompt('Please provide a reason for cancellation:');
-    if (!cancelReason) return;
+    // Open confirmation modal
+    const dialogRef = this.dialog.open(TransferWorkflowConfirmationComponent, {
+      width: '600px',
+      data: {
+        action: 'cancel',
+        transfer: currentTransfer
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.confirmed) {
+        this.performCancellation(currentTransfer, result.formData);
+      }
+    });
+  }
+
+  private performCancellation(transfer: InventoryTransferDto, formData: any): void {
+    console.log('📝 Cancellation form data received:', formData);
 
     this.loading.set(true);
-    this.transferService.cancelTransfer(this.transfer()!.id, cancelReason)
+    this.transferService.cancelTransfer(transfer.id, formData.cancelReason || formData.reason || 'Transfer cancelled')
       .subscribe({
         next: (updatedTransfer: InventoryTransferDto) => {
           // Map the updated transfer to include new permission flags
           const mappedTransfer = this.mapTransferStatus(updatedTransfer);
           this.transfer.set(mappedTransfer);
+          this.transferUpdated.emit(mappedTransfer);
           this.loading.set(false);
           this.showSuccessMessage('Transfer cancelled');
           // ✅ NO AUTO-CLOSE: Stay in modal, workflow completed (no more buttons)

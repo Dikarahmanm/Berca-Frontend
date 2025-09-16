@@ -92,8 +92,12 @@ export interface WorkflowConfirmationData {
               </div>
 
               <div class="form-group">
-                <label>Tracking Number</label>
-                <input type="text" formControlName="trackingNumber" [value]="generateTrackingNumber()" readonly>
+                <label>Tracking Number *</label>
+                <input type="text" formControlName="trackingNumber" placeholder="TRK-TRANSFER-XXXX">
+                <small class="form-text">Auto-generated tracking number. You can edit if needed. Format: TRK-XXXX-XXXX</small>
+                <div class="validation-error" *ngIf="shippingForm.get('trackingNumber')?.invalid && shippingForm.get('trackingNumber')?.touched">
+                  Please enter a valid tracking number
+                </div>
               </div>
 
               <div class="form-group">
@@ -357,11 +361,28 @@ export interface WorkflowConfirmationData {
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
 
+    .items-verification {
+      margin-bottom: 20px;
+    }
+
+    .items-verification h4 {
+      color: #16a34a;
+      margin-bottom: 16px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
     .verification-item {
-      border: 1px solid #e0e0e0;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
       border-radius: 8px;
       padding: 16px;
       margin-bottom: 16px;
+      transition: border-color 0.2s;
+    }
+
+    .verification-item:hover {
+      border-color: #cbd5e1;
     }
 
     .item-header {
@@ -369,57 +390,177 @@ export interface WorkflowConfirmationData {
       justify-content: space-between;
       align-items: center;
       margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .item-header .item-name {
+      font-weight: 600;
+      color: #1e293b;
+      font-size: 15px;
+    }
+
+    .item-header .expected-qty {
+      background: #f1f5f9;
+      color: #475569;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
     }
 
     .verification-controls {
       display: flex;
-      gap: 20px;
-      align-items: center;
-      margin-bottom: 10px;
+      gap: 24px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      padding: 12px 0;
     }
 
     .qty-input {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 120px;
+    }
+
+    .qty-input label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 0;
     }
 
     .qty-input input {
       width: 80px;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 14px;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .qty-input input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    }
+
+    .condition-check {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
 
     .condition-check label {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 0;
+      cursor: pointer;
+    }
+
+    .condition-check input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #16a34a;
+      margin: 0;
+    }
+
+    .item-notes {
+      margin-top: 8px;
+    }
+
+    .item-notes input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .item-notes input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    }
+
+    .item-notes input::placeholder {
+      color: #9ca3af;
+      font-style: italic;
     }
 
     .radio-group {
       display: flex;
-      gap: 16px;
+      gap: 20px;
+      margin-top: 8px;
     }
 
     .radio-group label {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       margin-bottom: 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+      cursor: pointer;
+      padding: 8px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .radio-group label:hover {
+      background-color: #f9fafb;
+      border-color: #d1d5db;
+    }
+
+    .radio-group input[type="radio"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #2563eb;
+      margin: 0;
+    }
+
+    .radio-group input[type="radio"]:checked + label {
+      background-color: #eff6ff;
+      border-color: #2563eb;
+      color: #1d4ed8;
     }
 
     .final-confirmation {
-      background: #f0f9ff;
-      border: 1px solid #bae6fd;
-      border-radius: 6px;
-      padding: 12px;
-      margin-top: 16px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border: 2px solid #0284c7;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 20px;
+      box-shadow: 0 2px 4px rgba(2, 132, 199, 0.1);
     }
 
     .final-confirmation label {
       display: flex;
       align-items: flex-start;
-      gap: 8px;
+      gap: 12px;
       margin-bottom: 0;
       cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      color: #0c4a6e;
+      line-height: 1.4;
+    }
+
+    .final-confirmation input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: #0284c7;
+      margin: 0;
+      margin-top: 2px;
     }
 
     .modal-footer {
@@ -480,19 +621,47 @@ export interface WorkflowConfirmationData {
       opacity: 0.6;
       cursor: not-allowed;
     }
+
+    .form-text {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+      display: block;
+    }
+
+    .validation-error {
+      font-size: 12px;
+      color: #dc2626;
+      margin-top: 4px;
+      display: block;
+    }
+
+    .form-group input:invalid {
+      border-color: #dc2626;
+      box-shadow: 0 0 0 1px #dc262620;
+    }
+
+    .form-group input:valid {
+      border-color: #10b981;
+    }
   `]
 })
 export class TransferWorkflowConfirmationComponent {
-  approvalForm: FormGroup;
-  shippingForm: FormGroup;
-  receiveForm: FormGroup;
-  rejectForm: FormGroup;
+  approvalForm!: FormGroup;
+  shippingForm!: FormGroup;
+  receiveForm!: FormGroup;
+  rejectForm!: FormGroup;
+
+  // Store tracking number to prevent constant regeneration
+  trackingNumber = signal<string>('');
 
   constructor(
     private dialogRef: MatDialogRef<TransferWorkflowConfirmationComponent>,
     @Inject(MAT_DIALOG_DATA) public data: WorkflowConfirmationData,
     private fb: FormBuilder
   ) {
+    // Generate tracking number once and store it
+    this.trackingNumber.set(this.generateTrackingNumber());
     this.initForms();
   }
 
@@ -506,7 +675,7 @@ export class TransferWorkflowConfirmationComponent {
     this.shippingForm = this.fb.group({
       courierName: ['', Validators.required],
       vehicleInfo: [''],
-      trackingNumber: [this.generateTrackingNumber()],
+      trackingNumber: [this.trackingNumber(), [Validators.required, this.trackingNumberValidator]],
       notes: [''],
       deliveryDate: [this.getDefaultDeliveryDate()]
     });
@@ -581,6 +750,25 @@ export class TransferWorkflowConfirmationComponent {
     return `TRK-${this.data.transfer.transferNumber}-${Date.now().toString().slice(-4)}`;
   }
 
+  // Custom validator for tracking number format
+  trackingNumberValidator(control: any) {
+    if (!control.value) return null;
+
+    // Basic format validation: should start with letters/numbers and contain hyphens/numbers
+    const trackingPattern = /^[A-Z0-9]+-[A-Z0-9-]+$/i;
+
+    if (!trackingPattern.test(control.value)) {
+      return { invalidFormat: true };
+    }
+
+    // Length validation (minimum 8 characters)
+    if (control.value.length < 8) {
+      return { tooShort: true };
+    }
+
+    return null;
+  }
+
   getDefaultDeliveryDate(): string {
     if (this.data.transfer.estimatedDeliveryDate) {
       return new Date(this.data.transfer.estimatedDeliveryDate).toISOString().split('T')[0];
@@ -599,7 +787,7 @@ export class TransferWorkflowConfirmationComponent {
     }).format(amount);
   }
 
-  formatDate(date: string | Date | null): string {
+  formatDate(date: string | Date | null | undefined): string {
     if (!date) return 'Not specified';
     return new Date(date).toLocaleDateString('id-ID');
   }
@@ -678,6 +866,9 @@ export class TransferWorkflowConfirmationComponent {
         break;
     }
 
-    this.dialogRef.close(result);
+    this.dialogRef.close({
+      confirmed: true,
+      formData: result
+    });
   }
 }

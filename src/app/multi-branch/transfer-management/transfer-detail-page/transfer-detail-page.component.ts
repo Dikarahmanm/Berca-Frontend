@@ -284,7 +284,7 @@ export class TransferDetailPageComponent implements OnInit {
       shippedQuantity: item.quantity,
       receivedQuantity: item.quantity,
       unitCost: item.unitCost,
-      totalCost: item.totalCost,
+      totalCost: (item.unitCost || 0) * (item.quantity || 0),
       sourceStockBefore: item.sourceStockBefore,
       sourceStockAfter: item.sourceStockAfter,
       destinationStockBefore: item.destinationStockBefore,
@@ -332,7 +332,7 @@ export class TransferDetailPageComponent implements OnInit {
       courierName: transfer.courierName,
       // Add missing required properties
       requestedById: transfer.requestedBy?.id || 0,
-      totalCost: transfer.actualCost || transfer.estimatedCost || 0,
+      totalCost: this.calculateTotalCost(items),
       statusHistory: []
     } as InventoryTransferDto;
   }
@@ -345,6 +345,13 @@ export class TransferDetailPageComponent implements OnInit {
       canReceive: status === TransferStatus.InTransit,
       canCancel: status !== TransferStatus.Completed && status !== TransferStatus.Cancelled && status !== TransferStatus.Rejected
     };
+  }
+
+  private calculateTotalCost(items: any[]): number {
+    return items.reduce((total, item) => {
+      const itemTotal = (item.unitCost || 0) * (item.quantity || item.requestedQuantity || 0);
+      return total + itemTotal;
+    }, 0);
   }
 
   onTransferUpdated(updatedTransfer: InventoryTransferDto): void {

@@ -533,6 +533,36 @@
       background: #4b5563;
     }
   }
+
+  &.btn-danger {
+    background: #dc2626;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: #b91c1c;
+    }
+  }
+
+  &.btn-success {
+    background: #10b981;
+    color: white;
+
+    &:hover:not(:disabled) {
+      background: #059669;
+    }
+  }
+}
+
+// Action Buttons Layout
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+
+  .btn {
+    white-space: nowrap;
+  }
 }
 
 // Responsive Design

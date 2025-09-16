@@ -81,6 +81,13 @@ export interface InventoryTransferDto {
   cancellationReason?: string;
   items: TransferItemDto[];
   statusHistory: TransferStatusHistory[];
+
+  // Workflow permission flags (like facture management)
+  canApprove?: boolean;
+  canReject?: boolean;
+  canShip?: boolean;
+  canReceive?: boolean;
+  canCancel?: boolean;
 }
 
 export interface TransferItemDto {

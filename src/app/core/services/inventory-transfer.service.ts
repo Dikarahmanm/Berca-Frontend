@@ -60,7 +60,7 @@ export class InventoryTransferService {
     this.setLoading(true);
     return this.http.post<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/request`, request)
       .pipe(
-        map(response => response.data),
+        map(response => this.mapApiTransferToDetailDto(response.data)),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to create transfer request', error))
       );
@@ -73,7 +73,7 @@ export class InventoryTransferService {
     this.setLoading(true);
     return this.http.post<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/bulk-request`, request)
       .pipe(
-        map(response => response.data),
+        map(response => this.mapApiTransferToDetailDto(response.data)),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to create bulk transfer request', error))
       );
@@ -126,7 +126,7 @@ export class InventoryTransferService {
     this.setLoading(true);
     return this.http.put<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/${transferId}/approve`, approval)
       .pipe(
-        map(response => response.data),
+        map(response => this.mapApiTransferToDetailDto(response.data)),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to approve transfer', error))
       );
@@ -139,7 +139,7 @@ export class InventoryTransferService {
     this.setLoading(true);
     return this.http.put<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/${transferId}/ship`, shipment)
       .pipe(
-        map(response => response.data),
+        map(response => this.mapApiTransferToDetailDto(response.data)),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to ship transfer', error))
       );
@@ -152,7 +152,7 @@ export class InventoryTransferService {
     this.setLoading(true);
     return this.http.put<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/${transferId}/receive`, receipt)
       .pipe(
-        map(response => response.data),
+        map(response => this.mapApiTransferToDetailDto(response.data)),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to receive transfer', error))
       );
@@ -166,7 +166,7 @@ export class InventoryTransferService {
     const body = { cancellationReason };
     return this.http.put<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/${transferId}/cancel`, body)
       .pipe(
-        map(response => response.data),
+        map(response => this.mapApiTransferToDetailDto(response.data)),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to cancel transfer', error))
       );
@@ -182,7 +182,7 @@ export class InventoryTransferService {
     const body = { productId, destinationBranchId, quantity };
     return this.http.post<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/emergency`, body)
       .pipe(
-        map(response => response.data),
+        map(response => this.mapApiTransferToDetailDto(response.data)),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to create emergency transfer', error))
       );
@@ -401,7 +401,7 @@ export class InventoryTransferService {
     this.setLoading(true);
     return this.http.get<ApiResponse<InventoryTransferDto>>(`${this.apiUrl}/${id}`)
       .pipe(
-        map(response => response.data),
+        map(response => this.mapApiTransferToDetailDto(response.data)),
         tap(() => this.setLoading(false)),
         catchError(error => this.handleError('Failed to get transfer details', error))
       );
@@ -676,16 +676,16 @@ export class InventoryTransferService {
 
   /**
    * Map API status number to TransferStatus enum
+   * Backend enum: Pending=0, Approved=1, InTransit=2, Completed=3, Cancelled=4, Rejected=5
    */
   private mapApiStatusToEnum(statusNumber: number): TransferStatus {
     const statusMap: { [key: number]: TransferStatus } = {
       0: TransferStatus.Pending,
       1: TransferStatus.Approved,
-      2: TransferStatus.Rejected,
-      3: TransferStatus.InTransit,
-      4: TransferStatus.Delivered,
-      5: TransferStatus.Completed,
-      6: TransferStatus.Cancelled
+      2: TransferStatus.InTransit,   // ✅ Fixed: Backend InTransit = 2
+      3: TransferStatus.Completed,   // ✅ Fixed: Backend Completed = 3
+      4: TransferStatus.Cancelled,   // ✅ Fixed: Backend Cancelled = 4
+      5: TransferStatus.Rejected     // ✅ Fixed: Backend Rejected = 5
     };
     return statusMap[statusNumber] || TransferStatus.Pending;
   }
@@ -715,6 +715,30 @@ export class InventoryTransferService {
    * Check if transfer can be received
    */
   public canReceiveTransfer(status: TransferStatus): boolean {
-    return status === TransferStatus.InTransit || status === TransferStatus.Delivered;
+    return status === TransferStatus.InTransit; // ✅ Fixed: Only InTransit can be received (no Delivered status)
+  }
+
+  /**
+   * Check if transfer can be rejected
+   */
+  public canRejectTransfer(status: TransferStatus): boolean {
+    return status === TransferStatus.Pending;
+  }
+
+  /**
+   * Map API transfer response to InventoryTransferDto interface with permissions
+   */
+  public mapApiTransferToDetailDto(apiTransfer: any): InventoryTransferDto {
+    const status = this.mapApiStatusToEnum(apiTransfer.status);
+
+    return {
+      ...apiTransfer,
+      status: status,
+      canApprove: this.canApproveTransfer(status),
+      canReject: this.canRejectTransfer(status),
+      canShip: this.canShipTransfer(status),
+      canReceive: this.canReceiveTransfer(status),
+      canCancel: this.canCancelTransfer(status)
+    };
   }
 }

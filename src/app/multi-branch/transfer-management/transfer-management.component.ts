@@ -315,6 +315,10 @@ export class TransferManagementComponent implements OnInit, OnDestroy {
           this.transfers.set(result.transfers);
           this.totalCount.set(result.totalCount);
           this.loading.set(false);
+          // Force change detection to ensure UI updates
+          setTimeout(() => {
+            this.transfers.set([...result.transfers]);
+          }, 0);
         },
         error: (error) => {
           this.handleError('Failed to load transfers', error);
@@ -395,14 +399,8 @@ export class TransferManagementComponent implements OnInit, OnDestroy {
   }
 
   onViewTransfer(transfer: InventoryTransferSummaryDto): void {
-    const dialogRef = this.dialog.open(TransferDetailDialogComponent, {
-      width: '1200px',
-      maxWidth: '95vw',
-      maxHeight: '90vh',
-      data: {
-        transferId: transfer.id
-      }
-    });
+    // Navigate to dedicated transfer detail page instead of modal
+    this.router.navigate(['/dashboard/transfers', transfer.id]);
   }
 
   onPrintTransfer(transfer: InventoryTransferSummaryDto): void {

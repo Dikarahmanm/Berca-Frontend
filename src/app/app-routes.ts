@@ -265,7 +265,17 @@ export const routes: Routes = [
       },
       {
         path: 'transfers',
-        loadComponent: () => import('./multi-branch/transfer-management/transfer-management.component').then(c => c.TransferManagementComponent),
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./multi-branch/transfer-management/transfer-management.component').then(c => c.TransferManagementComponent),
+            pathMatch: 'full'
+          },
+          {
+            path: ':id',
+            loadComponent: () => import('./multi-branch/transfer-management/transfer-detail-page/transfer-detail-page.component').then(c => c.TransferDetailPageComponent),
+          }
+        ],
         canActivate: [roleGuard, transferManagementGuard],
         data: {
           title: 'Transfer Management',

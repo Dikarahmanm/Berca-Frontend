@@ -1,290 +1,272 @@
-<!-- Transfer Creation Dialog -->
-<div class="transfer-creation-dialog">
-  <!-- Dialog Header -->
-  <div mat-dialog-title class="dialog-header">
-    <div class="header-content">
-      <mat-icon class="header-icon">swap_horiz</mat-icon>
-      <div class="header-text">
-        <h2>{{ data.mode === 'emergency' ? 'Emergency Transfer' : 'Create Transfer' }}</h2>
-        <p>Create a new inventory transfer between branches</p>
+<!-- Transfer Creation Dialog - Custom Style Following Facture Management -->
+<div class="transfer-creation-container">
+  <!-- Header -->
+  <div class="creation-header">
+    <div class="header-left">
+      <div class="header-icon">📦</div>
+      <div class="header-info">
+        <h1 class="creation-title">
+          {{ data.mode === 'emergency' ? 'Emergency Transfer' : 'Create Transfer' }}
+        </h1>
+        <p class="creation-subtitle">Create a new inventory transfer between branches</p>
       </div>
     </div>
-    <button mat-icon-button (click)="onCancel()" class="close-button">
-      <mat-icon>close</mat-icon>
-    </button>
+    <div class="header-right">
+      <button class="btn btn-outline btn-sm" (click)="onCancel()">
+        ✕ Close
+      </button>
+    </div>
   </div>
 
-  <!-- Dialog Content -->
-  <div mat-dialog-content class="dialog-content">
+  <!-- Loading State -->
+  <div *ngIf="loading()" class="loading-container">
+    <div class="loading-spinner"></div>
+    <p class="text-secondary">Creating transfer...</p>
+  </div>
+
+  <!-- Form Content -->
+  <div *ngIf="!loading()" class="creation-content">
     <form [formGroup]="transferForm" class="transfer-form">
 
       <!-- Basic Information Section -->
-      <mat-card class="form-section">
-        <mat-card-header>
-          <mat-card-title>Transfer Information</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
+      <div class="info-section transfer-info-section">
+        <h3 class="section-title">Transfer Information</h3>
+        <div class="form-content">
           <div class="form-row">
-            <mat-form-field appearance="outline" class="form-field">
-              <mat-label>Source Branch</mat-label>
-              <mat-select formControlName="sourceBranchId" required>
-                @for (branch of branches(); track branch.id) {
-                  <mat-option [value]="branch.id">
-                    {{ branch.branchName }}
-                  </mat-option>
-                }
-              </mat-select>
-              <mat-error>Source branch is required</mat-error>
-            </mat-form-field>
+            <div class="form-group">
+              <label class="form-label">Source Branch *</label>
+              <select formControlName="sourceBranchId" class="form-select" required>
+                <option value="">Select source branch...</option>
+                <option *ngFor="let branch of branches(); trackBy: trackByBranch" [value]="branch.id">
+                  {{ branch.branchName }}
+                </option>
+              </select>
+              <div class="form-error" *ngIf="transferForm.get('sourceBranchId')?.touched && transferForm.get('sourceBranchId')?.errors?.['required']">
+                Source branch is required
+              </div>
+            </div>
 
-            <mat-form-field appearance="outline" class="form-field">
-              <mat-label>Destination Branch</mat-label>
-              <mat-select formControlName="destinationBranchId" required>
-                @for (branch of branches(); track branch.id) {
-                  <mat-option [value]="branch.id">
-                    {{ branch.branchName }}
-                  </mat-option>
-                }
-              </mat-select>
-              <mat-error>Destination branch is required</mat-error>
-            </mat-form-field>
+            <div class="form-group">
+              <label class="form-label">Destination Branch *</label>
+              <select formControlName="destinationBranchId" class="form-select" required>
+                <option value="">Select destination branch...</option>
+                <option *ngFor="let branch of branches(); trackBy: trackByBranch" [value]="branch.id">
+                  {{ branch.branchName }}
+                </option>
+              </select>
+              <div class="form-error" *ngIf="transferForm.get('destinationBranchId')?.touched && transferForm.get('destinationBranchId')?.errors?.['required']">
+                Destination branch is required
+              </div>
+            </div>
           </div>
 
           <div class="form-row">
-            <mat-form-field appearance="outline" class="form-field">
-              <mat-label>Priority</mat-label>
-              <mat-select formControlName="priority" required>
-                <mat-option [value]="TransferPriority.Low">
-                  <div class="priority-option">
-                    <mat-icon class="priority-icon low">low_priority</mat-icon>
-                    Low Priority
-                  </div>
-                </mat-option>
-                <mat-option [value]="TransferPriority.Normal">
-                  <div class="priority-option">
-                    <mat-icon class="priority-icon normal">remove</mat-icon>
-                    Normal Priority
-                  </div>
-                </mat-option>
-                <mat-option [value]="TransferPriority.High">
-                  <div class="priority-option">
-                    <mat-icon class="priority-icon high">priority_high</mat-icon>
-                    High Priority
-                  </div>
-                </mat-option>
-                <mat-option [value]="TransferPriority.Emergency">
-                  <div class="priority-option">
-                    <mat-icon class="priority-icon emergency">warning</mat-icon>
-                    Emergency
-                  </div>
-                </mat-option>
-              </mat-select>
-              <mat-error>Priority is required</mat-error>
-            </mat-form-field>
+            <div class="form-group">
+              <label class="form-label">Priority *</label>
+              <select formControlName="priority" class="form-select" required>
+                <option [value]="TransferPriority.Low">🔽 Low Priority</option>
+                <option [value]="TransferPriority.Normal">➖ Normal Priority</option>
+                <option [value]="TransferPriority.High">🔴 High Priority</option>
+                <option [value]="TransferPriority.Emergency">⚠️ Emergency</option>
+              </select>
+              <div class="form-error" *ngIf="transferForm.get('priority')?.touched && transferForm.get('priority')?.errors?.['required']">
+                Priority is required
+              </div>
+            </div>
 
-            <mat-form-field appearance="outline" class="form-field">
-              <mat-label>Expected Delivery Date</mat-label>
-              <input matInput [matDatepicker]="picker" formControlName="estimatedDeliveryDate">
-              <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-              <mat-datepicker #picker></mat-datepicker>
-              <mat-hint>Leave empty for auto-calculation</mat-hint>
-            </mat-form-field>
+            <div class="form-group">
+              <label class="form-label">Expected Delivery Date</label>
+              <input type="date" formControlName="estimatedDeliveryDate" class="form-input">
+              <div class="form-hint">Leave empty for auto-calculation</div>
+            </div>
           </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Notes</mat-label>
-            <textarea matInput formControlName="notes" rows="3"
+          <div class="form-group full-width">
+            <label class="form-label">Notes</label>
+            <textarea formControlName="notes" class="form-textarea" rows="3"
                       placeholder="Additional notes or special instructions..."></textarea>
-          </mat-form-field>
-        </mat-card-content>
-      </mat-card>
+          </div>
+        </div>
+      </div>
 
       <!-- Transfer Items Section -->
-      <mat-card class="form-section">
-        <mat-card-header>
-          <mat-card-title>Transfer Items</mat-card-title>
-          <mat-card-subtitle>
+      <div class="info-section transfer-items-section">
+        <div class="section-header">
+          <h3 class="section-title">Transfer Items</h3>
+          <div class="section-summary">
             Total Items: {{ totalItems() }} | Total Quantity: {{ totalQuantity() }}
-          </mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
+          </div>
+        </div>
 
-          <!-- Add Item Button -->
+        <div class="items-content">
+          <!-- Add Item Controls -->
           <div class="add-item-section">
-            <button type="button" mat-raised-button color="primary"
-                    (click)="addTransferItem()" class="add-item-btn">
-              <mat-icon>add</mat-icon>
-              Add Item
+            <button type="button" class="btn btn-primary" (click)="addTransferItem()">
+              ➕ Add Item
             </button>
           </div>
 
-          <!-- Items Table -->
-          @if (transferItemsArray.length > 0) {
-            <div class="items-table-container">
-              <table mat-table [dataSource]="transferItemsArray.controls" class="items-table">
+          <!-- Items List -->
+          <div *ngIf="transferItemsArray.length > 0" class="items-list">
+            <div *ngFor="let item of transferItemsArray.controls; let i = index; trackBy: trackByItemIndex"
+                 class="item-row" [formGroup]="$any(item)">
 
-                <!-- Product Column -->
-                <ng-container matColumnDef="product">
-                  <th mat-header-cell *matHeaderCellDef>Product</th>
-                  <td mat-cell *matCellDef="let item; let i = index">
-                    <mat-form-field appearance="outline" class="product-field">
-                      <mat-label>Select Product</mat-label>
-                      <input type="text" matInput [formControl]="item.get('productName')"
-                             [matAutocomplete]="auto" (input)="filterProducts($event.target.value || '')"
-                             placeholder="Search product...">
-                      <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayProductFn">
-                        @for (product of filteredProducts(); track product.id) {
-                          <mat-option [value]="getProductDisplayName(product)" (click)="onProductSelected(product, i)">
-                            <div class="product-option">
-                              <span class="product-name">{{ product.name }}</span>
-                              <span class="product-code">{{ product.barcode }}</span>
-                              <span class="product-stock">Stock: {{ product.stock }}</span>
-                            </div>
-                          </mat-option>
-                        }
-                      </mat-autocomplete>
-                      <mat-error>Product is required</mat-error>
-                    </mat-form-field>
-                  </td>
-                </ng-container>
-
-                <!-- Quantity Column -->
-                <ng-container matColumnDef="quantity">
-                  <th mat-header-cell *matHeaderCellDef>Quantity</th>
-                  <td mat-cell *matCellDef="let item; let i = index">
-                    <mat-form-field appearance="outline" class="quantity-field">
-                      <mat-label>Qty</mat-label>
-                      <input matInput type="number" [formControl]="item.get('quantity')"
-                             min="1" placeholder="0">
-                      <mat-error>Quantity must be at least 1</mat-error>
-                    </mat-form-field>
-                  </td>
-                </ng-container>
-
-                <!-- Available Stock Column -->
-                <ng-container matColumnDef="availableStock">
-                  <th mat-header-cell *matHeaderCellDef>Available</th>
-                  <td mat-cell *matCellDef="let item">
-                    <div class="stock-info">
-                      <span class="stock-value">{{ item.get('availableStock')?.value || 0 }}</span>
-                      <button type="button" mat-icon-button color="accent"
-                              [disabled]="!item.get('productId')?.value"
-                              (click)="checkAvailableSources(item.get('productId')?.value, item.get('quantity')?.value)"
-                              matTooltip="Check available sources">
-                        <mat-icon>search</mat-icon>
-                      </button>
+              <div class="item-content">
+                <!-- Product Selection -->
+                <div class="item-field product-field">
+                  <label class="field-label">Product *</label>
+                  <div class="product-input-container">
+                    <input type="text"
+                           formControlName="productName"
+                           class="form-input"
+                           placeholder="Search product..."
+                           [attr.data-dropdown-index]="i"
+                           (input)="filterProducts($any($event.target).value)"
+                           (focus)="showProductDropdownAt(i)"
+                           (blur)="hideProductDropdown(i)"
+                           readonly>
+                    <div class="product-dropdown"
+                         [attr.data-dropdown-for]="i"
+                         *ngIf="showProductDropdown[i] && filteredProducts().length > 0">
+                      <div *ngFor="let product of filteredProducts(); trackBy: trackByProduct"
+                           class="product-option"
+                           (mousedown)="selectProduct(product, i)">
+                        <div class="product-name">{{ product.name }}</div>
+                        <div class="product-code">{{ product.barcode }}</div>
+                        <div class="product-stock">Stock: {{ product.stock }}</div>
+                      </div>
                     </div>
-                  </td>
-                </ng-container>
-
-                <!-- Actions Column -->
-                <ng-container matColumnDef="actions">
-                  <th mat-header-cell *matHeaderCellDef>Actions</th>
-                  <td mat-cell *matCellDef="let item; let i = index">
-                    <button type="button" mat-icon-button color="warn"
-                            (click)="removeTransferItem(i)"
-                            matTooltip="Remove item">
-                      <mat-icon>delete</mat-icon>
+                    <button type="button" class="product-search-btn" (click)="toggleProductDropdown(i)">
+                      🔍
                     </button>
-                  </td>
-                </ng-container>
-
-                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-              </table>
-            </div>
-          } @else {
-            <div class="no-items">
-              <mat-icon class="no-items-icon">inventory_2</mat-icon>
-              <p>No items added yet</p>
-              <p class="no-items-subtitle">Click "Add Item" to start building your transfer</p>
-            </div>
-          }
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Available Sources Section -->
-      @if (availableSources().length > 0) {
-        <mat-card class="form-section">
-          <mat-card-header>
-            <mat-card-title>Available Source Branches</mat-card-title>
-            <mat-card-subtitle>Branches with sufficient stock for selected items</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="sources-grid">
-              @for (source of availableSources(); track source.branchId) {
-                <div class="source-card" [class.selected]="transferForm.get('sourceBranchId')?.value === source.branchId">
-                  <div class="source-header">
-                    <strong>{{ source.branchName }}</strong>
-                    <span class="source-distance">{{ source.distance }}km</span>
                   </div>
-                  <div class="source-details">
-                    <div class="source-stock">Stock: {{ source.availableQuantity }}</div>
-                    <div class="source-cost">Est. Cost: {{ formatCurrency(source.estimatedCost) }}</div>
+                  <div class="form-error" *ngIf="item.get('productName')?.touched && item.get('productName')?.errors?.['required']">
+                    Product is required
                   </div>
-                  <button type="button" mat-button color="primary"
-                          (click)="transferForm.patchValue({sourceBranchId: source.branchId})"
-                          [disabled]="transferForm.get('sourceBranchId')?.value === source.branchId">
-                    {{ transferForm.get('sourceBranchId')?.value === source.branchId ? 'Selected' : 'Select' }}
+                </div>
+
+                <!-- Quantity -->
+                <div class="item-field quantity-field">
+                  <label class="field-label">Quantity *</label>
+                  <input type="number"
+                         formControlName="quantity"
+                         class="form-input"
+                         min="1"
+                         placeholder="0">
+                  <div class="form-error" *ngIf="item.get('quantity')?.touched && item.get('quantity')?.errors?.['min']">
+                    Quantity must be at least 1
+                  </div>
+                </div>
+
+                <!-- Available Stock -->
+                <div class="item-field stock-field">
+                  <label class="field-label">Available</label>
+                  <div class="stock-info">
+                    <span class="stock-value">{{ item.get('availableStock')?.value || 0 }}</span>
+                    <button type="button"
+                            class="btn btn-secondary btn-sm"
+                            [disabled]="!item.get('productId')?.value"
+                            (click)="checkAvailableSources(item.get('productId')?.value, item.get('quantity')?.value)"
+                            title="Check available sources">
+                      🔍
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="item-field actions-field">
+                  <button type="button"
+                          class="btn btn-danger btn-sm"
+                          (click)="removeTransferItem(i)"
+                          title="Remove item">
+                    🗑️ Remove
                   </button>
                 </div>
-              }
+              </div>
             </div>
-          </mat-card-content>
-        </mat-card>
-      }
+          </div>
+
+          <!-- No Items State -->
+          <div *ngIf="transferItemsArray.length === 0" class="no-items">
+            <div class="no-items-icon">📦</div>
+            <p class="no-items-text">No items added yet</p>
+            <p class="no-items-subtitle">Click "Add Item" to start building your transfer</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Available Sources Section -->
+      <div *ngIf="availableSources().length > 0" class="info-section">
+        <h3 class="section-title">Available Source Branches</h3>
+        <div class="form-content">
+          <div class="sources-grid">
+            <div *ngFor="let source of availableSources(); trackBy: trackBySource"
+                 class="source-card"
+                 [class.selected]="transferForm.get('sourceBranchId')?.value === source.branchId">
+              <div class="source-header">
+                <strong class="source-name">{{ source.branchName }}</strong>
+                <span class="source-distance">{{ source.distance }}km</span>
+              </div>
+              <div class="source-details">
+                <div class="source-stock">Stock: {{ source.availableQuantity }}</div>
+                <div class="source-cost">Est. Cost: {{ formatCurrency(source.estimatedCost) }}</div>
+              </div>
+              <button type="button"
+                      class="btn btn-primary btn-sm"
+                      (click)="transferForm.patchValue({sourceBranchId: source.branchId})"
+                      [disabled]="transferForm.get('sourceBranchId')?.value === source.branchId">
+                {{ transferForm.get('sourceBranchId')?.value === source.branchId ? 'Selected' : 'Select' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Cost Estimation Section -->
-      @if (estimatedCost() > 0 || estimatedDelivery()) {
-        <mat-card class="form-section estimation-section">
-          <mat-card-header>
-            <mat-card-title>Transfer Estimation</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="estimation-grid">
-              @if (estimatedCost() > 0) {
-                <div class="estimation-item">
-                  <mat-icon class="estimation-icon">attach_money</mat-icon>
-                  <div class="estimation-content">
-                    <span class="estimation-label">Estimated Cost</span>
-                    <span class="estimation-value">{{ formatCurrency(estimatedCost()) }}</span>
-                  </div>
-                  @if (calculating()) {
-                    <mat-spinner diameter="20"></mat-spinner>
-                  }
-                </div>
-              }
-
-              @if (estimatedDelivery()) {
-                <div class="estimation-item">
-                  <mat-icon class="estimation-icon">schedule</mat-icon>
-                  <div class="estimation-content">
-                    <span class="estimation-label">Estimated Delivery</span>
-                    <span class="estimation-value">{{ formatDate(estimatedDelivery()!) }}</span>
-                  </div>
-                </div>
-              }
+      <div *ngIf="estimatedCost() > 0 || estimatedDelivery()" class="info-section estimation-section">
+        <h3 class="section-title">Transfer Estimation</h3>
+        <div class="estimation-content">
+          <div class="estimation-grid">
+            <div *ngIf="estimatedCost() > 0" class="estimation-item">
+              <div class="estimation-icon">💰</div>
+              <div class="estimation-details">
+                <span class="estimation-label">Estimated Cost</span>
+                <span class="estimation-value">{{ formatCurrency(estimatedCost()) }}</span>
+              </div>
+              <div *ngIf="calculating()" class="estimation-loading">
+                <div class="loading-spinner small"></div>
+              </div>
             </div>
-          </mat-card-content>
-        </mat-card>
-      }
+
+            <div *ngIf="estimatedDelivery()" class="estimation-item">
+              <div class="estimation-icon">⏰</div>
+              <div class="estimation-details">
+                <span class="estimation-label">Estimated Delivery</span>
+                <span class="estimation-value">{{ formatDate(estimatedDelivery()!) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </form>
   </div>
 
-  <!-- Dialog Actions -->
-  <div mat-dialog-actions class="dialog-actions">
-    <button type="button" mat-button (click)="onCancel()" [disabled]="loading()">
+  <!-- Actions -->
+  <div class="creation-actions">
+    <button type="button" class="btn btn-outline" (click)="onCancel()" [disabled]="loading()">
       Cancel
     </button>
 
-    <button type="submit" mat-raised-button color="primary"
-            (click)="onSubmit()" [disabled]="loading() || transferForm.invalid || transferItemsArray.length === 0">
-      @if (loading()) {
-        <mat-spinner diameter="20" class="button-spinner"></mat-spinner>
-      } @else {
-        <mat-icon>send</mat-icon>
-      }
-      {{ data.mode === 'emergency' ? 'Create Emergency Transfer' : 'Create Transfer' }}
+    <button type="submit"
+            class="btn btn-primary"
+            (click)="onSubmit()"
+            [disabled]="loading() || transferForm.invalid || transferItemsArray.length === 0">
+      <span *ngIf="loading()" class="btn-spinner">
+        <div class="loading-spinner small"></div>
+      </span>
+      <span *ngIf="!loading()">
+        {{ data.mode === 'emergency' ? 'Create Emergency Transfer' : 'Create Transfer' }}
+      </span>
     </button>
   </div>
 </div>

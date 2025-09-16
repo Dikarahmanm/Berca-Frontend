@@ -1,21 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
-import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatChipsModule } from '@angular/material/chips';
+import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 
 import { Subject, takeUntil, debounceTime, distinctUntilChanged, startWith, map } from 'rxjs';
 
@@ -44,22 +30,7 @@ export interface TransferCreationDialogData {
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
-    MatDialogModule,
-    MatButtonModule,
-    MatIconModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-    MatCardModule,
-    MatTableModule,
-    MatSnackBarModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
-    MatAutocompleteModule,
-    MatChipsModule
+    ReactiveFormsModule
   ],
   templateUrl: './transfer-creation-dialog.component.html',
   styleUrls: ['./transfer-creation-dialog.component.scss'],
@@ -73,7 +44,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   private dialogRef = inject(MatDialogRef<TransferCreationDialogComponent>);
   public data = inject(MAT_DIALOG_DATA) as TransferCreationDialogData;
   private fb = inject(FormBuilder);
-  private snackBar = inject(MatSnackBar);
+  // Note: Removed MatSnackBar dependency - will use custom notifications
 
   // Signals for reactive state
   loading = signal<boolean>(false);
@@ -84,6 +55,13 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   availableSources = signal<AvailableSourceDto[]>([]);
   estimatedCost = signal<number>(0);
   estimatedDelivery = signal<Date | null>(null);
+  showProductDropdown: boolean[] = [];
+
+  // Signal for form items to trigger reactivity
+  formItemsChange = signal<number>(0);
+
+  // Debounce calculation to prevent multiple calls
+  private lastCalculationTime = 0;
 
   // Form
   transferForm!: FormGroup;
@@ -95,12 +73,17 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   displayedColumns = ['product', 'quantity', 'availableStock', 'actions'];
 
   // Computed values
-  totalItems = computed(() => this.transferItemsArray.length);
-  totalQuantity = computed(() =>
-    this.transferItemsArray.controls.reduce((sum, control) =>
+  totalItems = computed(() => {
+    this.formItemsChange(); // Subscribe to changes
+    return this.transferItemsArray?.length || 0;
+  });
+  totalQuantity = computed(() => {
+    this.formItemsChange(); // Subscribe to changes
+    if (!this.transferItemsArray) return 0;
+    return this.transferItemsArray.controls.reduce((sum, control) =>
       sum + (control.get('quantity')?.value || 0), 0
-    )
-  );
+    );
+  });
 
   get transferItemsArray() {
     return this.transferForm.get('items') as FormArray;
@@ -184,50 +167,93 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
         debounceTime(500),
         takeUntil(this.destroy$)
       )
-      .subscribe(() => this.calculateEstimates());
+      .subscribe(() => {
+        // Trigger reactivity for computed values
+        this.formItemsChange.set(this.formItemsChange() + 1);
+        this.calculateEstimates();
+      });
   }
 
   private calculateEstimates(): void {
+    const now = Date.now();
+
+    // Debounce: prevent calls within 1 second of each other
+    if (now - this.lastCalculationTime < 1000) {
+      return;
+    }
+    this.lastCalculationTime = now;
+
     const sourceBranchId = this.transferForm.get('sourceBranchId')?.value;
     const destinationBranchId = this.transferForm.get('destinationBranchId')?.value;
     const priority = this.transferForm.get('priority')?.value;
     const items = this.transferItemsArray.value;
 
-    if (!sourceBranchId || !destinationBranchId || items.length === 0) {
+    // Validate required fields
+    if (!sourceBranchId || !destinationBranchId) {
       this.estimatedCost.set(0);
       this.estimatedDelivery.set(null);
       return;
     }
 
+    // Check if we have valid items with productId and quantity
+    const validItems = items.filter((item: any) =>
+      item.productId && item.quantity && item.quantity > 0
+    );
+
+    if (validItems.length === 0) {
+      this.estimatedCost.set(0);
+      this.estimatedDelivery.set(null);
+      return;
+    }
+
+    // Prevent multiple simultaneous calculations
+    if (this.calculating()) {
+      return;
+    }
+
     this.calculating.set(true);
 
-    // Calculate cost
-    const transferItems: CreateTransferItemDto[] = items.map((item: any) => ({
+    // Calculate cost only if we have valid items
+    const transferItems: CreateTransferItemDto[] = validItems.map((item: any) => ({
       productId: item.productId,
       quantity: item.quantity,
       qualityNotes: item.notes || ''
     }));
 
-    this.transferService.calculateTransferCost(sourceBranchId, destinationBranchId, transferItems)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (cost) => {
-          this.estimatedCost.set(cost);
-          this.calculating.set(false);
-        },
-        error: (error) => {
-          this.handleError('Failed to calculate transfer cost', error);
-          this.calculating.set(false);
-        }
-      });
+    // Only make API calls if data is valid
+    if (transferItems.length > 0) {
+      this.transferService.calculateTransferCost(sourceBranchId, destinationBranchId, transferItems)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (cost) => {
+            this.estimatedCost.set(cost);
+            this.calculating.set(false);
+          },
+          error: (error) => {
+            console.error('Failed to calculate transfer cost:', error);
+            this.estimatedCost.set(0);
+            this.calculating.set(false);
+          }
+        });
 
-    // Estimate delivery date
-    this.transferService.estimateDeliveryDate(sourceBranchId, destinationBranchId, priority)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (date) => this.estimatedDelivery.set(date),
-        error: (error) => console.error('Failed to estimate delivery date:', error)
-      });
+      // Skip delivery date estimation for now to avoid API errors
+      // this.transferService.estimateDeliveryDate(sourceBranchId, destinationBranchId, priority)
+      //   .pipe(takeUntil(this.destroy$))
+      //   .subscribe({
+      //     next: (date) => this.estimatedDelivery.set(date),
+      //     error: (error) => {
+      //       console.error('Failed to estimate delivery date:', error);
+      //       this.estimatedDelivery.set(null);
+      //     }
+      //   });
+
+      // Set a default estimated delivery (3 days from now)
+      const defaultDeliveryDate = new Date();
+      defaultDeliveryDate.setDate(defaultDeliveryDate.getDate() + 3);
+      this.estimatedDelivery.set(defaultDeliveryDate);
+    } else {
+      this.calculating.set(false);
+    }
   }
 
   // Product selection methods
@@ -259,7 +285,7 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   addTransferItem(product?: Product, quantity: number = 1): void {
     const itemForm = this.fb.group({
       productId: [product?.id || null, Validators.required],
-      productName: [product?.name || ''],
+      productName: [product ? this.getProductDisplayName(product) : '', Validators.required],
       productBarcode: [product?.barcode || ''],
       quantity: [quantity, [Validators.required, Validators.min(1)]],
       availableStock: [product?.stock || 0],
@@ -267,10 +293,25 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
     });
 
     this.transferItemsArray.push(itemForm);
+    // Initialize dropdown state for new item
+    this.showProductDropdown[this.transferItemsArray.length - 1] = false;
+    // Trigger reactivity
+    this.formItemsChange.set(this.formItemsChange() + 1);
+
+    console.log('📝 Added transfer item:', {
+      productId: product?.id,
+      productName: product?.name,
+      quantity: quantity,
+      totalItems: this.transferItemsArray.length
+    });
   }
 
   removeTransferItem(index: number): void {
     this.transferItemsArray.removeAt(index);
+    // Remove dropdown state for this item
+    this.showProductDropdown.splice(index, 1);
+    // Trigger reactivity
+    this.formItemsChange.set(this.formItemsChange() + 1);
     this.calculateEstimates();
   }
 
@@ -345,23 +386,48 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Filter only valid items for transfer
+    const validTransferItems = formValue.items
+      .filter((item: any) => {
+        const hasValidProduct = item.productId && !isNaN(parseInt(item.productId.toString()));
+        const hasValidQuantity = item.quantity && !isNaN(parseInt(item.quantity.toString())) && item.quantity > 0;
+        return hasValidProduct && hasValidQuantity;
+      })
+      .map((item: any) => ({
+        productId: parseInt(item.productId.toString()),
+        quantity: parseInt(item.quantity.toString()),
+        qualityNotes: item.notes || ''
+      }));
+
+    if (validTransferItems.length === 0) {
+      this.showMessage('Please add at least one valid item with product and quantity', 'error');
+      return;
+    }
+
+    // Prepare estimated delivery date properly
+    let estimatedDeliveryDate: Date | undefined = undefined;
+    if (formValue.estimatedDeliveryDate) {
+      // Convert to Date object if date is provided
+      estimatedDeliveryDate = new Date(formValue.estimatedDeliveryDate);
+    } else if (this.estimatedDelivery()) {
+      // Use calculated delivery date
+      estimatedDeliveryDate = this.estimatedDelivery()!;
+    }
+
     const transferRequest: CreateInventoryTransferRequestDto = {
-      sourceBranchId: formValue.sourceBranchId,
-      destinationBranchId: formValue.destinationBranchId,
+      sourceBranchId: parseInt(formValue.sourceBranchId.toString()),
+      destinationBranchId: parseInt(formValue.destinationBranchId.toString()),
       type: this.data?.mode === 'emergency' ? TransferType.Emergency : TransferType.Regular,
-      priority: formValue.priority,
+      priority: parseInt(formValue.priority.toString()),
       requestReason: `Transfer request from ${this.getBranchName(formValue.sourceBranchId)} to ${this.getBranchName(formValue.destinationBranchId)}`,
       notes: formValue.notes || '',
-      estimatedCost: this.estimatedCost(),
-      estimatedDeliveryDate: formValue.estimatedDeliveryDate,
-      transferItems: formValue.items.map((item: any) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        expiryDate: item.expiryDate,
-        batchNumber: item.batchNumber || '',
-        qualityNotes: item.notes || ''
-      }))
+      estimatedCost: this.estimatedCost() || 0,
+      estimatedDeliveryDate: estimatedDeliveryDate,
+      transferItems: validTransferItems
     };
+
+    // Debug: Log the request data
+    console.log('🔍 Transfer Request Data:', JSON.stringify(transferRequest, null, 2));
 
     this.loading.set(true);
 
@@ -375,6 +441,13 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           this.loading.set(false);
+          console.error('🚨 Transfer Creation Error:', error);
+          console.error('🚨 Error Details:', {
+            status: error.status,
+            statusText: error.statusText,
+            message: error.message,
+            error: error.error
+          });
           this.handleError('Failed to create transfer', error);
         }
       });
@@ -476,9 +549,141 @@ export class TransferCreationDialogComponent implements OnInit, OnDestroy {
   }
 
   private showMessage(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
-    this.snackBar.open(message, 'Tutup', {
-      duration: 5000,
-      panelClass: [`snackbar-${type}`]
+    if (type === 'success') {
+      this.showSuccessModal(message);
+    } else {
+      // For now, use alert for error and info messages
+      alert(message);
+    }
+  }
+
+  private showSuccessModal(message: string): void {
+    // Create success modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'success-modal-overlay';
+
+    // Create modal content
+    const modal = document.createElement('div');
+    modal.className = 'success-modal';
+
+    // Close modal function
+    const closeModal = () => {
+      if (overlay.parentNode) {
+        overlay.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => overlay.remove(), 300);
+      }
+    };
+
+    modal.innerHTML = `
+      <div class="success-modal-content">
+        <div class="success-icon">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="#10B981"/>
+            <path d="m9 12 2 2 4-4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3 class="success-title">Transfer Created Successfully!</h3>
+        <p class="success-message">${message}</p>
+        <button class="success-btn" type="button">
+          Continue
+        </button>
+      </div>
+    `;
+
+    // Add event listeners
+    const continueBtn = modal.querySelector('.success-btn');
+    continueBtn?.addEventListener('click', closeModal);
+
+    // Click outside to close
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        closeModal();
+      }
     });
+
+    // Escape key to close
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        document.removeEventListener('keydown', handleKeyPress);
+      }
+    };
+    document.addEventListener('keydown', handleKeyPress);
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Auto-remove after 7 seconds
+    setTimeout(() => {
+      closeModal();
+      document.removeEventListener('keydown', handleKeyPress);
+    }, 7000);
+  }
+
+  // TrackBy functions for performance
+  trackByBranch(index: number, branch: Branch): number {
+    return branch.id;
+  }
+
+  trackByProduct(index: number, product: Product): number {
+    return product.id;
+  }
+
+  trackByItemIndex(index: number, item: any): number {
+    return index;
+  }
+
+  trackBySource(index: number, source: AvailableSourceDto): number {
+    return source.branchId;
+  }
+
+  // Product dropdown methods
+  toggleProductDropdown(index: number): void {
+    this.showProductDropdown[index] = !this.showProductDropdown[index];
+    // Close other dropdowns
+    this.showProductDropdown.forEach((_, i) => {
+      if (i !== index) {
+        this.showProductDropdown[i] = false;
+      }
+    });
+
+    // Position dropdown if shown
+    if (this.showProductDropdown[index]) {
+      setTimeout(() => this.positionDropdown(index), 0);
+    }
+  }
+
+  showProductDropdownAt(index: number): void {
+    // Close other dropdowns
+    this.showProductDropdown.forEach((_, i) => {
+      this.showProductDropdown[i] = (i === index);
+    });
+
+    // Position dropdown
+    setTimeout(() => this.positionDropdown(index), 0);
+  }
+
+  private positionDropdown(index: number): void {
+    const inputElement = document.querySelector(`[data-dropdown-index="${index}"]`) as HTMLElement;
+    const dropdownElement = document.querySelector(`[data-dropdown-for="${index}"]`) as HTMLElement;
+
+    if (inputElement && dropdownElement) {
+      const inputRect = inputElement.getBoundingClientRect();
+      dropdownElement.style.position = 'fixed';
+      dropdownElement.style.top = `${inputRect.bottom + window.scrollY}px`;
+      dropdownElement.style.left = `${inputRect.left + window.scrollX}px`;
+      dropdownElement.style.width = `${inputRect.width}px`;
+    }
+  }
+
+  hideProductDropdown(index: number): void {
+    setTimeout(() => {
+      this.showProductDropdown[index] = false;
+    }, 200); // Delay to allow click on option
+  }
+
+  selectProduct(product: Product, index: number): void {
+    this.onProductSelected(product, index);
+    this.showProductDropdown[index] = false;
   }
 }

@@ -202,6 +202,7 @@ export class TransferDetailPageComponent implements OnInit {
 
   ngOnInit(): void {
     const transferId = this.route.snapshot.paramMap.get('id');
+    console.log('🔍 Transfer Detail Page - ID from route:', transferId);
     if (transferId) {
       this.loadTransferDetail(Number(transferId));
     } else {
@@ -224,8 +225,14 @@ export class TransferDetailPageComponent implements OnInit {
     this.transferService.getTransferById(id)
       .subscribe({
         next: (transfer: any) => {
+          console.log('🔍 Raw transfer data from API:', transfer);
+          console.log('🔍 Transfer items count:', transfer.transferItems?.length || 0);
+
           // Use same mapping logic as dialog
           const mappedTransfer = this.mapTransferStatus(transfer);
+          console.log('🔍 Mapped transfer:', mappedTransfer);
+          console.log('🔍 Mapped items count:', mappedTransfer.items?.length || 0);
+
           this.transfer.set(mappedTransfer);
           this.transferNumber.set(mappedTransfer.transferNumber);
           this.loading.set(false);
@@ -309,7 +316,7 @@ export class TransferDetailPageComponent implements OnInit {
       priority: transfer.priority || 0,
       requestReason: transfer.requestReason || '',
       notes: transfer.notes || '',
-      requestedAt: transfer.requestedAt,
+      requestedAt: transfer.requestedAt || transfer.createdAt,
       approvedAt: transfer.approvedAt,
       rejectedAt: transfer.rejectedAt,
       shippedAt: transfer.shippedAt,
@@ -322,7 +329,11 @@ export class TransferDetailPageComponent implements OnInit {
       shipmentNotes: transfer.shipmentNotes,
       receiptNotes: transfer.receiptNotes,
       trackingNumber: transfer.trackingNumber,
-      courierName: transfer.courierName
+      courierName: transfer.courierName,
+      // Add missing required properties
+      requestedById: transfer.requestedBy?.id || 0,
+      totalCost: transfer.actualCost || transfer.estimatedCost || 0,
+      statusHistory: []
     } as InventoryTransferDto;
   }
 

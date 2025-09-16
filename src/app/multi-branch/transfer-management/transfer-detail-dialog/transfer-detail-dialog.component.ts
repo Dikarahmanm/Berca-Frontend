@@ -170,8 +170,11 @@ import {
               <div class="timeline-icon">📥</div>
               <div class="timeline-content">
                 <div class="timeline-title">Transfer Requested</div>
-                <div class="timeline-meta">
-                  {{ formatDateTime(transfer()!.requestedAt) }} by {{ transfer()!.requestedByName }}
+                <div class="timeline-meta" *ngIf="transfer()!.requestedAt">
+                  {{ formatDateTime(transfer()!.requestedAt!) }} by {{ transfer()!.requestedByName }}
+                </div>
+                <div class="timeline-meta" *ngIf="!transfer()!.requestedAt">
+                  Requested by {{ transfer()!.requestedByName }}
                 </div>
               </div>
             </div>
@@ -324,15 +327,13 @@ import {
           </div>
         </div>
 
-        @if (transfer()!.notes) {
-          <!-- Notes Section -->
-          <div class="info-section">
-            <h3 class="section-title">Notes</h3>
-            <div class="notes-content">
-              {{ transfer()!.notes }}
-            </div>
+        <!-- Notes Section -->
+        <div class="info-section">
+          <h3 class="section-title">Notes</h3>
+          <div class="notes-content">
+            {{ transfer()!.notes || transfer()!.requestReason || 'No additional notes' }}
           </div>
-        }
+        </div>
       </div>
     </div>
   `,
@@ -799,13 +800,31 @@ export class TransferDetailDialogComponent implements OnInit {
     }).format(amount);
   }
 
-  formatDateTime(date: Date): string {
-    return new Intl.DateTimeFormat('id-ID', {
+  formatDateTime(date: Date | string | null | undefined): string {
+    console.log('🔍 formatDateTime called with:', date, 'type:', typeof date);
+
+    if (!date) {
+      console.log('🔍 Date is falsy, returning N/A');
+      return 'N/A';
+    }
+
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    console.log('🔍 Date object:', dateObj, 'isValid:', !isNaN(dateObj.getTime()));
+
+    if (isNaN(dateObj.getTime())) {
+      console.log('🔍 Invalid date, returning Invalid Date');
+      return 'Invalid Date';
+    }
+
+    const formatted = new Intl.DateTimeFormat('id-ID', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    }).format(new Date(date));
+    }).format(dateObj);
+
+    console.log('🔍 Formatted date:', formatted);
+    return formatted;
   }
 }

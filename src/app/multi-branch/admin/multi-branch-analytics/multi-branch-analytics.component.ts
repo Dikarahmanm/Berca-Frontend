@@ -22,7 +22,7 @@ import { BranchService } from '../../../core/services/branch.service';
 import { StateService } from '../../../core/services/state.service';
 import { InventoryTransferService } from '../../../core/services/inventory-transfer.service';
 import { HttpClient } from '@angular/common/http';
-import { Subscription, forkJoin, of } from 'rxjs';
+import { Subscription, forkJoin, of, Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 interface ApiResponse<T> {
@@ -520,7 +520,7 @@ export class MultiBranchAnalyticsComponent implements OnInit, OnDestroy {
     );
 
     // Enhanced view-specific API calls with better parameter handling
-    let viewSpecificCall: any = of(null);
+    let viewSpecificCall: Observable<ApiResponse<any> | null> = of(null);
     switch (currentView) {
       case 'trends':
         viewSpecificCall = this.http.get<ApiResponse<any>>(`/api/ConsolidatedReport/trend-analysis?${viewParams}`).pipe(
@@ -565,8 +565,8 @@ export class MultiBranchAnalyticsComponent implements OnInit, OnDestroy {
           this.processTransferData(data.transferAnalytics.data);
         }
 
-        if (data.viewSpecific && (data.viewSpecific as any)?.success && (data.viewSpecific as any)?.data) {
-          this.processViewSpecificData((data.viewSpecific as any).data);
+        if (data.viewSpecific?.success && data.viewSpecific.data) {
+          this.processViewSpecificData(data.viewSpecific.data);
         }
 
         this.loading.set(false);

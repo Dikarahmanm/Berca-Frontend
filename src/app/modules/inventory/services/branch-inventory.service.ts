@@ -4,7 +4,7 @@
 
 import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, tap, map, catchError, of } from 'rxjs';
+import { Observable, tap, map, catchError, of, debounceTime, timer } from 'rxjs';
 import { environment } from '../../../../environment/environment';
 import { StateService } from '../../../core/services/state.service';
 import { 
@@ -74,7 +74,7 @@ export class BranchInventoryService {
   private readonly http = inject(HttpClient);
   private readonly stateService = inject(StateService);
   // ✅ Use relative URL for proxy routing
-  private readonly apiUrl = '/api/Inventory';
+  private readonly apiUrl = '/api/Product';
 
   // Signal-based state management
   private _branchProducts = signal<BranchProductDto[]>([]);
@@ -83,6 +83,8 @@ export class BranchInventoryService {
   private _loading = signal<boolean>(false);
   private _error = signal<string | null>(null);
   private _lastSyncBranches = signal<number[]>([]);
+  private _isRefreshing = signal<boolean>(false);
+  private _lastRefreshTime = signal<number>(0);
 
   // Public readonly signals
   readonly branchProducts = this._branchProducts.asReadonly();
@@ -159,18 +161,59 @@ export class BranchInventoryService {
   readonly needsDataRefresh = computed(() => {
     const currentBranches = this.activeBranchIds();
     const lastSyncBranches = this._lastSyncBranches();
-    
+    const lastRefreshTime = this._lastRefreshTime();
+    const isRefreshing = this._isRefreshing();
+
+    // Don't refresh if already refreshing
+    if (isRefreshing) return false;
+
+    // Don't refresh too frequently (minimum 5 seconds between refreshes)
+    const minRefreshInterval = 5000; // 5 seconds
+    if (Date.now() - lastRefreshTime < minRefreshInterval) return false;
+
+    // Check if branches have changed
+    if (currentBranches.length === 0) return false; // No branches selected
     if (currentBranches.length !== lastSyncBranches.length) return true;
-    
+
     return !currentBranches.every(id => lastSyncBranches.includes(id));
   });
 
   constructor() {
-    // Auto-refresh when branch selection changes
+    // Auto-refresh when branch selection changes with debouncing
     effect(() => {
-      if (this.needsDataRefresh() && this.activeBranchIds().length > 0) {
-        console.log('🔄 Branch selection changed, refreshing inventory data...');
-        this.refreshInventoryData();
+      const currentBranches = this.activeBranchIds();
+      const lastSyncBranches = this._lastSyncBranches();
+
+      console.log('🔍 [DEBUG] Branch effect triggered:', {
+        currentBranches,
+        lastSyncBranches,
+        needsRefresh: this.needsDataRefresh(),
+        currentTime: new Date().toISOString()
+      });
+
+      if (this.needsDataRefresh() && currentBranches.length > 0) {
+        console.log('🔄 Branch selection changed:', {
+          currentBranches,
+          lastSyncBranches,
+          needsRefresh: this.needsDataRefresh()
+        });
+        console.log('🔄 Scheduling inventory refresh...');
+
+        // Use setTimeout to debounce the effect
+        setTimeout(() => {
+          if (this.needsDataRefresh()) {
+            console.log('🔄 Executing debounced inventory refresh...');
+            this.refreshInventoryData();
+          } else {
+            console.log('⏭️ Skipping refresh - conditions no longer met');
+          }
+        }, 500); // 500ms debounce for faster response
+      } else {
+        console.log('⚠️ [DEBUG] Not refreshing because:', {
+          needsRefresh: this.needsDataRefresh(),
+          hasBranches: currentBranches.length > 0,
+          branchCount: currentBranches.length
+        });
       }
     });
   }
@@ -203,15 +246,25 @@ export class BranchInventoryService {
 
     console.log('📦 Loading branch inventory...', { branchIds, filter });
 
-    return this.http.get<ApiResponse<BranchProductDto[]>>(`${this.apiUrl}/branch-products`, { params })
+    return this.http.get<ApiResponse<BranchProductDto[]>>(`${this.apiUrl}/by-branch`, { params })
       .pipe(
         tap(response => {
           if (response.success) {
             this._branchProducts.set(response.data);
             this._lastSyncBranches.set(branchIds);
             console.log('✅ Branch inventory loaded:', response.data.length, 'products');
+            console.log('🔍 [DEBUG] Sample products loaded:',
+              response.data.slice(0, 3).map(p => ({
+                id: p.id,
+                name: p.name,
+                stock: p.stock,
+                branchStock: p.branchStock || 'N/A',
+                branchId: p.branchId || 'N/A'
+              }))
+            );
           } else {
             this._error.set(response.message || 'Failed to load branch inventory');
+            console.log('❌ [DEBUG] API failed, generating mock data for branches:', branchIds);
             // Generate mock data for development
             this.generateMockBranchProducts(branchIds);
           }
@@ -232,38 +285,75 @@ export class BranchInventoryService {
   }
 
   /**
-   * Load stock summaries across branches
+   * Load stock summaries across branches - computed from branch products
    */
   loadStockSummaries(): Observable<ApiResponse<BranchStockSummaryDto[]>> {
-    this._loading.set(true);
+    console.log('📊 Computing stock summaries from branch products...');
 
-    const branchIds = this.activeBranchIds();
-    const params = new HttpParams().set('branchIds', branchIds.join(','));
+    // Use existing branch products to compute summaries
+    const branchProducts = this._branchProducts();
 
-    console.log('📊 Loading stock summaries...', { branchIds });
-
-    return this.http.get<ApiResponse<BranchStockSummaryDto[]>>(`${this.apiUrl}/stock-summaries`, { params })
-      .pipe(
-        tap(response => {
-          if (response.success) {
-            this._stockSummaries.set(response.data);
-            console.log('✅ Stock summaries loaded:', response.data.length, 'products');
-          } else {
-            this._error.set(response.message || 'Failed to load stock summaries');
-            this.generateMockStockSummaries(branchIds);
-          }
-        }),
-        catchError(error => {
-          console.error('❌ Error loading stock summaries:', error);
-          this.generateMockStockSummaries(branchIds);
-          return of({
-            success: false,
-            data: [],
-            message: 'Using mock data for development'
-          } as ApiResponse<BranchStockSummaryDto[]>);
-        }),
-        tap(() => this._loading.set(false))
+    if (branchProducts.length === 0) {
+      // No data available, load branch products first
+      return this.loadBranchProducts().pipe(
+        map(() => {
+          const summaries = this.computeStockSummariesFromProducts();
+          this._stockSummaries.set(summaries);
+          return {
+            success: true,
+            data: summaries,
+            message: 'Stock summaries computed from branch products'
+          } as ApiResponse<BranchStockSummaryDto[]>;
+        })
       );
+    }
+
+    // Compute summaries from existing data
+    const summaries = this.computeStockSummariesFromProducts();
+    this._stockSummaries.set(summaries);
+
+    return of({
+      success: true,
+      data: summaries,
+      message: 'Stock summaries computed from cached data'
+    } as ApiResponse<BranchStockSummaryDto[]>);
+  }
+
+  /**
+   * Compute stock summaries from loaded branch products
+   */
+  private computeStockSummariesFromProducts(): BranchStockSummaryDto[] {
+    const branchProducts = this._branchProducts();
+    const summariesMap = new Map<number, BranchStockSummaryDto>();
+
+    branchProducts.forEach(product => {
+      if (!summariesMap.has(product.branchId)) {
+        summariesMap.set(product.branchId, {
+          productId: 0, // Summary across all products
+          productName: 'All Products',
+          categoryName: 'Summary',
+          totalStock: 0,
+          totalValue: 0,
+          branchStocks: []
+        });
+      }
+
+      const summary = summariesMap.get(product.branchId)!;
+      summary.totalStock += product.branchStock;
+      summary.totalValue += product.branchStock * product.buyPrice;
+
+      // Add individual product as branch stock entry
+      summary.branchStocks.push({
+        branchId: product.branchId,
+        branchName: product.branchName,
+        stock: product.branchStock,
+        minimumStock: product.branchMinimumStock,
+        status: product.stockStatus,
+        lastUpdated: new Date().toISOString()
+      });
+    });
+
+    return Array.from(summariesMap.values());
   }
 
   /**
@@ -381,10 +471,63 @@ export class BranchInventoryService {
       return;
     }
 
+    if (this._isRefreshing()) {
+      console.log('⚠️ Already refreshing inventory data, skipping...');
+      return;
+    }
+
     console.log('🔄 Refreshing inventory data for branches:', this.activeBranchIds());
-    
-    this.loadBranchProducts().subscribe();
-    this.loadStockSummaries().subscribe();
+
+    // Set loading states
+    this._isRefreshing.set(true);
+    this._loading.set(true);
+    this._lastRefreshTime.set(Date.now());
+    this._error.set(null);
+
+    // Update last sync branches to current selection
+    this._lastSyncBranches.set([...this.activeBranchIds()]);
+
+    this.loadBranchProducts().subscribe({
+      next: () => {
+        this.loadStockSummaries().subscribe({
+          complete: () => {
+            this._isRefreshing.set(false);
+            this._loading.set(false);
+            console.log('✅ Inventory refresh completed for branches:', this.activeBranchIds());
+          },
+          error: () => {
+            this._isRefreshing.set(false);
+            this._loading.set(false);
+            console.error('❌ Stock summaries loading failed');
+          }
+        });
+      },
+      error: (error) => {
+        this._isRefreshing.set(false);
+        this._loading.set(false);
+        this._error.set('Failed to load inventory data');
+        console.error('❌ Inventory refresh failed:', error);
+      }
+    });
+  }
+
+  /**
+   * Force refresh inventory data, bypassing timing restrictions
+   */
+  forceRefresh(): void {
+    if (this.activeBranchIds().length === 0) {
+      console.log('⚠️ No branches selected, skipping force refresh');
+      return;
+    }
+
+    console.log('💪 Force refreshing inventory data for branches:', this.activeBranchIds());
+
+    // Reset timing restrictions for force refresh
+    this._lastRefreshTime.set(0);
+    this._isRefreshing.set(false);
+
+    // Execute refresh immediately
+    this.refreshInventoryData();
   }
 
   clearError(): void {

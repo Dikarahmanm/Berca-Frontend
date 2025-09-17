@@ -85,60 +85,74 @@ export class SupplierService {
 
     console.log('🔍 Supplier request params:', params.toString());
 
-    // Backend returns direct array, not wrapped in ApiResponse for GET operation
-    return this.http.get<SupplierDto[]>(this.baseUrl, {
+    // Backend returns wrapped response with success, data, and pagination
+    return this.http.get<{
+      success: boolean;
+      data: SupplierDto[];
+      pagination: {
+        currentPage: number;
+        totalPages: number;
+        totalItems: number;
+        itemsPerPage: number;
+      };
+    }>(this.baseUrl, {
       params,
       withCredentials: true
     }).pipe(
-      tap(suppliersArray => {
-        console.log('📊 Raw suppliers response:', suppliersArray?.length || 0, 'items');
+      tap(response => {
+        console.log('📊 Raw API response:', response);
         
-        if (Array.isArray(suppliersArray)) {
-          console.log('✅ Setting suppliers data:', suppliersArray.length, 'suppliers');
-          this._suppliers.set(suppliersArray);
+        if (response && response.success && Array.isArray(response.data)) {
+          console.log('✅ Setting suppliers data:', response.data.length, 'suppliers');
+          this._suppliers.set(response.data);
         } else {
-          console.warn('⚠️ Expected array but got:', typeof suppliersArray);
+          console.warn('⚠️ Invalid response format:', response);
           this._suppliers.set([]);
         }
         
         this._loading.set(false);
       }),
-      map(suppliersArray => {
-        if (!Array.isArray(suppliersArray)) {
-          console.warn('⚠️ Backend returned non-array response, treating as empty');
-          suppliersArray = [];
+      map(response => {
+        if (!response || !response.success || !Array.isArray(response.data)) {
+          console.warn('⚠️ Backend returned invalid response, treating as empty');
+          const emptyResponse: SupplierPagedResponseDto = {
+            suppliers: [],
+            totalCount: 0,
+            page: query.page,
+            pageSize: query.pageSize,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false
+          };
+          return emptyResponse;
         }
 
-        // Create proper paged response structure
-        const response: SupplierPagedResponseDto = {
-          suppliers: suppliersArray,
-          totalCount: suppliersArray.length,
-          page: query.page,
-          pageSize: query.pageSize,
-          totalPages: Math.ceil(suppliersArray.length / query.pageSize),
-          hasNextPage: suppliersArray.length > (query.page * query.pageSize),
-          hasPreviousPage: query.page > 1
+        // Create proper paged response structure from API response
+        const pagedResponse: SupplierPagedResponseDto = {
+          suppliers: response.data,
+          totalCount: response.pagination?.totalItems || response.data.length,
+          page: response.pagination?.currentPage || query.page,
+          pageSize: response.pagination?.itemsPerPage || query.pageSize,
+          totalPages: response.pagination?.totalPages || Math.ceil(response.data.length / query.pageSize),
+          hasNextPage: (response.pagination?.currentPage || 1) < (response.pagination?.totalPages || 1),
+          hasPreviousPage: (response.pagination?.currentPage || 1) > 1
         };
 
         console.log('✅ Processed suppliers response:', {
-          totalSuppliers: response.suppliers.length,
-          page: response.page,
-          totalPages: response.totalPages
+          totalSuppliers: pagedResponse.suppliers.length,
+          page: pagedResponse.page,
+          totalPages: pagedResponse.totalPages,
+          totalCount: pagedResponse.totalCount
         });
 
-        return response;
+        return pagedResponse;
       }),
       catchError(error => {
         console.error('❌ Error fetching suppliers:', error);
         
-        // Only show error if it's not a connection issue
-        if (error.status !== 0 && error.status !== 404 && error.status !== 500) {
-          return this.handleError(error);
-        }
-        
-        console.warn('🔌 Backend not available, returning empty response');
         this._loading.set(false);
         
+        // Return empty response for any error to prevent breaking the UI
         const emptyResponse: SupplierPagedResponseDto = {
           suppliers: [],
           totalCount: 0,
@@ -148,6 +162,13 @@ export class SupplierService {
           hasNextPage: false,
           hasPreviousPage: false
         };
+        
+        // Don't throw error for connection issues, just log and return empty data
+        if (error.status === 0 || error.status === 404 || error.status === 500) {
+          console.warn('🔌 Backend not available, returning empty response');
+        } else {
+          console.error('🚫 Unexpected error:', error);
+        }
         
         return new Observable<SupplierPagedResponseDto>(observer => {
           observer.next(emptyResponse);

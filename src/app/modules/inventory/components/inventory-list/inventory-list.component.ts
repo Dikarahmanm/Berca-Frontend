@@ -153,6 +153,7 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   private isMobile = computed(() => this.screenWidth() < 768);
   private isTablet = computed(() => this.screenWidth() >= 768 && this.screenWidth() < 1024);
   private isDesktop = computed(() => this.screenWidth() >= 1024);
+  private debugCounter = 0; // Debug counter for stock display logging
 
   // NEW: Branch-aware signals and computed properties
   readonly activeBranch = computed(() => this.stateService.activeBranch());
@@ -163,9 +164,59 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   selectedBranchIds = signal<number[]>([]);
   branchFilterType = signal<BranchFilterType>(BranchFilterType.CURRENT);
   
-  // Branch products from branch inventory service  
+  // Branch products from branch inventory service
   readonly branchProducts = computed(() => this.branchInventoryService.filteredProducts());
   readonly branchLoading = computed(() => this.branchInventoryService.loading());
+
+  // ✅ NEW: Combined products with branch-aware priority and type safety
+  readonly displayProducts = computed((): ProductWithExpiryAndBatch[] => {
+    const branchProducts = this.branchProducts();
+    const regularProducts = this.products.data;
+    const branchFilterType = this.branchFilterType();
+
+    // Always prioritize branch products when available (regardless of filter type)
+    if (branchProducts && branchProducts.length > 0) {
+      console.log('🏢 Using branch-specific products:', branchProducts.length, 'with filter:', branchFilterType);
+      console.log('📊 Branch Products Sample (first 3):',
+        branchProducts.slice(0, 3).map(bp => ({
+          id: bp.id,
+          name: bp.name,
+          branchStock: bp.branchStock,
+          branchId: bp.branchId,
+          branchName: bp.branchName
+        }))
+      );
+      // Convert BranchProductDto to compatible format
+      return branchProducts.map(bp => ({
+        ...bp,
+        // Map branch-specific fields to standard fields for template compatibility
+        stock: bp.branchStock,
+        minimumStock: bp.branchMinimumStock,
+        // Add missing properties with defaults
+        categoryRequiresExpiry: false,
+        needsExpiryData: false,
+        totalBatches: 0,
+        expiryStatus: 'good' as const,
+        daysUntilExpiry: undefined,
+        expiryStatusText: undefined,
+        batchesGood: undefined,
+        batchesWarning: undefined,
+        batchesCritical: undefined,
+        batchesExpired: undefined,
+        nearestExpiryDate: undefined,
+        daysToNearestExpiry: undefined,
+        latestBatch: undefined,
+        batches: undefined,
+        // Preserve original branch fields
+        branchStock: bp.branchStock,
+        branchMinimumStock: bp.branchMinimumStock
+      } as ProductWithExpiryAndBatch));
+    }
+
+    // Otherwise use regular products (which might be total stock across branches)
+    console.log('📦 Using regular products:', regularProducts.length);
+    return regularProducts;
+  });
 
   // Enhanced data sources with batch support
   products = new MatTableDataSource<ProductWithExpiryAndBatch>([]);
@@ -201,7 +252,11 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
   
   // ✅ NEW: UI computed properties
   currentViewTitle = computed(() => this.batchViewMode() ? 'Batch Management View' : 'Product Management View');
-  filteredProductsCount = computed(() => this.products.data.length);
+  // ✅ UPDATED: Use branch-aware products when available
+  filteredProductsCount = computed(() => {
+    const displayProducts = this.displayProducts();
+    return displayProducts ? displayProducts.length : 0;
+  });
   visibleBatchesCount = computed(() => {
     const batchGroups = this.productsWithDetailedBatches();
     if (!batchGroups || !Array.isArray(batchGroups)) return 0;
@@ -1967,14 +2022,30 @@ onCategoryFilterChange(event: any): void {
    */
   private async loadDetailedBatchView(): Promise<void> {
     this.loadingBatchDetails.set(true);
-    
+
     try {
       console.log('📦 Loading detailed batch view...');
-      
-      // Get products with batch summary first
-      const productsWithBatches = await firstValueFrom(
-        this.inventoryService.getProductsWithBatchSummary()
-      );
+
+      // ✅ UPDATED: Use branch-aware batch data when applicable
+      const branchIds = this.selectedBranchIds();
+      const branchFilterType = this.branchFilterType();
+
+      let productsWithBatches: ProductWithBatchSummaryDto[];
+
+      if (branchIds.length > 0 && branchFilterType !== BranchFilterType.ALL) {
+        console.log('🏢 Loading branch-specific batch data for branches:', branchIds);
+        // TODO: Need to implement branch-specific batch endpoint
+        // For now, fall back to regular endpoint but filter later
+        productsWithBatches = await firstValueFrom(
+          this.inventoryService.getProductsWithBatchSummary()
+        );
+        console.log('⚠️ Using fallback: regular batch data (need branch-specific endpoint)');
+      } else {
+        console.log('📦 Loading all-branch batch data');
+        productsWithBatches = await firstValueFrom(
+          this.inventoryService.getProductsWithBatchSummary()
+        );
+      }
       
       // Filter only products that have batches
       const productsHavingBatches = productsWithBatches.filter(p => p.totalBatches > 0);
@@ -2323,15 +2394,72 @@ onCategoryFilterChange(event: any): void {
   // ✅ NEW: Enhanced Column System Helper Methods
 
   // Stock Status Helpers
-  getStockStatus(product: Product): 'critical' | 'low' | 'good' {
-    if (product.stock <= 0) return 'critical';
-    if (product.stock <= product.minimumStock) return 'low';
+  // ✅ NEW: Helper methods for branch-aware stock values
+  getDisplayStock(product: Product | any): number {
+    const branchStock = (product as any).branchStock;
+    const regularStock = product.stock;
+    const result = branchStock ?? regularStock;
+
+    // Debug log for first 3 products
+    if (this.debugCounter < 3) {
+      console.log(`🏪 [DEBUG getDisplayStock] Product: ${product.name}`, {
+        branchStock,
+        regularStock,
+        result,
+        hasBranchStock: branchStock !== undefined,
+        productData: product
+      });
+      this.debugCounter++;
+    }
+
+    return result;
+  }
+
+  getDisplayMinimumStock(product: Product | any): number {
+    return (product as any).minStock ?? product.minimumStock;
+  }
+
+  // ✅ NEW: Check if displaying branch-specific stock
+  isBranchSpecificStock(): boolean {
+    const branchFilterType = this.branchFilterType();
+    const branchProducts = this.branchProducts();
+    return branchFilterType !== BranchFilterType.ALL && branchProducts && branchProducts.length > 0;
+  }
+
+  // ✅ NEW: Get branch indicator text
+  getBranchStockIndicator(): string {
+    const branchFilterType = this.branchFilterType();
+
+    switch (branchFilterType) {
+      case BranchFilterType.CURRENT:
+        const activeBranch = this.activeBranch();
+        return activeBranch ? `${activeBranch.branchCode} Stock` : 'Branch Stock';
+      case BranchFilterType.SPECIFIC:
+        const selectedBranches = this.selectedBranchIds();
+        return selectedBranches.length === 1 ? 'Branch Stock' : `${selectedBranches.length} Branches Stock`;
+      default:
+        return 'Total Stock';
+    }
+  }
+
+  // ✅ UPDATED: Branch-aware stock status
+  getStockStatus(product: Product | any): 'critical' | 'low' | 'good' {
+    // Branch-specific stock handling
+    const stock = this.getDisplayStock(product);
+    const minimumStock = this.getDisplayMinimumStock(product);
+
+    if (stock <= 0) return 'critical';
+    if (stock <= minimumStock) return 'low';
     return 'good';
   }
 
-  getStockPercentage(product: Product): number {
-    if (product.minimumStock === 0) return 100;
-    return Math.min((product.stock / (product.minimumStock * 2)) * 100, 100);
+  // ✅ UPDATED: Branch-aware stock percentage
+  getStockPercentage(product: Product | any): number {
+    const stock = this.getDisplayStock(product);
+    const minimumStock = this.getDisplayMinimumStock(product);
+
+    if (minimumStock === 0) return 100;
+    return Math.min((stock / (minimumStock * 2)) * 100, 100);
   }
 
   getStockStatusIcon(product: Product): string {
@@ -3031,8 +3159,13 @@ onCategoryFilterChange(event: any): void {
         // Keep current selected branches or prompt for selection
         break;
     }
-    
+
     this.loadBranchInventory();
+
+    // ✅ NEW: If in batch view, reload batch data with new branch filter
+    if (this.batchViewMode()) {
+      this.loadDetailedBatchView();
+    }
   }
 
   /**
@@ -3044,6 +3177,11 @@ onCategoryFilterChange(event: any): void {
     this.selectedBranchIds.set(branchIds);
     this.branchFilterType.set(BranchFilterType.SPECIFIC);
     this.loadBranchInventory();
+
+    // ✅ NEW: If in batch view, reload batch data with new branch selection
+    if (this.batchViewMode()) {
+      this.loadDetailedBatchView();
+    }
   }
 
   /**

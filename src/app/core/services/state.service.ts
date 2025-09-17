@@ -289,8 +289,15 @@ export class StateService {
     // Auto-save selected branch to localStorage
     effect(() => {
       const branchId = this._selectedBranchId();
+      console.log('🔄 [DEBUG StateService] Branch ID effect triggered:', {
+        branchId,
+        willSaveToLocalStorage: !!branchId,
+        timestamp: new Date().toISOString()
+      });
+
       if (branchId) {
         localStorage.setItem('selectedBranchId', branchId.toString());
+        console.log('💾 [DEBUG StateService] Branch ID saved to localStorage:', branchId);
       }
     });
 
@@ -404,15 +411,37 @@ export class StateService {
   selectBranch(branchId: number): void {
     const branches = this._availableBranches();
     const branch = branches.find(b => b.id === branchId);
-    
+
+    console.log('🏢 [DEBUG StateService] selectBranch called:', {
+      branchId,
+      foundBranch: branch,
+      availableBranches: branches.length,
+      previousBranchId: this._selectedBranchId(),
+      timestamp: new Date().toISOString()
+    });
+
     if (branch && branch.isActive) {
       this._selectedBranchId.set(branchId);
       this._branchRequired.set(false);
-      
+
+      console.log('✅ [DEBUG StateService] Branch selected successfully:', {
+        newBranchId: branchId,
+        branchName: branch.branchName,
+        branchCode: branch.branchCode,
+        timestamp: new Date().toISOString()
+      });
+
       // Navigate to appropriate page if currently on branch-required page
       if (this.router.url.includes('branch-required')) {
         this.router.navigate(['/dashboard']);
       }
+    } else {
+      console.warn('⚠️ [DEBUG StateService] Branch selection failed:', {
+        branchId,
+        branch,
+        isActive: branch?.isActive,
+        reason: !branch ? 'Branch not found' : 'Branch inactive'
+      });
     }
   }
 
@@ -490,13 +519,42 @@ export class StateService {
   }
 
   selectBranchLegacy(branchId: number): void {
-    if (this.canAccessBranchLegacy(branchId)) {
+    const canAccess = this.canAccessBranchLegacy(branchId);
+    const previousBranchId = this._selectedBranchId();
+
+    console.log('🏢 [DEBUG StateService] selectBranchLegacy called:', {
+      branchId,
+      canAccess,
+      previousBranchId,
+      isMultiSelectMode: this._isMultiSelectMode(),
+      accessibleBranchesCount: this._accessibleBranches().length,
+      timestamp: new Date().toISOString()
+    });
+
+    if (canAccess) {
       this._selectedBranchId.set(branchId);
       this._isMultiSelectMode.set(false);
       this._selectedBranchIds.set([]);
-      
+
       // Update last sync timestamp
       this._lastBranchSync.set(new Date().toISOString());
+
+      // Add to switch history
+      this.addBranchSwitchToHistory(branchId);
+
+      console.log('✅ [DEBUG StateService] Legacy branch selected successfully:', {
+        newBranchId: branchId,
+        previousBranchId,
+        syncTimestamp: new Date().toISOString(),
+        activeBranchIds: this.activeBranchIds(),
+        branchContext: this.getBranchContextForAPI()
+      });
+    } else {
+      console.warn('⚠️ [DEBUG StateService] Legacy branch selection failed:', {
+        branchId,
+        reason: 'Cannot access branch',
+        accessibleBranches: this._accessibleBranches().map(b => ({ id: b.branchId, name: b.branchName }))
+      });
     }
   }
 

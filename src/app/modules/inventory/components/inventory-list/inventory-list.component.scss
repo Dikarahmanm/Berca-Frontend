@@ -8,6 +8,16 @@
 // Use enhanced column system styles
 @use './enhanced-columns.scss';
 
+// ✅ NEW: Branch indicator styling
+.branch-indicator {
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  color: #e47a3f !important;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 .inventory-container {
   padding: var(--s4);
   max-width: 100%;

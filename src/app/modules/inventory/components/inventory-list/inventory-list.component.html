@@ -750,7 +750,7 @@
     <!-- Table Body with Enhanced Row Design -->
     <div class="modern-table-body">
       <div 
-        *ngFor="let product of products.data; trackBy: trackById; let i = index"
+        *ngFor="let product of displayProducts(); trackBy: trackById; let i = index"
         class="table-row data-row"
         [class]="'row-stock-' + getStockStatus(product)"
         [class.has-expiry]="product.categoryRequiresExpiry"
@@ -814,7 +814,7 @@
             <!-- Stock Level Indicator -->
             <div class="stock-indicator-wrapper">
               <div class="stock-circle" [class]="'circle-' + getStockStatus(product)">
-                <div class="stock-value">{{ product.stock }}</div>
+                <div class="stock-value">{{ getDisplayStock(product) }}</div>
                 <div class="stock-unit">{{ product.unit }}</div>
               </div>
               
@@ -828,8 +828,8 @@
                   </div>
                 </div>
                 <div class="stock-labels">
-                  <span class="current-stock">{{ product.stock }}</span>
-                  <span class="minimum-stock">Min: {{ product.minimumStock }}</span>
+                  <span class="current-stock">{{ getDisplayStock(product) }}</span>
+                  <span class="minimum-stock">Min: {{ getDisplayMinimumStock(product) }}</span>
                 </div>
               </div>
             </div>
@@ -1063,7 +1063,7 @@
     
     <div class="products-grid">
       <div 
-        *ngFor="let product of products.data; trackBy: trackById"
+        *ngFor="let product of displayProducts(); trackBy: trackById"
         class="product-card modern-card"
         [class]="'card-stock-' + getStockStatus(product)"
         [class.has-expiry]="product.categoryRequiresExpiry">
@@ -1084,7 +1084,7 @@
           <div class="stock-section">
             <div class="stock-indicator">
               <div class="stock-value" [class]="'stock-' + getStockStatus(product)">
-                {{ product.stock }}
+                {{ getDisplayStock(product) }}
               </div>
               <div class="stock-label">In Stock</div>
             </div>
@@ -1220,11 +1220,15 @@
 
           <!-- Stock Column - Always Visible -->
           <ng-container matColumnDef="stock">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>Stock</th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>
+              {{ getBranchStockIndicator() }}
+              <mat-icon class="branch-indicator" *ngIf="isBranchSpecificStock()"
+                       [matTooltip]="'Showing stock for: ' + getBranchContextInfo()">store</mat-icon>
+            </th>
             <td mat-cell *matCellDef="let product" class="stock-info">
               <div class="stock-main">
                 <span class="stock-value" [style.color]="getStockStatusColor(product)">
-                  {{ formatNumber(product.stock) }}
+                  {{ formatNumber(getDisplayStock(product)) }}
                 </span>
                 <span class="stock-unit">{{ product.unit }}</span>
               </div>
@@ -1236,9 +1240,9 @@
               </div>
 
               <!-- ✅ ENHANCED: Mobile minimum stock and expiry info -->
-              <div class="mobile-minimum-info" *ngIf="isMobileView && product.stock <= product.minimumStock">
+              <div class="mobile-minimum-info" *ngIf="isMobileView && getDisplayStock(product) <= getDisplayMinimumStock(product)">
                 <mat-icon class="warning-icon" color="warn">warning</mat-icon>
-                <span class="warning-text">Min: {{ formatNumber(product.minimumStock) }}</span>
+                <span class="warning-text">Min: {{ formatNumber(getDisplayMinimumStock(product)) }}</span>
               </div>
               
               <!-- ✅ NEW: Mobile expiry alert -->
@@ -1254,10 +1258,10 @@
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Min. Stock</th>
             <td mat-cell *matCellDef="let product" class="minimum-stock-info">
               <div class="minimum-stock-main">
-                <span class="minimum-value">{{ formatNumber(product.minimumStock || 0) }}</span>
+                <span class="minimum-value">{{ formatNumber(getDisplayMinimumStock(product) || 0) }}</span>
                 <span class="minimum-unit">{{ product.unit }}</span>
               </div>
-              <div class="minimum-status" *ngIf="product.stock <= product.minimumStock">
+              <div class="minimum-status" *ngIf="getDisplayStock(product) <= getDisplayMinimumStock(product)">
                 <mat-icon class="warning-icon" color="warn">warning</mat-icon>
                 <span class="warning-text">Below minimum</span>
               </div>

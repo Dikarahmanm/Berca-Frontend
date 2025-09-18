@@ -163,8 +163,49 @@
                     </div>
                 </div>
 
-                <!-- Stock and Unit -->
-                <div class="form-grid two-columns">
+                <!-- ✅ NEW: Branch-Specific Inventory Toggle -->
+                <div class="branch-inventory-toggle">
+                    <div class="toggle-section">
+                        <div class="toggle-header">
+                            <div class="toggle-info">
+                                <h3 class="toggle-title">📍 Inventory Management Mode</h3>
+                                <p class="toggle-description">
+                                    Choose how to manage stock for this product across branches
+                                </p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input
+                                    type="checkbox"
+                                    [checked]="enableBranchSpecificInventory()"
+                                    (change)="toggleBranchSpecificInventory()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="mode-indicator">
+                            <div class="mode-badge" [class.active]="!enableBranchSpecificInventory()">
+                                🌐 Global Mode
+                                <span class="mode-desc">Same stock across all branches</span>
+                            </div>
+                            <div class="mode-badge" [class.active]="enableBranchSpecificInventory()">
+                                🏢 Branch-Specific Mode
+                                <span class="mode-desc">Independent stock per branch</span>
+                            </div>
+                        </div>
+
+                        <div class="branch-loading" *ngIf="branchesLoading()">
+                            <div class="loading-spinner"></div>
+                            <span>Loading branches...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ CONDITIONAL: Global Stock (when branch-specific is disabled) -->
+                <div *ngIf="!enableBranchSpecificInventory()" class="stock-section global-stock">
+                    <h4 class="section-title">📦 Global Stock Settings</h4>
+
+                    <!-- Stock and Unit -->
+                    <div class="form-grid two-columns">
                     <div class="form-field">
                         <label for="stock" class="field-label">
                             Initial Stock <span class="required">*</span>
@@ -221,6 +262,217 @@
                         step="1">
                     <div class="field-hint">
                         You'll be notified when stock falls below this level
+                    </div>
+                </div>
+                </div> <!-- End Global Stock Section -->
+
+                <!-- ✅ CONDITIONAL: Branch-Specific Inventory (when enabled) -->
+                <div *ngIf="enableBranchSpecificInventory()" class="branch-inventory-section">
+                    <h4 class="section-title">🏢 Branch-Specific Inventory</h4>
+                    <p class="section-description">
+                        Choose which branches will carry this product, then configure stock and pricing.
+                    </p>
+
+                    <!-- ✅ STEP 1: Branch Selection -->
+                    <div class="branch-selection-step">
+                        <h5 class="step-title">Step 1: Select Target Branches</h5>
+
+                        <!-- Bulk Selection Controls -->
+                        <div class="bulk-controls">
+                            <button type="button" class="btn btn-sm btn-outline" (click)="selectAllBranches()">
+                                ✓ Select All ({{ branches().length }})
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" (click)="clearAllBranches()">
+                                ✗ Clear All
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline" (click)="selectMainBranchesOnly()">
+                                🏢 Main Branches Only
+                            </button>
+                        </div>
+
+                        <!-- Branch Selection Grid -->
+                        <div class="branch-selection-grid">
+                            <div class="branch-selector" *ngFor="let branch of branches(); trackBy: trackByBranchDtoId"
+                                 [class.selected]="isBranchSelected(branch.id)">
+                                <label class="branch-checkbox">
+                                    <input type="checkbox"
+                                           [checked]="isBranchSelected(branch.id)"
+                                           (change)="toggleBranchSelection(branch.id)">
+                                    <div class="branch-info">
+                                        <span class="branch-name">{{ branch.branchName }}</span>
+                                        <span class="branch-id">ID: {{ branch.id }}</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="selection-summary">
+                            <span class="selected-count">{{ getActiveBranchCount() }} branches selected</span>
+                        </div>
+                    </div>
+
+                    <!-- ✅ STEP 2: Bulk Configuration (only if branches selected) -->
+                    <div class="bulk-config-step" *ngIf="getActiveBranchCount() > 0">
+                        <h5 class="step-title">Step 2: Configure Stock & Pricing</h5>
+
+                        <!-- Bulk Input Controls -->
+                        <div class="bulk-input-section">
+                            <div class="bulk-input-header">
+                                <h6>🚀 Quick Fill - Apply to Selected Branches</h6>
+                                <p>Set common values for all selected branches. Use <strong>Stock Amount</strong> with <strong>Smart Distribution</strong> buttons for automatic distribution.</p>
+                            </div>
+
+
+                            <div class="bulk-input-grid">
+                                <!-- Row 1: Stock Amount & Min Stock -->
+                                <div class="bulk-field">
+                                    <label>Stock Amount</label>
+                                    <div class="input-with-action">
+                                        <input type="number"
+                                               [value]="bulkStock() || productForm.get('stock')?.value || 0"
+                                               (input)="bulkStock.set(toNumber($any($event.target).value))"
+                                               class="form-input"
+                                               [placeholder]="productForm.get('stock')?.value || '100'"
+                                               min="0">
+                                        <button type="button" class="apply-btn" (click)="applyBulkStock()">
+                                            Apply to {{ getSelectedBranchCount() }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="bulk-field">
+                                    <label>Min Stock</label>
+                                    <div class="input-with-action">
+                                        <input type="number"
+                                               [value]="bulkMinStock() || productForm.get('minimumStock')?.value || 5"
+                                               (input)="bulkMinStock.set(toNumber($any($event.target).value))"
+                                               class="form-input"
+                                               [placeholder]="productForm.get('minimumStock')?.value || '5'"
+                                               min="0">
+                                        <button type="button" class="apply-btn" (click)="applyBulkMinStock()">
+                                            Apply to {{ getSelectedBranchCount() }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Row 2: Buy Price & Sell Price -->
+                                <div class="bulk-field">
+                                    <label>Buy Price</label>
+                                    <div class="input-with-action">
+                                        <input type="number"
+                                               [value]="bulkBuyPrice() || productForm.get('buyPrice')?.value || 0"
+                                               (input)="bulkBuyPrice.set(toNumber($any($event.target).value))"
+                                               class="form-input"
+                                               [placeholder]="productForm.get('buyPrice')?.value || '5000'"
+                                               min="0" step="0.01">
+                                        <button type="button" class="apply-btn" (click)="applyBulkBuyPrice()">
+                                            Apply to {{ getSelectedBranchCount() }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="bulk-field">
+                                    <label>Sell Price</label>
+                                    <div class="input-with-action">
+                                        <input type="number"
+                                               [value]="bulkSellPrice() || productForm.get('sellPrice')?.value || 0"
+                                               (input)="bulkSellPrice.set(toNumber($any($event.target).value))"
+                                               class="form-input"
+                                               [placeholder]="productForm.get('sellPrice')?.value || '7500'"
+                                               min="0" step="0.01">
+                                        <button type="button" class="apply-btn" (click)="applyBulkSellPrice()">
+                                            Apply to {{ getSelectedBranchCount() }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Distribution Options -->
+                            <div class="distribution-options">
+                                <h6>📊 Smart Distribution</h6>
+                                <div class="distribution-buttons">
+                                    <button type="button" class="btn btn-sm btn-outline" (click)="distributeStockEvenly()">
+                                        ⚖️ Distribute Total Stock Evenly
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline" (click)="setStockByBranchSize()">
+                                        📈 Set by Branch Size
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Individual Branch Configuration -->
+                        <div class="individual-config">
+                            <h6>🎯 Individual Branch Settings</h6>
+                            <p>Fine-tune settings for specific branches:</p>
+
+                            <div class="branch-config-list">
+                                <div class="branch-config-item" *ngFor="let branchInv of getActiveBranchInventories(); trackBy: trackByBranchId">
+                                    <div class="branch-config-header">
+                                        <span class="branch-name">{{ branchInv.branchName }}</span>
+                                        <button type="button" class="remove-branch-btn" (click)="removeBranchFromSelection(branchInv.branchId)">
+                                            ✗
+                                        </button>
+                                    </div>
+
+                                    <div class="branch-config-fields">
+                                        <div class="config-field">
+                                            <label>Stock</label>
+                                            <input type="number"
+                                                   [value]="branchInv.stock"
+                                                   (input)="updateBranchInventory(branchInv.branchId, 'stock', toNumber($any($event.target).value))"
+                                                   class="form-input compact"
+                                                   min="0">
+                                        </div>
+                                        <div class="config-field">
+                                            <label>Min</label>
+                                            <input type="number"
+                                                   [value]="branchInv.minimumStock"
+                                                   (input)="updateBranchInventory(branchInv.branchId, 'minimumStock', toNumber($any($event.target).value))"
+                                                   class="form-input compact"
+                                                   min="0">
+                                        </div>
+                                        <div class="config-field">
+                                            <label>Buy Price</label>
+                                            <input type="number"
+                                                   [value]="branchInv.buyPrice"
+                                                   (input)="updateBranchInventory(branchInv.branchId, 'buyPrice', toNumber($any($event.target).value))"
+                                                   class="form-input compact"
+                                                   min="0" step="0.01">
+                                        </div>
+                                        <div class="config-field">
+                                            <label>Sell Price</label>
+                                            <input type="number"
+                                                   [value]="branchInv.sellPrice"
+                                                   (input)="updateBranchInventory(branchInv.branchId, 'sellPrice', toNumber($any($event.target).value))"
+                                                   class="form-input compact"
+                                                   min="0" step="0.01">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="branch-summary">
+                            <div class="summary-card">
+                                <h6>📊 Final Summary</h6>
+                                <div class="summary-stats">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Total Stock:</span>
+                                        <span class="stat-value">{{ getTotalBranchStock() }}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Selected Branches:</span>
+                                        <span class="stat-value">{{ getActiveBranchCount() }}/{{ branches().length }}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Avg Price:</span>
+                                        <span class="stat-value">{{ getAverageSellPrice() | currency:'IDR':'symbol':'1.0-0' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

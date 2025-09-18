@@ -880,8 +880,17 @@
                 </div>
               </div>
 
-              <!-- No Expiry Data Available -->
-              <div *ngIf="!getNearestExpiryBatch(product) && !product.expiryDate" class="missing-expiry-data">
+              <!-- No Expiry Data Available - Enhanced with Action Required Flag -->
+              <div *ngIf="!getNearestExpiryBatch(product) && !product.expiryDate && (product.totalBatches || 0) === 0" class="missing-expiry-data action-required">
+                <mat-icon class="missing-icon warning">warning</mat-icon>
+                <div class="missing-content">
+                  <span class="missing-text">⚠️ Action Required</span>
+                  <span class="missing-subtext">This product requires batch & expiry management</span>
+                </div>
+              </div>
+
+              <!-- Regular Missing Data (for products that don't require expiry tracking) -->
+              <div *ngIf="!getNearestExpiryBatch(product) && !product.expiryDate && (product.totalBatches || 0) > 0" class="missing-expiry-data">
                 <mat-icon class="missing-icon">help_outline</mat-icon>
                 <span class="missing-text">Expiry data not available</span>
               </div>

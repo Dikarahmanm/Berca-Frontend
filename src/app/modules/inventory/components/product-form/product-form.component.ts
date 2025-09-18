@@ -1,7 +1,7 @@
 // ===== PRODUCT FORM COMPONENT =====
 // src/app/modules/inventory/components/product-form/product-form.component.ts
 
-import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject, ChangeDetectorRef } from '@angular/core';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, ValidatorFn, AbstractControl } from '@angular/forms';
@@ -25,9 +25,12 @@ import { InventoryService } from '../../services/inventory.service';
 import { CategoryService } from '../../../category-management/services/category.service';
 import { BarcodeService } from '../../../../core/services/barcode.service';
 import { ExpiryManagementService } from '../../../../core/services/expiry-management.service';
+import { BranchService } from '../../../../core/services/branch.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { Product, CreateProductRequest, UpdateProductRequest } from '../../interfaces/inventory.interfaces';
 import { Category } from '../../../category-management/models/category.models';
 import { ExpiryStatus, ExpiryValidationResult, CreateProductBatch, ProductBatch, BatchStatus, ExpiryFormData } from '../../../../core/interfaces/expiry.interfaces';
+import { BranchDto } from '../../../../core/models/branch.interface';
 
 @Component({
   selector: 'app-product-form',
@@ -72,14 +75,42 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   private categoryService = inject(CategoryService);
   private barcodeService = inject(BarcodeService);
   private expiryService = inject(ExpiryManagementService);
+  private branchService = inject(BranchService);
+  private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
 
   constructor() {
     console.log('🏗️ ProductFormComponent constructor called');
     console.log('🔧 Services injected successfully');
     console.log('🔄 Initial loading state:', this.loading());
+  }
+
+  // Helper method for template number conversion
+  toNumber(value: any): number {
+    return Number(value) || 0;
+  }
+
+  // Helper method to determine branch context for batch creation
+  private getBranchContextForBatch(): { mode: 'single' | 'multiple', branchIds: number[] } {
+    if (this.enableBranchSpecificInventory() && this.branchInventories().length > 0) {
+      // Branch-specific mode: create batches for all selected branches
+      const activeBranches = this.branchInventories().filter(inv => inv.isActive);
+      return {
+        mode: 'multiple',
+        branchIds: activeBranches.map(inv => inv.branchId)
+      };
+    } else {
+      // Regular mode: create batch for user's default branch
+      const currentUser = this.authService.getCurrentUser();
+      const defaultBranchId = currentUser?.defaultBranchId;
+      return {
+        mode: 'single',
+        branchIds: defaultBranchId ? [defaultBranchId] : []
+      };
+    }
   }
 
   // Form configuration
@@ -90,6 +121,60 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   selectedCategory = signal<Category | null>(null);
   loading = signal(false);
   saving = signal(false);
+
+  // ✅ NEW: Branch-related signals
+  branches = signal<BranchDto[]>([]);
+  branchesLoading = signal(false);
+  enableBranchSpecificInventory = signal(false);
+  branchInventories = signal<BranchInventoryFormData[]>([]);
+
+  // ✅ NEW: Computed signal for sorted branches by ID
+  sortedBranchInventories = computed(() =>
+    this.branchInventories().sort((a, b) => a.branchId - b.branchId)
+  );
+
+  // ✅ NEW: Bulk operation signals
+  bulkStock = signal<number>(0);
+  bulkBuyPrice = signal<number>(0);
+  bulkSellPrice = signal<number>(0);
+  bulkMinStock = signal<number>(5);
+
+  // Computed signals to sync bulk values with main form
+  bulkStockFromForm = computed(() => {
+    const stock = this.productForm.get('stock')?.value;
+    if (stock && this.bulkStock() === 0) {
+      // Initialize bulk stock from form if not set
+      setTimeout(() => this.bulkStock.set(Number(stock)), 0);
+    }
+    return this.bulkStock();
+  });
+
+  bulkBuyPriceFromForm = computed(() => {
+    const buyPrice = this.productForm.get('buyPrice')?.value;
+    if (buyPrice && this.bulkBuyPrice() === 0) {
+      setTimeout(() => this.bulkBuyPrice.set(Number(buyPrice)), 0);
+    }
+    return this.bulkBuyPrice();
+  });
+
+  bulkSellPriceFromForm = computed(() => {
+    const sellPrice = this.productForm.get('sellPrice')?.value;
+    if (sellPrice && this.bulkSellPrice() === 0) {
+      setTimeout(() => this.bulkSellPrice.set(Number(sellPrice)), 0);
+    }
+    return this.bulkSellPrice();
+  });
+
+  bulkMinStockFromForm = computed(() => {
+    const minStock = this.productForm.get('minimumStock')?.value;
+    if (minStock && this.bulkMinStock() === 5) {
+      setTimeout(() => this.bulkMinStock.set(Number(minStock)), 0);
+    }
+    return this.bulkMinStock();
+  });
+
+  // ✅ NEW: Branch selection state
+  selectedBranchIds = signal<Set<number>>(new Set());
   
   // Component state signals
   isEdit = signal(false);
@@ -337,6 +422,8 @@ export class ProductFormComponent implements OnInit, OnDestroy {
       console.log('✅ Subscriptions setup');
       this.loadCategories();
       console.log('✅ Categories loading started');
+      this.loadBranches();
+      console.log('✅ Branches loading started');
       this.checkEditMode();
       console.log('✅ Edit mode checked');
       
@@ -547,6 +634,49 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ✅ NEW: Load branches for branch-specific inventory
+  private async loadBranches(): Promise<void> {
+    console.log('🏢 Loading branches...');
+    try {
+      this.branchesLoading.set(true);
+      console.log('🏢 Calling branchService.getBranches');
+
+      const branches = await firstValueFrom(this.branchService.getBranches({
+        isActive: true,
+        page: 1,
+        pageSize: 100
+      }));
+
+      console.log('🏢 Branches response received:', branches);
+      console.log('🏢 Response structure:', {
+        isArray: Array.isArray(branches),
+        branchesLength: branches?.length,
+        firstBranch: branches?.[0]
+      });
+
+      this.branches.set(branches || []);
+      console.log('✅ Branches loaded successfully:', branches?.length || 0);
+
+      // Log each branch for debugging
+      branches?.forEach((branch, index) => {
+        console.log(`🏢 Branch ${index + 1}: ID=${branch.id}, Name="${branch.branchName}"`);
+      });
+
+    } catch (error: any) {
+      console.error('❌ Failed to load branches:', error);
+      console.error('❌ Error details:', {
+        status: error.status,
+        message: error.message,
+        error: error.error
+      });
+
+      this.showError('Failed to load branches. Branch-specific inventory features will be limited.');
+      this.branches.set([]);
+    } finally {
+      this.branchesLoading.set(false);
+    }
+  }
+
   private loadProduct(id: number): void {
     this.loading.set(true);
     this.subscriptions.add(
@@ -665,6 +795,22 @@ export class ProductFormComponent implements OnInit, OnDestroy {
         isActive: formData.isActive,
         expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : undefined
       };
+
+      // ✅ NEW: Add branch inventories if branch-specific inventory is enabled
+      if (this.enableBranchSpecificInventory() && this.branchInventories().length > 0) {
+        (request as any).branchInventories = this.branchInventories().map(bi => ({
+          branchId: bi.branchId,
+          stock: bi.stock,
+          minimumStock: bi.minimumStock,
+          maximumStock: bi.maximumStock,
+          buyPrice: bi.buyPrice,
+          sellPrice: bi.sellPrice,
+          locationCode: bi.locationCode,
+          locationDescription: bi.locationDescription,
+          isActive: bi.isActive
+        }));
+        console.log('📤 Including branch inventories:', (request as any).branchInventories);
+      }
 
       console.log('📤 Request payload:', request);
 
@@ -847,17 +993,64 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   }
 
   private async createProductBatch(productId: number, formData: any): Promise<void> {
+    const branchContext = this.getBranchContextForBatch();
+    console.log('📦 Creating batch with context:', branchContext);
+
+    if (branchContext.branchIds.length === 0) {
+      console.warn('⚠️ No branch context available for batch creation');
+      return;
+    }
+
+    if (branchContext.mode === 'multiple') {
+      // Branch-specific mode: create batch for each active branch with its specific stock
+      await this.createBatchesForMultipleBranches(productId, formData, branchContext.branchIds);
+    } else {
+      // Regular mode: create single batch
+      await this.createSingleBatch(productId, formData, branchContext.branchIds[0]);
+    }
+  }
+
+  private async createSingleBatch(productId: number, formData: any, branchId: number): Promise<void> {
     const batchRequest: CreateProductBatch = {
       productId: productId,
       batchNumber: formData.batchNumber.trim(),
       expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : undefined,
       initialStock: parseInt(formData.stock) || 0,
       costPerUnit: parseFloat(formData.buyPrice) || 0,
+      branchId: branchId,
     };
 
+    console.log('📤 Single batch request:', batchRequest);
     const response = await firstValueFrom(this.expiryService.createProductBatch(batchRequest));
     if (!response.success) {
       throw new Error(response.message || 'Failed to create product batch');
+    }
+  }
+
+  private async createBatchesForMultipleBranches(productId: number, formData: any, branchIds: number[]): Promise<void> {
+    const activeBranches = this.branchInventories().filter(inv =>
+      inv.isActive && branchIds.includes(inv.branchId)
+    );
+
+    console.log('📦 Creating batches for multiple branches:', activeBranches.length);
+
+    for (const branch of activeBranches) {
+      if (branch.stock > 0) { // Only create batch if branch has stock
+        const batchRequest: CreateProductBatch = {
+          productId: productId,
+          batchNumber: `${formData.batchNumber.trim()}-B${branch.branchId}`, // Unique batch number per branch
+          expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : undefined,
+          initialStock: branch.stock,
+          costPerUnit: branch.buyPrice || parseFloat(formData.buyPrice) || 0,
+          branchId: branch.branchId,
+        };
+
+        console.log(`📤 Creating batch for branch ${branch.branchName}:`, batchRequest);
+        const response = await firstValueFrom(this.expiryService.createProductBatch(batchRequest));
+        if (!response.success) {
+          throw new Error(`Failed to create batch for branch ${branch.branchName}: ${response.message}`);
+        }
+      }
     }
   }
 
@@ -1727,10 +1920,21 @@ export class ProductFormComponent implements OnInit, OnDestroy {
   private async loadExistingBatchesForProduct(productId: number): Promise<void> {
     try {
       console.log('📦 Loading existing batches for product:', productId);
+
+      // For batch registration, use user's default branch
+      const currentUser = this.authService.getCurrentUser();
+      const branchId = currentUser?.defaultBranchId;
+
+      const filter: any = { productId };
+      if (branchId) {
+        filter.branchId = branchId;
+        console.log('📦 Loading batches for branch:', branchId);
+      }
+
       const batches = await firstValueFrom(
-        this.expiryService.getProductBatches({ productId })
+        this.expiryService.getProductBatches(filter)
       );
-      
+
       this.availableExistingBatches.set(batches || []);
       console.log('✅ Loaded existing batches:', batches?.length || 0);
     } catch (error) {
@@ -1763,6 +1967,15 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     try {
       const formData = this.productForm.value;
       
+      // For batch registration, use user's default branch since it's not in branch-specific mode
+      const currentUser = this.authService.getCurrentUser();
+      const branchId = currentUser?.defaultBranchId;
+      console.log('📦 Creating batch registration with branchId:', branchId);
+
+      if (!branchId) {
+        throw new Error('No branch context available for batch creation');
+      }
+
       const batchData: CreateProductBatch = {
         productId: product.id,
         batchNumber: formData.batchNumber || await this.generateBatchNumberForProduct(product.id),
@@ -1772,7 +1985,8 @@ export class ProductFormComponent implements OnInit, OnDestroy {
         costPerUnit: parseFloat(formData.buyPrice) || 0,
         supplierName: formData.supplierName || '',
         purchaseOrderNumber: formData.purchaseOrderNumber || '',
-        notes: formData.batchNotes || ''
+        notes: formData.batchNotes || '',
+        branchId: branchId,
       };
 
       console.log('📤 Creating batch with data:', batchData);
@@ -1871,4 +2085,517 @@ export class ProductFormComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ===== BRANCH-SPECIFIC INVENTORY METHODS =====
+
+  /**
+   * Toggle branch-specific inventory mode
+   */
+  toggleBranchSpecificInventory(): void {
+    const enabled = !this.enableBranchSpecificInventory();
+    this.enableBranchSpecificInventory.set(enabled);
+
+    if (enabled) {
+      this.initializeBranchInventories();
+      this.showInfo('Branch-specific inventory enabled. Configure stock and pricing per branch.');
+    } else {
+      this.branchInventories.set([]);
+      this.showInfo('Switched to global inventory mode.');
+    }
+  }
+
+  /**
+   * Initialize branch inventories with default values
+   */
+  private initializeBranchInventories(): void {
+    // Don't auto-initialize all branches anymore - let user select which ones they want
+    this.branchInventories.set([]);
+    this.selectedBranchIds.set(new Set());
+    console.log('📦 Branch inventories initialized as empty - user will select branches');
+  }
+
+  /**
+   * TrackBy function for branch inventory *ngFor
+   */
+  trackByBranchId(index: number, item: BranchInventoryFormData): number {
+    return item.branchId;
+  }
+
+  /**
+   * TrackBy function for regular branch *ngFor
+   */
+  trackByBranchDtoId(index: number, item: BranchDto): number {
+    return item.id;
+  }
+
+  /**
+   * Calculate total stock across all branches
+   */
+  getTotalBranchStock(): number {
+    const result = this.branchInventories().reduce((total, branch) => {
+      const stock = Number(branch.stock) || 0;
+      return total + (branch.isActive ? stock : 0);
+    }, 0);
+    console.log('📊 getTotalBranchStock:', { result, inventories: this.branchInventories() });
+    return result;
+  }
+
+  /**
+   * Count active branches
+   */
+  getActiveBranchCount(): number {
+    return this.branchInventories().filter(branch => branch.isActive).length;
+  }
+
+  /**
+   * Update branch inventory field
+   */
+  updateBranchInventory(branchId: number, field: keyof BranchInventoryFormData, value: any): void {
+    this.branchInventories.update(inventories =>
+      inventories.map(inv =>
+        inv.branchId === branchId
+          ? { ...inv, [field]: value }
+          : inv
+      )
+    );
+  }
+
+
+
+  /**
+   * Sync prices from main form to all branches
+   */
+  syncPricesToBranches(): void {
+    const formData = this.productForm.value;
+
+    this.branchInventories.update(inventories =>
+      inventories.map(inv => ({
+        ...inv,
+        buyPrice: formData.buyPrice,
+        sellPrice: formData.sellPrice
+      }))
+    );
+
+    this.showInfo('Prices synced to all branches');
+  }
+
+  /**
+   * Validate branch inventories
+   */
+  validateBranchInventories(): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    const inventories = this.branchInventories();
+
+    if (this.enableBranchSpecificInventory() && inventories.length === 0) {
+      errors.push('No branch inventories configured');
+      return { isValid: false, errors };
+    }
+
+    inventories.forEach((inv, index) => {
+      if (inv.stock < 0) {
+        errors.push(`Branch ${inv.branchName}: Stock cannot be negative`);
+      }
+      if (inv.minimumStock < 0) {
+        errors.push(`Branch ${inv.branchName}: Minimum stock cannot be negative`);
+      }
+      if (inv.buyPrice && inv.sellPrice && inv.sellPrice < inv.buyPrice) {
+        errors.push(`Branch ${inv.branchName}: Sell price must be >= buy price`);
+      }
+    });
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  // ===== BULK OPERATION METHODS =====
+
+  /**
+   * Select all branches
+   */
+  selectAllBranches(): void {
+    const allBranchIds = new Set(this.branches().map(b => b.id));
+    this.selectedBranchIds.set(allBranchIds);
+    this.updateBranchInventoriesFromSelection();
+    this.showInfo(`Selected all ${this.branches().length} branches`);
+  }
+
+  /**
+   * Clear all branch selections
+   */
+  clearAllBranches(): void {
+    this.selectedBranchIds.set(new Set());
+    this.branchInventories.set([]);
+    this.showInfo('Cleared all branch selections');
+  }
+
+  /**
+   * Select only main branches (you can customize this logic)
+   */
+  selectMainBranchesOnly(): void {
+    // Assuming main branches have specific criteria (e.g., first 3 branches or branches with specific names)
+    const mainBranches = this.branches().slice(0, 3); // Take first 3 as main branches
+    const mainBranchIds = new Set(mainBranches.map(b => b.id));
+    this.selectedBranchIds.set(mainBranchIds);
+    this.updateBranchInventoriesFromSelection();
+    this.showInfo(`Selected ${mainBranches.length} main branches`);
+  }
+
+  /**
+   * Check if a branch is selected
+   */
+  isBranchSelected(branchId: number): boolean {
+    return this.selectedBranchIds().has(branchId);
+  }
+
+  /**
+   * Toggle branch selection
+   */
+  toggleBranchSelection(branchId: number): void {
+    const currentSelection = this.selectedBranchIds();
+    const newSelection = new Set(currentSelection);
+
+    if (newSelection.has(branchId)) {
+      newSelection.delete(branchId);
+    } else {
+      newSelection.add(branchId);
+    }
+
+    this.selectedBranchIds.set(newSelection);
+    this.updateBranchInventoriesFromSelection();
+  }
+
+  /**
+   * Update branch inventories based on current selection
+   */
+  private updateBranchInventoriesFromSelection(): void {
+    const selectedIds = this.selectedBranchIds();
+    const selectedBranches = this.branches().filter(b => selectedIds.has(b.id));
+
+    const currentInventories = this.branchInventories();
+    const newInventories: BranchInventoryFormData[] = [];
+
+    selectedBranches.forEach(branch => {
+      // Try to preserve existing data if branch was previously selected
+      const existing = currentInventories.find(inv => inv.branchId === branch.id);
+
+      if (existing) {
+        newInventories.push(existing);
+      } else {
+        // Create new inventory with default values
+        newInventories.push({
+          branchId: branch.id,
+          branchName: branch.branchName,
+          stock: 0,
+          minimumStock: 5,
+          maximumStock: 1000,
+          buyPrice: this.productForm.get('buyPrice')?.value || 0,
+          sellPrice: this.productForm.get('sellPrice')?.value || 0,
+          isActive: true
+        });
+      }
+    });
+
+    this.branchInventories.set(newInventories);
+  }
+
+  /**
+   * Apply bulk stock to selected branches
+   */
+  applyBulkStock(): void {
+    // Get bulk value, fallback to form value if bulk is 0
+    let bulkValue = Number(this.bulkStock());
+    if (bulkValue === 0) {
+      bulkValue = Number(this.productForm.get('stock')?.value) || 0;
+    }
+
+    if (bulkValue < 0) {
+      this.showError('Stock cannot be negative');
+      return;
+    }
+
+    const activeBranchIds = this.getActiveBranchInventories().map(inv => inv.branchId);
+    console.log('🔍 applyBulkStock:', { bulkValue, activeBranchIds });
+
+    this.branchInventories.update(inventories => {
+      const updated = inventories.map(inv => {
+        if (activeBranchIds.includes(inv.branchId)) {
+          const newInv = { ...inv, stock: bulkValue };
+          console.log('📝 Updated branch inventory:', newInv);
+          return newInv;
+        }
+        return inv;
+      });
+      console.log('📊 All inventories after update:', updated);
+      return updated;
+    });
+
+    // Force change detection
+    this.cdr.markForCheck();
+
+    this.showSuccess(`Applied stock ${bulkValue} to ${activeBranchIds.length} selected branches`);
+  }
+
+  /**
+   * Apply bulk buy price to selected branches
+   */
+  applyBulkBuyPrice(): void {
+    // Get bulk value, fallback to form value if bulk is 0
+    let bulkValue = Number(this.bulkBuyPrice());
+    if (bulkValue === 0) {
+      bulkValue = Number(this.productForm.get('buyPrice')?.value) || 0;
+    }
+
+    if (bulkValue < 0) {
+      this.showError('Buy price cannot be negative');
+      return;
+    }
+
+    const activeBranchIds = this.getActiveBranchInventories().map(inv => inv.branchId);
+
+    this.branchInventories.update(inventories =>
+      inventories.map(inv => {
+        if (activeBranchIds.includes(inv.branchId)) {
+          return { ...inv, buyPrice: bulkValue };
+        }
+        return inv;
+      })
+    );
+
+    this.cdr.markForCheck();
+
+    this.showSuccess(`Applied buy price ${bulkValue} to ${activeBranchIds.length} selected branches`);
+  }
+
+  /**
+   * Apply bulk sell price to selected branches
+   */
+  applyBulkSellPrice(): void {
+    // Get bulk value, fallback to form value if bulk is 0
+    let bulkValue = Number(this.bulkSellPrice());
+    if (bulkValue === 0) {
+      bulkValue = Number(this.productForm.get('sellPrice')?.value) || 0;
+    }
+
+    if (bulkValue < 0) {
+      this.showError('Sell price cannot be negative');
+      return;
+    }
+
+    const activeBranchIds = this.getActiveBranchInventories().map(inv => inv.branchId);
+
+    this.branchInventories.update(inventories =>
+      inventories.map(inv => {
+        if (activeBranchIds.includes(inv.branchId)) {
+          return { ...inv, sellPrice: bulkValue };
+        }
+        return inv;
+      })
+    );
+
+    this.cdr.markForCheck();
+
+    this.showSuccess(`Applied sell price ${bulkValue} to ${activeBranchIds.length} selected branches`);
+  }
+
+  /**
+   * Apply bulk minimum stock to selected branches
+   */
+  applyBulkMinStock(): void {
+    // Get bulk value, fallback to form value if bulk is 0
+    let bulkValue = Number(this.bulkMinStock());
+    if (bulkValue === 0) {
+      bulkValue = Number(this.productForm.get('minimumStock')?.value) || 5;
+    }
+
+    if (bulkValue < 0) {
+      this.showError('Minimum stock cannot be negative');
+      return;
+    }
+
+    const activeBranchIds = this.getActiveBranchInventories().map(inv => inv.branchId);
+
+    this.branchInventories.update(inventories =>
+      inventories.map(inv => {
+        if (activeBranchIds.includes(inv.branchId)) {
+          return { ...inv, minimumStock: bulkValue };
+        }
+        return inv;
+      })
+    );
+
+    this.cdr.markForCheck();
+
+    this.showSuccess(`Applied minimum stock ${bulkValue} to ${activeBranchIds.length} selected branches`);
+  }
+
+  /**
+   * Get active branch inventories (only selected ones)
+   */
+  getActiveBranchInventories(): BranchInventoryFormData[] {
+    return this.sortedBranchInventories().filter(inv => inv.isActive);
+  }
+
+  /**
+   * Remove branch from selection
+   */
+  removeBranchFromSelection(branchId: number): void {
+    const currentSelection = this.selectedBranchIds();
+    const newSelection = new Set(currentSelection);
+    newSelection.delete(branchId);
+
+    this.selectedBranchIds.set(newSelection);
+    this.updateBranchInventoriesFromSelection();
+
+    const branch = this.branches().find(b => b.id === branchId);
+    this.showInfo(`Removed ${branch?.branchName || 'branch'} from selection`);
+  }
+
+  /**
+   * Distribute stock evenly across selected branches
+   */
+  distributeStockEvenly(): void {
+    // Use bulk stock amount instead of separate field
+    const totalStock = Number(this.bulkStock()) || 0;
+    const activeBranches = this.getActiveBranchInventories();
+
+    console.log('🔍 distributeStockEvenly (using bulk stock):', { totalStock, activeBranches: activeBranches.length });
+
+    if (activeBranches.length === 0) {
+      this.showError('No branches selected for stock distribution');
+      return;
+    }
+
+    if (totalStock <= 0) {
+      this.showError(`Please enter stock amount in the Quick Fill section first. Current: ${totalStock}`);
+      return;
+    }
+
+    const stockPerBranch = Math.floor(totalStock / activeBranches.length);
+    const remainder = totalStock % activeBranches.length;
+    const activeBranchIds = activeBranches.map(inv => inv.branchId);
+
+    console.log('🔍 distributeStockEvenly:', { totalStock, activeBranches: activeBranches.length, stockPerBranch, remainder });
+
+    this.branchInventories.update(inventories =>
+      inventories.map((inv) => {
+        if (activeBranchIds.includes(inv.branchId)) {
+          const branchIndex = activeBranches.findIndex(active => active.branchId === inv.branchId);
+          const newStock = stockPerBranch + (branchIndex < remainder ? 1 : 0);
+          console.log(`📝 Branch ${inv.branchName}: ${newStock} stock`);
+          return {
+            ...inv,
+            stock: newStock
+          };
+        }
+        return inv;
+      })
+    );
+
+    this.showSuccess(`Distributed ${totalStock} stock evenly across ${activeBranches.length} branches`);
+  }
+
+  /**
+   * Set stock based on branch size (placeholder implementation)
+   */
+  setStockByBranchSize(): void {
+    const activeBranches = this.getActiveBranchInventories();
+
+    if (activeBranches.length === 0) {
+      this.showError('No branches selected');
+      return;
+    }
+
+    // Use bulk stock amount instead of separate field
+    const totalStock = Number(this.bulkStock()) || 0;
+
+    console.log('🔍 setStockByBranchSize (using bulk stock):', { totalStock, activeBranches: activeBranches.length });
+
+    if (totalStock <= 0) {
+      this.showError('Please enter stock amount in the Quick Fill section first');
+      return;
+    }
+
+    // Realistic branch size estimation based on various factors
+    // In production, this would come from branch management system
+    const getBranchSizeWeight = (branch: any): number => {
+      // Mock realistic branch size weights based on branch characteristics
+      const branchSizeFactors: { [key: number]: number } = {
+        // Mock data - in real app, this would come from backend/branch management
+        1: 0.8,  // Small branch
+        2: 1.5,  // Medium branch
+        3: 1.2,  // Medium branch
+        4: 2.0,  // Large branch
+        5: 0.6,  // Small branch
+        6: 1.8,  // Large branch
+        7: 1.0,  // Medium branch
+        8: 0.9,  // Small-medium branch
+      };
+
+      // Fallback calculation if branch not in lookup
+      return branchSizeFactors[branch.branchId] || 1.0;
+    };
+
+    const activeBranchIds = activeBranches.map(inv => inv.branchId);
+    const totalWeight = activeBranches.reduce((sum, branch) => sum + getBranchSizeWeight(branch), 0);
+
+    console.log('🔍 setStockByBranchSize (using bulk stock + realistic weights):', {
+      totalStock,
+      activeBranches: activeBranches.length,
+      totalWeight: totalWeight.toFixed(2)
+    });
+
+    this.branchInventories.update(inventories =>
+      inventories.map(inv => {
+        if (activeBranchIds.includes(inv.branchId)) {
+          const branchWeight = getBranchSizeWeight(inv);
+          const weightPercentage = branchWeight / totalWeight;
+          const newStock = Math.round(totalStock * weightPercentage);
+
+          console.log(`📝 Branch ${inv.branchName} (ID: ${inv.branchId}): weight=${branchWeight}, percentage=${(weightPercentage*100).toFixed(1)}%, stock=${newStock}`);
+
+          return {
+            ...inv,
+            stock: newStock
+          };
+        }
+        return inv;
+      })
+    );
+
+    this.showSuccess(`Stock distributed based on branch size across ${activeBranches.length} branches`);
+  }
+
+  /**
+   * Get average sell price across branches
+   */
+  getAverageSellPrice(): number {
+    const activeBranches = this.getActiveBranchInventories();
+    if (activeBranches.length === 0) return 0;
+
+    const total = activeBranches.reduce((sum, branch) => sum + (branch.sellPrice || 0), 0);
+    return total / activeBranches.length;
+  }
+
+  /**
+   * Get selected branch count for display
+   */
+  getSelectedBranchCount(): number {
+    return this.selectedBranchIds().size;
+  }
+
+}
+
+// ✅ NEW: Interface for branch-specific inventory form data
+interface BranchInventoryFormData {
+  branchId: number;
+  branchName: string;
+  stock: number;
+  minimumStock: number;
+  maximumStock: number;
+  buyPrice?: number;
+  sellPrice?: number;
+  locationCode?: string;
+  locationDescription?: string;
+  isActive: boolean;
 }

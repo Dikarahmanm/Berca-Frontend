@@ -3589,6 +3589,38 @@
         .missing-icon {
           font-size: 16px;
         }
+
+        // Action required variant for products that need batch/expiry management
+        &.action-required {
+          background: linear-gradient(135deg, #FEF3CD, #FCE68A);
+          border: 1px solid #F59E0B;
+          border-radius: var(--radius-md);
+          padding: var(--s3);
+          color: #92400E;
+          font-weight: var(--font-medium);
+          font-style: normal;
+
+          .missing-icon.warning {
+            color: #F59E0B;
+            font-size: 18px;
+          }
+
+          .missing-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+
+            .missing-text {
+              font-weight: var(--font-semibold);
+              color: #92400E;
+            }
+
+            .missing-subtext {
+              font-size: 0.7rem;
+              color: #A16207;
+            }
+          }
+        }
       }
     }
   }

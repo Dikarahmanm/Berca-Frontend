@@ -596,28 +596,33 @@ export class ExpiryManagementService {
   }
 
   /**
-   * Get all batches for a product - Observable pattern
+   * Get all batches for a product - Observable pattern with branch filtering
    */
   getProductBatches(filter: ProductBatchFilter): Observable<ProductBatch[]> {
-    let params = new HttpParams();
-    Object.entries(filter).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          params = params.set(key, value.toString());
-        }
-    });
+    console.log('🔍 Getting product batches with filter:', filter);
 
-    return this.http.get<ApiResponse<ProductBatch[]>>(`${this.baseUrl}/Product/${filter.productId}/batches`, { params })
+    // ✅ FIXED: Use ExpiryManagement endpoint that supports branch filtering
+    return this.http.get<ProductBatch[]>(`${this.baseUrl}/ExpiryManagement/products/${filter.productId}/batches`)
       .pipe(
         map(response => {
-          if (response?.success && response.data) {
-            this._productBatches.set(response.data);
-            return response.data;
+          console.log('✅ Raw batch response:', response);
+          let batches = response || [];
+
+          // Apply client-side branch filtering if branchId is specified
+          if (filter.branchId) {
+            // Include batches that either belong to the specific branch OR have null branchId (All Branches)
+            batches = batches.filter(batch => batch.branchId === filter.branchId || batch.branchId === null);
+            console.log(`🏢 Filtered batches for branch ${filter.branchId} (including All Branches):`, batches.length, 'items');
           } else {
-            this._productBatches.set([]);
-            return [];
+            console.log(`📦 All batches (no branch filter):`, batches.length, 'items');
           }
+
+          // Update the signal with filtered batches
+          this._productBatches.set(batches);
+          return batches;
         }),
         catchError((error: any) => {
+          console.error('❌ Product batches API error:', error);
           console.warn('Product batches API not available, using empty array');
           this._productBatches.set([]);
           return of([]);

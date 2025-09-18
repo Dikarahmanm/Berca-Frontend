@@ -161,12 +161,43 @@ export interface ProductWithBatchSummaryDto {
   batchesCritical: number;
   batchesExpired: number;
   
-  // Expiry info
+  // Expiry info (legacy properties for backward compatibility)
   nearestExpiryDate?: string;
   daysToNearestExpiry?: number;
   expiryStatus: 'Good' | 'Warning' | 'Critical' | 'Expired';
-  
-  // Recent batch info
+
+  // ✅ NEW: Nearest expiry batch object from API
+  nearestExpiryBatch?: {
+    id: number;
+    productId: number;
+    productName: string;
+    batchNumber: string;
+    expiryDate: string;
+    productionDate?: string;
+    currentStock: number;
+    initialStock: number;
+    costPerUnit: number;
+    supplierName?: string;
+    purchaseOrderNumber?: string;
+    notes?: string;
+    isBlocked: boolean;
+    blockReason?: string;
+    isExpired: boolean;
+    isDisposed: boolean;
+    disposalDate?: string;
+    disposalMethod?: string;
+    branchId?: number;
+    branchName?: string;
+    createdAt: string;
+    updatedAt: string;
+    createdByUserName?: string;
+    updatedByUserName?: string;
+    daysUntilExpiry: number;
+    expiryStatus: number; // 1=Good, 2=Warning, 3=Critical, 4=Expired
+    availableStock: number;
+  };
+
+  // Recent batch info (legacy for backward compatibility)
   latestBatch?: {
     batchNumber: string;
     quantity: number;

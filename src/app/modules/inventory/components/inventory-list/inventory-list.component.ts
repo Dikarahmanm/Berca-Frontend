@@ -197,8 +197,31 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
 
       // Convert BranchProductDto to compatible format and merge with batch data
       return branchProducts.map(bp => {
-        // Find corresponding batch data for this product
-        const batchInfo = batchProducts.find(batch => batch.id === bp.id);
+        // ✅ FIXED: Find batch data for this product AND this specific branch
+        const batchInfo = batchProducts.find(batch =>
+          batch.id === bp.id &&
+          (batch.nearestExpiryBatch?.branchId === bp.branchId || !batch.nearestExpiryBatch?.branchId)
+        );
+
+        // Additional debugging for branch filtering
+        if (bp.id === 1) { // Debug for first product
+          console.log('🔍 Branch Batch Filtering Debug:', {
+            productId: bp.id,
+            productName: bp.name,
+            branchId: bp.branchId,
+            branchName: bp.branchName,
+            allBatchesForProduct: batchProducts.filter(b => b.id === bp.id).map(b => ({
+              id: b.id,
+              nearestExpiryBranchId: b.nearestExpiryBatch?.branchId,
+              nearestExpiryBranchName: b.nearestExpiryBatch?.branchName,
+              batchNumber: b.nearestExpiryBatch?.batchNumber
+            })),
+            selectedBatchInfo: batchInfo ? {
+              nearestExpiryBranchId: batchInfo.nearestExpiryBatch?.branchId,
+              batchNumber: batchInfo.nearestExpiryBatch?.batchNumber
+            } : null
+          });
+        }
 
         return {
           ...bp,
@@ -207,26 +230,26 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
           minimumStock: bp.branchMinimumStock,
           // Merge batch data if available - map from ProductWithBatchSummaryDto
           categoryRequiresExpiry: false, // This property doesn't exist in ProductWithBatchSummaryDto
-          needsExpiryData: batchInfo ? !!batchInfo.nearestExpiryDate : false,
+          needsExpiryData: batchInfo ? !!batchInfo.nearestExpiryBatch?.expiryDate : false,
           totalBatches: batchInfo?.totalBatches || 0,
           expiryStatus: batchInfo?.expiryStatus === 'Good' ? 'good' :
                        batchInfo?.expiryStatus === 'Warning' ? 'warning' :
                        batchInfo?.expiryStatus === 'Critical' ? 'critical' :
                        batchInfo?.expiryStatus === 'Expired' ? 'expired' : 'good',
-          daysUntilExpiry: batchInfo?.daysToNearestExpiry,
+          daysUntilExpiry: batchInfo?.nearestExpiryBatch?.daysUntilExpiry,
           expiryStatusText: batchInfo?.expiryStatus,
           batchesGood: batchInfo?.batchesGood,
           batchesWarning: batchInfo?.batchesWarning,
           batchesCritical: batchInfo?.batchesCritical,
           batchesExpired: batchInfo?.batchesExpired,
-          nearestExpiryDate: batchInfo?.nearestExpiryDate,
-          daysToNearestExpiry: batchInfo?.daysToNearestExpiry,
-          latestBatch: batchInfo?.latestBatch?.batchNumber || undefined,
+          nearestExpiryDate: batchInfo?.nearestExpiryBatch?.expiryDate,
+          daysToNearestExpiry: batchInfo?.nearestExpiryBatch?.daysUntilExpiry,
+          latestBatch: batchInfo?.nearestExpiryBatch?.batchNumber || undefined,
           batches: undefined, // This property doesn't exist in ProductWithBatchSummaryDto
-          nearestExpiryBatch: batchInfo?.nearestExpiryDate ? {
-            batchNumber: batchInfo.latestBatch?.batchNumber || 'Unknown',
-            expiryDate: batchInfo.nearestExpiryDate,
-            daysUntilExpiry: batchInfo.daysToNearestExpiry || 0
+          nearestExpiryBatch: batchInfo?.nearestExpiryBatch ? {
+            batchNumber: batchInfo.nearestExpiryBatch.batchNumber || 'Unknown',
+            expiryDate: batchInfo.nearestExpiryBatch.expiryDate,
+            daysUntilExpiry: batchInfo.nearestExpiryBatch.daysUntilExpiry || 0
           } : undefined,
           // Preserve original branch fields
           branchStock: bp.branchStock,
@@ -891,9 +914,38 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
       };
     }
 
-    // Check if we have nearestExpiryDate directly
+    // ✅ FIXED: Check direct access to nearestExpiryBatch object from API
+    if (product.nearestExpiryBatch?.expiryDate && product.totalBatches > 0) {
+      console.log('✅ Using direct nearestExpiryBatch object from API:', {
+        nearestExpiryBatch: product.nearestExpiryBatch,
+        totalBatches: product.totalBatches
+      });
+
+      const batch = product.nearestExpiryBatch;
+      const expiryDate = new Date(batch.expiryDate);
+      const today = new Date();
+      const timeDiff = expiryDate.getTime() - today.getTime();
+      const daysUntilExpiry = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+      let status = 'good';
+      if (daysUntilExpiry <= 0) {
+        status = 'expired';
+      } else if (daysUntilExpiry <= 7) {
+        status = 'critical';
+      } else if (daysUntilExpiry <= 30) {
+        status = 'warning';
+      }
+
+      return {
+        batchNumber: batch.batchNumber || 'Unknown',
+        daysUntilExpiry,
+        status
+      };
+    }
+
+    // Fallback: Check if we have nearestExpiryDate property directly (for legacy data)
     if (product.nearestExpiryDate && product.totalBatches > 0) {
-      console.log('✅ Using nearestExpiryDate + latestBatch:', {
+      console.log('✅ Using legacy nearestExpiryDate + latestBatch:', {
         nearestExpiryDate: product.nearestExpiryDate,
         latestBatch: product.latestBatch,
         totalBatches: product.totalBatches

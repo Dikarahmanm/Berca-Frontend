@@ -200,7 +200,7 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
         // ✅ FIXED: Find batch data for this product AND this specific branch
         const batchInfo = batchProducts.find(batch =>
           batch.id === bp.id &&
-          (batch.nearestExpiryBatch?.branchId === bp.branchId || !batch.nearestExpiryBatch?.branchId)
+          batch.nearestExpiryBatch?.branchId === bp.branchId
         );
 
         // Additional debugging for branch filtering

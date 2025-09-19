@@ -20,6 +20,7 @@ import {
   ApiResponse,
   ProductBatch,
   ProductWithBatchSummaryDto,
+  ProductWithBatchSummaryPagedResponse,
   CreateBatchRequest,
   AddStockToBatchRequest,
   BatchForPOSDto
@@ -116,12 +117,48 @@ export class InventoryService {
   }
 
   /**
-   * ✅ NEW: Get products with batch summary for enhanced inventory display
+   * ✅ NEW: Get products with batch summary for enhanced inventory display (paginated)
+   * Backend: GET /api/Product/with-batch-summary-paged
+   */
+  getProductsWithBatchSummaryPaged(filter?: ProductFilter): Observable<ProductWithBatchSummaryPagedResponse> {
+    let params = new HttpParams();
+
+    if (filter?.search) params = params.set('searchTerm', filter.search);
+    if (filter?.categoryId) params = params.set('categoryId', filter.categoryId.toString());
+    if (filter?.isActive !== undefined) params = params.set('isActive', filter.isActive.toString());
+    if (filter?.page) params = params.set('page', filter.page.toString());
+    if (filter?.pageSize) params = params.set('pageSize', filter.pageSize.toString());
+    if (filter?.sortBy) params = params.set('sortBy', filter.sortBy);
+    if (filter?.sortOrder) params = params.set('sortOrder', filter.sortOrder);
+
+    return this.http.get<any>(`${this.baseUrl}/with-batch-summary-paged`, { params })
+      .pipe(
+        map(response => {
+          console.log('🔄 Raw Product Batch Summary Paged Response:', response);
+
+          if (response && response.success && response.data) {
+            console.log('✅ Products with batch summary loaded (paginated):', {
+              products: response.data.products.length,
+              totalCount: response.data.totalCount,
+              currentPage: response.data.currentPage,
+              totalPages: response.data.totalPages
+            });
+            return response.data;
+          }
+
+          throw new Error(response?.message || 'Failed to fetch paginated products with batch summary');
+        }),
+        catchError(error => this.handleError(error))
+      );
+  }
+
+  /**
+   * ✅ NEW: Get products with batch summary for enhanced inventory display (legacy - non-paginated)
    * Backend: GET /api/Product/with-batch-summary
    */
   getProductsWithBatchSummary(filter?: ProductFilter): Observable<ProductWithBatchSummaryDto[]> {
     let params = new HttpParams();
-    
+
     if (filter?.search) params = params.set('search', filter.search);
     if (filter?.categoryId) params = params.set('categoryId', filter.categoryId.toString());
     if (filter?.isActive !== undefined) params = params.set('isActive', filter.isActive.toString());
@@ -134,12 +171,12 @@ export class InventoryService {
       .pipe(
         map(response => {
           console.log('🔄 Raw Product Batch Summary Response:', response);
-          
+
           if (response && response.success && response.data) {
             console.log('✅ Products with batch summary loaded:', response.data.length);
             return response.data;
           }
-          
+
           throw new Error(response?.message || 'Failed to fetch products with batch summary');
         }),
         catchError(error => this.handleError(error))

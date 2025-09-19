@@ -79,6 +79,7 @@ export interface ProductFilter {
   pageSize?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  branchId?: number; // ✅ NEW: Branch filtering support
 }
 
 export interface InventoryMutation {
@@ -117,6 +118,18 @@ export interface ApiResponse<T> {
   success: boolean;
   data: T;
   message: string;
+}
+
+// ===== NEW: PAGINATED BATCH SUMMARY RESPONSE =====
+
+export interface ProductWithBatchSummaryPagedResponse {
+  products: ProductWithBatchSummaryDto[];
+  totalCount: number;
+  currentPage: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 }
 
 // ===== NEW: BATCH MANAGEMENT INTERFACES =====

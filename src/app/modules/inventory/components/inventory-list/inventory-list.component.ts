@@ -30,7 +30,7 @@ import { BranchInventoryService, BranchProductDto, BranchInventoryFilter } from 
 import { StateService } from '../../../../core/services/state.service';
 import { CategoryService } from '../../../category-management/services/category.service';
 import { ExpiryManagementService } from '../../../../core/services/expiry-management.service';
-import { Product, ProductFilter, ProductWithBatchSummaryDto } from '../../interfaces/inventory.interfaces';
+import { Product, ProductFilter, ProductWithBatchSummaryDto, ProductWithBatchSummaryPagedResponse } from '../../interfaces/inventory.interfaces';
 import { Category, CategoryFilter } from '../../../category-management/models/category.models';
 import { ExpiryStatus, ExpiryAnalytics, ExpiringProduct, FifoRecommendationDto, ProductBatch, ExpiringProductsFilter, BatchStatus, ExpiryUrgency } from '../../../../core/interfaces/expiry.interfaces';
 import { AfterViewInit } from '@angular/core'; // ✅ Add this import
@@ -581,11 +581,11 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
 
   // ===== DATA LOADING =====
 
-  // ✅ ENHANCED: LoadProducts with better sort handling and batch support
+  // ✅ ENHANCED: LoadProducts with server-side pagination and batch support
    loadProducts(): void {
     this.loading.set(true);
     const filterValues = this.filterForm.value;
-    
+
     const filter: ProductFilter = {
       search: filterValues.search?.trim() || undefined,
       categoryId: filterValues.categoryId || undefined,
@@ -598,39 +598,48 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
 
     // Apply stock filter
     this.applyStockFilter(filter, filterValues.stockFilter);
-    
+
     // ✅ NEW: Apply expiry filter
     this.applyExpiryFilter(filter, filterValues.expiryFilter);
 
-    console.log('📡 API Request with enhanced sort:', filter);
-
-    // ✅ NEW: Use batch summary endpoint for better expiry and batch data
-    const useProductsWithBatchSummary = true; // Enable batch data by default
-
-    if (useProductsWithBatchSummary) {
-      // Use batch summary endpoint
-      this.subscriptions.add(
-        this.inventoryService.getProductsWithBatchSummary(filter).subscribe({
-          next: (batchProducts: any[]) => {
-            const response = {
-              products: batchProducts,
-              totalItems: batchProducts.length,
-              totalPages: 1,
-              currentPage: 1,
-              pageSize: batchProducts.length
-            };
-            this.handleProductsResponse(response);
-          },
-          error: (error: any) => {
-            console.error('❌ Failed to load products with batch summary:', error);
-            // Fallback to regular products endpoint
-            this.loadProductsRegular(filter);
-          }
-        })
-      );
-    } else {
-      this.loadProductsRegular(filter);
+    // ✅ NEW: Apply branch filtering
+    const selectedBranches = this.selectedBranchIds();
+    const branchFilterType = this.branchFilterType();
+    if (selectedBranches.length > 0 && branchFilterType !== BranchFilterType.ALL) {
+      filter.branchId = selectedBranches[0]; // Use first selected branch for API filtering
     }
+
+    console.log('📡 API Request with pagination and branch filtering:', filter);
+
+    // ✅ NEW: Use paginated batch summary endpoint for proper server-side pagination
+    this.subscriptions.add(
+      this.inventoryService.getProductsWithBatchSummaryPaged(filter).subscribe({
+        next: (response: ProductWithBatchSummaryPagedResponse) => {
+          console.log('✅ Paginated batch summary loaded:', {
+            products: response.products.length,
+            totalCount: response.totalCount,
+            currentPage: response.currentPage,
+            totalPages: response.totalPages
+          });
+
+          // Transform the paginated response to match the expected format
+          const transformedResponse = {
+            products: response.products,
+            totalItems: response.totalCount,
+            totalPages: response.totalPages,
+            currentPage: response.currentPage,
+            pageSize: response.pageSize
+          };
+
+          this.handleProductsResponse(transformedResponse);
+        },
+        error: (error: any) => {
+          console.error('❌ Failed to load paginated products with batch summary:', error);
+          // Fallback to regular products endpoint
+          this.loadProductsRegular(filter);
+        }
+      })
+    );
   }
 
   private loadProductsRegular(filter: ProductFilter): void {
@@ -1154,6 +1163,62 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
     this.currentPage.set(event.pageIndex + 1);
     this.pageSize.set(event.pageSize);
     this.loadProducts();
+  }
+
+  // ✅ NEW: Pagination helper methods - Force rebuild
+  totalPages = computed(() => {
+    const total = this.totalItems();
+    const pageSize = this.pageSize();
+    return Math.max(1, Math.ceil(total / pageSize));
+  });
+
+  getStartItem(): number {
+    const current = this.currentPage();
+    const pageSize = this.pageSize();
+    const total = this.totalItems();
+
+    if (total === 0) return 0;
+    return ((current - 1) * pageSize) + 1;
+  }
+
+  getEndItem(): number {
+    const current = this.currentPage();
+    const pageSize = this.pageSize();
+    const total = this.totalItems();
+
+    return Math.min(current * pageSize, total);
+  }
+
+  goToFirstPage(): void {
+    if (this.currentPage() > 1) {
+      this.currentPage.set(1);
+      this.loadProducts();
+    }
+  }
+
+  goToPreviousPage(): void {
+    const current = this.currentPage();
+    if (current > 1) {
+      this.currentPage.set(current - 1);
+      this.loadProducts();
+    }
+  }
+
+  goToNextPage(): void {
+    const current = this.currentPage();
+    const totalPages = this.totalPages();
+    if (current < totalPages) {
+      this.currentPage.set(current + 1);
+      this.loadProducts();
+    }
+  }
+
+  goToLastPage(): void {
+    const totalPages = this.totalPages();
+    if (this.currentPage() < totalPages) {
+      this.currentPage.set(totalPages);
+      this.loadProducts();
+    }
   }
 
   // ✅ FIXED: Enhanced sort change handler

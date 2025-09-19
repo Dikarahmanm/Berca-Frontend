@@ -3670,3 +3670,109 @@
   }
     }
   }
+
+// ===== PAGINATION STYLES =====
+.pagination-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--s5);
+  border-top: 2px solid var(--border-light);
+  background: var(--surface);
+  margin-top: var(--s4);
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: var(--s3);
+    padding: var(--s4);
+  }
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+
+  @media (max-width: 768px) {
+    order: 2;
+  }
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+
+  @media (max-width: 768px) {
+    order: 1;
+    justify-content: center;
+  }
+}
+
+.pagination-btn {
+  padding: var(--s2) var(--s3);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 44px;
+  height: 44px;
+  justify-content: center;
+
+  &:hover:not(:disabled) {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-disabled);
+    color: var(--text-disabled);
+    border-color: var(--border-light);
+  }
+
+  .btn-icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+}
+
+.page-numbers {
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+
+  .page-info {
+    padding: var(--s2) var(--s3);
+    background: var(--primary-light);
+    color: var(--primary);
+    border-radius: var(--radius);
+    font-weight: var(--font-semibold);
+    font-size: var(--text-sm);
+    border: 2px solid var(--primary);
+    min-width: 120px;
+    text-align: center;
+
+    @media (max-width: 480px) {
+      min-width: 100px;
+      font-size: 0.75rem;
+    }
+  }
+}

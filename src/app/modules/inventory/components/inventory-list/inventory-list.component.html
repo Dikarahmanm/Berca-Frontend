@@ -638,14 +638,22 @@
 
           <!-- No Batches State -->
           <div class="no-batches-state" *ngIf="productGroup.batches.length === 0">
-            <div class="empty-state-content">
-              <mat-icon class="empty-icon">layers_clear</mat-icon>
-              <h5>No Batches Available</h5>
-              <p>This product doesn't have any batch tracking data.</p>
+            <!-- Product requires expiry but has no batches -->
+            <div class="empty-state-content" *ngIf="getCategoryRequiresExpiry(productGroup.categoryId, productGroup)">
+              <mat-icon class="empty-icon warning">warning</mat-icon>
+              <h5>⚠️ Action Required</h5>
+              <p>This product requires batch & expiry management but has no tracking data.</p>
               <button mat-raised-button color="primary" (click)="createFirstBatch(productGroup)">
                 <mat-icon>add</mat-icon>
                 Create First Batch
               </button>
+            </div>
+
+            <!-- Product doesn't require expiry -->
+            <div class="empty-state-content" *ngIf="!getCategoryRequiresExpiry(productGroup.categoryId, productGroup)">
+              <mat-icon class="empty-icon info">info</mat-icon>
+              <h5>No Expiry Required</h5>
+              <p>This product doesn't need batch & expiry tracking based on its category.</p>
             </div>
           </div>
         </div>
@@ -753,7 +761,7 @@
         *ngFor="let product of displayProducts(); trackBy: trackById; let i = index"
         class="table-row data-row"
         [class]="'row-stock-' + getStockStatus(product)"
-        [class.has-expiry]="product.categoryRequiresExpiry"
+        [class.has-expiry]="getCategoryRequiresExpiry(product.categoryId, product)"
         [class.expanded]="expandedProducts.has(product.id)">
 
         <!-- 1. ENHANCED PRODUCT INFO COLUMN -->
@@ -881,11 +889,20 @@
               </div>
 
               <!-- No Expiry Data Available - Enhanced with Action Required Flag -->
-              <div *ngIf="!getNearestExpiryBatch(product) && !product.expiryDate && (product.totalBatches || 0) === 0" class="missing-expiry-data action-required">
+              <div *ngIf="!getNearestExpiryBatch(product) && !product.expiryDate && (product.totalBatches || 0) === 0 && getCategoryRequiresExpiry(product.categoryId, product)" class="missing-expiry-data action-required">
                 <mat-icon class="missing-icon warning">warning</mat-icon>
                 <div class="missing-content">
                   <span class="missing-text">⚠️ Action Required</span>
                   <span class="missing-subtext">This product requires batch & expiry management</span>
+                </div>
+              </div>
+
+              <!-- No Expiry Needed (for products that don't require expiry tracking) -->
+              <div *ngIf="!getNearestExpiryBatch(product) && !product.expiryDate && (product.totalBatches || 0) === 0 && !getCategoryRequiresExpiry(product.categoryId, product)" class="missing-expiry-data no-expiry-needed">
+                <mat-icon class="missing-icon info">info</mat-icon>
+                <div class="missing-content">
+                  <span class="missing-text">No Expiry Required</span>
+                  <span class="missing-subtext">This product doesn't need expiry tracking</span>
                 </div>
               </div>
 
@@ -1075,7 +1092,7 @@
         *ngFor="let product of displayProducts(); trackBy: trackById"
         class="product-card modern-card"
         [class]="'card-stock-' + getStockStatus(product)"
-        [class.has-expiry]="product.categoryRequiresExpiry">
+        [class.has-expiry]="getCategoryRequiresExpiry(product.categoryId, product)">
         
         <!-- Product Header -->
         <div class="card-header">
@@ -1103,7 +1120,7 @@
           </div>
           
           <!-- Expiry Information (if applicable) -->
-          <div class="expiry-section" *ngIf="product.categoryRequiresExpiry">
+          <div class="expiry-section" *ngIf="getCategoryRequiresExpiry(product.categoryId, product)">
             <div class="expiry-status" [class]="'status-' + product.expiryStatus">
               <mat-icon>{{ getExpiryStatusIcon(product) }}</mat-icon>
               <span>{{ getExpiryStatusText(product) }}</span>

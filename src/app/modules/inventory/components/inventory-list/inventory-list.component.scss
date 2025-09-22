@@ -3621,6 +3621,38 @@
             }
           }
         }
+
+        // No expiry needed variant for products that don't require expiry tracking
+        &.no-expiry-needed {
+          background: linear-gradient(135deg, #E0F2FE, #BAE6FD);
+          border: 1px solid #0369A1;
+          border-radius: var(--radius-md);
+          padding: var(--s3);
+          color: #0C4A6E;
+          font-weight: var(--font-medium);
+          font-style: normal;
+
+          .missing-icon.info {
+            color: #0369A1;
+            font-size: 18px;
+          }
+
+          .missing-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+
+            .missing-text {
+              font-weight: var(--font-semibold);
+              color: #0C4A6E;
+            }
+
+            .missing-subtext {
+              font-size: 0.7rem;
+              color: #075985;
+            }
+          }
+        }
       }
     }
   }

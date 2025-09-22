@@ -103,6 +103,8 @@ export interface ProductWithBatchesGroup {
   barcode: string;
   categoryName: string;
   categoryColor: string;
+  categoryId: number;
+  categoryRequiresExpiry: boolean;
   unit: string;
   totalStock: number;        // ✅ Calculated from batches
   databaseStock: number;     // ✅ Original database value
@@ -229,7 +231,7 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
           stock: bp.branchStock,
           minimumStock: bp.branchMinimumStock,
           // Merge batch data if available - map from ProductWithBatchSummaryDto
-          categoryRequiresExpiry: false, // This property doesn't exist in ProductWithBatchSummaryDto
+          categoryRequiresExpiry: this.getCategoryRequiresExpiry(bp.categoryId, bp), // Calculate proper value
           needsExpiryData: batchInfo ? !!batchInfo.nearestExpiryBatch?.expiryDate : false,
           totalBatches: batchInfo?.totalBatches || 0,
           expiryStatus: batchInfo?.expiryStatus === 'Good' ? 'good' :
@@ -771,11 +773,21 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
     this.subscriptions.add(
       this.categoryService.getCategories(filter).subscribe({
         next: (response) => {
+          console.log('📥 RAW Categories Response:', response);
           this.categories.set(response.categories);
           console.log('📁 Loaded Categories:', this.categories().length);
+
+          // Debug: Show first few categories with expiry requirements
+          const firstCategories = this.categories().slice(0, 5);
+          console.log('📋 First 5 Categories:', firstCategories.map(c => ({
+            id: c.id,
+            name: c.name,
+            requiresExpiryDate: (c as any).requiresExpiryDate,
+            hasRequiresField: 'requiresExpiryDate' in c
+          })));
         },
         error: (error) => {
-          console.error('Failed to load categories:', error);
+          console.error('❌ Failed to load categories:', error);
         }
       })
     );
@@ -860,7 +872,7 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
    * Check if product requires expiry tracking based on category or existing data
    */
   requiresExpiryTracking(product: any): boolean {
-    // Check if product has any batch or expiry data
+    // Check if product has any batch or expiry data - always show tracking if data exists
     if (product.totalBatches && product.totalBatches > 0) {
       return true;
     }
@@ -869,38 +881,39 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
       return true;
     }
 
-    // Check if category requires expiry (if available)
-    if (product.categoryRequiresExpiry === true) {
+    // Check if category requires expiry using the proper helper method
+    const categoryRequiresExpiry = this.getCategoryRequiresExpiry(product.categoryId, product);
+    if (categoryRequiresExpiry === true) {
       return true;
     }
 
-    // If no explicit requirement, default to true for safety
-    return true;
+    // If category doesn't require expiry and no existing data, don't show tracking
+    return false;
   }
 
   getNearestExpiryBatch(product: any): { batchNumber: string; daysUntilExpiry: number; status: string } | null {
-    console.log('🔍 DEBUG getNearestExpiryBatch for product:', product.name, {
-      id: product.id,
-      totalBatches: product.totalBatches,
-      TotalBatches: product.TotalBatches,
-      nearestExpiryBatch: product.nearestExpiryBatch,
-      NearestExpiryBatch: product.NearestExpiryBatch,
-      nearestExpiryDate: product.nearestExpiryDate,
-      latestBatch: product.latestBatch,
-      batches: product.batches,
-      expiryDate: product.expiryDate,
-      allKeys: Object.keys(product)
-    });
+    // console.log('🔍 DEBUG getNearestExpiryBatch for product:', product.name, {
+    //   id: product.id,
+    //   totalBatches: product.totalBatches,
+    //   TotalBatches: product.TotalBatches,
+    //   nearestExpiryBatch: product.nearestExpiryBatch,
+    //   NearestExpiryBatch: product.NearestExpiryBatch,
+    //   nearestExpiryDate: product.nearestExpiryDate,
+    //   latestBatch: product.latestBatch,
+    //   batches: product.batches,
+    //   expiryDate: product.expiryDate,
+    //   allKeys: Object.keys(product)
+    // });
 
     // ✅ FIXED: Check if product actually has batches first
     if (product.totalBatches === 0) {
-      console.log('ℹ️ Product has no batches (totalBatches: 0)');
+      //console.log('ℹ️ Product has no batches (totalBatches: 0)');
       return null;
     }
 
     // Check if product has nearestExpiryBatch object with complete data
     if (product.nearestExpiryBatch?.batchNumber && product.nearestExpiryBatch?.expiryDate) {
-      console.log('✅ Using nearestExpiryBatch object:', product.nearestExpiryBatch);
+      //console.log('✅ Using nearestExpiryBatch object:', product.nearestExpiryBatch);
       const batch = product.nearestExpiryBatch;
       const expiryDate = new Date(batch.expiryDate);
       const today = new Date();
@@ -1085,21 +1098,47 @@ export class InventoryListComponent implements OnInit, OnDestroy, AfterViewInit 
     if (product?.categoryColor) {
       return product.categoryColor;
     }
-    
+
     // Find product in current data that has this categoryId and get its categoryColor
     const productWithCategory = this.products.data.find(p => p.categoryId === categoryId && p.categoryColor);
     if (productWithCategory?.categoryColor) {
       return productWithCategory.categoryColor;
     }
-    
+
     // Fallback: Search in categories array (less efficient but covers edge cases)
     const category = this.categories().find(c => c.id === categoryId);
     if (category?.color) {
       return category.color;
     }
-    
+
     // Ultimate fallback
     return '#666666';
+  }
+
+  /**
+   * Get whether category requires expiry date tracking
+   */
+  getCategoryRequiresExpiry(categoryId: number, product?: any): boolean {
+    // First, try to get from product data if available
+    if (product?.categoryRequiresExpiry !== undefined) {
+      return product.categoryRequiresExpiry;
+    }
+
+    // Find in categories array using requiresExpiryDate field from backend
+    const category = this.categories().find(c => c.id === categoryId);
+    if (category?.requiresExpiryDate !== undefined) {
+      return category.requiresExpiryDate;
+    }
+
+    // Find product in current data that has this categoryId and check if it has expiry requirement set
+    const productWithCategory = this.products.data.find(p => p.categoryId === categoryId && p.categoryRequiresExpiry !== undefined);
+    if (productWithCategory?.categoryRequiresExpiry !== undefined) {
+      return productWithCategory.categoryRequiresExpiry;
+    }
+
+    // Fallback: Use keyword-based logic for common category names
+    const categoryName = this.getCategoryName(categoryId, product);
+    return this.categoryNameRequiresExpiry(categoryName);
   }
 
   // ✅ UPDATED: Enhanced getStockStatus method moved to line 1852 - using new return type
@@ -2098,18 +2137,31 @@ onCategoryFilterChange(event: any): void {
    * Enhance single product with expiry information
    */
   private enhanceProductWithExpiry(product: Product): ProductWithExpiryAndBatch {
+    // ✅ FIXED: Calculate categoryRequiresExpiry first before setting defaults
+    const category = this.categories().find(c => c.id === product.categoryId);
+    let categoryRequiresExpiry = false;
+
+    if (category && category.requiresExpiryDate !== undefined) {
+      // Use backend data if available and defined
+      categoryRequiresExpiry = category.requiresExpiryDate;
+      console.log(`📋 Category "${category.name}" - using backend requiresExpiryDate: ${category.requiresExpiryDate}`);
+    } else if (category) {
+      // Fall back to keyword-based logic if backend field is undefined
+      categoryRequiresExpiry = this.categoryNameRequiresExpiry(category.name);
+      console.log(`📋 Category "${category.name}" - using keyword fallback: ${categoryRequiresExpiry}`);
+    } else {
+      // Category not found, default to false
+      console.log(`❌ Category not found for categoryId: ${product.categoryId}`);
+      categoryRequiresExpiry = false;
+    }
+
     const enhanced: ProductWithExpiryAndBatch = {
       ...product,
       expiryStatus: 'good',
-      categoryRequiresExpiry: false,
+      categoryRequiresExpiry: categoryRequiresExpiry, // Use calculated value instead of hardcoded false
       needsExpiryData: false
     };
 
-    // ✅ FIXED: Check if category requires expiry by looking up category data
-    const category = this.categories().find(c => c.id === product.categoryId);
-    const categoryRequiresExpiry = category ? (category as any).requiresExpiryDate : false;
-    
-    enhanced.categoryRequiresExpiry = categoryRequiresExpiry;
 
     if (product.expiryDate) {
       enhanced.daysUntilExpiry = this.calculateDaysUntilExpiry(product.expiryDate);
@@ -2312,6 +2364,15 @@ onCategoryFilterChange(event: any): void {
       
       for (const product of productsHavingBatches) {
         try {
+          // Debug: Show product data
+          console.log('🔍 Processing product:', {
+            id: product.id,
+            name: product.name,
+            categoryName: product.categoryName,
+            categoryId: (product as any).categoryId,
+            hasCategory: !!product.categoryName
+          });
+
           // Get detailed batches for this product
           // Determine branch context for batch filtering
           const selectedBranches = this.selectedBranchIds();
@@ -2343,13 +2404,54 @@ onCategoryFilterChange(event: any): void {
             Calculated from batches = ${actualTotalStock}, 
             Batch count = ${batches.length}`);
           
-          // Get category information
-          const category = this.categories().find(c => c.name === product.categoryName) || 
-                          this.categories().find(c => c.name === 'Uncategorized');
-          
+          // Get category information - first try by name, then fallback to ID if available
+          let category = this.categories().find(c => c.name === product.categoryName);
+
+          // If not found by name and we have categoryId in product data, try by ID
+          if (!category && (product as any).categoryId) {
+            category = this.categories().find(c => c.id === (product as any).categoryId);
+          }
+
+          // Ultimate fallback for unknown categories with smart defaults
+          if (!category) {
+            // Smart fallback: check category name to determine if should require expiry
+            const categoryName = (product.categoryName || '').toLowerCase();
+            const shouldRequireExpiry = this.categoryNameRequiresExpiry(categoryName);
+
+            category = {
+              id: (product as any).categoryId || 0,
+              name: product.categoryName || 'Unknown',
+              color: '#666666',
+              requiresExpiryDate: shouldRequireExpiry,
+              defaultExpiryWarningDays: 7
+            } as any;
+
+            console.log('🔧 FALLBACK Category created:', {
+              productName: product.name,
+              categoryName: product.categoryName,
+              shouldRequireExpiry,
+              fallbackCategory: category
+            });
+          } else {
+            console.log('✅ FOUND Category:', {
+              productName: product.name,
+              categoryName: product.categoryName,
+              foundCategory: category,
+              requiresExpiry: category.requiresExpiryDate
+            });
+          }
+
+          // Final debug log
+          console.log('📋 FINAL Category result for', product.name, ':', {
+            categoryId: category!.id,
+            categoryName: category!.name,
+            requiresExpiryDate: category!.requiresExpiryDate,
+            willShow: category!.requiresExpiryDate ? 'Action Required' : 'No Expiry Required'
+          });
+
           // Process and enhance batch data with category context
-          const processedBatches = this.processBatchesForDisplay(batches, category?.id);
-          
+          const processedBatches = this.processBatchesForDisplay(batches, category!.id);
+
           // Check for stock discrepancy
           const hasDiscrepancy = Math.abs(actualTotalStock - product.totalStock) > 0;
           
@@ -2363,8 +2465,10 @@ onCategoryFilterChange(event: any): void {
             productId: product.id,
             productName: product.name,
             barcode: product.barcode,
-            categoryName: category?.name || 'Uncategorized',
-            categoryColor: category?.color || '#666666',
+            categoryName: category!.name,
+            categoryColor: category!.color,
+            categoryId: category!.id,
+            categoryRequiresExpiry: category!.requiresExpiryDate,
             unit: product.unit || 'pcs',
             totalStock: actualTotalStock, // ✅ Use calculated total from batches
             databaseStock: product.totalStock, // Keep original for comparison
@@ -3673,6 +3777,57 @@ onCategoryFilterChange(event: any): void {
     }
 
     return classes;
+  }
+
+  /**
+   * Determine if category requires expiry based on name (fallback logic)
+   */
+  private categoryNameRequiresExpiry(categoryName: string): boolean {
+    const name = categoryName.toLowerCase();
+
+    // Categories that DON'T require expiry (electronics, stationery, etc.)
+    const noExpiryKeywords = [
+      'elektronik', 'gadget', 'electronic', 'hp', 'handphone', 'aksesoris',
+      'rokok', 'cigarette', 'tembakau', 'tobacco',
+      'alat tulis', 'stationery', 'pensil', 'pulpen', 'buku',
+      'rumah', 'household', 'plastik', 'tissue', 'kantong',
+      'seasonal', 'gift', 'baterai', 'battery', 'lampu'
+    ];
+
+    // Categories that require expiry (food, beverages, medicine, personal care, etc.)
+    const requiresExpiryKeywords = [
+      'makanan', 'food', 'snack', 'biskuit', 'kue', 'roti', 'coklat',
+      'minuman', 'beverage', 'susu', 'teh', 'kopi', 'juice', 'soft drink',
+      'obat', 'medicine', 'vitamin', 'suplemen', 'farmasi', 'kesehatan',
+      'personal care', 'kosmetik', 'shampoo', 'sabun', 'pasta gigi',
+      'bayi', 'baby', 'susu formula', 'diapers',
+      'deterjen', 'pembersih', 'cleaning'
+    ];
+
+    console.log('🔍 Category Name Analysis:', {
+      originalName: categoryName,
+      lowerName: name
+    });
+
+    // Check if category explicitly doesn't require expiry first
+    for (const keyword of noExpiryKeywords) {
+      if (name.includes(keyword)) {
+        console.log(`❌ NO EXPIRY: "${name}" contains "${keyword}"`);
+        return false;
+      }
+    }
+
+    // Check if category requires expiry
+    for (const keyword of requiresExpiryKeywords) {
+      if (name.includes(keyword)) {
+        console.log(`✅ REQUIRES EXPIRY: "${name}" contains "${keyword}"`);
+        return true;
+      }
+    }
+
+    console.log(`🤷 UNKNOWN: "${name}" - defaulting to false`);
+    // Default to false for unknown categories (safer approach - don't force expiry)
+    return false;
   }
 
 }

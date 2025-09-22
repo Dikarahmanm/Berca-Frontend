@@ -6,9 +6,13 @@ export interface Category {
   name: string;
   color: string;
   description?: string;
+  requiresExpiryDate: boolean;
+  defaultExpiryWarningDays: number;
   createdAt: Date;
   updatedAt: Date;
   productCount: number;
+  expiringProductsCount?: number;
+  expiredProductsCount?: number;
 }
 
 // DTO for creating new category

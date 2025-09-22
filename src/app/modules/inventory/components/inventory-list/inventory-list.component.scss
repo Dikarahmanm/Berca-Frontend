@@ -1838,8 +1838,11 @@
     }
   }
 
-  /* ===== TABLE CARD - Full Width Desktop Design ===== */
-  .table-card {
+  /* ===== REMOVED: Legacy TABLE CARD section (633 lines) ===== */
+  /* This section was removed for performance optimization */
+
+/* ===== RESPONSIVE INFO BAR ===== */
+.responsive-info {
     background: var(--surface);
     border-radius: 16px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);

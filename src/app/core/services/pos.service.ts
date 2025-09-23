@@ -1218,24 +1218,31 @@ export class POSService {
       .set('page', (filters.page || 1).toString())
       .set('pageSize', (filters.pageSize || 20).toString())
       .set('isActive', (filters.isActive !== undefined ? filters.isActive : true).toString());
-      
+
     if (filters.search) {
       params = params.set('search', filters.search);
     }
-    
+
     if (filters.categoryId) {
       params = params.set('categoryId', filters.categoryId.toString());
     }
 
-    console.log('🏢 Loading all products (legacy method):', filters);
+    // ✅ NEW: Add current branch ID to get branch-specific stock
+    const activeBranch = this.stateService.activeBranch();
+    if (activeBranch?.branchId) {
+      params = params.set('branchIds', activeBranch.branchId.toString());
+      console.log('🏢 Loading products for specific branch:', activeBranch.branchId, activeBranch.branchName);
+    }
 
-    // ✅ Use the legacy POS endpoint
-    return this.http.get<ProductListResponseApiResponse>(`${this.apiUrl}/POS/products`, { 
+    console.log('🏢 Loading products with branch filtering:', filters);
+
+    // ✅ Use the updated POS endpoint with branch support
+    return this.http.get<ProductListResponseApiResponse>(`${this.apiUrl}/POS/products`, {
       params,
-      withCredentials: true 
+      withCredentials: true
     }).pipe(
       tap(response => {
-        console.log('✅ Products loaded (legacy):', response?.data?.products?.length || 0);
+        console.log('✅ Branch-specific products loaded:', response?.data?.products?.length || 0);
       }),
       catchError(this.handleError.bind(this))
     );

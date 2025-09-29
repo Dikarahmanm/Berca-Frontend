@@ -1,3 +1,6 @@
+// Import shared component styles using modern @use syntax
+@use 'styles/components/analytics.scss';
+
 // Centralized Design System Variables (Single Source of Truth)
 :root {
   // ===== PRIMARY ORANGE PALETTE - GENTLE & WARM =====

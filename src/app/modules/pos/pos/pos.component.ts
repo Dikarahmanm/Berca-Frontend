@@ -210,8 +210,9 @@ export class POSComponent implements OnInit, OnDestroy {
   cartSubtotal = computed(() => {
     return this.cart().reduce((total, item) => {
       const itemTotal = item.quantity * item.product.sellPrice;
-      const discount = item.discount || 0;
-      return total + (itemTotal - discount);
+      const discountPercent = item.discount || 0;
+      const discountAmount = (itemTotal * discountPercent) / 100;
+      return total + (itemTotal - discountAmount);
     }, 0);
   });
 
@@ -1714,7 +1715,7 @@ onDiscountChange(index: number, newDiscount: number) {
 }
 
   // ===== TRANSACTION SUCCESS MODAL =====
-  
+
   private showTransactionSuccessModal(saleId: number, saleNumber: string, total: number) {
     console.log('🎉 Showing transaction success modal for:', { saleId, saleNumber, total });
     console.log('🔍 MatDialog instance:', this.dialog);
@@ -1942,62 +1943,31 @@ toggleMemberInput(): void {
     }, 100);
   }
 }
-// ✅ FIX: Mobile member search focus function
-focusMemberSearch(): void {
-  // ✅ NEW: For mobile, open summary panel and focus member search
-  if (window.innerWidth <= 768) {
-    this.showMobileSummary.set(true);
-    setTimeout(() => {
-      // ✅ FIX: Correct selector untuk mobile member input
-      const memberSearchInput = document.querySelector('.add-member-btn') as HTMLButtonElement;
-      if (memberSearchInput) {
-        memberSearchInput.click(); // Simulate click to open member search
-      }
-      
-      // ✅ FIX: Alternative - trigger member search UI state
-      setTimeout(() => {
-        const memberInput = document.querySelector('.mobile-summary-panel .member-input') as HTMLInputElement;
-        if (memberInput) {
-          memberInput.focus();
-        }
-      }, 100);
-    }, 300);
-  } else {
-    // Desktop: focus member search in right panel
-    const memberSearchInput = document.querySelector('.member-search input') as HTMLInputElement;
-    if (memberSearchInput) {
-      memberSearchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => {
-        memberSearchInput.focus();
-      }, 300);
-    }
-  }
-}
 
-  calculateEarnedPoints(total: number): number {
-    if (!this.selectedMember() || total <= 0) return 0;
-    
-    // Basic calculation: 1 point per 1000 IDR spent
-    // You can customize this based on member tier
-    const basePointsRate = 0.001; // 1 point per 1000 IDR
-    
-    let pointsRate = basePointsRate;
-    
-    // Tier bonuses
-    switch (this.selectedMember()?.tier.toLowerCase()) {
-      case 'gold':
-        pointsRate = basePointsRate * 1.5;
-        break;
-      case 'platinum':
-        pointsRate = basePointsRate * 2;
-        break;
-      case 'diamond':
-        pointsRate = basePointsRate * 2.5;
-        break;
-    }
-    
-    return Math.floor(total * pointsRate);
+calculateEarnedPoints(total: number): number {
+  if (!this.selectedMember() || total <= 0) return 0;
+  
+  // Basic calculation: 1 point per 1000 IDR spent
+  // You can customize this based on member tier
+  const basePointsRate = 0.001; // 1 point per 1000 IDR
+  
+  let pointsRate = basePointsRate;
+  
+  // Tier bonuses
+  switch (this.selectedMember()?.tier.toLowerCase()) {
+    case 'gold':
+      pointsRate = basePointsRate * 1.5;
+      break;
+    case 'platinum':
+      pointsRate = basePointsRate * 2;
+      break;
+    case 'diamond':
+      pointsRate = basePointsRate * 2.5;
+      break;
   }
+  
+  return Math.floor(total * pointsRate);
+}
 
   // Process member tier upgrade after successful transaction
   private processMembershipBenefits(saleId: number, saleTotal: number): void {
@@ -2867,5 +2837,37 @@ focusMemberSearch(): void {
   hasTransferOpportunities(): boolean {
     const insights = this.coordinationInsights();
     return insights?.transferOpportunities && insights.transferOpportunities.length > 0;
+  }
+
+  // ✅ FIX: Mobile member search focus function
+  focusMemberSearch(): void {
+    // ✅ NEW: For mobile, open summary panel and focus member search
+    if (window.innerWidth <= 768) {
+      this.showMobileSummary.set(true);
+      setTimeout(() => {
+        // ✅ FIX: Correct selector untuk mobile member input
+        const memberSearchInput = document.querySelector('.add-member-btn') as HTMLButtonElement;
+        if (memberSearchInput) {
+          memberSearchInput.click(); // Simulate click to open member search
+        }
+
+        // ✅ FIX: Alternative - trigger member search UI state
+        setTimeout(() => {
+          const memberInput = document.querySelector('.mobile-summary-panel .member-input') as HTMLInputElement;
+          if (memberInput) {
+            memberInput.focus();
+          }
+        }, 100);
+      }, 300);
+    } else {
+      // Desktop: focus member search in right panel
+      const memberSearchInput = document.querySelector('.member-search input') as HTMLInputElement;
+      if (memberSearchInput) {
+        memberSearchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+          memberSearchInput.focus();
+        }, 300);
+      }
+    }
   }
 }

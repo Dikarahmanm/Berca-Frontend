@@ -136,7 +136,7 @@
                     @if (item.discount && item.discount > 0) {
                       <div class="original-total">{{formatCurrency(item.product.sellPrice * item.quantity)}}</div>
                     }
-                    <div class="final-total">{{formatCurrency((item.product.sellPrice * item.quantity) - (item.discount || 0))}}</div>
+                    <div class="final-total">{{formatCurrency(item.quantity * item.product.sellPrice - (item.quantity * item.product.sellPrice * (item.discount || 0) / 100))}}</div>
                   </div>
                 </div>
               </div>
@@ -829,7 +829,7 @@
                       </div>
                     }
                     <div class="item-subtotal">
-                      {{formatCurrency((item.product.sellPrice * item.quantity) - (item.discount || 0))}}
+                      {{formatCurrency(item.quantity * item.product.sellPrice - (item.quantity * item.product.sellPrice * (item.discount || 0) / 100))}}
                     </div>
                   </div>
                 </div>

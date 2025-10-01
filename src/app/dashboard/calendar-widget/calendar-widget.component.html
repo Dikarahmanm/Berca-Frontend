@@ -1,0 +1,294 @@
+<!-- Calendar Widget Container -->
+<div class="calendar-widget" [class.loading]="isLoading">
+
+  <!-- Widget Header -->
+  <div class="widget-header">
+    <div class="header-left">
+      <h2 class="widget-title">
+        <mat-icon>calendar_month</mat-icon>
+        <span>Kalender & Events</span>
+      </h2>
+      <span class="branch-badge" *ngIf="currentBranchName">
+        <mat-icon>store</mat-icon>
+        {{ currentBranchName }}
+      </span>
+    </div>
+
+    <div class="header-actions">
+      <button mat-icon-button (click)="refreshData()" matTooltip="Refresh" class="refresh-btn">
+        <mat-icon>refresh</mat-icon>
+      </button>
+
+      <button mat-icon-button [matMenuTriggerFor]="settingsMenu" matTooltip="Settings">
+        <mat-icon>settings</mat-icon>
+      </button>
+
+      <button mat-icon-button (click)="expandToFullView()" matTooltip="Expand to full view">
+        <mat-icon>open_in_full</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="60"></mat-spinner>
+    <p>Memuat data kalender...</p>
+  </div>
+
+  <!-- Error State -->
+  <div class="error-container" *ngIf="hasError && !isLoading">
+    <mat-icon class="error-icon">error_outline</mat-icon>
+    <h3>Gagal Memuat Kalender</h3>
+    <p>{{ errorMessage }}</p>
+    <button mat-raised-button color="primary" (click)="refreshData()">
+      <mat-icon>refresh</mat-icon>
+      Coba Lagi
+    </button>
+  </div>
+
+  <!-- Main Content -->
+  <div class="widget-content" *ngIf="!isLoading && !hasError">
+
+    <!-- Calendar Section -->
+    <div class="calendar-section">
+
+      <!-- Month Navigation -->
+      <div class="month-navigation">
+        <button mat-icon-button (click)="previousMonth()" class="nav-btn">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+
+        <div class="month-display">
+          <span class="month-name">{{ getMonthName() }}</span>
+          <span class="year">{{ currentYear }}</span>
+        </div>
+
+        <button mat-icon-button (click)="nextMonth()" class="nav-btn">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+
+        <button mat-button (click)="goToToday()" class="today-btn">
+          <mat-icon>today</mat-icon>
+          Hari Ini
+        </button>
+      </div>
+
+      <!-- Calendar Grid -->
+      <div class="calendar-grid">
+
+        <!-- Week Day Headers -->
+        <div class="week-header">
+          <div class="day-header" *ngFor="let day of weekDays">
+            {{ day }}
+          </div>
+        </div>
+
+        <!-- Calendar Days -->
+        <div class="calendar-days">
+          <div
+            class="calendar-day"
+            *ngFor="let day of calendarDays"
+            [class.other-month]="!day.isCurrentMonth"
+            [class.today]="day.isToday"
+            [class.weekend]="day.isWeekend"
+            [class.has-events]="day.eventCount > 0"
+            (click)="onDayClick(day)"
+            [matTooltip]="day.eventCount > 0 ? day.eventCount + ' event(s)' : ''"
+            matTooltipPosition="above">
+
+            <div class="day-number">{{ day.day }}</div>
+
+            <!-- Event Indicators -->
+            <div class="event-dots" *ngIf="day.eventCount > 0 && day.isCurrentMonth">
+              <span class="event-dot critical" *ngIf="day.hasCritical"></span>
+              <span class="event-dot high" *ngIf="day.hasHigh"></span>
+              <span class="event-dot normal" *ngIf="day.hasNormal"></span>
+              <span class="event-dot low" *ngIf="day.hasLow"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="calendar-legend">
+        <div class="legend-item">
+          <span class="legend-dot critical"></span>
+          <span class="legend-label">Critical</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot high"></span>
+          <span class="legend-label">High</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot normal"></span>
+          <span class="legend-label">Normal</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot low"></span>
+          <span class="legend-label">Low</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Events Timeline Section -->
+    <div class="events-section">
+
+      <!-- Today's Events -->
+      <div class="event-group today-events">
+        <div class="group-header">
+          <mat-icon class="group-icon">event_available</mat-icon>
+          <h3 class="group-title">Hari Ini</h3>
+          <span class="event-count">{{ todayEvents.length }}</span>
+        </div>
+
+        <div class="event-list" *ngIf="todayEvents.length > 0">
+          <div
+            class="event-card"
+            *ngFor="let event of todayEvents"
+            [class]="getPriorityClass(event.priority)"
+            (click)="onEventClick(event, $event)">
+
+            <div class="event-time">{{ formatEventTime(event.startDate) }}</div>
+
+            <div class="event-content">
+              <div class="event-header">
+                <span class="event-icon">{{ getEventTypeIcon(event.eventType) }}</span>
+                <span class="event-title">{{ truncateText(event.title, 40) }}</span>
+              </div>
+
+              <p class="event-description" *ngIf="event.description">
+                {{ truncateText(event.description, 60) }}
+              </p>
+
+              <div class="event-meta">
+                <span class="priority-badge" [class]="getPriorityClass(event.priority)">
+                  {{ getEventPriorityInfo(event.priority).label }}
+                </span>
+                <span class="event-branch" *ngIf="event.branchName">
+                  <mat-icon>store</mat-icon>
+                  {{ event.branchName }}
+                </span>
+              </div>
+            </div>
+
+            <button mat-icon-button class="event-action" (click)="onEventClick(event, $event)">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="empty-state" *ngIf="todayEvents.length === 0">
+          <mat-icon>check_circle_outline</mat-icon>
+          <p>Tidak ada event hari ini</p>
+        </div>
+      </div>
+
+      <!-- Upcoming Events -->
+      <div class="event-group upcoming-events">
+        <div class="group-header">
+          <mat-icon class="group-icon">schedule</mat-icon>
+          <h3 class="group-title">Mendatang</h3>
+          <span class="event-count">{{ upcomingEvents.length }}</span>
+        </div>
+
+        <div class="event-list" *ngIf="upcomingEvents.length > 0">
+          <div
+            class="event-card compact"
+            *ngFor="let event of upcomingEvents.slice(0, 5)"
+            [class]="getPriorityClass(event.priority)"
+            (click)="onEventClick(event, $event)">
+
+            <div class="event-date-badge">
+              {{ getRelativeDateString(event.startDate) }}
+            </div>
+
+            <div class="event-content">
+              <div class="event-header">
+                <span class="event-icon">{{ getEventTypeIcon(event.eventType) }}</span>
+                <span class="event-title">{{ truncateText(event.title, 35) }}</span>
+              </div>
+            </div>
+
+            <button mat-icon-button class="event-action" (click)="onEventClick(event, $event)">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+
+          <button
+            mat-stroked-button
+            class="view-all-btn"
+            *ngIf="upcomingEvents.length > 5"
+            (click)="expandToFullView()">
+            Lihat Semua ({{ upcomingEvents.length }})
+          </button>
+        </div>
+
+        <div class="empty-state" *ngIf="upcomingEvents.length === 0">
+          <mat-icon>inbox</mat-icon>
+          <p>Tidak ada event mendatang</p>
+        </div>
+      </div>
+
+      <!-- Past Events (Collapsible) -->
+      <div class="event-group past-events" *ngIf="pastEvents.length > 0">
+        <div class="group-header clickable" (click)="togglePastEvents()">
+          <mat-icon class="group-icon">history</mat-icon>
+          <h3 class="group-title">Sebelumnya</h3>
+          <span class="event-count">{{ pastEvents.length }}</span>
+          <mat-icon class="expand-icon">
+            {{ showPastEvents ? 'expand_less' : 'expand_more' }}
+          </mat-icon>
+        </div>
+
+        <div class="event-list past" *ngIf="showPastEvents">
+          <div
+            class="event-card compact completed"
+            *ngFor="let event of pastEvents.slice(0, 5)"
+            (click)="onEventClick(event, $event)">
+
+            <mat-icon class="completed-icon">check_circle</mat-icon>
+
+            <div class="event-content">
+              <div class="event-header">
+                <span class="event-icon">{{ getEventTypeIcon(event.eventType) }}</span>
+                <span class="event-title">{{ truncateText(event.title, 35) }}</span>
+              </div>
+              <div class="event-date-small">{{ getRelativeDateString(event.startDate) }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Widget Footer -->
+  <div class="widget-footer" *ngIf="!isLoading && !hasError">
+    <button mat-raised-button color="primary" (click)="createNewEvent()" class="create-btn">
+      <mat-icon>add</mat-icon>
+      Buat Event
+    </button>
+
+    <button mat-button (click)="expandToFullView()" class="view-stats-btn">
+      <mat-icon>bar_chart</mat-icon>
+      Lihat Statistik
+    </button>
+  </div>
+</div>
+
+<!-- Settings Menu -->
+<mat-menu #settingsMenu="matMenu">
+  <button mat-menu-item (click)="refreshData()">
+    <mat-icon>refresh</mat-icon>
+    <span>Refresh Data</span>
+  </button>
+
+  <button mat-menu-item (click)="togglePastEvents()">
+    <mat-icon>{{ showPastEvents ? 'visibility_off' : 'visibility' }}</mat-icon>
+    <span>{{ showPastEvents ? 'Sembunyikan' : 'Tampilkan' }} Event Lama</span>
+  </button>
+
+  <button mat-menu-item (click)="expandToFullView()">
+    <mat-icon>open_in_new</mat-icon>
+    <span>Buka Halaman Penuh</span>
+  </button>
+</mat-menu>

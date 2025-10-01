@@ -514,6 +514,16 @@
   }
 }
 
+// Calendar Widget Section
+.calendar-widget-section {
+  margin-top: var(--s8);
+  margin-bottom: var(--s8);
+
+  app-calendar-widget {
+    display: block;
+  }
+}
+
 // Quick Actions Section
 .quick-actions-section {
   margin-bottom: var(--s8);

@@ -18,6 +18,7 @@ import { DashboardService, DashboardKPIDto, QuickStatsDto } from '../../core/ser
 import { UserService } from '../../modules/user-management/services/user.service';
 import { SmartNotificationService } from '../../core/services/smart-notification.service';
 import { ExpiryManagementService } from '../../core/services/expiry-management.service';
+import { CalendarWidgetComponent } from '../calendar-widget/calendar-widget.component';
 
 // Utility: Konversi waktu ke jam Jakarta (WIB)
 function toJakartaTime(date: Date | string): string {
@@ -65,7 +66,8 @@ interface QuickAction {
     RouterModule,
     MatIconModule,
     MatButtonModule,
-    MatCardModule
+    MatCardModule,
+    CalendarWidgetComponent
   ],
   template: `
     <div class="dashboard-home">
@@ -235,6 +237,11 @@ interface QuickAction {
           </div>
 
         </div>
+      </section>
+
+      <!-- Calendar Widget Section -->
+      <section class="calendar-widget-section">
+        <app-calendar-widget></app-calendar-widget>
       </section>
 
       <!-- Quick Actions Section -->

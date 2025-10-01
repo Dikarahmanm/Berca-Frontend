@@ -1,0 +1,200 @@
+<div class="create-event-modal">
+  <!-- Modal Header -->
+  <div class="modal-header">
+    <h2 class="modal-title">
+      <mat-icon>add_circle</mat-icon>
+      Buat Event Baru
+    </h2>
+    <button mat-icon-button class="close-btn" (click)="onCancel()" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Modal Body -->
+  <div class="modal-body">
+    <form [formGroup]="eventForm" (ngSubmit)="onSubmit()">
+
+      <!-- Event Title -->
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Judul Event</mat-label>
+        <input matInput formControlName="title" placeholder="Masukkan judul event" maxlength="200">
+        <mat-icon matPrefix>title</mat-icon>
+        <mat-hint align="end">{{ eventForm.get('title')?.value?.length || 0 }}/200</mat-hint>
+        <mat-error *ngIf="eventForm.get('title')?.hasError('required')">
+          Judul wajib diisi
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Event Type & Priority -->
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Tipe Event</mat-label>
+          <mat-select formControlName="eventType">
+            <mat-option *ngFor="let type of eventTypes" [value]="type.value">
+              <span class="option-with-icon">
+                <span class="option-icon">{{ type.icon }}</span>
+                <span>{{ type.label }}</span>
+              </span>
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix>category</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Prioritas</mat-label>
+          <mat-select formControlName="priority">
+            <mat-option *ngFor="let priority of priorities" [value]="priority.value">
+              <span class="option-with-color">
+                <span class="priority-dot" [style.background-color]="priority.color"></span>
+                <span>{{ priority.label }}</span>
+              </span>
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix>flag</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <!-- All Day Toggle -->
+      <div class="toggle-section">
+        <mat-slide-toggle formControlName="isAllDay" color="primary">
+          <div class="toggle-label">
+            <mat-icon>event</mat-icon>
+            <span>Event Sepanjang Hari</span>
+          </div>
+        </mat-slide-toggle>
+      </div>
+
+      <!-- Start Date & Time -->
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Tanggal Mulai</mat-label>
+          <input matInput [matDatepicker]="startPicker" formControlName="startDate">
+          <mat-icon matPrefix>event</mat-icon>
+          <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+          <mat-datepicker #startPicker></mat-datepicker>
+          <mat-error *ngIf="eventForm.get('startDate')?.hasError('required')">
+            Tanggal mulai wajib diisi
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width" *ngIf="!eventForm.get('isAllDay')?.value">
+          <mat-label>Waktu Mulai</mat-label>
+          <input matInput type="time" formControlName="startTime">
+          <mat-icon matPrefix>access_time</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <!-- End Date & Time -->
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Tanggal Selesai (Opsional)</mat-label>
+          <input matInput [matDatepicker]="endPicker" formControlName="endDate">
+          <mat-icon matPrefix>event</mat-icon>
+          <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+          <mat-datepicker #endPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width" *ngIf="!eventForm.get('isAllDay')?.value && eventForm.get('endDate')?.value">
+          <mat-label>Waktu Selesai</mat-label>
+          <input matInput type="time" formControlName="endTime">
+          <mat-icon matPrefix>access_time</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <!-- Description -->
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Deskripsi</mat-label>
+        <textarea
+          matInput
+          formControlName="description"
+          placeholder="Masukkan deskripsi event"
+          rows="3"
+          maxlength="1000"></textarea>
+        <mat-icon matPrefix>description</mat-icon>
+        <mat-hint align="end">{{ eventForm.get('description')?.value?.length || 0 }}/1000</mat-hint>
+      </mat-form-field>
+
+      <!-- Reminder Section -->
+      <div class="reminder-section">
+        <div class="section-header">
+          <mat-checkbox formControlName="hasReminder" color="primary">
+            <div class="checkbox-label">
+              <mat-icon>notifications</mat-icon>
+              <span>Aktifkan Pengingat</span>
+            </div>
+          </mat-checkbox>
+        </div>
+
+        <mat-form-field
+          appearance="outline"
+          class="full-width"
+          *ngIf="eventForm.get('hasReminder')?.value">
+          <mat-label>Waktu Pengingat</mat-label>
+          <mat-select formControlName="reminderMinutes">
+            <mat-option *ngFor="let option of reminderOptions" [value]="option.value">
+              {{ option.label }} sebelum event
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix>schedule</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <!-- Color Picker -->
+      <div class="color-picker-section">
+        <label class="section-label">
+          <mat-icon>palette</mat-icon>
+          <span>Warna Event</span>
+        </label>
+        <div class="color-options">
+          <div
+            *ngFor="let color of colorOptions"
+            class="color-option"
+            [class.selected]="eventForm.get('color')?.value === color"
+            [style.background-color]="color"
+            (click)="eventForm.get('color')?.setValue(color)">
+            <mat-icon *ngIf="eventForm.get('color')?.value === color">check</mat-icon>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action URL -->
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Link Terkait (Opsional)</mat-label>
+        <input matInput formControlName="actionUrl" placeholder="https://example.com" maxlength="500">
+        <mat-icon matPrefix>link</mat-icon>
+        <mat-hint>Link yang terkait dengan event ini</mat-hint>
+      </mat-form-field>
+
+      <!-- Notes -->
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Catatan (Opsional)</mat-label>
+        <textarea
+          matInput
+          formControlName="notes"
+          placeholder="Tambahkan catatan khusus"
+          rows="2"
+          maxlength="2000"></textarea>
+        <mat-icon matPrefix>note</mat-icon>
+        <mat-hint align="end">{{ eventForm.get('notes')?.value?.length || 0 }}/2000</mat-hint>
+      </mat-form-field>
+
+    </form>
+  </div>
+
+  <!-- Modal Footer -->
+  <div class="modal-footer">
+    <button mat-button (click)="onCancel()" [disabled]="isSubmitting">
+      Batal
+    </button>
+
+    <button
+      mat-raised-button
+      color="primary"
+      (click)="onSubmit()"
+      [disabled]="isSubmitting || eventForm.invalid">
+      <mat-spinner diameter="20" *ngIf="isSubmitting" class="submit-spinner"></mat-spinner>
+      <mat-icon *ngIf="!isSubmitting">save</mat-icon>
+      <span>{{ isSubmitting ? 'Menyimpan...' : 'Simpan Event' }}</span>
+    </button>
+  </div>
+</div>

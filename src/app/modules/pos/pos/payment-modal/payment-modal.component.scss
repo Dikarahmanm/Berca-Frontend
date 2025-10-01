@@ -548,6 +548,38 @@
   100% { transform: rotate(360deg); }
 }
 
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-3px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(3px);
+  }
+}
+
 // ===== RESPONSIVE DESIGN =====
 @media (max-width: 768px) {
   .payment-modal-container {
@@ -604,6 +636,43 @@
 
   .shortcuts-list {
     grid-template-columns: 1fr;
+  }
+
+  // Credit section mobile responsiveness
+  .credit-section {
+    .credit-summary-card {
+      padding: var(--s4);
+
+      .credit-info {
+        .credit-info-row {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: var(--s2);
+
+          .info-label::before {
+            display: none;
+          }
+
+          .info-value {
+            font-size: var(--text-sm);
+
+            &.available {
+              font-size: var(--text-base);
+            }
+          }
+        }
+      }
+    }
+
+    .credit-transaction-info {
+      .transaction-card {
+        padding: var(--s3);
+
+        .transaction-amount {
+          font-size: var(--text-2xl);
+        }
+      }
+    }
   }
 }
 
@@ -965,6 +1034,295 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+// ===== CREDIT SECTION =====
+.credit-section {
+  margin-bottom: var(--s6);
+
+  .section-title {
+    margin: 0 0 var(--s4) 0;
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--text);
+  }
+
+  .section-subtitle {
+    margin: var(--s4) 0 var(--s3) 0;
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--text);
+  }
+
+  // Credit Summary Card
+  .credit-summary-card {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+    border: 2px solid var(--primary);
+    border-radius: var(--radius-lg);
+    padding: var(--s5);
+    margin-bottom: var(--s4);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+
+    .credit-info {
+      .credit-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--s3) 0;
+        border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &.highlight {
+          background: linear-gradient(90deg, rgba(75, 191, 123, 0.08) 0%, transparent 100%);
+          margin: 0 calc(-1 * var(--s5));
+          padding: var(--s3) var(--s5);
+          border-radius: var(--radius);
+          border-bottom: none;
+        }
+
+        .info-label {
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+          color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          gap: var(--s2);
+
+          &::before {
+            content: '●';
+            color: var(--primary);
+            font-size: var(--text-xs);
+          }
+        }
+
+        .info-value {
+          font-size: var(--text-base);
+          font-weight: var(--font-bold);
+          font-family: 'Courier New', monospace;
+          color: var(--text);
+
+          &.debt {
+            color: var(--error);
+            background: rgba(225, 90, 79, 0.1);
+            padding: var(--s1) var(--s3);
+            border-radius: var(--radius);
+          }
+
+          &.available {
+            color: var(--success);
+            background: rgba(75, 191, 123, 0.15);
+            padding: var(--s2) var(--s3);
+            border-radius: var(--radius);
+            font-size: var(--text-lg);
+          }
+        }
+      }
+    }
+  }
+
+  // Validation Messages
+  .validation-message {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    padding: var(--s4);
+    border-radius: var(--radius);
+    margin-bottom: var(--s4);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    border: 2px solid;
+    animation: slideInDown 0.3s ease;
+
+    &.success {
+      background: rgba(75, 191, 123, 0.1);
+      border-color: var(--success);
+      color: var(--success);
+      box-shadow: 0 2px 8px rgba(75, 191, 123, 0.2);
+
+      .validation-icon {
+        font-size: var(--text-xl);
+        animation: bounce 0.5s ease;
+      }
+    }
+
+    &.error {
+      background: rgba(225, 90, 79, 0.1);
+      border-color: var(--error);
+      color: var(--error);
+      box-shadow: 0 2px 8px rgba(225, 90, 79, 0.2);
+
+      .validation-icon {
+        font-size: var(--text-xl);
+        animation: shake 0.4s ease;
+      }
+    }
+
+    &.loading {
+      background: rgba(99, 102, 241, 0.05);
+      border-color: var(--primary);
+      color: var(--primary);
+
+      .loading-spinner-small {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(99, 102, 241, 0.2);
+        border-top: 2px solid var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+    }
+  }
+
+  // Credit Transaction Info
+  .credit-transaction-info {
+    margin-top: var(--s4);
+
+    .transaction-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--s4);
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+      .transaction-header {
+        margin-bottom: var(--s2);
+
+        .transaction-label {
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+      }
+
+      .transaction-amount {
+        font-size: var(--text-3xl);
+        font-weight: var(--font-bold);
+        font-family: 'Courier New', monospace;
+        color: var(--primary);
+        margin: var(--s2) 0;
+      }
+
+      .transaction-note {
+        small {
+          font-size: var(--text-xs);
+          color: var(--text-muted);
+          font-style: italic;
+        }
+      }
+    }
+  }
+
+  // Due Date Options
+  .due-date-options {
+    margin-bottom: var(--s4);
+
+    .form-field {
+      margin-bottom: var(--s3);
+
+      &.checkbox-field {
+        .checkbox-label {
+          display: flex;
+          align-items: center;
+          gap: var(--s2);
+          cursor: pointer;
+          padding: var(--s3);
+          background: var(--bg-secondary);
+          border-radius: var(--radius);
+          transition: var(--transition);
+
+          &:hover {
+            background: var(--surface);
+          }
+
+          input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary);
+            cursor: pointer;
+          }
+
+          .checkbox-text {
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            color: var(--text);
+            user-select: none;
+          }
+        }
+      }
+
+      label:not(.checkbox-label) {
+        display: block;
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        color: var(--text);
+        margin-bottom: var(--s2);
+      }
+
+      input[type="date"] {
+        width: 100%;
+        padding: var(--s3);
+        border: 2px solid var(--border);
+        border-radius: var(--radius);
+        font-size: var(--text-base);
+        background: var(--surface);
+        color: var(--text);
+        transition: var(--transition);
+        min-height: 44px;
+
+        &:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+      }
+    }
+  }
+
+  // Due Date Summary
+  .due-date-summary {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: var(--s4);
+    border: 2px solid var(--border);
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--s2) 0;
+      font-size: var(--text-sm);
+
+      &.highlight {
+        background: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, transparent 100%);
+        margin: var(--s2) calc(-1 * var(--s4)) 0;
+        padding: var(--s3) var(--s4);
+        border-radius: var(--radius);
+        border-top: 1px solid var(--border);
+
+        .summary-value {
+          font-size: var(--text-base);
+          font-weight: var(--font-bold);
+          color: var(--primary);
+        }
+      }
+
+      .summary-label {
+        font-weight: var(--font-medium);
+        color: var(--text-secondary);
+      }
+
+      .summary-value {
+        font-weight: var(--font-semibold);
+        color: var(--text);
+      }
+    }
+  }
 }
 
 // ===== FLEXIBLE DUE DATE SECTION =====

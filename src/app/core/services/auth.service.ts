@@ -198,47 +198,78 @@ export class AuthService {
 
   logout(): Observable<any> {
     const url = `${this.baseUrl}/auth/logout`;
-    
-    return this.http.post(url, {}, { 
-      withCredentials: true 
+
+    console.log('🚪 === LOGOUT INITIATED ===');
+
+    return this.http.post(url, {}, {
+      withCredentials: true
     }).pipe(
       tap(() => {
-        localStorage.removeItem('username');
-        localStorage.removeItem('role');
-        this.currentUserSubject.next(null);
-        this.isLoggedInSubject.next(false);
-        
-        // Clear branch data
-        this.userBranchAccessSubject.next(null);
-        localStorage.removeItem('selected-branch-id');
-        localStorage.removeItem('selected-branch-ids');
-        localStorage.removeItem('is-multi-select-mode');
-        
-        console.log('✅ Logged out and cleared all localStorage + state');
-        
-        // Navigate to login page after successful logout
-        this.router.navigate(['/login']);
+        console.log('✅ Logout API successful, clearing all state...');
+        this.performFullLogout();
       }),
       catchError((error) => {
         // Even if logout API fails, clear local data and redirect
         console.error('❌ Logout API failed, but clearing local data anyway:', error);
-        localStorage.removeItem('username');
-        localStorage.removeItem('role');
-        this.currentUserSubject.next(null);
-        this.isLoggedInSubject.next(false);
-        
-        // Clear branch data on logout error
-        this.userBranchAccessSubject.next(null);
-        localStorage.removeItem('selected-branch-id');
-        localStorage.removeItem('selected-branch-ids');
-        localStorage.removeItem('is-multi-select-mode');
-        
-        // Still redirect to login
-        this.router.navigate(['/login']);
-        
+        this.performFullLogout();
+
         return this.handleError(error);
       })
     );
+  }
+
+  /**
+   * Perform complete logout cleanup
+   * Clears ALL application state and forces page reload
+   */
+  private performFullLogout(): void {
+    console.log('🧹 Performing full logout cleanup...');
+
+    // 1. Clear ALL localStorage items (not just specific ones)
+    const keysToPreserve = ['theme', 'language']; // Optional: preserve user preferences
+    const allKeys = Object.keys(localStorage);
+    allKeys.forEach(key => {
+      if (!keysToPreserve.includes(key)) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    // 2. Clear ALL sessionStorage
+    sessionStorage.clear();
+
+    // 3. Reset ALL BehaviorSubjects
+    this.currentUserSubject.next(null);
+    this.isLoggedInSubject.next(false);
+    this.userBranchAccessSubject.next(null);
+
+    // 4. Clear ALL cookies (if needed)
+    this.clearAllCookies();
+
+    console.log('✅ All state cleared');
+    console.log('🔄 Forcing page reload to clear Angular state...');
+
+    // 5. Force complete page reload to clear ALL Angular state
+    // This ensures no stale observables, subscriptions, or cached data
+    window.location.href = '/login';
+  }
+
+  /**
+   * Clear all cookies (optional, depends on your auth strategy)
+   */
+  private clearAllCookies(): void {
+    const cookies = document.cookie.split(';');
+
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i];
+      const eqPos = cookie.indexOf('=');
+      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+
+      // Clear cookie for all paths
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`;
+    }
+
+    console.log('🍪 All cookies cleared');
   }
 
   // Auth status testing
